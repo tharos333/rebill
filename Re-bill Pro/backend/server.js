@@ -282,7 +282,7 @@ app.post('/api/run-rebills', async (req, res) => {
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`\n🚀 Rebill server running on http://localhost:${PORT}`);
   console.log(`   Webhook endpoint: http://localhost:${PORT}/webhook\n`);
