@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rebill — Subscription Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #18181f;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.13);
+    --text: #f0f0f5;
+    --muted: #888898;
+    --accent: #6c63ff;
+    --accent-glow: rgba(108,99,255,0.18);
+    --green: #22c55e;
+    --green-bg: rgba(34,197,94,0.1);
+    --red: #f87171;
+    --red-bg: rgba(248,113,113,0.1);
+    --amber: #fbbf24;
+    --amber-bg: rgba(251,191,36,0.1);
+    --blue: #60a5fa;
+    --blue-bg: rgba(96,165,250,0.1);
+    --mono: 'DM Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+  }
+
+  /* Sidebar */
+  .sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 24px 0;
+    position: fixed;
+    height: 100vh;
+    z-index: 10;
+  }
+
+  .logo {
+    padding: 0 24px 28px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+  .logo h1 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: var(--text);
+  }
+  .logo span { color: var(--accent); }
+  .logo p { font-size: 11px; color: var(--muted); margin-top: 2px; font-family: var(--mono); }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 24px;
+    font-size: 13px;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    border-left: 2px solid transparent;
+  }
+  .nav-item:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+  .nav-item.active { color: var(--text); border-left-color: var(--accent); background: var(--accent-glow); }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+  .sidebar-footer {
+    margin-top: auto;
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+
+  /* Main content */
+  .main {
+    margin-left: 220px;
+    flex: 1;
+    padding: 32px;
+    min-height: 100vh;
+  }
+
+  .page { display: none; }
+  .page.active { display: block; }
+
+  .page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+  }
+  .page-header h2 { font-size: 20px; font-weight: 600; letter-spacing: -0.3px; }
+  .page-header p { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: var(--sans);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    border: 1px solid var(--border2);
+    background: var(--surface2);
+    color: var(--text);
+  }
+  .btn:hover { border-color: rgba(255,255,255,0.25); background: rgba(255,255,255,0.07); }
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .btn-primary:hover { background: #7c74ff; border-color: #7c74ff; }
+  .btn-sm { padding: 5px 11px; font-size: 12px; }
+  .btn-danger { color: var(--red); border-color: var(--red-bg); }
+  .btn-danger:hover { background: var(--red-bg); }
+
+  /* Stat cards */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), transparent);
+    opacity: 0.5;
+  }
+  .stat-label { font-size: 11px; color: var(--muted); font-family: var(--mono); letter-spacing: 0.5px; text-transform: uppercase; }
+  .stat-value { font-size: 28px; font-weight: 700; margin-top: 6px; letter-spacing: -1px; }
+  .stat-sub { font-size: 11px; color: var(--muted); margin-top: 4px; font-family: var(--mono); }
+
+  /* Table */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+  .card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .card-header h3 { font-size: 13px; font-weight: 600; color: var(--muted); letter-spacing: 0.5px; text-transform: uppercase; font-family: var(--mono); }
+
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    text-align: left;
+    padding: 10px 20px;
+    font-size: 11px;
+    color: var(--muted);
+    font-family: var(--mono);
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+  }
+  td { padding: 13px 20px; font-size: 13px; border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  /* Badges */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-family: var(--mono);
+    font-weight: 500;
+  }
+  .badge::before { content: '●'; font-size: 7px; }
+  .badge-green { background: var(--green-bg); color: var(--green); }
+  .badge-red { background: var(--red-bg); color: var(--red); }
+  .badge-amber { background: var(--amber-bg); color: var(--amber); }
+  .badge-blue { background: var(--blue-bg); color: var(--blue); }
+
+  /* Avatar */
+  .avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--accent-glow);
+    border: 1px solid rgba(108,99,255,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    flex-shrink: 0;
+    font-family: var(--mono);
+  }
+
+  .customer-cell { display: flex; align-items: center; gap: 10px; }
+  .customer-name { font-size: 13px; font-weight: 500; }
+  .customer-email { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+
+  /* Modal */
+  .modal-bg {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-bg.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 16px;
+    padding: 28px;
+    width: 440px;
+    max-width: 95vw;
+  }
+  .modal h3 { font-size: 17px; font-weight: 600; margin-bottom: 6px; }
+  .modal p { font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+  .form-group { margin-bottom: 16px; }
+  label { display: block; font-size: 12px; color: var(--muted); font-family: var(--mono); margin-bottom: 6px; }
+  input, select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 9px 12px;
+    font-size: 13px;
+    font-family: var(--sans);
+    outline: none;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  select option { background: var(--surface2); }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
+
+  /* Payment link result */
+  .link-result {
+    display: none;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-top: 16px;
+  }
+  .link-result.visible { display: block; }
+  .link-url { font-family: var(--mono); font-size: 12px; color: var(--accent); word-break: break-all; }
+
+  /* Spinner */
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    display: inline-block;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Toast */
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    padding: 12px 18px;
+    font-size: 13px;
+    font-family: var(--mono);
+    z-index: 999;
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all 0.25s cubic-bezier(.16,1,.3,1);
+  }
+  #toast.show { transform: translateY(0); opacity: 1; }
+  #toast.success { border-color: var(--green); color: var(--green); }
+  #toast.error { border-color: var(--red); color: var(--red); }
+
+  /* Empty state */
+  .empty { text-align: center; padding: 48px 20px; color: var(--muted); font-size: 13px; font-family: var(--mono); }
+
+  /* Actions column */
+  .actions { display: flex; gap: 6px; align-items: center; }
+
+  /* Mono text */
+  .mono { font-family: var(--mono); }
+
+  .scrollable { overflow-x: auto; }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<nav class="sidebar">
+  <div class="logo">
+    <h1>Re<span>bill</span></h1>
+    <p>stripe-powered</p>
+  </div>
+  <div class="nav-item active" onclick="showPage('dashboard', this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    Dashboard
+  </div>
+  <div class="nav-item" onclick="showPage('customers', this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><path d="M21 21v-2a4 4 0 0 0-3-3.85"/></svg>
+    Customers
+  </div>
+  <div class="nav-item" onclick="showPage('subscriptions', this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/><path d="M12 7v5l3 3"/></svg>
+    Subscriptions
+  </div>
+  <div class="nav-item" onclick="showPage('payments', this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+    Payments
+  </div>
+  <div class="nav-item" onclick="showPage('links', this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+    Payment Links
+  </div>
+  <div class="sidebar-footer">
+    <div id="server-status">● connecting...</div>
+  </div>
+</nav>
+
+<!-- Main -->
+<main class="main">
+
+  <!-- Dashboard -->
+  <div id="page-dashboard" class="page active">
+    <div class="page-header">
+      <div><h2>Dashboard</h2><p>Your subscription overview</p></div>
+      <button class="btn" onclick="runRebills()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/></svg>
+        Run rebills now
+      </button>
+    </div>
+    <div class="stats-grid" id="stats-grid">
+      <div class="stat-card"><div class="stat-label">MRR</div><div class="stat-value" id="stat-mrr">—</div><div class="stat-sub">monthly recurring</div></div>
+      <div class="stat-card"><div class="stat-label">Active subs</div><div class="stat-value" id="stat-subs">—</div><div class="stat-sub">subscriptions</div></div>
+      <div class="stat-card"><div class="stat-label">Saved cards</div><div class="stat-value" id="stat-cards">—</div><div class="stat-sub">payment methods</div></div>
+      <div class="stat-card"><div class="stat-label">Failed</div><div class="stat-value" id="stat-failed" style="color:var(--red)">—</div><div class="stat-sub">failed payments</div></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><h3>Upcoming rebills</h3></div>
+      <div class="scrollable">
+        <table>
+          <thead><tr>
+            <th>Customer</th>
+            <th>Amount</th>
+            <th>Next billing</th>
+            <th>Interval</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr></thead>
+          <tbody id="upcoming-table"><tr><td colspan="6" class="empty">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><h3>Recent payments</h3></div>
+      <div class="scrollable">
+        <table>
+          <thead><tr>
+            <th>Customer</th>
+            <th>Amount</th>
+            <th>Status</th>
+            <th>Date</th>
+            <th>Reference</th>
+          </tr></thead>
+          <tbody id="recent-payments-table"><tr><td colspan="5" class="empty">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Customers -->
+  <div id="page-customers" class="page">
+    <div class="page-header">
+      <div><h2>Customers</h2><p>All customers with saved cards</p></div>
+    </div>
+    <div class="card">
+      <div class="scrollable">
+        <table>
+          <thead><tr>
+            <th>Customer</th>
+            <th>Card</th>
+            <th>Status</th>
+            <th>Total paid</th>
+            <th>Actions</th>
+          </tr></thead>
+          <tbody id="customers-table"><tr><td colspan="5" class="empty">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Subscriptions -->
+  <div id="page-subscriptions" class="page">
+    <div class="page-header">
+      <div><h2>Subscriptions</h2><p>All active rebilling schedules</p></div>
+    </div>
+    <div class="card">
+      <div class="scrollable">
+        <table>
+          <thead><tr>
+            <th>Customer</th>
+            <th>Amount</th>
+            <th>Interval</th>
+            <th>Next billing</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr></thead>
+          <tbody id="subscriptions-table"><tr><td colspan="6" class="empty">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Payments -->
+  <div id="page-payments" class="page">
+    <div class="page-header">
+      <div><h2>Payments</h2><p>Full payment history</p></div>
+    </div>
+    <div class="card">
+      <div class="scrollable">
+        <table>
+          <thead><tr>
+            <th>Customer</th>
+            <th>Amount</th>
+            <th>Status</th>
+            <th>Reason</th>
+            <th>Date</th>
+            <th>Stripe ID</th>
+          </tr></thead>
+          <tbody id="payments-table"><tr><td colspan="6" class="empty">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Payment Links -->
+  <div id="page-links" class="page">
+    <div class="page-header">
+      <div><h2>Payment Links</h2><p>Generate Stripe links that save cards automatically</p></div>
+    </div>
+    <div class="card" style="max-width:520px;">
+      <div class="card-header"><h3>Create payment link</h3></div>
+      <div style="padding:24px;">
+        <div class="form-group">
+          <label>Product name</label>
+          <input type="text" id="link-name" value="Monthly Subscription" placeholder="e.g. Pro Plan">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Amount (cents)</label>
+            <input type="number" id="link-amount" value="2900" min="50" placeholder="2900 = $29.00">
+          </div>
+          <div class="form-group">
+            <label>Currency</label>
+            <select id="link-currency">
+              <option value="usd">USD</option>
+              <option value="eur">EUR</option>
+              <option value="gbp">GBP</option>
+              <option value="mad">MAD</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Rebill interval (days)</label>
+          <select id="link-interval">
+            <option value="7">Weekly (7 days)</option>
+            <option value="14">Biweekly (14 days)</option>
+            <option value="30" selected>Monthly (30 days)</option>
+            <option value="90">Quarterly (90 days)</option>
+            <option value="365">Yearly (365 days)</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" onclick="createPaymentLink()" id="create-link-btn">
+          Generate payment link
+        </button>
+        <div class="link-result" id="link-result">
+          <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;">✓ Payment link created</div>
+          <div class="link-url" id="link-url"></div>
+          <div style="display:flex;gap:8px;margin-top:12px;">
+            <button class="btn btn-sm" onclick="copyLink()">Copy link</button>
+            <button class="btn btn-sm btn-primary" onclick="openLink()">Open ↗</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="max-width:520px;">
+      <div class="card-header"><h3>How it works</h3></div>
+      <div style="padding:20px;display:flex;flex-direction:column;gap:16px;">
+        <div style="display:flex;gap:12px;align-items:flex-start;">
+          <div style="width:24px;height:24px;border-radius:50%;background:var(--accent-glow);border:1px solid rgba(108,99,255,0.4);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--accent);flex-shrink:0;font-family:var(--mono);">1</div>
+          <div><div style="font-size:13px;font-weight:500;">Customer pays via link</div><div style="font-size:12px;color:var(--muted);margin-top:2px;font-family:var(--mono);">Stripe saves their card with setup_future_usage: off_session</div></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start;">
+          <div style="width:24px;height:24px;border-radius:50%;background:var(--accent-glow);border:1px solid rgba(108,99,255,0.4);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--accent);flex-shrink:0;font-family:var(--mono);">2</div>
+          <div><div style="font-size:13px;font-weight:500;">Webhook fires automatically</div><div style="font-size:12px;color:var(--muted);margin-top:2px;font-family:var(--mono);">Your backend receives payment_intent.succeeded and stores the card</div></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start;">
+          <div style="width:24px;height:24px;border-radius:50%;background:var(--accent-glow);border:1px solid rgba(108,99,255,0.4);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--accent);flex-shrink:0;font-family:var(--mono);">3</div>
+          <div><div style="font-size:13px;font-weight:500;">Daily cron rebills automatically</div><div style="font-size:12px;color:var(--muted);margin-top:2px;font-family:var(--mono);">Charges due subscriptions at 09:00 UTC every day</div></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start;">
+          <div style="width:24px;height:24px;border-radius:50%;background:var(--accent-glow);border:1px solid rgba(108,99,255,0.4);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--accent);flex-shrink:0;font-family:var(--mono);">4</div>
+          <div><div style="font-size:13px;font-weight:500;">Failures handled automatically</div><div style="font-size:12px;color:var(--muted);margin-top:2px;font-family:var(--mono);">Customer gets email with link to update their card</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+const API = '';  // same origin — backend serves this file
+let currentLink = null;
+
+// ── Navigation ──────────────────────────────────────────────────────────────
+function showPage(name, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  el.classList.add('active');
+  loadPage(name);
+}
+
+function loadPage(name) {
+  if (name === 'dashboard') { loadStats(); loadUpcoming(); loadRecentPayments(); }
+  else if (name === 'customers') loadCustomers();
+  else if (name === 'subscriptions') loadSubscriptions();
+  else if (name === 'payments') loadPayments();
+}
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+function fmt(cents, currency = 'usd') {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(cents / 100);
+}
+function fmtDate(d) {
+  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+function initials(name) {
+  return (name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+}
+function badge(status) {
+  const map = { active: 'green', succeeded: 'green', failed: 'red', paused: 'amber', cancelled: 'red', pending: 'blue' };
+  return `<span class="badge badge-${map[status] || 'blue'}">${status}</span>`;
+}
+async function api(path, opts = {}) {
+  const r = await fetch(API + path, opts);
+  return r.json();
+}
+
+// ── Toast ────────────────────────────────────────────────────────────────────
+function toast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + type;
+  setTimeout(() => t.className = '', 2800);
+}
+
+// ── Stats ────────────────────────────────────────────────────────────────────
+async function loadStats() {
+  try {
+    const s = await api('/api/stats');
+    document.getElementById('stat-mrr').textContent = fmt(s.mrr || 0);
+    document.getElementById('stat-subs').textContent = s.active_subscriptions || 0;
+    document.getElementById('stat-cards').textContent = s.saved_cards || 0;
+    document.getElementById('stat-failed').textContent = s.failed_payments || 0;
+    document.getElementById('server-status').innerHTML = '● connected';
+    document.getElementById('server-status').style.color = 'var(--green)';
+  } catch {
+    document.getElementById('server-status').innerHTML = '● offline';
+    document.getElementById('server-status').style.color = 'var(--red)';
+  }
+}
+
+// ── Upcoming ─────────────────────────────────────────────────────────────────
+async function loadUpcoming() {
+  const subs = await api('/api/subscriptions');
+  const tb = document.getElementById('upcoming-table');
+  if (!subs.length) { tb.innerHTML = '<tr><td colspan="6" class="empty">No subscriptions yet. Create a payment link to get started.</td></tr>'; return; }
+  const upcoming = subs.slice(0, 10);
+  tb.innerHTML = upcoming.map(s => `
+    <tr>
+      <td><div class="customer-cell">
+        <div class="avatar">${initials(s.name)}</div>
+        <div><div class="customer-name">${s.name || '—'}</div><div class="customer-email">${s.email}</div></div>
+      </div></td>
+      <td class="mono">${fmt(s.amount, s.currency)}</td>
+      <td class="mono">${fmtDate(s.next_billing_date)}</td>
+      <td class="mono">${s.interval_days}d</td>
+      <td>${badge(s.status)}</td>
+      <td><div class="actions">
+        ${s.status === 'active' ? `<button class="btn btn-sm" onclick="chargeNow(${s.id})">Charge now</button>` : ''}
+        ${s.status === 'active' ? `<button class="btn btn-sm" onclick="setSubStatus(${s.id},'paused')">Pause</button>` : ''}
+        ${s.status === 'paused' ? `<button class="btn btn-sm" onclick="setSubStatus(${s.id},'active')">Resume</button>` : ''}
+      </div></td>
+    </tr>`).join('');
+}
+
+// ── Recent payments ──────────────────────────────────────────────────────────
+async function loadRecentPayments() {
+  const pmts = await api('/api/payments');
+  const tb = document.getElementById('recent-payments-table');
+  const recent = pmts.slice(0, 8);
+  if (!recent.length) { tb.innerHTML = '<tr><td colspan="5" class="empty">No payments yet</td></tr>'; return; }
+  tb.innerHTML = recent.map(p => `
+    <tr>
+      <td><div class="customer-cell">
+        <div class="avatar">${initials(p.name)}</div>
+        <div><div class="customer-name">${p.name || '—'}</div><div class="customer-email">${p.email}</div></div>
+      </div></td>
+      <td class="mono">${fmt(p.amount, p.currency)}</td>
+      <td>${badge(p.status)}</td>
+      <td class="mono">${fmtDate(p.created_at)}</td>
+      <td class="mono" style="font-size:11px;color:var(--muted)">${p.stripe_payment_intent ? p.stripe_payment_intent.slice(0, 20) + '…' : '—'}</td>
+    </tr>`).join('');
+}
+
+// ── Customers ────────────────────────────────────────────────────────────────
+async function loadCustomers() {
+  const list = await api('/api/customers');
+  const tb = document.getElementById('customers-table');
+  if (!list.length) { tb.innerHTML = '<tr><td colspan="5" class="empty">No customers yet</td></tr>'; return; }
+  tb.innerHTML = list.map(c => `
+    <tr>
+      <td><div class="customer-cell">
+        <div class="avatar">${initials(c.name)}</div>
+        <div><div class="customer-name">${c.name || '—'}</div><div class="customer-email">${c.email}</div></div>
+      </div></td>
+      <td class="mono">${c.card_brand ? c.card_brand + ' ···· ' + c.card_last4 : '—'}</td>
+      <td>${badge(c.status)}</td>
+      <td class="mono">${fmt(c.total_paid || 0)}</td>
+      <td><div class="actions">
+        <button class="btn btn-sm" onclick="openPortal(${c.id})">Update card ↗</button>
+        ${c.status === 'active' ? `<button class="btn btn-sm btn-danger" onclick="setCustStatus(${c.id},'paused')">Pause</button>` : ''}
+        ${c.status === 'paused' ? `<button class="btn btn-sm" onclick="setCustStatus(${c.id},'active')">Resume</button>` : ''}
+      </div></td>
+    </tr>`).join('');
+}
+
+// ── Subscriptions ────────────────────────────────────────────────────────────
+async function loadSubscriptions() {
+  const list = await api('/api/subscriptions');
+  const tb = document.getElementById('subscriptions-table');
+  if (!list.length) { tb.innerHTML = '<tr><td colspan="6" class="empty">No subscriptions yet</td></tr>'; return; }
+  tb.innerHTML = list.map(s => `
+    <tr>
+      <td><div class="customer-cell">
+        <div class="avatar">${initials(s.name)}</div>
+        <div><div class="customer-name">${s.name || '—'}</div><div class="customer-email">${s.email}</div></div>
+      </div></td>
+      <td class="mono">${fmt(s.amount, s.currency)}</td>
+      <td class="mono">${s.interval_days} days</td>
+      <td class="mono">${fmtDate(s.next_billing_date)}</td>
+      <td>${badge(s.status)}</td>
+      <td><div class="actions">
+        ${s.status === 'active' ? `<button class="btn btn-sm" onclick="chargeNow(${s.id})">Charge</button>` : ''}
+        ${s.status === 'active' ? `<button class="btn btn-sm" onclick="setSubStatus(${s.id},'paused')">Pause</button>` : ''}
+        ${s.status === 'paused' ? `<button class="btn btn-sm" onclick="setSubStatus(${s.id},'active')">Resume</button>` : ''}
+        <button class="btn btn-sm btn-danger" onclick="setSubStatus(${s.id},'cancelled')">Cancel</button>
+      </div></td>
+    </tr>`).join('');
+}
+
+// ── Payments ─────────────────────────────────────────────────────────────────
+async function loadPayments() {
+  const list = await api('/api/payments');
+  const tb = document.getElementById('payments-table');
+  if (!list.length) { tb.innerHTML = '<tr><td colspan="6" class="empty">No payments yet</td></tr>'; return; }
+  tb.innerHTML = list.map(p => `
+    <tr>
+      <td><div class="customer-cell">
+        <div class="avatar">${initials(p.name)}</div>
+        <div><div class="customer-name">${p.name || '—'}</div><div class="customer-email">${p.email}</div></div>
+      </div></td>
+      <td class="mono">${fmt(p.amount, p.currency)}</td>
+      <td>${badge(p.status)}</td>
+      <td style="font-size:12px;color:var(--red);max-width:180px;">${p.failure_reason || '—'}</td>
+      <td class="mono">${fmtDate(p.created_at)}</td>
+      <td class="mono" style="font-size:11px;color:var(--muted)">${p.stripe_payment_intent ? p.stripe_payment_intent.slice(0,24) + '…' : '—'}</td>
+    </tr>`).join('');
+}
+
+// ── Actions ──────────────────────────────────────────────────────────────────
+async function chargeNow(subId) {
+  toast('Charging…', 'success');
+  const r = await api(`/api/subscriptions/${subId}/charge`, { method: 'POST' });
+  if (r.success) { toast('✓ Payment succeeded'); loadUpcoming(); loadStats(); }
+  else toast('✗ ' + (r.error || 'Charge failed'), 'error');
+}
+
+async function setSubStatus(id, status) {
+  await api(`/api/subscriptions/${id}/status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status }),
+  });
+  toast(`Subscription ${status}`);
+  loadUpcoming(); loadSubscriptions(); loadStats();
+}
+
+async function setCustStatus(id, status) {
+  await api(`/api/customers/${id}/status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status }),
+  });
+  toast(`Customer ${status}`);
+  loadCustomers();
+}
+
+async function openPortal(customerId) {
+  const r = await api(`/api/customers/${customerId}/portal`, { method: 'POST' });
+  if (r.url) window.open(r.url, '_blank');
+  else toast('Could not open portal — check Stripe Customer Portal is enabled', 'error');
+}
+
+async function runRebills() {
+  toast('Running rebill job…');
+  const r = await api('/api/run-rebills', { method: 'POST' });
+  if (r.success) { toast('✓ Rebill job complete'); loadStats(); loadUpcoming(); }
+}
+
+async function createPaymentLink() {
+  const btn = document.getElementById('create-link-btn');
+  btn.innerHTML = '<span class="spinner"></span> Creating…';
+  btn.disabled = true;
+  const body = {
+    name: document.getElementById('link-name').value,
+    amount: parseInt(document.getElementById('link-amount').value),
+    currency: document.getElementById('link-currency').value,
+    interval_days: parseInt(document.getElementById('link-interval').value),
+  };
+  try {
+    const r = await api('/api/payment-links', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (r.url) {
+      currentLink = r.url;
+      document.getElementById('link-url').textContent = r.url;
+      document.getElementById('link-result').classList.add('visible');
+      toast('✓ Payment link created');
+    } else toast('Error: ' + (r.error || 'Unknown'), 'error');
+  } catch (e) { toast('Server error — is backend running?', 'error'); }
+  btn.innerHTML = 'Generate payment link';
+  btn.disabled = false;
+}
+
+function copyLink() { navigator.clipboard.writeText(currentLink); toast('Copied!'); }
+function openLink() { window.open(currentLink, '_blank'); }
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+loadStats();
+loadUpcoming();
+loadRecentPayments();
+</script>
+</body>
+</html>
