@@ -5,7 +5,7 @@ const express = require('express');
 const cors = require('cors');
 const Stripe = require('stripe');
 const path = require('path');
-const { customers, subscriptions, payments } = require('./db');
+const { init, customers, subscriptions, payments } = require('./db');
 const { initScheduler, chargeSubscription } = require('./scheduler');
 const { sendFailedPaymentEmail } = require('./mailer');
 
@@ -308,7 +308,8 @@ app.post('/api/run-rebills', async (req, res) => {
 // ── Start ─────────────────────────────────────────────────────────────────────
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
+  await init();
   console.log(`\n🚀 Rebill server running on http://localhost:${PORT}`);
   console.log(`   Webhook endpoint: http://localhost:${PORT}/webhook\n`);
   initScheduler();
