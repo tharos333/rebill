@@ -222,6 +222,12 @@ app.get('/api/subscriptions', (req, res) => {
 });
 
 // Pause / resume / cancel a subscription
+app.patch('/api/subscriptions/:id/amount', (req, res) => {
+  const { amount } = req.body;
+  if (!amount || isNaN(amount)) return res.status(400).json({ error: 'Invalid amount' });
+  db.get('subscriptions').find({ id: parseInt(req.params.id) }).assign({ amount: parseInt(amount) }).write();
+  res.json({ success: true });
+});
 app.patch('/api/subscriptions/:id/status', (req, res) => {
   const { status } = req.body;
   if (!['active', 'paused', 'cancelled'].includes(status))
