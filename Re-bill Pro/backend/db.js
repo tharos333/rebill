@@ -48,7 +48,7 @@ async function init() {
 const customers = {
   all: async () => {
     const r = await pool.query(`
-      SELECT c.*, 
+      SELECT c.*,
         COUNT(CASE WHEN s.status='active' THEN 1 END) as active_subs,
         COALESCE(SUM(CASE WHEN p.status='succeeded' THEN p.amount ELSE 0 END), 0) as total_paid
       FROM customers c
@@ -98,4 +98,58 @@ const subscriptions = {
   },
   due: async () => {
     const r = await pool.query(`
-      SELECT s.*, c.stripe_customer_id, c.stripe_payment_
+      SELECT s.*, c.stripe_customer_id, c.stripe_payment_method, c.email, c.name
+      FROM subscriptions s JOIN customers c ON c.id=s.customer_id
+      WHERE s.status='active' AND c.status='active' AND s.next_billing_date <= CURRENT_DATE
+    `);
+    return r.rows;
+  },
+  create: async (data) => {
+    await pool.query(`
+      INSERT INTO subscriptions (customer_id, amount, currency, interval_days, next_billing_date)
+      VALUES ($1,$2,$3,$4,$5)
+    `, [data.customer_id, data.amount, data.currency, data.interval_days, data.next_billing_date]);
+  },
+  advanceBillingDate: async (id, intervalDays) => {
+    await pool.query(`UPDATE subscriptions SET next_billing_date = next_billing_date + $1 * INTERVAL '1 day' WHERE id=$2`, [intervalDays, id]);
+  },
+  updateStatus: async (id, status) => {
+    await pool.query('UPDATE subscriptions SET status=$1 WHERE id=$2', [status, id]);
+  },
+  updateAmount: async (id, amount) => {
+    await pool.query('UPDATE subscriptions SET amount=$1 WHERE id=$2', [amount, id]);
+  },
+};
+
+const payments = {
+  recent: async (limit = 50) => {
+    const r = await pool.query(`
+      SELECT p.*, c.email, c.name FROM payments p
+      JOIN customers c ON c.id=p.customer_id
+      ORDER BY p.created_at DESC LIMIT $1
+    `, [limit]);
+    return r.rows;
+  },
+  byCustomer: async (customerId) => {
+    const r = await pool.query('SELECT * FROM payments WHERE customer_id=$1 ORDER BY created_at DESC', [customerId]);
+    return r.rows;
+  },
+  stats: async () => {
+    const r = await pool.query(`
+      SELECT
+        COUNT(CASE WHEN status='succeeded' THEN 1 END) as succeeded_count,
+        COUNT(CASE WHEN status='failed' THEN 1 END) as failed_count,
+        COALESCE(SUM(CASE WHEN status='succeeded' THEN amount ELSE 0 END), 0) as total_revenue
+      FROM payments
+    `);
+    return r.rows[0];
+  },
+  insert: async (data) => {
+    await pool.query(`
+      INSERT INTO payments (customer_id, subscription_id, stripe_payment_intent, amount, currency, status, failure_reason)
+      VALUES ($1,$2,$3,$4,$5,$6,$7)
+    `, [data.customer_id, data.subscription_id, data.stripe_payment_intent, data.amount, data.currency, data.status, data.failure_reason]);
+  },
+};
+
+module.exports = { init, customers, subscriptions, payments };
