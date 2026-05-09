@@ -613,7 +613,8 @@ async function loadStats() {
     document.getElementById('stat-failed').textContent = s.failed_payments || 0;
     document.getElementById('server-status').innerHTML = '● connected';
     document.getElementById('server-status').style.color = 'var(--green)';
-  } catch {
+  } catch(e) {
+    console.error('Stats error:', e);
     document.getElementById('server-status').innerHTML = '● offline';
     document.getElementById('server-status').style.color = 'var(--red)';
   }
