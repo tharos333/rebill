@@ -703,7 +703,7 @@ async function loadSubscriptions() {
         ${s.status === 'active' ? `<button class="btn btn-sm" onclick="chargeNow(${s.id})">Charge</button>` : ''}
         ${s.status === 'active' ? `<button class="btn btn-sm" onclick="setSubStatus(${s.id},'paused')">Pause</button>` : ''}
         ${s.status === 'paused' ? `<button class="btn btn-sm" onclick="setSubStatus(${s.id},'active')">Resume</button>` : ''}
-        <button class="btn btn-sm" onclick="editAmount(${s.id}, ${s.amount})">Edit amount</button>
+        <button class="btn btn-sm" onclick="editAmount(${s.id}, ${s.amount})">Edit amount</button><span id="edit-row-${s.id}" style="display:inline-flex;align-items:center;gap:4px;"></span>
         <button class="btn btn-sm btn-danger" onclick="setSubStatus(${s.id},'cancelled')">Cancel</button>
       </div></td>
     </tr>`).join('');
@@ -738,30 +738,39 @@ async function chargeNow(subId) {
 
 async function setSubStatus(id, status) {
  async function editAmount(subId, currentAmount) {
-  const newAmount = window.prompt('New rebill amount in cents (e.g. 2900 = $29.00):', currentAmount);
-  if (newAmount === null) return;
-  if (!newAmount || isNaN(newAmount) || parseInt(newAmount) < 50) {
-    alert('Please enter a valid amount (minimum 50 cents)');
-    return;
-  }
-  const r = await api(`/api/subscriptions/${subId}/amount`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ amount: parseInt(newAmount) }),
-  });
-  if (r.success) toast('✓ Amount updated');
-  else toast('Error: ' + (r.error || 'Failed'), 'error');
-  loadSubscriptions();
+  const dollars = (currentAmount/100).toFixed(2);
+  const input = document.createElement('input');
+  input.type = 'number';
+  input.value = dollars;
+  input.step = '0.01';
+  input.min = '0.50';
+  input.style.cssText = 'background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;width:140px;';
+  const btn = document.createElement('button');
+  btn.textContent = 'Save';
+  btn.style.cssText = 'background:var(--accent);color:#fff;border:none;padding:8px 14px;border-radius:8px;font-size:13px;cursor:pointer;margin-left:8px;';
+  const cancel = document.createElement('button');
+  cancel.textContent = 'Cancel';
+  cancel.style.cssText = 'background:none;color:var(--muted);border:1px solid var(--border);padding:8px 14px;border-radius:8px;font-size:13px;cursor:pointer;margin-left:6px;';
+  const row = document.getElementById(`edit-row-${subId}`);
+  if (!row) return;
+  row.innerHTML = '';
+  row.appendChild(input);
+  row.appendChild(btn);
+  row.appendChild(cancel);
+  input.focus();
+  cancel.onclick = () => loadSubscriptions();
+  btn.onclick = async () => {
+    const newCents = Math.round(parseFloat(input.value) * 100);
+    if (isNaN(newCents) || newCents < 50) { toast('Minimum $0.50', 'error'); return; }
+    const r = await api(`/api/subscriptions/${subId}/amount`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount: newCents }),
+    });
+    if (r.success) { toast('✓ Amount updated'); loadSubscriptions(); }
+    else toast('Error: ' + (r.error || 'Failed'), 'error');
+  };
 }
-  await api(`/api/subscriptions/${id}/status`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status }),
-  });
-  toast(`Subscription ${status}`);
-  loadUpcoming(); loadSubscriptions(); loadStats();
-}
-
 async function setCustStatus(id, status) {
   await api(`/api/customers/${id}/status`, {
     method: 'PATCH',
