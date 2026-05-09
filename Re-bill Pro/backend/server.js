@@ -41,72 +41,83 @@ app.post('/webhook', async (req, res) => {
   switch (event.type) {
 
     // ── Customer paid via Payment Link ──────────────────────────────────────
-    case 'payment_intent.succeeded': {
+   case 'payment_intent.succeeded': {
   const pi = event.data.object;
-  
-  // Find customer from payment intent or checkout session
+
   let customerId = pi.customer;
-  
+
   if (!customerId) {
-    // Search for checkout sessions with this payment intent
-    const sessions = await stripe.checkout.sessions.list({
-      payment_intent: pi.id,
-      limit: 1,
-    });
-    if (sessions.data.length > 0) {
-      customerId = sessions.data[0].customer;
+    try {
+      const sessions = await stripe.checkout.sessions.list({
+        payment_intent: pi.id,
+        limit: 1,
+      });
+      if (sessions.data.length > 0 && sessions.data[0].customer) {
+        customerId = sessions.data[0].customer;
+      }
+    } catch(e) {
+      console.log('[webhook] No session found:', e.message);
     }
   }
-  
-  if (!customerId || !pi.payment_method) break;
 
-  const [stripeCustomer, pm] = await Promise.all([
-    stripe.customers.retrieve(customerId),
-    stripe.paymentMethods.retrieve(pi.payment_method),
-  ]);
-
-  const card = pm.card || {};
-
-  customers.upsert({
-    email: stripeCustomer.email,
-    name: stripeCustomer.name || stripeCustomer.email,
-    stripe_customer_id: stripeCustomer.id,
-    stripe_payment_method: pm.id,
-    card_brand: card.brand || null,
-    card_last4: card.last4 || null,
-    card_exp_month: card.exp_month || null,
-    card_exp_year: card.exp_year || null,
-  });
-
-  const customer = customers.byStripeId(stripeCustomer.id);
-
-  const existingSubs = subscriptions.byCustomer(customer.id);
-  if (existingSubs.length === 0) {
-    const nextDate = new Date();
-    nextDate.setDate(nextDate.getDate() + 30);
-    subscriptions.create({
-      customer_id: customer.id,
-      amount: pi.amount,
-      currency: pi.currency,
-      interval_days: 30,
-      next_billing_date: nextDate.toISOString().split('T')[0],
-    });
+  if (!customerId) {
+    console.log('[webhook] No customer ID found, skipping');
+    break;
   }
 
-  payments.insert({
-    customer_id: customer.id,
-    subscription_id: null,
-    stripe_payment_intent: pi.id,
-    amount: pi.amount,
-    currency: pi.currency,
-    status: 'succeeded',
-    failure_reason: null,
-  });
+  try {
+    const stripeCustomer = await stripe.customers.retrieve(customerId);
+    const paymentMethods = await stripe.paymentMethods.list({
+      customer: customerId,
+      type: 'card',
+      limit: 1,
+    });
 
-  console.log(`[webhook] ✓ Saved card for ${stripeCustomer.email}`);
+    const pm = paymentMethods.data[0];
+    const card = pm?.card || {};
+
+    customers.upsert({
+      email: stripeCustomer.email,
+      name: stripeCustomer.name || stripeCustomer.email,
+      stripe_customer_id: stripeCustomer.id,
+      stripe_payment_method: pm?.id || null,
+      card_brand: card.brand || null,
+      card_last4: card.last4 || null,
+      card_exp_month: card.exp_month || null,
+      card_exp_year: card.exp_year || null,
+    });
+
+    const customer = customers.byStripeId(stripeCustomer.id);
+    const existingSubs = subscriptions.byCustomer(customer.id);
+
+    if (existingSubs.length === 0) {
+      const nextDate = new Date();
+      nextDate.setDate(nextDate.getDate() + 30);
+      subscriptions.create({
+        customer_id: customer.id,
+        amount: pi.amount,
+        currency: pi.currency,
+        interval_days: 30,
+        next_billing_date: nextDate.toISOString().split('T')[0],
+      });
+    }
+
+    payments.insert({
+      customer_id: customer.id,
+      subscription_id: null,
+      stripe_payment_intent: pi.id,
+      amount: pi.amount,
+      currency: pi.currency,
+      status: 'succeeded',
+      failure_reason: null,
+    });
+
+    console.log(`[webhook] ✓ Saved card for ${stripeCustomer.email}`);
+  } catch(err) {
+    console.error('[webhook] Error:', err.message);
+  }
   break;
 }
-
     // ── Payment failed ──────────────────────────────────────────────────────
     case 'payment_intent.payment_failed': {
       const pi = event.data.object;
