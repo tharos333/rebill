@@ -42,60 +42,70 @@ app.post('/webhook', async (req, res) => {
 
     // ── Customer paid via Payment Link ──────────────────────────────────────
     case 'payment_intent.succeeded': {
-      const pi = event.data.object;
-      if (!pi.customer || !pi.payment_method) break;
-
-      // Fetch full customer & payment method details from Stripe
-      const [stripeCustomer, pm] = await Promise.all([
-        stripe.customers.retrieve(pi.customer),
-        stripe.paymentMethods.retrieve(pi.payment_method),
-      ]);
-
-      const card = pm.card || {};
-
-      // Upsert customer with saved card
-      customers.upsert({
-        email: stripeCustomer.email,
-        name: stripeCustomer.name || stripeCustomer.email,
-        stripe_customer_id: stripeCustomer.id,
-        stripe_payment_method: pm.id,
-        card_brand: card.brand || null,
-        card_last4: card.last4 || null,
-        card_exp_month: card.exp_month || null,
-        card_exp_year: card.exp_year || null,
-      });
-
-      const customer = customers.byStripeId(stripeCustomer.id);
-
-      // Create a default 30-day subscription if they don't have one
-      const existingSubs = subscriptions.byCustomer(customer.id);
-      if (existingSubs.length === 0) {
-        const nextDate = new Date();
-        nextDate.setDate(nextDate.getDate() + 30);
-
-        subscriptions.create({
-          customer_id: customer.id,
-          amount: pi.amount,
-          currency: pi.currency,
-          interval_days: 30,
-          next_billing_date: nextDate.toISOString().split('T')[0],
-        });
-      }
-
-      // Record this payment
-      payments.insert({
-        customer_id: customer.id,
-        subscription_id: null,
-        stripe_payment_intent: pi.id,
-        amount: pi.amount,
-        currency: pi.currency,
-        status: 'succeeded',
-        failure_reason: null,
-      });
-
-      console.log(`[webhook] ✓ Saved card for ${stripeCustomer.email}`);
-      break;
+  const pi = event.data.object;
+  
+  // Find customer from payment intent or checkout session
+  let customerId = pi.customer;
+  
+  if (!customerId) {
+    // Search for checkout sessions with this payment intent
+    const sessions = await stripe.checkout.sessions.list({
+      payment_intent: pi.id,
+      limit: 1,
+    });
+    if (sessions.data.length > 0) {
+      customerId = sessions.data[0].customer;
     }
+  }
+  
+  if (!customerId || !pi.payment_method) break;
+
+  const [stripeCustomer, pm] = await Promise.all([
+    stripe.customers.retrieve(customerId),
+    stripe.paymentMethods.retrieve(pi.payment_method),
+  ]);
+
+  const card = pm.card || {};
+
+  customers.upsert({
+    email: stripeCustomer.email,
+    name: stripeCustomer.name || stripeCustomer.email,
+    stripe_customer_id: stripeCustomer.id,
+    stripe_payment_method: pm.id,
+    card_brand: card.brand || null,
+    card_last4: card.last4 || null,
+    card_exp_month: card.exp_month || null,
+    card_exp_year: card.exp_year || null,
+  });
+
+  const customer = customers.byStripeId(stripeCustomer.id);
+
+  const existingSubs = subscriptions.byCustomer(customer.id);
+  if (existingSubs.length === 0) {
+    const nextDate = new Date();
+    nextDate.setDate(nextDate.getDate() + 30);
+    subscriptions.create({
+      customer_id: customer.id,
+      amount: pi.amount,
+      currency: pi.currency,
+      interval_days: 30,
+      next_billing_date: nextDate.toISOString().split('T')[0],
+    });
+  }
+
+  payments.insert({
+    customer_id: customer.id,
+    subscription_id: null,
+    stripe_payment_intent: pi.id,
+    amount: pi.amount,
+    currency: pi.currency,
+    status: 'succeeded',
+    failure_reason: null,
+  });
+
+  console.log(`[webhook] ✓ Saved card for ${stripeCustomer.email}`);
+  break;
+}
 
     // ── Payment failed ──────────────────────────────────────────────────────
     case 'payment_intent.payment_failed': {
