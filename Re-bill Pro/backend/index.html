@@ -154,6 +154,10 @@ select option{background:var(--surface2)}
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
     Payment Links
   </button>
+  <button class="nav-item" onclick="showPage('accounts',this)">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    Stripe Accounts
+  </button>
   <div class="sidebar-footer"><span id="server-status">● loading...</span></div>
 </nav>
 
@@ -220,6 +224,7 @@ select option{background:var(--surface2)}
           <div class="form-group"><label>Amount (cents)</label><input type="number" id="link-amount" value="2900" min="50"></div>
           <div class="form-group"><label>Currency</label><select id="link-currency"><option value="usd">USD</option><option value="eur">EUR</option><option value="gbp">GBP</option><option value="mad">MAD</option></select></div>
         </div>
+        <div class="form-group"><label>Stripe account</label><select id="link-account"><option value="">Loading...</option></select></div>
         <div class="form-group"><label>Rebill interval</label>
           <select id="link-interval">
             <option value="7">Weekly (7 days)</option>
@@ -242,6 +247,42 @@ select option{background:var(--surface2)}
     </div>
   </div>
 
+
+  <div id="page-accounts" class="page">
+    <div class="page-header">
+      <div><h2>Stripe Accounts</h2><p>Manage multiple Stripe accounts for rebilling</p></div>
+      <button class="btn btn-primary" onclick="showAddAccount()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add account
+      </button>
+    </div>
+    <div id="add-account-form" style="display:none;" class="card" style="max-width:480px;">
+      <div class="card-header"><h3>Add Stripe account</h3></div>
+      <div style="padding:24px;">
+        <div class="form-group"><label>Account name (e.g. "My Store")</label><input type="text" id="acc-name" placeholder="My Business"></div>
+        <div class="form-group"><label>Secret key (sk_live_... or sk_test_...)</label><input type="password" id="acc-key" placeholder="sk_live_..."></div>
+        <div class="form-group"><label>Webhook secret (whsec_...) — optional</label><input type="text" id="acc-webhook" placeholder="whsec_..."></div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-primary" onclick="addAccount()">Save account</button>
+          <button class="btn" onclick="document.getElementById('add-account-form').style.display='none'">Cancel</button>
+        </div>
+      </div>
+    </div>
+    <div class="card" id="accounts-list">
+      <div class="scrollable"><table>
+        <thead><tr><th>Account name</th><th>Key preview</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="accounts-table"><tr><td colspan="4" class="empty">Loading...</td></tr></tbody>
+      </table></div>
+    </div>
+    <div class="card" style="max-width:480px;margin-top:8px;">
+      <div class="card-header"><h3>How multi-account works</h3></div>
+      <div style="padding:20px;display:flex;flex-direction:column;gap:14px;">
+        <div style="font-size:13px;color:var(--muted);">Each Stripe account has its own customers and payment methods. When you create a payment link, choose which account to use. The webhook will automatically detect which account the payment came from.</div>
+        <div style="font-size:13px;color:var(--muted);">When rebilling, the app automatically uses the correct Stripe account for each customer based on where they originally paid.</div>
+      </div>
+    </div>
+  </div>
+
 </main>
 
 <div id="toast"></div>
@@ -258,6 +299,8 @@ function showPage(name, el) {
   else if (name === 'customers') loadCustomers();
   else if (name === 'subscriptions') loadSubscriptions();
   else if (name === 'payments') loadPayments();
+  else if (name === 'accounts') loadAccounts();
+  else if (name === 'links') loadAccounts();
 }
 
 function fmt(cents, currency) {
@@ -478,6 +521,7 @@ async function createPaymentLink() {
         amount: parseInt(document.getElementById('link-amount').value),
         currency: document.getElementById('link-currency').value,
         interval_days: parseInt(document.getElementById('link-interval').value),
+        stripe_account_id: document.getElementById('link-account') ? document.getElementById('link-account').value : null,
       }),
     });
     if (r.url) {
@@ -493,6 +537,75 @@ async function createPaymentLink() {
 
 function copyLink() { navigator.clipboard.writeText(currentLink); toast('Copied!'); }
 function openLink() { window.open(currentLink, '_blank'); }
+
+
+// ── Stripe Accounts ──────────────────────────────────────────────────────────
+function showAddAccount() {
+  const form = document.getElementById('add-account-form');
+  form.style.display = form.style.display === 'none' ? 'block' : 'none';
+}
+
+async function loadAccounts() {
+  try {
+    const list = await api('/api/stripe-accounts');
+    const tb = document.getElementById('accounts-table');
+    if (!list.length) { tb.innerHTML = '<tr><td colspan="4" class="empty">No accounts yet</td></tr>'; return; }
+    tb.innerHTML = list.map(function(a) {
+      return '<tr>' +
+        '<td><strong>' + a.name + '</strong></td>' +
+        '<td class="mono" style="font-size:12px;">' + (a.key_preview || '—') + '</td>' +
+        '<td>' + (a.is_default ? '<span class="badge badge-green">default</span>' : '<span class="badge badge-blue">active</span>') + '</td>' +
+        '<td><div class="actions">' +
+          (!a.is_default ? '<button class="btn btn-sm" onclick="setDefaultAccount(' + a.id + ')">Set default</button>' : '') +
+          '<button class="btn btn-sm btn-danger" onclick="deleteAccount(' + a.id + ')">Delete</button>' +
+        '</div></td>' +
+      '</tr>';
+    }).join('');
+
+    // Also populate account selector in payment links
+    const sel = document.getElementById('link-account');
+    if (sel) {
+      sel.innerHTML = list.map(function(a) {
+        return '<option value="' + a.id + '"' + (a.is_default ? ' selected' : '') + '>' + a.name + '</option>';
+      }).join('');
+    }
+  } catch(e) { console.error(e); }
+}
+
+async function addAccount() {
+  const name = document.getElementById('acc-name').value.trim();
+  const key = document.getElementById('acc-key').value.trim();
+  const webhook = document.getElementById('acc-webhook').value.trim();
+  if (!name || !key) { toast('Name and secret key required', 'error'); return; }
+  try {
+    const r = await api('/api/stripe-accounts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, secret_key: key, webhook_secret: webhook }),
+    });
+    if (r.success) {
+      toast('✓ Account added');
+      document.getElementById('add-account-form').style.display = 'none';
+      document.getElementById('acc-name').value = '';
+      document.getElementById('acc-key').value = '';
+      document.getElementById('acc-webhook').value = '';
+      loadAccounts();
+    } else toast('Error: ' + (r.error || 'Failed'), 'error');
+  } catch(e) { toast('Error adding account', 'error'); }
+}
+
+async function setDefaultAccount(id) {
+  await api('/api/stripe-accounts/' + id + '/default', { method: 'PATCH' });
+  toast('✓ Default account updated');
+  loadAccounts();
+}
+
+async function deleteAccount(id) {
+  if (!confirm('Delete this Stripe account? Customers linked to it will still exist but cannot be rebilled.')) return;
+  await api('/api/stripe-accounts/' + id, { method: 'DELETE' });
+  toast('Account deleted');
+  loadAccounts();
+}
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 const VALID_USER = 'Tharos333';
