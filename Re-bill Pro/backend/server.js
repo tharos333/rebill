@@ -251,20 +251,18 @@ app.post('/api/payment-links', async (req, res) => {
   try {
     const { amount, currency = 'usd', name = 'Rebill Subscription', interval_days = 30 } = req.body;
 
-    // Create a one-time price
     const price = await stripe.prices.create({
       unit_amount: amount,
       currency,
       product_data: { name },
     });
 
-    // Create payment link with card saving
     const link = await stripe.paymentLinks.create({
       line_items: [{ price: price.id, quantity: 1 }],
       payment_intent_data: {
         setup_future_usage: 'off_session',
-        metadata: { interval_days: String(interval_days) },
       },
+      customer_creation: 'always',
       after_completion: {
         type: 'hosted_confirmation',
         hosted_confirmation: { custom_message: 'Thank you! Your subscription is active.' },
