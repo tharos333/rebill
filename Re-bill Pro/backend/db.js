@@ -27,6 +27,7 @@ async function init() {
       card_exp_month INT,
       card_exp_year INT,
       status TEXT DEFAULT 'active',
+      note TEXT,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS subscriptions (
@@ -53,6 +54,7 @@ async function init() {
   `);
 
   await pool.query('ALTER TABLE customers ADD COLUMN IF NOT EXISTS stripe_account_id INT').catch(() => {});
+  await pool.query('ALTER TABLE customers ADD COLUMN IF NOT EXISTS note TEXT').catch(() => {});
 
   const existing = await pool.query('SELECT COUNT(*) FROM stripe_accounts');
   if (parseInt(existing.rows[0].count) === 0 && process.env.STRIPE_SECRET_KEY) {
@@ -140,6 +142,9 @@ const customers = {
   },
   updateStatus: async (id, status) => {
     await pool.query('UPDATE customers SET status=$1 WHERE id=$2', [status, id]);
+  },
+  updateNote: async (id, note) => {
+    await pool.query('UPDATE customers SET note=$1 WHERE id=$2', [note, id]);
   },
 };
 
