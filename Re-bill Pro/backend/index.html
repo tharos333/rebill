@@ -506,94 +506,93 @@ async function loadChart() {
     const total = data.reduce((s,d)=>s+(parseInt(d.revenue)||0),0);
     const totalCount = data.reduce((s,d)=>s+(parseInt(d.count)||0),0);
     const avg = totalCount>0 ? Math.round(total/totalCount) : 0;
-    const best = data.length ? data.reduce((a,b)=>(parseInt(b.revenue)||0)>=(parseInt(a.revenue)||0)?b:a, data[0]) : null;
-    const bestDay = best ? new Date(best.day).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'}) : '—';
+    const activeDays = data.filter(d=>parseInt(d.revenue)>0);
+    const best = activeDays.length ? activeDays.reduce((a,b)=>(parseInt(b.revenue)||0)>=(parseInt(a.revenue)||0)?b:a) : null;
+    const bestDay = best ? new Date(best.day).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}) : '—';
     const last7 = data.slice(-7).reduce((s,d)=>s+(parseInt(d.revenue)||0),0);
-    const prev7 = data.slice(-14,-7).reduce((s,d)=>s+(parseInt(d.revenue)||0),0);
-    const trend = prev7>0 ? Math.round((last7-prev7)/prev7*100) : null;
-    const trendColor = trend>=0?'var(--green)':'var(--red)';
-    const trendArrow = trend>=0?'↑':'↓';
 
-    // Top stat cards
-    const statCards = [
-      { label:'Total Revenue', value: fmt(total), sub: trend!==null?'<span style="color:'+trendColor+'">'+trendArrow+' '+Math.abs(trend)+'% vs prev 7d</span>':'30 day total' },
-      { label:'Payments Collected', value: totalCount, sub: 'successful payments' },
-      { label:'Average Payment', value: fmt(avg), sub: 'per transaction' },
-      { label:'Best Day', value: fmt(parseInt(best?.revenue)||0), sub: bestDay },
-      { label:'Last 7 Days', value: fmt(last7), sub: data.slice(-7).filter(d=>parseInt(d.count)>0).length+' active days' },
+    // 4 stat cards
+    const cards = [
+      {label:'Total Revenue', value:fmt(total), sub:'last 30 days'},
+      {label:'Payments', value:totalCount, sub:'successful'},
+      {label:'Avg Payment', value:fmt(avg), sub:'per transaction'},
+      {label:'Best Day', value:fmt(parseInt(best?.revenue)||0), sub:bestDay},
     ];
 
-    let html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:24px;">';
-    statCards.forEach(c => {
-      html += '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">'+
-        '<div style="font-size:10px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;">'+c.label+'</div>'+
-        '<div style="font-size:20px;font-weight:700;letter-spacing:-0.5px;margin-bottom:4px;">'+c.value+'</div>'+
+    let html = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;">';
+    cards.forEach(c => {
+      html += '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;">'+
+        '<div style="font-size:10px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">'+c.label+'</div>'+
+        '<div style="font-size:18px;font-weight:700;letter-spacing:-0.5px;margin-bottom:3px;">'+c.value+'</div>'+
         '<div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+c.sub+'</div>'+
       '</div>';
     });
     html += '</div>';
 
-    // Mini bar chart placeholder - built via DOM after innerHTML
-    if (data.length > 0) {
-      const firstDay = new Date(data[0]?.day).toLocaleDateString('en-US',{month:'short',day:'numeric'});
-      const lastDay = new Date(data[data.length-1]?.day).toLocaleDateString('en-US',{month:'short',day:'numeric'});
-      html += '<div style="margin-bottom:24px;">'+
-        '<div style="font-size:11px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">Daily revenue</div>'+
-        '<div id="rev-bars-container" style="display:flex;align-items:flex-end;gap:2px;height:60px;width:100%;"></div>'+
-        '<div style="display:flex;justify-content:space-between;margin-top:6px;">'+
-          '<span style="font-size:10px;color:var(--muted);font-family:var(--mono);">'+firstDay+'</span>'+
-          '<span style="font-size:10px;color:var(--muted);font-family:var(--mono);">'+lastDay+'</span>'+
-        '</div>'+
-      '</div>';
-    }
+    // Recent Activity table
+    html += '<div style="border-top:1px solid var(--border);padding-top:16px;">'+
+      '<div style="font-size:11px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Recent Activity</div>';
 
-    // Recent days table
-    const activeDays = data.filter(d=>parseInt(d.revenue)>0).slice(-10).reverse();
-    if (activeDays.length > 0) {
-      html += '<div>'+
-        '<div style="font-size:11px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">Recent days</div>'+
-        '<table style="width:100%;border-collapse:collapse;">';
-      activeDays.forEach(d => {
+    if (activeDays.length === 0) {
+      html += '<div style="text-align:center;padding:24px 0;color:var(--muted);font-size:13px;font-family:var(--mono);">No revenue yet in the last 30 days</div>';
+    } else {
+      html += '<table style="width:100%;border-collapse:collapse;">'+
+        '<thead><tr>'+
+          '<th style="text-align:left;font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:0.5px;text-transform:uppercase;padding-bottom:8px;border-bottom:1px solid var(--border);">Date</th>'+
+          '<th style="text-align:right;font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:0.5px;text-transform:uppercase;padding-bottom:8px;border-bottom:1px solid var(--border);">Revenue</th>'+
+          '<th style="text-align:right;font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:0.5px;text-transform:uppercase;padding-bottom:8px;border-bottom:1px solid var(--border);">Payments</th>'+
+        '</tr></thead><tbody>';
+      activeDays.slice().reverse().slice(0,10).forEach(d => {
         const day = new Date(d.day).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
         const rev = parseInt(d.revenue)||0;
         const cnt = parseInt(d.count)||0;
-        html += '<tr style="border-top:1px solid var(--border);">'+
-          '<td style="padding:10px 0;font-size:13px;color:var(--muted);font-family:var(--mono);">'+day+'</td>'+
-          '<td style="padding:10px 0;font-size:14px;font-weight:600;text-align:center;">'+fmt(rev)+'</td>'+
-          '<td style="padding:10px 0;font-size:12px;color:var(--muted);font-family:var(--mono);text-align:right;">'+cnt+' payment'+(cnt!==1?'s':'')+'</td>'+
+        html += '<tr>'+
+          '<td style="padding:10px 0;font-size:13px;color:var(--muted);font-family:var(--mono);border-bottom:1px solid var(--border);">'+day+'</td>'+
+          '<td style="padding:10px 0;font-size:13px;font-weight:600;text-align:right;border-bottom:1px solid var(--border);">'+fmt(rev)+'</td>'+
+          '<td style="padding:10px 0;font-size:13px;color:var(--muted);text-align:right;font-family:var(--mono);border-bottom:1px solid var(--border);">'+cnt+' payment'+(cnt!==1?'s':'')+'</td>'+
         '</tr>';
       });
-      html += '</table></div>';
-    } else {
-      html += '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px;font-family:var(--mono);border-top:1px solid var(--border);">No payments in the last 30 days yet</div>';
+      html += '</tbody></table>';
     }
+    html += '</div>';
 
     wrap.innerHTML = html;
 
-    // Build bars using DOM to avoid quote escaping issues
-    const barsContainer = document.getElementById('rev-bars-container');
-    if (barsContainer && data.length > 0) {
+    // Build DOM-based mini bars only if enough days
+    if (activeDays.length > 1) {
+      const barsWrap = document.createElement('div');
+      barsWrap.style.cssText = 'margin-bottom:20px;border-top:1px solid var(--border);padding-top:16px;';
+      const label = document.createElement('div');
+      label.style.cssText = 'font-size:11px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;';
+      label.textContent = 'Daily Revenue';
+      const barsEl = document.createElement('div');
+      barsEl.style.cssText = 'display:flex;align-items:flex-end;gap:3px;height:50px;width:100%;';
       const maxV = Math.max(...data.map(d=>parseInt(d.revenue)||0), 1);
       data.forEach(d => {
         const rev = parseInt(d.revenue)||0;
-        const pct = Math.max((rev/maxV)*100, rev>0?8:3);
+        const pct = Math.max((rev/maxV)*100, 3);
         const day = new Date(d.day).toLocaleDateString('en-US',{month:'short',day:'numeric'});
         const bar = document.createElement('div');
-        bar.title = day + ': ' + fmt(rev);
+        bar.title = day+': '+fmt(rev);
         bar.style.flex = '1';
-        bar.style.background = rev>0 ? 'var(--accent)' : 'var(--border2)';
+        bar.style.background = rev>0 ? 'var(--accent)' : 'var(--border)';
         bar.style.borderRadius = '2px 2px 0 0';
-        bar.style.height = pct + '%';
-        bar.style.minHeight = (rev>0?'5':'2') + 'px';
-        bar.style.opacity = rev>0 ? '0.85' : '0.4';
+        bar.style.height = pct+'%';
+        bar.style.minHeight = rev>0?'4px':'2px';
+        bar.style.opacity = rev>0?'0.8':'0.3';
         bar.style.cursor = 'default';
         bar.style.transition = 'opacity 0.15s';
-        const origOp = rev>0 ? '0.85' : '0.4';
-        bar.onmouseover = function() { this.style.opacity = '1'; };
-        bar.onmouseout = function() { this.style.opacity = origOp; };
-        barsContainer.appendChild(bar);
+        bar.onmouseover = function(){ this.style.opacity='1'; };
+        bar.onmouseout = function(){ this.style.opacity=rev>0?'0.8':'0.3'; };
+        barsEl.appendChild(bar);
       });
+      barsWrap.appendChild(label);
+      barsWrap.appendChild(barsEl);
+      // Insert before the recent activity table
+      const tableSection = wrap.querySelector('div[style*="border-top"]');
+      if (tableSection) wrap.insertBefore(barsWrap, tableSection);
     }
+
   } catch(e) { console.error('Revenue error:', e); }
 }
 
