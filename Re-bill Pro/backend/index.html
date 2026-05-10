@@ -146,7 +146,8 @@ textarea{resize:vertical;min-height:70px}
 <div class="login-screen" id="login-screen">
   <div class="login-box">
     <div class="login-logo">
-      <img id="login-logo" src="https://i.ibb.co/4wQjcBCc/subloop-2.png" alt="Subloop" style="width:190px;height:auto;display:block;margin:0 auto 16px;">
+      <img id="login-logo" src="https://i.ibb.co/yFv17qTH/subloop-3.png" alt="Subloop" style="width:190px;height:auto;display:block;margin:0 auto 8px;">
+      <div style="text-align:center;margin-bottom:8px;"><span style="font-size:10px;font-family:var(--mono);color:var(--accent);background:var(--accent-glow);border:1px solid rgba(108,99,255,0.3);padding:2px 10px;border-radius:20px;letter-spacing:0.5px;">Beta 1.0</span></div>
     </div>
     <div class="login-field"><label>USERNAME</label><input type="text" id="login-user" placeholder="Enter username" autocomplete="username"></div>
     <div class="login-field"><label>PASSWORD</label><input type="password" id="login-pass" placeholder="Enter password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
@@ -160,7 +161,8 @@ textarea{resize:vertical;min-height:70px}
 <div class="app-screen hidden" id="app-screen">
 <nav class="sidebar">
   <div class="logo" style="padding:0 16px 20px;">
-    <img id="sidebar-logo" src="https://i.ibb.co/4wQjcBCc/subloop-2.png" alt="Subloop" style="width:160px;height:auto;display:block;">
+    <img id="sidebar-logo" src="https://i.ibb.co/yFv17qTH/subloop-3.png" alt="Subloop" style="width:160px;height:auto;display:block;">
+    <span style="display:inline-block;margin-top:6px;font-size:10px;font-family:var(--mono);color:var(--accent);background:var(--accent-glow);border:1px solid rgba(108,99,255,0.3);padding:2px 8px;border-radius:20px;letter-spacing:0.5px;">Beta 1.0</span>
   </div>
   <div class="nav-section">Main</div>
   <button class="nav-item active" onclick="showPage('dashboard',this)">
@@ -399,7 +401,7 @@ function toggleTheme() {
   updateLogos(isLight);
 }
 function updateLogos(isLight) {
-  const src = isLight ? 'https://i.ibb.co/bM3TxcMq/subloop-light-transparent-1.png' : 'https://i.ibb.co/4wQjcBCc/subloop-2.png';
+  const src = isLight ? 'https://i.ibb.co/nshSMwcX/subloop-light-no-background.png' : 'https://i.ibb.co/yFv17qTH/subloop-3.png';
   const sidebar = document.getElementById('sidebar-logo');
   const login = document.getElementById('login-logo');
   if (sidebar) sidebar.src = src;
