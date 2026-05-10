@@ -533,23 +533,16 @@ async function loadChart() {
     });
     html += '</div>';
 
-    // Mini bar chart — all 30 days
+    // Mini bar chart placeholder - built via DOM after innerHTML
     if (data.length > 0) {
-      const maxVal = Math.max(...data.map(d=>parseInt(d.revenue)||0), 1);
+      const firstDay = new Date(data[0]?.day).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+      const lastDay = new Date(data[data.length-1]?.day).toLocaleDateString('en-US',{month:'short',day:'numeric'});
       html += '<div style="margin-bottom:24px;">'+
         '<div style="font-size:11px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">Daily revenue</div>'+
-        '<div style="display:flex;align-items:flex-end;gap:2px;height:60px;width:100%;">';
-      data.forEach(d => {
-        const rev = parseInt(d.revenue)||0;
-        const h = Math.max((rev/maxVal)*100, rev>0?8:3);
-        const day = new Date(d.day).toLocaleDateString('en-US',{month:'short',day:'numeric'});
-        const color = rev>0 ? 'var(--accent)' : 'var(--border2)';
-        html += '<div title="'+day+': '+fmt(rev)+'" style="flex:1;background:'+color+';border-radius:2px 2px 0 0;height:'+h+'%;min-height:'+(rev>0?'5':'2')+'px;opacity:'+(rev>0?'0.85':'0.4')+';cursor:default;transition:opacity 0.15s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=''+(rev>0?'0.85':'0.4')+''"></div>';
-      });
-      html += '</div>'+
+        '<div id="rev-bars-container" style="display:flex;align-items:flex-end;gap:2px;height:60px;width:100%;"></div>'+
         '<div style="display:flex;justify-content:space-between;margin-top:6px;">'+
-          '<span style="font-size:10px;color:var(--muted);font-family:var(--mono);">'+new Date(data[0]?.day).toLocaleDateString('en-US',{month:'short',day:'numeric'})+'</span>'+
-          '<span style="font-size:10px;color:var(--muted);font-family:var(--mono);">'+new Date(data[data.length-1]?.day).toLocaleDateString('en-US',{month:'short',day:'numeric'})+'</span>'+
+          '<span style="font-size:10px;color:var(--muted);font-family:var(--mono);">'+firstDay+'</span>'+
+          '<span style="font-size:10px;color:var(--muted);font-family:var(--mono);">'+lastDay+'</span>'+
         '</div>'+
       '</div>';
     }
