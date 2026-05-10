@@ -1,5 +1,5 @@
 {
-  "name": "rebill-backend",
+  "name": "subloop-backend",
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
@@ -12,6 +12,8 @@
     "dotenv": "^16.3.1",
     "node-cron": "^3.0.3",
     "nodemailer": "^6.9.8",
-    "pg": "^8.11.3"
+    "pg": "^8.11.3",
+    "speakeasy": "^2.0.0",
+    "qrcode": "^1.5.3"
   }
 }
