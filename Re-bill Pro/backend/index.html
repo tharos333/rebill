@@ -130,12 +130,8 @@ textarea{resize:vertical;min-height:70px}
 .search-bar{display:flex;gap:10px;margin-bottom:16px}
 .search-bar input{max-width:300px}
 /* Chart */
-.chart-wrap{padding:20px;height:200px;position:relative}
-.chart-bars{display:flex;align-items:flex-end;gap:3px;height:100%;width:100%;overflow:hidden}
-.chart-bar{flex:1;background:var(--accent);border-radius:3px 3px 0 0;min-height:2px;max-width:40px;opacity:0.75;transition:opacity 0.15s;cursor:pointer;position:relative}
-.chart-bar:hover{opacity:1}
-.chart-bar-tooltip{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border2);border-radius:6px;padding:5px 9px;font-size:11px;font-family:var(--mono);white-space:nowrap;pointer-events:none;opacity:0;transition:opacity 0.15s;margin-bottom:4px;color:var(--text)}
-.chart-bar:hover .chart-bar-tooltip{opacity:1}
+.chart-wrap{padding:20px 24px 16px;position:relative}
+.chart-tooltip{position:fixed;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:8px 12px;font-size:12px;font-family:var(--mono);pointer-events:none;z-index:100;color:var(--text);display:none;box-shadow:0 4px 12px rgba(0,0,0,0.3)}
 .note-text{font-size:12px;color:var(--muted);font-family:var(--mono);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:500;align-items:center;justify-content:center}
 .modal-bg.open{display:flex}
@@ -214,8 +210,14 @@ textarea{resize:vertical;min-height:70px}
     <div class="stat-card"><div class="stat-label">Revenue</div><div class="stat-value" id="stat-revenue">—</div><div class="stat-sub">total collected</div></div>
   </div>
   <div class="card">
-    <div class="card-header"><h3>Revenue — last 30 days</h3></div>
-    <div class="chart-wrap"><div class="chart-bars" id="revenue-chart"></div></div>
+    <div class="card-header">
+      <h3>Revenue — last 30 days</h3>
+      <span id="chart-total" style="font-size:13px;font-weight:600;color:var(--accent);font-family:var(--mono)"></span>
+    </div>
+    <div class="chart-wrap">
+      <svg id="revenue-svg" width="100%" height="180" style="overflow:visible;display:block"></svg>
+      <div id="chart-empty" style="display:none;text-align:center;padding:40px;color:var(--muted);font-size:13px;font-family:var(--mono)">No revenue data yet</div>
+    </div>
   </div>
   <div class="card">
     <div class="card-header"><h3>Upcoming rebills</h3></div>
@@ -487,15 +489,121 @@ async function loadStats() {
 async function loadChart() {
   try {
     const data = await api('/api/revenue-chart');
-    const wrap = document.getElementById('revenue-chart');
-    if (!data.length) { wrap.innerHTML = '<div style="color:var(--muted);font-size:13px;font-family:var(--mono);margin:auto;">No revenue data yet</div>'; return; }
-    const max = Math.max(...data.map(d => parseInt(d.revenue)||0), 1);
-    wrap.innerHTML = data.map(d => {
-      const h = Math.max(((parseInt(d.revenue)||0)/max)*100, 2);
-      const day = new Date(d.day).toLocaleDateString('en-US',{month:'short',day:'numeric'});
-      return '<div class="chart-bar" style="height:'+h+'%"><div class="chart-bar-tooltip">'+day+'<br>'+fmt(parseInt(d.revenue)||0)+'</div></div>';
+    const svg = document.getElementById('revenue-svg');
+    const empty = document.getElementById('chart-empty');
+    const totalEl = document.getElementById('chart-total');
+
+    if (!data.length) {
+      svg.style.display = 'none';
+      empty.style.display = 'block';
+      return;
+    }
+    svg.style.display = 'block';
+    empty.style.display = 'none';
+
+    const W = svg.getBoundingClientRect().width || 600;
+    const H = 160;
+    const PAD = { top: 10, right: 10, bottom: 30, left: 50 };
+    const w = W - PAD.left - PAD.right;
+    const h = H - PAD.top - PAD.bottom;
+
+    const values = data.map(d => parseInt(d.revenue) || 0);
+    const maxVal = Math.max(...values, 1);
+    const totalRev = values.reduce((a,b)=>a+b,0);
+    if (totalEl) totalEl.textContent = fmt(totalRev);
+
+    const n = data.length;
+    const xStep = w / Math.max(n - 1, 1);
+
+    // Generate smooth line points
+    const pts = data.map((d, i) => ({
+      x: PAD.left + i * xStep,
+      y: PAD.top + h - (parseInt(d.revenue)||0) / maxVal * h,
+      val: parseInt(d.revenue)||0,
+      day: new Date(d.day).toLocaleDateString('en-US',{month:'short',day:'numeric'}),
+    }));
+
+    // Smooth curve using bezier
+    function bezierPath(pts) {
+      if (pts.length < 2) return '';
+      let d = 'M '+pts[0].x+' '+pts[0].y;
+      for (let i=0;i<pts.length-1;i++) {
+        const cp1x = pts[i].x + (pts[i+1].x - pts[i].x)/3;
+        const cp1y = pts[i].y;
+        const cp2x = pts[i+1].x - (pts[i+1].x - pts[i].x)/3;
+        const cp2y = pts[i+1].y;
+        d += ' C '+cp1x+' '+cp1y+' '+cp2x+' '+cp2y+' '+pts[i+1].x+' '+pts[i+1].y;
+      }
+      return d;
+    }
+
+    const linePath = bezierPath(pts);
+    const fillPath = linePath + ' L '+(PAD.left+w)+' '+(PAD.top+h)+' L '+PAD.left+' '+(PAD.top+h)+' Z';
+
+    // Y axis labels
+    const yTicks = [0, 0.25, 0.5, 0.75, 1];
+    const yLabels = yTicks.map(t => {
+      const y = PAD.top + h - t*h;
+      const val = Math.round(t * maxVal);
+      return '<line x1="'+PAD.left+'" y1="'+y+'" x2="'+(PAD.left+w)+'" y2="'+y+'" stroke="currentColor" stroke-opacity="0.06" stroke-width="1"/>'+
+        '<text x="'+(PAD.left-8)+'" y="'+(y+4)+'" text-anchor="end" font-size="10" fill="currentColor" opacity="0.4" font-family="DM Mono,monospace">'+(val>=100?'$'+(val/100).toFixed(0):val)+'</text>';
     }).join('');
-  } catch(e) {}
+
+    // X axis labels — show every few days
+    const skip = Math.ceil(n/7);
+    const xLabels = pts.filter((_,i)=>i%skip===0||i===n-1).map(p =>
+      '<text x="'+p.x+'" y="'+(PAD.top+h+18)+'" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.4" font-family="DM Mono,monospace">'+p.day+'</text>'
+    ).join('');
+
+    // Dots
+    const dots = pts.map((p,i) =>
+      '<circle class="chart-dot" cx="'+p.x+'" cy="'+p.y+'" r="3.5" fill="var(--accent)" stroke="var(--surface)" stroke-width="2" opacity="0" data-i="'+i+'"/>'
+    ).join('');
+
+    svg.setAttribute('height', H);
+    svg.innerHTML = '<defs>'+
+      '<linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">'+
+        '<stop offset="0%" stop-color="var(--accent)" stop-opacity="0.25"/>'+
+        '<stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>'+
+      '</linearGradient>'+
+    '</defs>'+
+    yLabels+xLabels+
+    '<path d="'+fillPath+'" fill="url(#chartGrad)"/>'+
+    '<path d="'+linePath+'" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>'+
+    dots+
+    '<rect id="chart-hover-zone" x="'+PAD.left+'" y="'+PAD.top+'" width="'+w+'" height="'+h+'" fill="transparent" style="cursor:crosshair"/>';
+
+    // Tooltip
+    let tooltip = document.getElementById('chart-tooltip-el');
+    if (!tooltip) {
+      tooltip = document.createElement('div');
+      tooltip.id = 'chart-tooltip-el';
+      tooltip.className = 'chart-tooltip';
+      document.body.appendChild(tooltip);
+    }
+
+    const zone = svg.querySelector('#chart-hover-zone');
+    const allDots = svg.querySelectorAll('.chart-dot');
+
+    zone.addEventListener('mousemove', e => {
+      const rect = svg.getBoundingClientRect();
+      const mx = e.clientX - rect.left - PAD.left;
+      const idx = Math.round(mx / xStep);
+      const clamped = Math.max(0, Math.min(n-1, idx));
+      const p = pts[clamped];
+      allDots.forEach((d,i)=>d.setAttribute('opacity',i===clamped?'1':'0'));
+      tooltip.style.display = 'block';
+      tooltip.style.left = (e.clientX+12)+'px';
+      tooltip.style.top = (e.clientY-12)+'px';
+      tooltip.innerHTML = '<div style="font-weight:600;margin-bottom:2px;">'+p.day+'</div>'+
+        '<div style="color:var(--accent);">'+fmt(p.val)+'</div>';
+    });
+    zone.addEventListener('mouseleave', () => {
+      allDots.forEach(d=>d.setAttribute('opacity','0'));
+      tooltip.style.display='none';
+    });
+
+  } catch(e) { console.error('Chart error:', e); }
 }
 
 // ── Upcoming ──────────────────────────────────────────────────────────────────
