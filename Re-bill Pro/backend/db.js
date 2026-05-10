@@ -76,6 +76,17 @@ async function init() {
       payload JSONB,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
+    CREATE TABLE IF NOT EXISTS security (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS login_attempts (
+      id SERIAL PRIMARY KEY,
+      ip TEXT,
+      success BOOLEAN DEFAULT false,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
   `);
 
   // Migrations for existing installs
@@ -91,6 +102,11 @@ async function init() {
   // Default settings
   const defaults = {
     dunning_enabled: 'false',
+    two_fa_enabled: 'false',
+    two_fa_secret: '',
+    session_timeout: '480',
+    max_login_attempts: '5',
+    lockout_minutes: '15',
     dunning_days: '3,7,14',
     pause_auto_resume: 'true',
     proration_enabled: 'false',
@@ -299,4 +315,24 @@ const webhookLogs = {
   },
 };
 
-module.exports = { init, pool, settingsDb, stripeAccounts, customers, subscriptions, payments, activityLog, webhookLogs };
+const security = {
+  logAttempt: async (ip, success) => {
+    await pool.query('INSERT INTO login_attempts (ip, success) VALUES ($1,$2)', [ip, success]).catch(()=>{});
+  },
+  recentFailures: async (ip, minutes=15) => {
+    const r = await pool.query(
+      "SELECT COUNT(*) FROM login_attempts WHERE ip=$1 AND success=false AND created_at > NOW()-INTERVAL '1 minute'*$2",
+      [ip, minutes]
+    );
+    return parseInt(r.rows[0].count)||0;
+  },
+  clearAttempts: async (ip) => {
+    await pool.query('DELETE FROM login_attempts WHERE ip=$1', [ip]).catch(()=>{});
+  },
+  recentLogins: async (limit=20) => {
+    const r = await pool.query('SELECT * FROM login_attempts ORDER BY created_at DESC LIMIT $1', [limit]);
+    return r.rows;
+  },
+};
+
+module.exports = { init, pool, settingsDb, stripeAccounts, customers, subscriptions, payments, activityLog, webhookLogs, security };
