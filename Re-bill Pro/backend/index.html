@@ -131,8 +131,8 @@ textarea{resize:vertical;min-height:70px}
 .search-bar input{max-width:300px}
 /* Chart */
 .chart-wrap{padding:20px;height:200px;position:relative}
-.chart-bars{display:flex;align-items:flex-end;gap:3px;height:100%;width:100%}
-.chart-bar{flex:1;background:var(--accent);border-radius:3px 3px 0 0;min-height:2px;opacity:0.8;transition:opacity 0.15s;cursor:pointer;position:relative}
+.chart-bars{display:flex;align-items:flex-end;gap:3px;height:100%;width:100%;overflow:hidden}
+.chart-bar{flex:1;background:var(--accent);border-radius:3px 3px 0 0;min-height:2px;max-width:40px;opacity:0.75;transition:opacity 0.15s;cursor:pointer;position:relative}
 .chart-bar:hover{opacity:1}
 .chart-bar-tooltip{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border2);border-radius:6px;padding:5px 9px;font-size:11px;font-family:var(--mono);white-space:nowrap;pointer-events:none;opacity:0;transition:opacity 0.15s;margin-bottom:4px;color:var(--text)}
 .chart-bar:hover .chart-bar-tooltip{opacity:1}
