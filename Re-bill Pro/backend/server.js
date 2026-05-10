@@ -3,7 +3,9 @@ const express = require('express');
 const cors = require('cors');
 const Stripe = require('stripe');
 const path = require('path');
-const { init, pool, settingsDb, stripeAccounts, customers, subscriptions, payments, activityLog, webhookLogs } = require('./db');
+const { init, pool, settingsDb, stripeAccounts, customers, subscriptions, payments, activityLog, webhookLogs, security } = require('./db');
+let speakeasy, QRCode;
+try { speakeasy = require('speakeasy'); QRCode = require('qrcode'); } catch(e) { console.log('[2FA] speakeasy/qrcode not installed yet'); }
 const { initScheduler } = require('./scheduler');
 
 const app = express();
@@ -332,6 +334,85 @@ app.post('/api/run-rebills', async (req, res) => {
   }
 
   res.json({ success: true, succeeded, failed, resumed, total: due.length });
+});
+
+// ── Security & 2FA ───────────────────────────────────────────────────────────
+
+// Get 2FA setup QR code
+app.post('/api/security/2fa/setup', async (req, res) => {
+  if (!speakeasy) return res.status(500).json({ error: '2FA library not installed' });
+  try {
+    const secret = speakeasy.generateSecret({ name: 'Subloop', issuer: 'Subloop' });
+    await settingsDb.set('two_fa_secret_pending', secret.base32);
+    const qrUrl = await QRCode.toDataURL(secret.otpauth_url);
+    res.json({ secret: secret.base32, qrCode: qrUrl });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// Verify and enable 2FA
+app.post('/api/security/2fa/verify', async (req, res) => {
+  if (!speakeasy) return res.status(500).json({ error: '2FA library not installed' });
+  try {
+    const { token } = req.body;
+    const secret = await settingsDb.get('two_fa_secret_pending');
+    if (!secret) return res.status(400).json({ error: 'No pending 2FA setup' });
+    const verified = speakeasy.totp.verify({ secret, encoding: 'base32', token, window: 2 });
+    if (!verified) return res.status(400).json({ error: 'Invalid code' });
+    await settingsDb.set('two_fa_secret', secret);
+    await settingsDb.set('two_fa_enabled', 'true');
+    await settingsDb.set('two_fa_secret_pending', '');
+    await activityLog.add('security', '2FA enabled');
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// Disable 2FA
+app.post('/api/security/2fa/disable', async (req, res) => {
+  await settingsDb.set('two_fa_enabled', 'false');
+  await settingsDb.set('two_fa_secret', '');
+  await activityLog.add('security', '2FA disabled');
+  res.json({ success: true });
+});
+
+// Validate 2FA token (called from login)
+app.post('/api/security/2fa/validate', async (req, res) => {
+  if (!speakeasy) return res.json({ valid: true }); // skip if not installed
+  try {
+    const { token } = req.body;
+    const secret = await settingsDb.get('two_fa_secret');
+    if (!secret) return res.json({ valid: true });
+    const valid = speakeasy.totp.verify({ secret, encoding: 'base32', token, window: 2 });
+    res.json({ valid });
+  } catch(err) { res.json({ valid: false }); }
+});
+
+// Check if 2FA is enabled
+app.get('/api/security/2fa/status', async (req, res) => {
+  const enabled = await settingsDb.get('two_fa_enabled');
+  res.json({ enabled: enabled === 'true' });
+});
+
+// Login attempt tracking
+app.post('/api/security/login-attempt', async (req, res) => {
+  const { success } = req.body;
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+  await security.logAttempt(ip, success);
+  if (success) await security.clearAttempts(ip);
+  res.json({ success: true });
+});
+
+// Check if IP is locked out
+app.get('/api/security/lockout-check', async (req, res) => {
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+  const maxAttempts = parseInt(await settingsDb.get('max_login_attempts') || '5');
+  const lockoutMins = parseInt(await settingsDb.get('lockout_minutes') || '15');
+  const failures = await security.recentFailures(ip, lockoutMins);
+  res.json({ locked: failures >= maxAttempts, failures, maxAttempts, lockoutMins });
+});
+
+// Recent login history
+app.get('/api/security/login-history', async (req, res) => {
+  res.json(await security.recentLogins(30));
 });
 
 // ── Start ─────────────────────────────────────────────────────────────────────
