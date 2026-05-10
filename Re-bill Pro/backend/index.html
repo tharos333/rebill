@@ -529,32 +529,7 @@ async function loadChart() {
     });
     html += '</div>';
 
-    // Recent Activity table
-    html += '<div style="border-top:1px solid var(--border);padding-top:16px;">'+
-      '<div style="font-size:11px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Recent Activity</div>';
 
-    if (activeDays.length === 0) {
-      html += '<div style="text-align:center;padding:24px 0;color:var(--muted);font-size:13px;font-family:var(--mono);">No revenue yet in the last 30 days</div>';
-    } else {
-      html += '<table style="width:100%;border-collapse:collapse;">'+
-        '<thead><tr>'+
-          '<th style="text-align:left;font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:0.5px;text-transform:uppercase;padding-bottom:8px;border-bottom:1px solid var(--border);">Date</th>'+
-          '<th style="text-align:right;font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:0.5px;text-transform:uppercase;padding-bottom:8px;border-bottom:1px solid var(--border);">Revenue</th>'+
-          '<th style="text-align:right;font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:0.5px;text-transform:uppercase;padding-bottom:8px;border-bottom:1px solid var(--border);">Payments</th>'+
-        '</tr></thead><tbody>';
-      activeDays.slice().reverse().slice(0,10).forEach(d => {
-        const day = new Date(d.day).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
-        const rev = parseInt(d.revenue)||0;
-        const cnt = parseInt(d.count)||0;
-        html += '<tr>'+
-          '<td style="padding:10px 0;font-size:13px;color:var(--muted);font-family:var(--mono);border-bottom:1px solid var(--border);">'+day+'</td>'+
-          '<td style="padding:10px 0;font-size:13px;font-weight:600;text-align:right;border-bottom:1px solid var(--border);">'+fmt(rev)+'</td>'+
-          '<td style="padding:10px 0;font-size:13px;color:var(--muted);text-align:right;font-family:var(--mono);border-bottom:1px solid var(--border);">'+cnt+' payment'+(cnt!==1?'s':'')+'</td>'+
-        '</tr>';
-      });
-      html += '</tbody></table>';
-    }
-    html += '</div>';
 
     wrap.innerHTML = html;
 
@@ -588,9 +563,7 @@ async function loadChart() {
       });
       barsWrap.appendChild(label);
       barsWrap.appendChild(barsEl);
-      // Insert before the recent activity table
-      const tableSection = wrap.querySelector('div[style*="border-top"]');
-      if (tableSection) wrap.insertBefore(barsWrap, tableSection);
+      wrap.appendChild(barsWrap);
     }
 
   } catch(e) { console.error('Revenue error:', e); }
