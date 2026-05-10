@@ -148,6 +148,27 @@ textarea{resize:vertical;min-height:60px}
 .activity-dot.resume{background:var(--blue)}
 .activity-dot.retry{background:var(--green)}
 .activity-dot.proration{background:var(--accent)}
+
+  /* Payment Card Badges */
+  .payment-card{display:inline-flex;align-items:center;gap:10px;color:#9ca3af;font-family:var(--sans);font-size:13px;font-weight:600;white-space:nowrap}
+  .payment-badge{width:58px;height:36px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-family:var(--sans);font-weight:900;line-height:1;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.12),0 6px 16px rgba(0,0,0,0.25);overflow:hidden;flex-shrink:0}
+  .payment-dots{color:#8b8b98;letter-spacing:3px;font-weight:700}
+  .payment-last4{color:#a1a1aa;font-weight:700}
+  .payment-badge.visa{background:linear-gradient(135deg,#1a1f71 0%,#293bb8 100%);color:#fff;font-size:16px;font-style:italic;letter-spacing:-1px}
+  .payment-badge.mastercard{background:#111;position:relative}
+  .payment-badge.mastercard::before,.payment-badge.mastercard::after{content:"";position:absolute;width:23px;height:23px;border-radius:50%;top:6px}
+  .payment-badge.mastercard::before{left:11px;background:#eb001b}
+  .payment-badge.mastercard::after{right:11px;background:#f79e1b;opacity:0.9}
+  .payment-badge.mastercard span{position:relative;z-index:2;margin-top:21px;color:#fff;font-size:7px;font-weight:700;letter-spacing:-0.2px}
+  .payment-badge.amex{background:linear-gradient(135deg,#006fcf 0%,#2e9fff 100%);color:#fff;font-size:12px;letter-spacing:0.5px}
+  .payment-badge.discover{background:linear-gradient(135deg,#fff 0%,#e8e8e8 100%);color:#111;font-size:9px;letter-spacing:0.2px;position:relative}
+  .payment-badge.discover::after{content:"";position:absolute;right:-10px;bottom:-12px;width:38px;height:38px;border-radius:50%;background:radial-gradient(circle,#ffb347 0%,#f58220 70%)}
+  .payment-badge.discover span{position:relative;z-index:2}
+  .payment-badge.jcb{background:linear-gradient(90deg,#0b5db3 0%,#0b5db3 33%,#1f9d55 33%,#1f9d55 66%,#d9232e 66%,#d9232e 100%);color:#fff;font-size:14px;letter-spacing:0.5px}
+  .payment-badge.diners{background:#fff;color:#0079be;font-size:9px;letter-spacing:0}
+  .payment-badge.unionpay{background:linear-gradient(90deg,#005bac 0%,#005bac 33%,#e21836 33%,#e21836 66%,#009b5a 66%,#009b5a 100%);color:#fff;font-size:8px;letter-spacing:0}
+  .payment-badge.unknown{background:#1f1f2a;color:#9ca3af;font-size:11px;border:1px solid #343442}
+  .no-card{color:#777783;font-weight:700}
 </style>
 </head>
 <body>
@@ -155,7 +176,7 @@ textarea{resize:vertical;min-height:60px}
 <div class="login-screen" id="login-screen">
   <div class="login-box">
     <div class="login-logo">
-      <img id="login-logo" src="https://i.ibb.co/RTmtK8sm/subloop.png" alt="Subloop" style="width:150px;height:auto;display:block;margin:0 auto 10px;">
+      <img id="login-logo" src="https://i.ibb.co/RTmtK8sm/subloop.png" alt="Subloop" style="width:170px;height:auto;display:block;margin:0 auto 10px;">
     </div>
     <!-- Step 1: Username + Password -->
     <div id="login-step-1">
@@ -183,7 +204,7 @@ textarea{resize:vertical;min-height:60px}
 <div class="app-screen hidden" id="app-screen">
 <nav class="sidebar">
   <div class="logo">
-    <img id="sidebar-logo" src="https://i.ibb.co/RTmtK8sm/subloop.png" alt="Subloop" style="width:145px;height:auto;display:block;">
+    <img id="sidebar-logo" src="https://i.ibb.co/RTmtK8sm/subloop.png" alt="Subloop" style="width:165px;height:auto;display:block;">
   </div>
   <div class="nav-section">Main</div>
   <button class="nav-item active" onclick="showPage('dashboard',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboard</button>
@@ -539,16 +560,15 @@ function toast(msg, type) { const t=document.getElementById('toast'); t.textCont
 function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
-function cardIcon(brand) {
-  brand = (brand||'').toLowerCase();
-  const s = 'style="vertical-align:middle;border-radius:5px;box-shadow:0 1px 3px rgba(0,0,0,0.15);"';
-  const icons = {
-    visa: '<svg width="40" height="25" viewBox="0 0 42 26" '+s+'><rect width="42" height="26" rx="5" fill="#1A1F71"/><path d="M17.5 18H15l1.6-9h2.5L17.5 18zm-4.8-9l-2.4 6.2-.3-1.3L9 10.8S8.8 9 7 9H3.1l-.1.3s1.2.2 2.6 1.1l2.2 8.6H10l4.5-9h-1.8zm18.6 9h2.2L31.8 9h-1.9c-.5 0-.8.3-1 .7L25.4 18h2.5l.5-1.3h3l.4 1.3zm-2.6-3.1l1.2-3.4.7 3.4h-1.9zm-3.5-4.4l.3-1.8S24.4 8 22.7 8c-1.8 0-6.2.8-6.2 4.6 0 3.6 5 3.7 5 5.6 0 .5-.4 1.4-2.5 1.4-2.1 0-3.3-.6-3.3-.6l-.3 1.9s1.4.6 3.5.6c2.1 0 5.3-1.1 5.3-4.8 0-3.7-5.1-4-5.1-5.6 0-1.6 2.2-1.5 3.1-1.5 1 0 2.2.4 2.2.4z" fill="#fff"/></svg>',
-    mastercard: '<svg width="40" height="25" viewBox="0 0 42 26" '+s+'><rect width="42" height="26" rx="5" fill="#1D1D1D"/><circle cx="16" cy="13" r="7" fill="#EB001B"/><circle cx="26" cy="13" r="7" fill="#F79E1B"/><path d="M21 7.6a7 7 0 0 1 0 10.8A7 7 0 0 1 21 7.6z" fill="#FF5F00"/></svg>',
-    amex: '<svg width="40" height="25" viewBox="0 0 42 26" '+s+'><rect width="42" height="26" rx="5" fill="#2E77BC"/><text x="21" y="16" text-anchor="middle" font-family="Arial,sans-serif" font-size="7" font-weight="700" fill="#fff" letter-spacing="0.5">AMERICAN EXPRESS</text></svg>',
-    discover: '<svg width="40" height="25" viewBox="0 0 42 26" '+s+'><rect width="42" height="26" rx="5" fill="#fff" stroke="#e0e0e0" stroke-width="0.8"/><circle cx="28" cy="13" r="7" fill="#F76F20"/><text x="5" y="16" font-family="Arial,sans-serif" font-size="6.5" font-weight="700" fill="#231F20">DISCOVER</text></svg>',
-  };
-  return icons[brand] || '<svg width="40" height="25" viewBox="0 0 42 26" '+s+'><rect width="42" height="26" rx="5" fill="var(--surface2)" stroke="var(--border2)" stroke-width="1"/><rect x="5" y="9" width="32" height="3" rx="1.5" fill="var(--muted)" opacity="0.4"/><rect x="5" y="15" width="12" height="2.5" rx="1" fill="var(--muted)" opacity="0.3"/></svg>';
+function cardBadge(brand, last4) {
+  if (!brand && !last4) return '<span class="no-card">—</span>';
+  const b = (brand||'').toLowerCase();
+  const brandMap = {visa:'VISA',mastercard:'mastercard',amex:'AMEX',american_express:'AMEX',discover:'DISCOVER',jcb:'JCB',diners:'DINERS',unionpay:'UnionPay'};
+  const classMap = {visa:'visa',mastercard:'mastercard',amex:'amex',american_express:'amex',discover:'discover',jcb:'jcb',diners:'diners',unionpay:'unionpay'};
+  const label = brandMap[b] || 'CARD';
+  const cls = classMap[b] || 'unknown';
+  const inner = b === 'mastercard' ? '<span>mastercard</span>' : '<span>'+label+'</span>';
+  return '<div class="payment-card"><div class="payment-badge '+cls+'">'+inner+'</div><span class="payment-dots">••••</span><span class="payment-last4">'+(last4||'')+'</span></div>';
 }
 
 function initApp() { loadStats(); loadUpcoming(); loadRecentPayments(); loadChart(); }
@@ -657,7 +677,7 @@ function renderCustomers(list) {
   if (!list.length) { tb.innerHTML='<tr><td colspan="7" class="empty">No customers yet</td></tr>'; return; }
   tb.innerHTML = list.map(c=>'<tr>'+
     '<td><div class="customer-cell"><div class="avatar">'+initials(c.name)+'</div><div><div class="customer-name">'+(c.name||'—')+'</div><div class="customer-email">'+(c.email||'')+'</div></div></div></td>'+
-    '<td><div style="display:flex;align-items:center;gap:8px;">'+(c.card_brand?cardIcon(c.card_brand)+'<span style="font-family:var(--mono);font-size:11px;color:var(--muted);">···· '+(c.card_last4||'')+'</span>':'<span style="color:var(--muted);">—</span>')+'</div></td>'+
+    '<td>'+cardBadge(c.card_brand,c.card_last4)+'</td>'+
     '<td style="font-size:12px;color:var(--muted);">'+(c.account_name||'—')+'</td>'+
     '<td>'+badge(c.status)+'</td>'+
     '<td style="font-size:12px;color:var(--muted);font-family:var(--mono);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(c.note||'—')+'</td>'+
