@@ -6,7 +6,6 @@
 <title>Subloop Beta 1.0</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.383.0/umd/lucide.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -17,8 +16,7 @@
   --red:#f87171;--red-bg:rgba(248,113,113,0.1);
   --amber:#fbbf24;--amber-bg:rgba(251,191,36,0.1);
   --blue:#60a5fa;--blue-bg:rgba(96,165,250,0.1);
-  --mono:'DM Mono',monospace;--sans:'Syne',sans-serif;
-  --shadow:none;
+  --mono:'DM Mono',monospace;--sans:'Syne',sans-serif;--shadow:none;
 }
 html.light{
   --bg:#f4f4f8;--surface:#ffffff;--surface2:#f0f0f5;
@@ -30,37 +28,14 @@ html.light{
   --blue:#2563eb;--blue-bg:rgba(37,99,235,0.1);
   --shadow:0 1px 3px rgba(0,0,0,0.08);
 }
-html.light .nav-item:hover{background:rgba(0,0,0,0.04);}
-html.light .nav-item.active{background:rgba(108,99,255,0.08);}
-html.light tr:hover td{background:rgba(0,0,0,0.02);}
-html.light .btn:hover{background:rgba(0,0,0,0.05);}
-html.light .card{box-shadow:var(--shadow);}
-html.light .stat-card{box-shadow:var(--shadow);}
-html.light .login-box{box-shadow:0 4px 24px rgba(0,0,0,0.1);}
-/* Theme toggle button */
-.theme-toggle{
-  display:flex;align-items:center;gap:8px;padding:8px 24px;
-  font-size:12px;color:var(--muted);cursor:pointer;
-  font-family:var(--mono);border:none;background:none;width:100%;
-  margin-top:8px;
-}
-.theme-toggle:hover{color:var(--text);}
-.toggle-track{
-  width:36px;height:20px;border-radius:20px;
-  background:var(--surface2);border:1px solid var(--border2);
-  position:relative;transition:background 0.2s;flex-shrink:0;
-}
-html.light .toggle-track{background:var(--accent);}
-.toggle-thumb{
-  width:14px;height:14px;border-radius:50%;
-  background:var(--muted);position:absolute;top:2px;left:2px;
-  transition:all 0.2s;
-}
-html.light .toggle-thumb{background:#fff;left:18px;}
+html.light .nav-item:hover{background:rgba(0,0,0,0.04)}
+html.light .nav-item.active{background:rgba(108,99,255,0.08)}
+html.light tr:hover td{background:rgba(0,0,0,0.02)}
+html.light .btn:hover{background:rgba(0,0,0,0.05)}
+html.light .card,.html.light .stat-card{box-shadow:var(--shadow)}
+html.light .login-box{box-shadow:0 4px 24px rgba(0,0,0,0.1)}
 body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;display:flex}
-
-/* Login */
-.login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000;flex-direction:column}
+.login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000}
 .login-screen.hidden{display:none}
 .login-box{background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:40px;width:380px;max-width:95vw}
 .login-logo{text-align:center;margin-bottom:32px}
@@ -68,7 +43,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:1
 .login-logo h1 span{color:var(--accent)}
 .login-logo p{font-size:12px;color:var(--muted);margin-top:4px;font-family:var(--mono)}
 .login-field{margin-bottom:18px}
-.login-field label{display:block;font-size:12px;color:var(--muted);font-family:var(--mono);margin-bottom:8px;letter-spacing:0.3px}
+.login-field label{display:block;font-size:12px;color:var(--muted);font-family:var(--mono);margin-bottom:8px}
 .login-field input{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;color:var(--text);padding:12px 14px;font-size:14px;font-family:var(--sans);outline:none;transition:border-color 0.2s}
 .login-field input:focus{border-color:var(--accent)}
 .login-btn{width:100%;background:var(--accent);color:#fff;border:none;border-radius:10px;padding:13px;font-size:15px;font-family:var(--sans);font-weight:600;cursor:pointer;margin-top:8px;transition:background 0.15s}
@@ -78,125 +53,144 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:1
 .login-footer{text-align:center;margin-top:20px;font-size:11px;color:var(--muted);font-family:var(--mono)}
 .app-screen{display:flex;width:100%;min-height:100vh}
 .app-screen.hidden{display:none}
-.sidebar{width:220px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:24px 0;position:fixed;height:100vh;z-index:10}
-.logo{padding:0 24px 28px;border-bottom:1px solid var(--border);margin-bottom:16px}
-.logo h1{font-size:22px;font-weight:700;letter-spacing:-0.5px}
+.sidebar{width:220px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:24px 0;position:fixed;height:100vh;z-index:10;overflow-y:auto}
+.logo{padding:0 24px 24px;border-bottom:1px solid var(--border);margin-bottom:12px}
+.logo h1{font-size:20px;font-weight:700;letter-spacing:-0.5px}
 .logo span{color:var(--accent)}
-.logo p{font-size:11px;color:var(--muted);margin-top:2px;font-family:var(--mono)}
-.nav-item{display:flex;align-items:center;gap:10px;padding:10px 24px;font-size:13px;color:var(--muted);cursor:pointer;transition:all 0.15s;border-left:2px solid transparent;border:none;background:none;width:100%;text-align:left}
+.logo p{font-size:10px;color:var(--muted);margin-top:2px;font-family:var(--mono)}
+.nav-section{font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:1px;text-transform:uppercase;padding:12px 24px 4px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 24px;font-size:13px;color:var(--muted);cursor:pointer;transition:all 0.15s;border-left:2px solid transparent;border:none;background:none;width:100%;text-align:left}
 .nav-item:hover{color:var(--text);background:rgba(255,255,255,0.03)}
-.nav-item.active{color:var(--text);border-left:2px solid var(--accent);background:var(--accent-glow)}
-.sidebar-footer{margin-top:auto;padding:16px 24px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);font-family:var(--mono)}
-.main{margin-left:220px;flex:1;padding:32px;min-height:100vh}
+.nav-item.active{color:var(--text);border-left-color:var(--accent);background:var(--accent-glow)}
+.sidebar-footer{margin-top:auto;padding:12px 24px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);font-family:var(--mono)}
+.theme-toggle{display:flex;align-items:center;gap:8px;padding:8px 24px;font-size:12px;color:var(--muted);cursor:pointer;font-family:var(--mono);border:none;background:none;width:100%}
+.theme-toggle:hover{color:var(--text)}
+.toggle-track{width:36px;height:20px;border-radius:20px;background:var(--surface2);border:1px solid var(--border2);position:relative;transition:background 0.2s;flex-shrink:0}
+html.light .toggle-track{background:var(--accent)}
+.toggle-thumb{width:14px;height:14px;border-radius:50%;background:var(--muted);position:absolute;top:2px;left:2px;transition:all 0.2s}
+html.light .toggle-thumb{background:#fff;left:18px}
+.main{margin-left:220px;flex:1;padding:28px 32px;min-height:100vh}
 .page{display:none}.page.active{display:block}
-.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px}
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;gap:12px}
 .page-header h2{font-size:20px;font-weight:600;letter-spacing:-0.3px}
 .page-header p{font-size:13px;color:var(--muted);margin-top:2px}
-.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;font-size:13px;font-family:var(--sans);font-weight:500;cursor:pointer;transition:all 0.15s;border:1px solid var(--border2);background:var(--surface2);color:var(--text)}
+.page-header-actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;font-size:13px;font-family:var(--sans);font-weight:500;cursor:pointer;transition:all 0.15s;border:1px solid var(--border2);background:var(--surface2);color:var(--text)}
 .btn:hover{border-color:rgba(255,255,255,0.25);background:rgba(255,255,255,0.07)}
 .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
 .btn-primary:hover{background:#7c74ff;border-color:#7c74ff}
-.btn-sm{padding:5px 11px;font-size:12px}
+.btn-sm{padding:4px 10px;font-size:12px}
 .btn-danger{color:var(--red);border-color:var(--red-bg)}
 .btn-danger:hover{background:var(--red-bg)}
-.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:28px}
-.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;position:relative;overflow:hidden}
+.btn-success{color:var(--green);border-color:var(--green-bg)}
+.btn-success:hover{background:var(--green-bg)}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:24px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;position:relative;overflow:hidden}
 .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),transparent);opacity:0.5}
 .stat-label{font-size:11px;color:var(--muted);font-family:var(--mono);letter-spacing:0.5px;text-transform:uppercase}
-.stat-value{font-size:28px;font-weight:700;margin-top:6px;letter-spacing:-1px}
-.stat-sub{font-size:11px;color:var(--muted);margin-top:4px;font-family:var(--mono)}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:24px}
-.card-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
-.card-header h3{font-size:13px;font-weight:600;color:var(--muted);letter-spacing:0.5px;text-transform:uppercase;font-family:var(--mono)}
+.stat-value{font-size:26px;font-weight:700;margin-top:4px;letter-spacing:-1px}
+.stat-sub{font-size:11px;color:var(--muted);margin-top:3px;font-family:var(--mono)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px}
+.card-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.card-header h3{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0.5px;text-transform:uppercase;font-family:var(--mono)}
 table{width:100%;border-collapse:collapse}
-th{text-align:left;padding:10px 20px;font-size:11px;color:var(--muted);font-family:var(--mono);letter-spacing:0.5px;border-bottom:1px solid var(--border);text-transform:uppercase}
-td{padding:13px 20px;font-size:13px;border-bottom:1px solid var(--border)}
+th{text-align:left;padding:9px 18px;font-size:11px;color:var(--muted);font-family:var(--mono);letter-spacing:0.5px;border-bottom:1px solid var(--border);text-transform:uppercase}
+td{padding:12px 18px;font-size:13px;border-bottom:1px solid var(--border)}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:rgba(255,255,255,0.02)}
-.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-family:var(--mono);font-weight:500}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:11px;font-family:var(--mono);font-weight:500}
 .badge::before{content:'●';font-size:7px}
 .badge-green{background:var(--green-bg);color:var(--green)}
 .badge-red{background:var(--red-bg);color:var(--red)}
 .badge-amber{background:var(--amber-bg);color:var(--amber)}
 .badge-blue{background:var(--blue-bg);color:var(--blue)}
-.avatar{width:32px;height:32px;border-radius:8px;background:var(--accent-glow);border:1px solid rgba(108,99,255,0.3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--accent);flex-shrink:0;font-family:var(--mono)}
-.customer-cell{display:flex;align-items:center;gap:10px}
+.avatar{width:30px;height:30px;border-radius:7px;background:var(--accent-glow);border:1px solid rgba(108,99,255,0.3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--accent);flex-shrink:0;font-family:var(--mono)}
+.customer-cell{display:flex;align-items:center;gap:9px}
 .customer-name{font-size:13px;font-weight:500}
 .customer-email{font-size:11px;color:var(--muted);font-family:var(--mono)}
-.actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.actions{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
 .mono{font-family:var(--mono)}
 .scrollable{overflow-x:auto}
-.empty{text-align:center;padding:48px 20px;color:var(--muted);font-size:13px;font-family:var(--mono)}
-.form-group{margin-bottom:16px}
+.empty{text-align:center;padding:40px 20px;color:var(--muted);font-size:13px;font-family:var(--mono)}
+.form-group{margin-bottom:14px}
 label{display:block;font-size:12px;color:var(--muted);font-family:var(--mono);margin-bottom:6px}
-input,select{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:9px 12px;font-size:13px;font-family:var(--sans);outline:none}
-input:focus,select:focus{border-color:var(--accent)}
+input,select,textarea{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:9px 12px;font-size:13px;font-family:var(--sans);outline:none;transition:border-color 0.2s}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
 select option{background:var(--surface2)}
+textarea{resize:vertical;min-height:70px}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.link-result{display:none;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:12px 16px;margin-top:16px}
+.form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.link-result{display:none;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:12px 14px;margin-top:14px}
 .link-result.visible{display:block}
 .link-url{font-family:var(--mono);font-size:12px;color:var(--accent);word-break:break-all}
-#toast{position:fixed;bottom:24px;right:24px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:12px 18px;font-size:13px;font-family:var(--mono);z-index:999;transform:translateY(80px);opacity:0;transition:all 0.25s cubic-bezier(.16,1,.3,1)}
+#toast{position:fixed;bottom:20px;right:20px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:11px 16px;font-size:13px;font-family:var(--mono);z-index:9999;transform:translateY(80px);opacity:0;transition:all 0.25s cubic-bezier(.16,1,.3,1)}
 #toast.show{transform:translateY(0);opacity:1}
 #toast.success{border-color:var(--green);color:var(--green)}
 #toast.error{border-color:var(--red);color:var(--red)}
-.edit-inline{display:inline-flex;align-items:center;gap:6px;margin-left:6px}
-.edit-inline input{width:100px;padding:4px 8px;font-size:12px}
+.search-bar{display:flex;gap:10px;margin-bottom:16px}
+.search-bar input{max-width:300px}
+/* Chart */
+.chart-wrap{padding:20px;height:200px;position:relative}
+.chart-bars{display:flex;align-items:flex-end;gap:3px;height:100%;width:100%}
+.chart-bar{flex:1;background:var(--accent);border-radius:3px 3px 0 0;min-height:2px;opacity:0.8;transition:opacity 0.15s;cursor:pointer;position:relative}
+.chart-bar:hover{opacity:1}
+.chart-bar-tooltip{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border2);border-radius:6px;padding:5px 9px;font-size:11px;font-family:var(--mono);white-space:nowrap;pointer-events:none;opacity:0;transition:opacity 0.15s;margin-bottom:4px;color:var(--text)}
+.chart-bar:hover .chart-bar-tooltip{opacity:1}
+.note-text{font-size:12px;color:var(--muted);font-family:var(--mono);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:500;align-items:center;justify-content:center}
+.modal-bg.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:28px;width:460px;max-width:95vw;max-height:90vh;overflow-y:auto}
+.modal h3{font-size:16px;font-weight:600;margin-bottom:4px}
+.modal p{font-size:13px;color:var(--muted);margin-bottom:20px}
+.modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
 </style>
 </head>
 <body>
 
-<!-- Login Screen -->
+<!-- Login -->
 <div class="login-screen" id="login-screen">
   <div class="login-box">
-    <div class="login-logo">
-      <h1>Sub<span>loop</span></h1>
-      <p>Beta 1.0 · stripe-powered</p>
-    </div>
-    <div class="login-field">
-      <label>USERNAME</label>
-      <input type="text" id="login-user" placeholder="Enter username" autocomplete="username">
-    </div>
-    <div class="login-field">
-      <label>PASSWORD</label>
-      <input type="password" id="login-pass" placeholder="Enter password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
-    </div>
+    <div class="login-logo"><h1>Sub<span>loop</span></h1><p>Beta 1.0 · stripe-powered</p></div>
+    <div class="login-field"><label>USERNAME</label><input type="text" id="login-user" placeholder="Enter username" autocomplete="username"></div>
+    <div class="login-field"><label>PASSWORD</label><input type="password" id="login-pass" placeholder="Enter password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
     <button class="login-btn" onclick="doLogin()">Sign in</button>
     <div class="login-error" id="login-error">Incorrect username or password</div>
     <div class="login-footer">Subloop · Subscription Management</div>
   </div>
 </div>
 
-<!-- App Screen -->
+<!-- App -->
 <div class="app-screen hidden" id="app-screen">
-
 <nav class="sidebar">
   <div class="logo"><h1>Sub<span>loop</span></h1><p>Beta 1.0 · stripe-powered</p></div>
+  <div class="nav-section">Main</div>
   <button class="nav-item active" onclick="showPage('dashboard',this)">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
     Dashboard
   </button>
+  <div class="nav-section">Billing</div>
   <button class="nav-item" onclick="showPage('customers',this)">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><path d="M21 21v-2a4 4 0 0 0-3-3.85"/></svg>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><path d="M21 21v-2a4 4 0 0 0-3-3.85"/></svg>
     Customers
   </button>
   <button class="nav-item" onclick="showPage('subscriptions',this)">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/></svg>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/></svg>
     Subscriptions
   </button>
   <button class="nav-item" onclick="showPage('payments',this)">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
     Payments
   </button>
   <button class="nav-item" onclick="showPage('links',this)">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
     Payment Links
   </button>
+  <div class="nav-section">Settings</div>
   <button class="nav-item" onclick="showPage('accounts',this)">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
     Stripe Accounts
   </button>
-  <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn">
+  <button class="theme-toggle" onclick="toggleTheme()">
     <div class="toggle-track"><div class="toggle-thumb"></div></div>
     <span id="theme-label">Dark mode</span>
   </button>
@@ -205,179 +199,282 @@ select option{background:var(--surface2)}
 
 <main class="main">
 
-  <div id="page-dashboard" class="page active">
-    <div class="page-header">
-      <div><h2>Dashboard</h2><p>Your subscription overview</p></div>
-      <button class="btn" onclick="runRebills()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/></svg> Run rebills now</button>
-    </div>
-    <div class="stats-grid">
-      <div class="stat-card"><div class="stat-label">MRR</div><div class="stat-value" id="stat-mrr">—</div><div class="stat-sub">monthly recurring</div></div>
-      <div class="stat-card"><div class="stat-label">Active subs</div><div class="stat-value" id="stat-subs">—</div><div class="stat-sub">subscriptions</div></div>
-      <div class="stat-card"><div class="stat-label">Saved cards</div><div class="stat-value" id="stat-cards">—</div><div class="stat-sub">payment methods</div></div>
-      <div class="stat-card"><div class="stat-label">Failed</div><div class="stat-value" id="stat-failed" style="color:var(--red)">—</div><div class="stat-sub">failed payments</div></div>
-    </div>
-    <div class="card">
-      <div class="card-header"><h3>Upcoming rebills</h3></div>
-      <div class="scrollable"><table>
-        <thead><tr><th>Customer</th><th>Amount</th><th>Next billing</th><th>Interval</th><th>Status</th><th>Action</th></tr></thead>
-        <tbody id="upcoming-table"><tr><td colspan="6" class="empty">Loading...</td></tr></tbody>
-      </table></div>
-    </div>
-    <div class="card">
-      <div class="card-header"><h3>Recent payments</h3></div>
-      <div class="scrollable"><table>
-        <thead><tr><th>Customer</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
-        <tbody id="recent-payments-table"><tr><td colspan="4" class="empty">Loading...</td></tr></tbody>
-      </table></div>
+<!-- Dashboard -->
+<div id="page-dashboard" class="page active">
+  <div class="page-header">
+    <div><h2>Dashboard</h2><p>Your subscription overview</p></div>
+    <button class="btn" onclick="runRebills()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/></svg> Run rebills now</button>
+  </div>
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-label">MRR</div><div class="stat-value" id="stat-mrr">—</div><div class="stat-sub">monthly recurring</div></div>
+    <div class="stat-card"><div class="stat-label">Active subs</div><div class="stat-value" id="stat-subs">—</div><div class="stat-sub">subscriptions</div></div>
+    <div class="stat-card"><div class="stat-label">Customers</div><div class="stat-value" id="stat-customers">—</div><div class="stat-sub">total customers</div></div>
+    <div class="stat-card"><div class="stat-label">Saved cards</div><div class="stat-value" id="stat-cards">—</div><div class="stat-sub">payment methods</div></div>
+    <div class="stat-card"><div class="stat-label">Failed</div><div class="stat-value" id="stat-failed" style="color:var(--red)">—</div><div class="stat-sub">failed payments</div></div>
+    <div class="stat-card"><div class="stat-label">Revenue</div><div class="stat-value" id="stat-revenue">—</div><div class="stat-sub">total collected</div></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><h3>Revenue — last 30 days</h3></div>
+    <div class="chart-wrap"><div class="chart-bars" id="revenue-chart"></div></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><h3>Upcoming rebills</h3></div>
+    <div class="scrollable"><table>
+      <thead><tr><th>Customer</th><th>Amount</th><th>Next billing</th><th>Status</th><th>Action</th></tr></thead>
+      <tbody id="upcoming-table"><tr><td colspan="5" class="empty">Loading...</td></tr></tbody>
+    </table></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><h3>Recent payments</h3></div>
+    <div class="scrollable"><table>
+      <thead><tr><th>Customer</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
+      <tbody id="recent-payments-table"><tr><td colspan="4" class="empty">Loading...</td></tr></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- Customers -->
+<div id="page-customers" class="page">
+  <div class="page-header">
+    <div><h2>Customers</h2><p>All customers with saved cards</p></div>
+    <div class="page-header-actions">
+      <button class="btn" onclick="window.location='/api/customers/export'"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export CSV</button>
+      <button class="btn btn-primary" onclick="openModal('add-customer-modal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add customer</button>
     </div>
   </div>
+  <div class="search-bar"><input type="text" id="customer-search" placeholder="Search by name or email..." oninput="filterCustomers()"></div>
+  <div class="card"><div class="scrollable"><table>
+    <thead><tr><th>Customer</th><th>Card</th><th>Account</th><th>Status</th><th>Note</th><th>Total paid</th><th>Actions</th></tr></thead>
+    <tbody id="customers-table"><tr><td colspan="7" class="empty">Loading...</td></tr></tbody>
+  </table></div></div>
+</div>
 
-  <div id="page-customers" class="page">
-    <div class="page-header"><div><h2>Customers</h2><p>All customers with saved cards</p></div></div>
-    <div class="card"><div class="scrollable"><table>
-      <thead><tr><th>Customer</th><th>Card</th><th>Status</th><th>Total paid</th><th>Actions</th></tr></thead>
-      <tbody id="customers-table"><tr><td colspan="5" class="empty">Loading...</td></tr></tbody>
-    </table></div></div>
+<!-- Subscriptions -->
+<div id="page-subscriptions" class="page">
+  <div class="page-header">
+    <div><h2>Subscriptions</h2><p>All rebilling schedules</p></div>
   </div>
+  <div class="search-bar"><input type="text" id="sub-search" placeholder="Search by name or email..." oninput="filterSubscriptions()"></div>
+  <div class="card"><div class="scrollable"><table>
+    <thead><tr><th>Customer</th><th>Amount</th><th>Interval</th><th>Next billing</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody id="subscriptions-table"><tr><td colspan="6" class="empty">Loading...</td></tr></tbody>
+  </table></div></div>
+</div>
 
-  <div id="page-subscriptions" class="page">
-    <div class="page-header"><div><h2>Subscriptions</h2><p>All rebilling schedules</p></div></div>
-    <div class="card"><div class="scrollable"><table>
-      <thead><tr><th>Customer</th><th>Amount</th><th>Interval</th><th>Next billing</th><th>Status</th><th>Actions</th></tr></thead>
-      <tbody id="subscriptions-table"><tr><td colspan="6" class="empty">Loading...</td></tr></tbody>
-    </table></div></div>
+<!-- Payments -->
+<div id="page-payments" class="page">
+  <div class="page-header">
+    <div><h2>Payments</h2><p>Full payment history</p></div>
+    <button class="btn" onclick="window.location='/api/payments/export'"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export CSV</button>
   </div>
+  <div class="card"><div class="scrollable"><table>
+    <thead><tr><th>Customer</th><th>Amount</th><th>Status</th><th>Date</th><th>Reference</th><th>Action</th></tr></thead>
+    <tbody id="payments-table"><tr><td colspan="6" class="empty">Loading...</td></tr></tbody>
+  </table></div></div>
+</div>
 
-  <div id="page-payments" class="page">
-    <div class="page-header"><div><h2>Payments</h2><p>Full payment history</p></div></div>
-    <div class="card"><div class="scrollable"><table>
-      <thead><tr><th>Customer</th><th>Amount</th><th>Status</th><th>Date</th><th>Reference</th></tr></thead>
-      <tbody id="payments-table"><tr><td colspan="5" class="empty">Loading...</td></tr></tbody>
-    </table></div></div>
-  </div>
-
-  <div id="page-links" class="page">
-    <div class="page-header"><div><h2>Payment Links</h2><p>Generate Stripe links that save cards automatically</p></div></div>
-    <div class="card" style="max-width:520px;">
-      <div class="card-header"><h3>Create payment link</h3></div>
-      <div style="padding:24px;">
-        <div class="form-group"><label>Product name</label><input type="text" id="link-name" value="Monthly Subscription"></div>
-        <div class="form-row">
-          <div class="form-group"><label>Amount (cents)</label><input type="number" id="link-amount" value="2900" min="50"></div>
-          <div class="form-group"><label>Currency</label><select id="link-currency"><option value="usd">USD</option><option value="eur">EUR</option><option value="gbp">GBP</option><option value="mad">MAD</option></select></div>
-        </div>
-        <div class="form-group"><label>Stripe account</label><select id="link-account"><option value="">Loading...</option></select></div>
-        <div class="form-group"><label>Rebill interval</label>
-          <select id="link-interval">
-            <option value="7">Weekly (7 days)</option>
-            <option value="14">Biweekly (14 days)</option>
-            <option value="30" selected>Monthly (30 days)</option>
-            <option value="90">Quarterly (90 days)</option>
-            <option value="365">Yearly (365 days)</option>
-          </select>
-        </div>
-        <button class="btn btn-primary" onclick="createPaymentLink()" id="create-link-btn">Generate payment link</button>
-        <div class="link-result" id="link-result">
-          <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;">✓ Payment link created</div>
-          <div class="link-url" id="link-url"></div>
-          <div style="display:flex;gap:8px;margin-top:12px;">
-            <button class="btn btn-sm" onclick="copyLink()">Copy link</button>
-            <button class="btn btn-sm btn-primary" onclick="openLink()">Open ↗</button>
-          </div>
+<!-- Payment Links -->
+<div id="page-links" class="page">
+  <div class="page-header"><div><h2>Payment Links</h2><p>Generate Stripe links that save cards automatically</p></div></div>
+  <div class="card" style="max-width:520px;">
+    <div class="card-header"><h3>Create payment link</h3></div>
+    <div style="padding:20px;">
+      <div class="form-group"><label>Product name</label><input type="text" id="link-name" value="Monthly Subscription"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Amount (cents)</label><input type="number" id="link-amount" value="2900" min="50"></div>
+        <div class="form-group"><label>Currency</label><select id="link-currency"><option value="usd">USD</option><option value="eur">EUR</option><option value="gbp">GBP</option><option value="mad">MAD</option></select></div>
+      </div>
+      <div class="form-group"><label>Stripe account</label><select id="link-account"><option value="">Loading...</option></select></div>
+      <div class="form-group"><label>Rebill interval</label>
+        <select id="link-interval">
+          <option value="7">Weekly (7 days)</option>
+          <option value="14">Biweekly (14 days)</option>
+          <option value="30" selected>Monthly (30 days)</option>
+          <option value="90">Quarterly (90 days)</option>
+          <option value="365">Yearly (365 days)</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="createPaymentLink()" id="create-link-btn">Generate payment link</button>
+      <div class="link-result" id="link-result">
+        <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;">✓ Payment link created</div>
+        <div class="link-url" id="link-url"></div>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button class="btn btn-sm" onclick="copyLink()">Copy link</button>
+          <button class="btn btn-sm btn-primary" onclick="openLink()">Open ↗</button>
         </div>
       </div>
     </div>
   </div>
+</div>
 
-
-  <div id="page-accounts" class="page">
-    <div class="page-header">
-      <div><h2>Stripe Accounts</h2><p>Manage multiple Stripe accounts for rebilling</p></div>
-      <button class="btn btn-primary" onclick="showAddAccount()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Add account
-      </button>
-    </div>
-    <div id="add-account-form" style="display:none;" class="card" style="max-width:480px;">
-      <div class="card-header"><h3>Add Stripe account</h3></div>
-      <div style="padding:24px;">
-        <div class="form-group"><label>Account name (e.g. "My Store")</label><input type="text" id="acc-name" placeholder="My Business"></div>
-        <div class="form-group"><label>Secret key (sk_live_... or sk_test_...)</label><input type="password" id="acc-key" placeholder="sk_live_..."></div>
-        <div class="form-group"><label>Webhook secret (whsec_...) — optional</label><input type="text" id="acc-webhook" placeholder="whsec_..."></div>
-        <div style="display:flex;gap:10px;">
-          <button class="btn btn-primary" onclick="addAccount()">Save account</button>
-          <button class="btn" onclick="document.getElementById('add-account-form').style.display='none'">Cancel</button>
-        </div>
-      </div>
-    </div>
-    <div class="card" id="accounts-list">
-      <div class="scrollable"><table>
-        <thead><tr><th>Account name</th><th>Key preview</th><th>Status</th><th>Actions</th></tr></thead>
-        <tbody id="accounts-table"><tr><td colspan="4" class="empty">Loading...</td></tr></tbody>
-      </table></div>
-    </div>
-    <div class="card" style="max-width:480px;margin-top:8px;">
-      <div class="card-header"><h3>How multi-account works</h3></div>
-      <div style="padding:20px;display:flex;flex-direction:column;gap:14px;">
-        <div style="font-size:13px;color:var(--muted);">Each Stripe account has its own customers and payment methods. When you create a payment link, choose which account to use. The webhook will automatically detect which account the payment came from.</div>
-        <div style="font-size:13px;color:var(--muted);">When rebilling, the app automatically uses the correct Stripe account for each customer based on where they originally paid.</div>
-      </div>
-    </div>
+<!-- Stripe Accounts -->
+<div id="page-accounts" class="page">
+  <div class="page-header">
+    <div><h2>Stripe Accounts</h2><p>Manage multiple Stripe accounts</p></div>
+    <button class="btn btn-primary" onclick="openModal('add-account-modal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add account</button>
   </div>
+  <div class="card">
+    <div class="scrollable"><table>
+      <thead><tr><th>Name</th><th>Key</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody id="accounts-table"><tr><td colspan="4" class="empty">Loading...</td></tr></tbody>
+    </table></div>
+  </div>
+</div>
 
 </main>
+</div><!-- end app-screen -->
+
+<!-- Modals -->
+<div class="modal-bg" id="add-customer-modal">
+  <div class="modal">
+    <h3>Add customer manually</h3>
+    <p>Add a customer with their Stripe customer ID to enable rebilling</p>
+    <div class="form-row">
+      <div class="form-group"><label>Name</label><input type="text" id="mc-name" placeholder="John Doe"></div>
+      <div class="form-group"><label>Email</label><input type="email" id="mc-email" placeholder="john@example.com"></div>
+    </div>
+    <div class="form-group"><label>Stripe customer ID (cus_...)</label><input type="text" id="mc-stripe-id" placeholder="cus_xxx..."></div>
+    <div class="form-group"><label>Payment method ID (pm_...) — optional</label><input type="text" id="mc-pm-id" placeholder="pm_xxx..."></div>
+    <div class="form-row">
+      <div class="form-group"><label>Card brand</label><input type="text" id="mc-brand" placeholder="visa"></div>
+      <div class="form-group"><label>Last 4 digits</label><input type="text" id="mc-last4" placeholder="4242" maxlength="4"></div>
+    </div>
+    <div class="form-row-3">
+      <div class="form-group"><label>Exp month</label><input type="number" id="mc-exp-m" placeholder="12" min="1" max="12"></div>
+      <div class="form-group"><label>Exp year</label><input type="number" id="mc-exp-y" placeholder="2027"></div>
+      <div class="form-group"><label>Stripe account</label><select id="mc-account"><option value="">Default</option></select></div>
+    </div>
+    <div class="form-group"><label>Note (optional)</label><textarea id="mc-note" placeholder="Internal note about this customer..."></textarea></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('add-customer-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="addCustomer()">Add customer</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="add-account-modal">
+  <div class="modal">
+    <h3>Add Stripe account</h3>
+    <p>Connect a new Stripe account to manage multiple businesses</p>
+    <div class="form-group"><label>Account name</label><input type="text" id="acc-name" placeholder="My Store / Client A"></div>
+    <div class="form-group"><label>Secret key (sk_live_... or sk_test_...)</label><input type="password" id="acc-key" placeholder="sk_live_..."></div>
+    <div class="form-group"><label>Webhook secret (whsec_...) — optional</label><input type="text" id="acc-webhook" placeholder="whsec_..."></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('add-account-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="addAccount()">Save account</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="note-modal">
+  <div class="modal">
+    <h3>Customer note</h3>
+    <p>Add a private note about this customer</p>
+    <input type="hidden" id="note-customer-id">
+    <div class="form-group"><label>Note</label><textarea id="note-text" placeholder="Internal notes..."></textarea></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('note-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveNote()">Save note</button>
+    </div>
+  </div>
+</div>
 
 <div id="toast"></div>
 
 <script>
+// ── State ─────────────────────────────────────────────────────────────────────
 let currentLink = null;
+let allCustomers = [];
+let allSubscriptions = [];
 
+// ── Theme ─────────────────────────────────────────────────────────────────────
+function toggleTheme() {
+  const isLight = document.documentElement.classList.toggle('light');
+  localStorage.setItem('subloop_theme', isLight ? 'light' : 'dark');
+  document.getElementById('theme-label').textContent = isLight ? 'Light mode' : 'Dark mode';
+}
+function initTheme() {
+  if (localStorage.getItem('subloop_theme') === 'light') {
+    document.documentElement.classList.add('light');
+    const l = document.getElementById('theme-label');
+    if (l) l.textContent = 'Light mode';
+  }
+}
+initTheme();
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+function doLogin() {
+  const user = document.getElementById('login-user').value.trim();
+  const pass = document.getElementById('login-pass').value;
+  if (user === 'Tharos333' && pass === 'IssoMoussa544@###') {
+    sessionStorage.setItem('subloop_auth', '1');
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('app-screen').classList.remove('hidden');
+    document.getElementById('login-error').classList.remove('visible');
+    initApp();
+  } else {
+    document.getElementById('login-error').classList.add('visible');
+    document.getElementById('login-pass').value = '';
+    document.getElementById('login-pass').focus();
+  }
+}
+if (sessionStorage.getItem('subloop_auth') === '1') {
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('app-screen').classList.remove('hidden');
+  initApp();
+}
+
+// ── Navigation ────────────────────────────────────────────────────────────────
 function showPage(name, el) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
   el.classList.add('active');
-  if (name === 'dashboard') { loadStats(); loadUpcoming(); loadRecentPayments(); }
+  if (name === 'dashboard') { loadStats(); loadUpcoming(); loadRecentPayments(); loadChart(); }
   else if (name === 'customers') loadCustomers();
   else if (name === 'subscriptions') loadSubscriptions();
   else if (name === 'payments') loadPayments();
-  else if (name === 'accounts') loadAccounts();
-  else if (name === 'links') loadAccounts();
+  else if (name === 'links' || name === 'accounts') loadAccounts();
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function fmt(cents, currency) {
-  currency = currency || 'usd';
-  return new Intl.NumberFormat('en-US', { style:'currency', currency: currency.toUpperCase() }).format((cents || 0) / 100);
+  return new Intl.NumberFormat('en-US', { style:'currency', currency: (currency||'usd').toUpperCase() }).format((cents||0)/100);
 }
-function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) : '—'; }
-function initials(name) { return (name || '?').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase(); }
+function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—'; }
+function initials(name) { return (name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
 function badge(status) {
-  const map = { active:'green', succeeded:'green', failed:'red', paused:'amber', cancelled:'red', pending:'blue' };
-  return '<span class="badge badge-' + (map[status] || 'blue') + '">' + (status || '—') + '</span>';
+  const map={active:'green',succeeded:'green',failed:'red',paused:'amber',cancelled:'red',pending:'blue'};
+  return '<span class="badge badge-'+(map[status]||'blue')+'">'+status+'</span>';
 }
-
 async function api(path, opts) {
-  opts = opts || {};
-  const r = await fetch(path, opts);
-  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const r = await fetch(path, opts||{});
+  if (!r.ok) throw new Error('HTTP '+r.status);
   return r.json();
 }
-
 function toast(msg, type) {
-  type = type || 'success';
   const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.className = 'show ' + type;
-  setTimeout(function() { t.className = ''; }, 2800);
+  t.textContent = msg; t.className = 'show '+(type||'success');
+  setTimeout(()=>t.className='', 2800);
+}
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+function initApp() {
+  loadStats(); loadUpcoming(); loadRecentPayments(); loadChart();
 }
 
+// ── Stats ─────────────────────────────────────────────────────────────────────
 async function loadStats() {
   try {
     const s = await api('/api/stats');
-    document.getElementById('stat-mrr').textContent = fmt(s.mrr || 0);
-    document.getElementById('stat-subs').textContent = s.active_subscriptions || 0;
-    document.getElementById('stat-cards').textContent = s.saved_cards || 0;
-    document.getElementById('stat-failed').textContent = s.failed_payments || 0;
+    document.getElementById('stat-mrr').textContent = fmt(s.mrr||0);
+    document.getElementById('stat-subs').textContent = s.active_subscriptions||0;
+    document.getElementById('stat-customers').textContent = s.total_customers||0;
+    document.getElementById('stat-cards').textContent = s.saved_cards||0;
+    document.getElementById('stat-failed').textContent = s.failed_payments||0;
+    document.getElementById('stat-revenue').textContent = fmt(s.total_revenue||0);
     document.getElementById('server-status').textContent = '● connected';
     document.getElementById('server-status').style.color = 'var(--green)';
   } catch(e) {
@@ -386,314 +483,289 @@ async function loadStats() {
   }
 }
 
+// ── Revenue Chart ─────────────────────────────────────────────────────────────
+async function loadChart() {
+  try {
+    const data = await api('/api/revenue-chart');
+    const wrap = document.getElementById('revenue-chart');
+    if (!data.length) { wrap.innerHTML = '<div style="color:var(--muted);font-size:13px;font-family:var(--mono);margin:auto;">No revenue data yet</div>'; return; }
+    const max = Math.max(...data.map(d => parseInt(d.revenue)||0), 1);
+    wrap.innerHTML = data.map(d => {
+      const h = Math.max(((parseInt(d.revenue)||0)/max)*100, 2);
+      const day = new Date(d.day).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+      return '<div class="chart-bar" style="height:'+h+'%"><div class="chart-bar-tooltip">'+day+'<br>'+fmt(parseInt(d.revenue)||0)+'</div></div>';
+    }).join('');
+  } catch(e) {}
+}
+
+// ── Upcoming ──────────────────────────────────────────────────────────────────
 async function loadUpcoming() {
   try {
     const subs = await api('/api/subscriptions');
     const tb = document.getElementById('upcoming-table');
-    if (!subs.length) { tb.innerHTML = '<tr><td colspan="6" class="empty">No subscriptions yet.</td></tr>'; return; }
-    tb.innerHTML = subs.slice(0,10).map(function(s) {
-      return '<tr><td><div class="customer-cell"><div class="avatar">' + initials(s.name) + '</div><div><div class="customer-name">' + (s.name||'—') + '</div><div class="customer-email">' + (s.email||'') + '</div></div></div></td>' +
-        '<td class="mono">' + fmt(s.amount, s.currency) + '</td>' +
-        '<td class="mono">' + fmtDate(s.next_billing_date) + '</td>' +
-        '<td class="mono">' + (s.interval_days||30) + 'd</td>' +
-        '<td>' + badge(s.status) + '</td>' +
-        '<td><div class="actions">' +
-          (s.status==='active' ? '<button class="btn btn-sm" onclick="chargeNow(' + s.id + ')">Charge now</button>' : '') +
-          (s.status==='active' ? '<button class="btn btn-sm" onclick="setSubStatus(' + s.id + ',\'paused\')">Pause</button>' : '') +
-          (s.status==='paused' ? '<button class="btn btn-sm" onclick="setSubStatus(' + s.id + ',\'active\')">Resume</button>' : '') +
-        '</div></td></tr>';
-    }).join('');
-  } catch(e) { document.getElementById('upcoming-table').innerHTML = '<tr><td colspan="6" class="empty">Error loading</td></tr>'; }
+    if (!subs.length) { tb.innerHTML='<tr><td colspan="5" class="empty">No subscriptions yet.</td></tr>'; return; }
+    tb.innerHTML = subs.slice(0,10).map(s=>'<tr>'+
+      '<td><div class="customer-cell"><div class="avatar">'+initials(s.name)+'</div><div><div class="customer-name">'+(s.name||'—')+'</div><div class="customer-email">'+(s.email||'')+'</div></div></div></td>'+
+      '<td class="mono">'+fmt(s.amount,s.currency)+'</td>'+
+      '<td class="mono">'+fmtDate(s.next_billing_date)+'</td>'+
+      '<td>'+badge(s.status)+'</td>'+
+      '<td><div class="actions">'+
+        (s.status==='active'?'<button class="btn btn-sm" onclick="chargeNow('+s.id+')">Charge</button>':'')+
+        (s.status==='active'?'<button class="btn btn-sm" onclick="setSubStatus('+s.id+',\'paused\')">Pause</button>':'')+
+        (s.status==='paused'?'<button class="btn btn-sm" onclick="setSubStatus('+s.id+',\'active\')">Resume</button>':'')+
+      '</div></td></tr>').join('');
+  } catch(e) { document.getElementById('upcoming-table').innerHTML='<tr><td colspan="5" class="empty">Error</td></tr>'; }
 }
 
+// ── Recent Payments ───────────────────────────────────────────────────────────
 async function loadRecentPayments() {
   try {
     const pmts = await api('/api/payments');
     const tb = document.getElementById('recent-payments-table');
-    if (!pmts.length) { tb.innerHTML = '<tr><td colspan="4" class="empty">No payments yet</td></tr>'; return; }
-    tb.innerHTML = pmts.slice(0,8).map(function(p) {
-      return '<tr><td><div class="customer-cell"><div class="avatar">' + initials(p.name) + '</div><div><div class="customer-name">' + (p.name||'—') + '</div><div class="customer-email">' + (p.email||'') + '</div></div></div></td>' +
-        '<td class="mono">' + fmt(p.amount, p.currency) + '</td>' +
-        '<td>' + badge(p.status) + '</td>' +
-        '<td class="mono">' + fmtDate(p.created_at) + '</td></tr>';
-    }).join('');
-  } catch(e) { document.getElementById('recent-payments-table').innerHTML = '<tr><td colspan="4" class="empty">Error loading</td></tr>'; }
+    if (!pmts.length) { tb.innerHTML='<tr><td colspan="4" class="empty">No payments yet</td></tr>'; return; }
+    tb.innerHTML = pmts.slice(0,8).map(p=>'<tr>'+
+      '<td><div class="customer-cell"><div class="avatar">'+initials(p.name)+'</div><div><div class="customer-name">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div></div></div></td>'+
+      '<td class="mono">'+fmt(p.amount,p.currency)+'</td>'+
+      '<td>'+badge(p.status)+'</td>'+
+      '<td class="mono">'+fmtDate(p.created_at)+'</td></tr>').join('');
+  } catch(e) {}
 }
 
+// ── Customers ─────────────────────────────────────────────────────────────────
 async function loadCustomers() {
   try {
-    const list = await api('/api/customers');
-    const tb = document.getElementById('customers-table');
-    if (!list.length) { tb.innerHTML = '<tr><td colspan="5" class="empty">No customers yet</td></tr>'; return; }
-    tb.innerHTML = list.map(function(c) {
-      return '<tr><td><div class="customer-cell"><div class="avatar">' + initials(c.name) + '</div><div><div class="customer-name">' + (c.name||'—') + '</div><div class="customer-email">' + (c.email||'') + '</div></div></div></td>' +
-        '<td class="mono">' + (c.card_brand ? c.card_brand + ' ···· ' + c.card_last4 : '—') + '</td>' +
-        '<td>' + badge(c.status) + '</td>' +
-        '<td class="mono">' + fmt(c.total_paid || 0) + '</td>' +
-        '<td><div class="actions">' +
-          '<button class="btn btn-sm" onclick="openPortal(' + c.id + ')">Update card ↗</button>' +
-          (c.status==='active' ? '<button class="btn btn-sm btn-danger" onclick="setCustStatus(' + c.id + ',\'paused\')">Pause</button>' : '') +
-          (c.status==='paused' ? '<button class="btn btn-sm" onclick="setCustStatus(' + c.id + ',\'active\')">Resume</button>' : '') +
-        '</div></td></tr>';
-    }).join('');
-  } catch(e) { document.getElementById('customers-table').innerHTML = '<tr><td colspan="5" class="empty">Error loading</td></tr>'; }
+    allCustomers = await api('/api/customers');
+    renderCustomers(allCustomers);
+  } catch(e) { document.getElementById('customers-table').innerHTML='<tr><td colspan="7" class="empty">Error</td></tr>'; }
+}
+function renderCustomers(list) {
+  const tb = document.getElementById('customers-table');
+  if (!list.length) { tb.innerHTML='<tr><td colspan="7" class="empty">No customers yet</td></tr>'; return; }
+  tb.innerHTML = list.map(c=>'<tr>'+
+    '<td><div class="customer-cell"><div class="avatar">'+initials(c.name)+'</div><div><div class="customer-name">'+(c.name||'—')+'</div><div class="customer-email">'+(c.email||'')+'</div></div></div></td>'+
+    '<td class="mono">'+(c.card_brand?c.card_brand+' ···· '+c.card_last4:'—')+'</td>'+
+    '<td style="font-size:12px;color:var(--muted)">'+(c.account_name||'—')+'</td>'+
+    '<td>'+badge(c.status)+'</td>'+
+    '<td><div class="note-text" title="'+(c.note||'')+'">'+(c.note||'<span style="opacity:0.4">No note</span>')+'</div></td>'+
+    '<td class="mono">'+fmt(c.total_paid||0)+'</td>'+
+    '<td><div class="actions">'+
+      '<button class="btn btn-sm" onclick="openNoteModal('+c.id+',\''+encodeURIComponent(c.note||'')+'\')">Note</button>'+
+      '<button class="btn btn-sm" onclick="openPortal('+c.id+')">Update card ↗</button>'+
+      (c.status==='active'?'<button class="btn btn-sm btn-danger" onclick="setCustStatus('+c.id+',\'paused\')">Pause</button>':'')+
+      (c.status==='paused'?'<button class="btn btn-sm" onclick="setCustStatus('+c.id+',\'active\')">Resume</button>':'')+
+    '</div></td></tr>').join('');
+}
+function filterCustomers() {
+  const q = document.getElementById('customer-search').value.toLowerCase();
+  renderCustomers(allCustomers.filter(c=>(c.name||'').toLowerCase().includes(q)||(c.email||'').toLowerCase().includes(q)));
 }
 
+// ── Subscriptions ─────────────────────────────────────────────────────────────
 async function loadSubscriptions() {
   try {
-    const list = await api('/api/subscriptions');
-    const tb = document.getElementById('subscriptions-table');
-    if (!list.length) { tb.innerHTML = '<tr><td colspan="6" class="empty">No subscriptions yet</td></tr>'; return; }
-    tb.innerHTML = list.map(function(s) {
-      return '<tr><td><div class="customer-cell"><div class="avatar">' + initials(s.name) + '</div><div><div class="customer-name">' + (s.name||'—') + '</div><div class="customer-email">' + (s.email||'') + '</div></div></div></td>' +
-        '<td class="mono" id="amount-display-' + s.id + '">' + fmt(s.amount, s.currency) + '</td>' +
-        '<td class="mono">' + (s.interval_days||30) + ' days</td>' +
-        '<td class="mono">' + fmtDate(s.next_billing_date) + '</td>' +
-        '<td>' + badge(s.status) + '</td>' +
-        '<td><div class="actions">' +
-          (s.status==='active' ? '<button class="btn btn-sm" onclick="chargeNow(' + s.id + ')">Charge</button>' : '') +
-          '<button class="btn btn-sm" onclick="showEditAmount(' + s.id + ',' + s.amount + ')">Edit $</button>' +
-          '<span id="edit-' + s.id + '"></span>' +
-          (s.status==='active' ? '<button class="btn btn-sm" onclick="setSubStatus(' + s.id + ',\'paused\')">Pause</button>' : '') +
-          (s.status==='paused' ? '<button class="btn btn-sm" onclick="setSubStatus(' + s.id + ',\'active\')">Resume</button>' : '') +
-          '<button class="btn btn-sm btn-danger" onclick="setSubStatus(' + s.id + ',\'cancelled\')">Cancel</button>' +
-        '</div></td></tr>';
-    }).join('');
-  } catch(e) { document.getElementById('subscriptions-table').innerHTML = '<tr><td colspan="6" class="empty">Error loading</td></tr>'; }
+    allSubscriptions = await api('/api/subscriptions');
+    renderSubscriptions(allSubscriptions);
+  } catch(e) { document.getElementById('subscriptions-table').innerHTML='<tr><td colspan="6" class="empty">Error</td></tr>'; }
 }
-
+function renderSubscriptions(list) {
+  const tb = document.getElementById('subscriptions-table');
+  if (!list.length) { tb.innerHTML='<tr><td colspan="6" class="empty">No subscriptions yet</td></tr>'; return; }
+  tb.innerHTML = list.map(s=>'<tr>'+
+    '<td><div class="customer-cell"><div class="avatar">'+initials(s.name)+'</div><div><div class="customer-name">'+(s.name||'—')+'</div><div class="customer-email">'+(s.email||'')+'</div></div></div></td>'+
+    '<td class="mono" id="amount-cell-'+s.id+'">'+fmt(s.amount,s.currency)+'</td>'+
+    '<td class="mono">'+(s.interval_days||30)+' days</td>'+
+    '<td class="mono">'+fmtDate(s.next_billing_date)+'</td>'+
+    '<td>'+badge(s.status)+'</td>'+
+    '<td><div class="actions">'+
+      (s.status==='active'?'<button class="btn btn-sm" onclick="chargeNow('+s.id+')">Charge</button>':'')+
+      '<button class="btn btn-sm" onclick="showEditAmount('+s.id+','+s.amount+')">Edit $</button>'+
+      '<span id="edit-'+s.id+'"></span>'+
+      (s.status==='active'?'<button class="btn btn-sm" onclick="setSubStatus('+s.id+',\'paused\')">Pause</button>':'')+
+      (s.status==='paused'?'<button class="btn btn-sm" onclick="setSubStatus('+s.id+',\'active\')">Resume</button>':'')+
+      '<button class="btn btn-sm btn-danger" onclick="setSubStatus('+s.id+',\'cancelled\')">Cancel</button>'+
+    '</div></td></tr>').join('');
+}
+function filterSubscriptions() {
+  const q = document.getElementById('sub-search').value.toLowerCase();
+  renderSubscriptions(allSubscriptions.filter(s=>(s.name||'').toLowerCase().includes(q)||(s.email||'').toLowerCase().includes(q)));
+}
 function showEditAmount(subId, currentAmount) {
-  const container = document.getElementById('edit-' + subId);
+  const container = document.getElementById('edit-'+subId);
   if (!container) return;
-  const dollars = (currentAmount / 100).toFixed(2);
-  container.innerHTML = '<div class="edit-inline">' +
-    '<input type="number" id="new-amount-' + subId + '" value="' + dollars + '" step="0.01" min="0.50" style="width:90px;padding:4px 8px;font-size:12px;">' +
-    '<button class="btn btn-sm btn-primary" onclick="saveAmount(' + subId + ')">Save</button>' +
-    '<button class="btn btn-sm" onclick="loadSubscriptions()">✕</button>' +
-    '</div>';
-  document.getElementById('new-amount-' + subId).focus();
+  const dollars = (currentAmount/100).toFixed(2);
+  container.innerHTML = '<div style="display:inline-flex;align-items:center;gap:5px;">'+
+    '<input type="number" id="new-amount-'+subId+'" value="'+dollars+'" step="0.01" min="0.50" style="width:80px;padding:4px 7px;font-size:12px;">'+
+    '<button class="btn btn-sm btn-primary" onclick="saveAmount('+subId+')">Save</button>'+
+    '<button class="btn btn-sm" onclick="loadSubscriptions()">✕</button></div>';
+  document.getElementById('new-amount-'+subId).focus();
 }
-
 async function saveAmount(subId) {
-  const input = document.getElementById('new-amount-' + subId);
+  const input = document.getElementById('new-amount-'+subId);
   if (!input) return;
-  const newCents = Math.round(parseFloat(input.value) * 100);
-  if (isNaN(newCents) || newCents < 50) { toast('Minimum $0.50', 'error'); return; }
-  try {
-    const r = await api('/api/subscriptions/' + subId + '/amount', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount: newCents }),
-    });
-    if (r.success) { toast('✓ Amount updated'); loadSubscriptions(); }
-    else toast('Error: ' + (r.error || 'Failed'), 'error');
-  } catch(e) { toast('Error updating amount', 'error'); }
+  const newCents = Math.round(parseFloat(input.value)*100);
+  if (isNaN(newCents)||newCents<50) { toast('Minimum $0.50','error'); return; }
+  const r = await api('/api/subscriptions/'+subId+'/amount',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:newCents})});
+  if (r.success) { toast('✓ Amount updated'); loadSubscriptions(); }
+  else toast('Error: '+(r.error||'Failed'),'error');
 }
 
+// ── Payments ──────────────────────────────────────────────────────────────────
 async function loadPayments() {
   try {
     const list = await api('/api/payments');
     const tb = document.getElementById('payments-table');
-    if (!list.length) { tb.innerHTML = '<tr><td colspan="5" class="empty">No payments yet</td></tr>'; return; }
-    tb.innerHTML = list.map(function(p) {
-      return '<tr><td><div class="customer-cell"><div class="avatar">' + initials(p.name) + '</div><div><div class="customer-name">' + (p.name||'—') + '</div><div class="customer-email">' + (p.email||'') + '</div></div></div></td>' +
-        '<td class="mono">' + fmt(p.amount, p.currency) + '</td>' +
-        '<td>' + badge(p.status) + '</td>' +
-        '<td class="mono">' + fmtDate(p.created_at) + '</td>' +
-        '<td class="mono" style="font-size:11px;color:var(--muted)">' + (p.stripe_payment_intent ? p.stripe_payment_intent.slice(0,24) + '…' : '—') + '</td></tr>';
-    }).join('');
-  } catch(e) { document.getElementById('payments-table').innerHTML = '<tr><td colspan="5" class="empty">Error loading</td></tr>'; }
+    if (!list.length) { tb.innerHTML='<tr><td colspan="6" class="empty">No payments yet</td></tr>'; return; }
+    tb.innerHTML = list.map(p=>'<tr>'+
+      '<td><div class="customer-cell"><div class="avatar">'+initials(p.name)+'</div><div><div class="customer-name">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div></div></div></td>'+
+      '<td class="mono">'+fmt(p.amount,p.currency)+'</td>'+
+      '<td>'+badge(p.status)+'</td>'+
+      '<td class="mono">'+fmtDate(p.created_at)+'</td>'+
+      '<td class="mono" style="font-size:11px;color:var(--muted)">'+(p.stripe_payment_intent?p.stripe_payment_intent.slice(0,22)+'…':'—')+'</td>'+
+      '<td>'+(p.status==='failed'?'<button class="btn btn-sm btn-success" onclick="retryPayment('+p.id+')">Retry</button>':'')+'</td></tr>').join('');
+  } catch(e) {}
+}
+async function retryPayment(id) {
+  toast('Retrying payment…');
+  try {
+    const r = await api('/api/payments/'+id+'/retry',{method:'POST'});
+    if (r.success) { toast('✓ Payment succeeded'); loadPayments(); loadStats(); }
+    else toast('✗ '+(r.error||'Failed'),'error');
+  } catch(e) { toast('Error','error'); }
 }
 
+// ── Actions ───────────────────────────────────────────────────────────────────
 async function chargeNow(subId) {
   toast('Charging…');
   try {
-    const r = await api('/api/subscriptions/' + subId + '/charge', { method: 'POST' });
+    const r = await api('/api/subscriptions/'+subId+'/charge',{method:'POST'});
     if (r.success) { toast('✓ Payment succeeded'); loadUpcoming(); loadStats(); }
-    else toast('✗ ' + (r.error || 'Charge failed'), 'error');
-  } catch(e) { toast('Error', 'error'); }
+    else toast('✗ '+(r.error||'Charge failed'),'error');
+  } catch(e) { toast('Error','error'); }
 }
-
 async function setSubStatus(id, status) {
-  try {
-    await api('/api/subscriptions/' + id + '/status', {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status })
-    });
-    toast('Subscription ' + status);
-    loadUpcoming(); loadSubscriptions(); loadStats();
-  } catch(e) { toast('Error', 'error'); }
+  await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});
+  toast('Subscription '+status);
+  loadUpcoming(); loadSubscriptions(); loadStats();
 }
-
 async function setCustStatus(id, status) {
-  try {
-    await api('/api/customers/' + id + '/status', {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status })
-    });
-    toast('Customer ' + status);
-    loadCustomers();
-  } catch(e) { toast('Error', 'error'); }
+  await api('/api/customers/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});
+  toast('Customer '+status); loadCustomers();
 }
-
 async function openPortal(customerId) {
   try {
-    const r = await api('/api/customers/' + customerId + '/portal', { method: 'POST' });
-    if (r.url) window.open(r.url, '_blank');
-    else toast('Could not open portal', 'error');
-  } catch(e) { toast('Error', 'error'); }
+    const r = await api('/api/customers/'+customerId+'/portal',{method:'POST'});
+    if (r.url) window.open(r.url,'_blank');
+    else toast('Could not open portal','error');
+  } catch(e) { toast('Error','error'); }
 }
-
 async function runRebills() {
   toast('Running rebill job…');
   try {
-    const r = await api('/api/run-rebills', { method: 'POST' });
-    if (r.success) { toast('✓ Rebill job complete'); loadStats(); loadUpcoming(); }
-  } catch(e) { toast('Error', 'error'); }
+    const r = await api('/api/run-rebills',{method:'POST'});
+    if (r.success) { toast('✓ Done: '+r.succeeded+' charged, '+r.failed+' failed'); loadStats(); loadUpcoming(); }
+  } catch(e) { toast('Error','error'); }
 }
 
+// ── Add Customer ──────────────────────────────────────────────────────────────
+async function addCustomer() {
+  const body = {
+    name: document.getElementById('mc-name').value.trim(),
+    email: document.getElementById('mc-email').value.trim(),
+    stripe_customer_id: document.getElementById('mc-stripe-id').value.trim(),
+    stripe_payment_method: document.getElementById('mc-pm-id').value.trim()||null,
+    card_brand: document.getElementById('mc-brand').value.trim()||null,
+    card_last4: document.getElementById('mc-last4').value.trim()||null,
+    card_exp_month: document.getElementById('mc-exp-m').value||null,
+    card_exp_year: document.getElementById('mc-exp-y').value||null,
+    stripe_account_id: document.getElementById('mc-account').value||null,
+    note: document.getElementById('mc-note').value.trim()||null,
+  };
+  if (!body.email||!body.stripe_customer_id) { toast('Email and Stripe ID required','error'); return; }
+  try {
+    const r = await api('/api/customers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if (r.success) { toast('✓ Customer added'); closeModal('add-customer-modal'); loadCustomers(); }
+    else toast('Error: '+(r.error||'Failed'),'error');
+  } catch(e) { toast('Error adding customer','error'); }
+}
+
+// ── Notes ─────────────────────────────────────────────────────────────────────
+function openNoteModal(id, note) {
+  document.getElementById('note-customer-id').value = id;
+  document.getElementById('note-text').value = decodeURIComponent(note);
+  openModal('note-modal');
+}
+async function saveNote() {
+  const id = document.getElementById('note-customer-id').value;
+  const note = document.getElementById('note-text').value;
+  await api('/api/customers/'+id+'/note',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({note})});
+  toast('✓ Note saved'); closeModal('note-modal'); loadCustomers();
+}
+
+// ── Payment Links ─────────────────────────────────────────────────────────────
 async function createPaymentLink() {
   const btn = document.getElementById('create-link-btn');
-  btn.textContent = 'Creating…';
-  btn.disabled = true;
+  btn.textContent = 'Creating…'; btn.disabled = true;
   try {
-    const r = await api('/api/payment-links', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: document.getElementById('link-name').value,
-        amount: parseInt(document.getElementById('link-amount').value),
-        currency: document.getElementById('link-currency').value,
-        interval_days: parseInt(document.getElementById('link-interval').value),
-        stripe_account_id: document.getElementById('link-account') ? document.getElementById('link-account').value : null,
-      }),
-    });
-    if (r.url) {
-      currentLink = r.url;
-      document.getElementById('link-url').textContent = r.url;
-      document.getElementById('link-result').classList.add('visible');
-      toast('✓ Payment link created');
-    } else toast('Error: ' + (r.error || 'Unknown'), 'error');
-  } catch(e) { toast('Server error', 'error'); }
-  btn.textContent = 'Generate payment link';
-  btn.disabled = false;
+    const r = await api('/api/payment-links',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      name: document.getElementById('link-name').value,
+      amount: parseInt(document.getElementById('link-amount').value),
+      currency: document.getElementById('link-currency').value,
+      interval_days: parseInt(document.getElementById('link-interval').value),
+      stripe_account_id: document.getElementById('link-account').value||null,
+    })});
+    if (r.url) { currentLink=r.url; document.getElementById('link-url').textContent=r.url; document.getElementById('link-result').classList.add('visible'); toast('✓ Link created'); }
+    else toast('Error: '+(r.error||'Unknown'),'error');
+  } catch(e) { toast('Server error','error'); }
+  btn.textContent = 'Generate payment link'; btn.disabled = false;
 }
-
 function copyLink() { navigator.clipboard.writeText(currentLink); toast('Copied!'); }
-function openLink() { window.open(currentLink, '_blank'); }
+function openLink() { window.open(currentLink,'_blank'); }
 
-
-// ── Theme ────────────────────────────────────────────────────────────────────
-function toggleTheme() {
-  const isLight = document.documentElement.classList.toggle('light');
-  localStorage.setItem('subloop_theme', isLight ? 'light' : 'dark');
-  document.getElementById('theme-label').textContent = isLight ? 'Light mode' : 'Dark mode';
-}
-
-function initTheme() {
-  const saved = localStorage.getItem('subloop_theme');
-  if (saved === 'light') {
-    document.documentElement.classList.add('light');
-    const label = document.getElementById('theme-label');
-    if (label) label.textContent = 'Light mode';
-  }
-}
-initTheme();
-
-// ── Stripe Accounts ──────────────────────────────────────────────────────────
-function showAddAccount() {
-  const form = document.getElementById('add-account-form');
-  form.style.display = form.style.display === 'none' ? 'block' : 'none';
-}
-
+// ── Stripe Accounts ───────────────────────────────────────────────────────────
 async function loadAccounts() {
   try {
     const list = await api('/api/stripe-accounts');
     const tb = document.getElementById('accounts-table');
-    if (!list.length) { tb.innerHTML = '<tr><td colspan="4" class="empty">No accounts yet</td></tr>'; return; }
-    tb.innerHTML = list.map(function(a) {
-      return '<tr>' +
-        '<td><strong>' + a.name + '</strong></td>' +
-        '<td class="mono" style="font-size:12px;">' + (a.key_preview || '—') + '</td>' +
-        '<td>' + (a.is_default ? '<span class="badge badge-green">default</span>' : '<span class="badge badge-blue">active</span>') + '</td>' +
-        '<td><div class="actions">' +
-          (!a.is_default ? '<button class="btn btn-sm" onclick="setDefaultAccount(' + a.id + ')">Set default</button>' : '') +
-          '<button class="btn btn-sm btn-danger" onclick="deleteAccount(' + a.id + ')">Delete</button>' +
-        '</div></td>' +
-      '</tr>';
-    }).join('');
-
-    // Also populate account selector in payment links
-    const sel = document.getElementById('link-account');
-    if (sel) {
-      sel.innerHTML = list.map(function(a) {
-        return '<option value="' + a.id + '"' + (a.is_default ? ' selected' : '') + '>' + a.name + '</option>';
-      }).join('');
+    if (tb) {
+      if (!list.length) { tb.innerHTML='<tr><td colspan="4" class="empty">No accounts yet</td></tr>'; }
+      else tb.innerHTML = list.map(a=>'<tr>'+
+        '<td><strong>'+a.name+'</strong></td>'+
+        '<td class="mono" style="font-size:12px;">'+(a.key_preview||'—')+'</td>'+
+        '<td>'+(a.is_default?'<span class="badge badge-green">default</span>':'<span class="badge badge-blue">active</span>')+'</td>'+
+        '<td><div class="actions">'+
+          (!a.is_default?'<button class="btn btn-sm" onclick="setDefaultAccount('+a.id+')">Set default</button>':'')+
+          '<button class="btn btn-sm btn-danger" onclick="deleteAccount('+a.id+')">Delete</button>'+
+        '</div></td></tr>').join('');
     }
-  } catch(e) { console.error(e); }
+    // Populate selectors
+    const opts = list.map(a=>'<option value="'+a.id+'"'+(a.is_default?' selected':'')+'>'+a.name+'</option>').join('');
+    const linkSel = document.getElementById('link-account');
+    if (linkSel) linkSel.innerHTML = opts || '<option value="">No accounts</option>';
+    const mcSel = document.getElementById('mc-account');
+    if (mcSel) mcSel.innerHTML = '<option value="">Default</option>'+opts;
+  } catch(e) {}
 }
-
 async function addAccount() {
   const name = document.getElementById('acc-name').value.trim();
   const key = document.getElementById('acc-key').value.trim();
   const webhook = document.getElementById('acc-webhook').value.trim();
-  if (!name || !key) { toast('Name and secret key required', 'error'); return; }
-  try {
-    const r = await api('/api/stripe-accounts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, secret_key: key, webhook_secret: webhook }),
-    });
-    if (r.success) {
-      toast('✓ Account added');
-      document.getElementById('add-account-form').style.display = 'none';
-      document.getElementById('acc-name').value = '';
-      document.getElementById('acc-key').value = '';
-      document.getElementById('acc-webhook').value = '';
-      loadAccounts();
-    } else toast('Error: ' + (r.error || 'Failed'), 'error');
-  } catch(e) { toast('Error adding account', 'error'); }
+  if (!name||!key) { toast('Name and key required','error'); return; }
+  const r = await api('/api/stripe-accounts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,secret_key:key,webhook_secret:webhook})});
+  if (r.success) { toast('✓ Account added'); closeModal('add-account-modal'); document.getElementById('acc-name').value=''; document.getElementById('acc-key').value=''; document.getElementById('acc-webhook').value=''; loadAccounts(); }
+  else toast('Error: '+(r.error||'Failed'),'error');
 }
-
 async function setDefaultAccount(id) {
-  await api('/api/stripe-accounts/' + id + '/default', { method: 'PATCH' });
-  toast('✓ Default account updated');
-  loadAccounts();
+  await api('/api/stripe-accounts/'+id+'/default',{method:'PATCH'});
+  toast('✓ Default updated'); loadAccounts();
 }
-
 async function deleteAccount(id) {
-  if (!confirm('Delete this Stripe account? Customers linked to it will still exist but cannot be rebilled.')) return;
-  await api('/api/stripe-accounts/' + id, { method: 'DELETE' });
-  toast('Account deleted');
-  loadAccounts();
+  if (!confirm('Delete this account?')) return;
+  await api('/api/stripe-accounts/'+id,{method:'DELETE'});
+  toast('Account deleted'); loadAccounts();
 }
 
-// ── Auth ──────────────────────────────────────────────────────────────────────
-const VALID_USER = 'Tharos333';
-const VALID_PASS = 'IssoMoussa544@###';
-
-function doLogin() {
-  const user = document.getElementById('login-user').value.trim();
-  const pass = document.getElementById('login-pass').value;
-  const err = document.getElementById('login-error');
-  if (user === VALID_USER && pass === VALID_PASS) {
-    sessionStorage.setItem('subloop_auth', '1');
-    document.getElementById('login-screen').classList.add('hidden');
-    document.getElementById('app-screen').classList.remove('hidden');
-    err.classList.remove('visible');
-    loadStats(); loadUpcoming(); loadRecentPayments();
-  } else {
-    err.classList.add('visible');
-    document.getElementById('login-pass').value = '';
-    document.getElementById('login-pass').focus();
-  }
-}
-
-// Check if already logged in this session
-if (sessionStorage.getItem('subloop_auth') === '1') {
-  document.getElementById('login-screen').classList.add('hidden');
-  document.getElementById('app-screen').classList.remove('hidden');
-  loadStats(); loadUpcoming(); loadRecentPayments();
-}
+// Close modals on background click
+document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{ if(e.target===m) m.classList.remove('open'); }));
 </script>
-</div><!-- end app-screen -->
 </body>
 </html>
