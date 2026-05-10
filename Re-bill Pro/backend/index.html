@@ -576,6 +576,31 @@ async function loadChart() {
     }
 
     wrap.innerHTML = html;
+
+    // Build bars using DOM to avoid quote escaping issues
+    const barsContainer = document.getElementById('rev-bars-container');
+    if (barsContainer && data.length > 0) {
+      const maxV = Math.max(...data.map(d=>parseInt(d.revenue)||0), 1);
+      data.forEach(d => {
+        const rev = parseInt(d.revenue)||0;
+        const pct = Math.max((rev/maxV)*100, rev>0?8:3);
+        const day = new Date(d.day).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+        const bar = document.createElement('div');
+        bar.title = day + ': ' + fmt(rev);
+        bar.style.flex = '1';
+        bar.style.background = rev>0 ? 'var(--accent)' : 'var(--border2)';
+        bar.style.borderRadius = '2px 2px 0 0';
+        bar.style.height = pct + '%';
+        bar.style.minHeight = (rev>0?'5':'2') + 'px';
+        bar.style.opacity = rev>0 ? '0.85' : '0.4';
+        bar.style.cursor = 'default';
+        bar.style.transition = 'opacity 0.15s';
+        const origOp = rev>0 ? '0.85' : '0.4';
+        bar.onmouseover = function() { this.style.opacity = '1'; };
+        bar.onmouseout = function() { this.style.opacity = origOp; };
+        barsContainer.appendChild(bar);
+      });
+    }
   } catch(e) { console.error('Revenue error:', e); }
 }
 
