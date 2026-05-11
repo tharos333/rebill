@@ -216,6 +216,7 @@ textarea{resize:vertical;min-height:60px}
   <button class="nav-item" onclick="showPage('expiry',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><circle cx="16" cy="15" r="2" fill="currentColor"/></svg>Expiring Cards</button>
   <button class="nav-item" onclick="showPage('summary',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Daily Summary</button>
   <div class="nav-section">Settings</div>
+  <button class="nav-item" onclick="showPage('admins',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Admin Users</button>
   <button class="nav-item" onclick="showPage('settings',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
   <button class="nav-item" onclick="showPage('security',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Security</button>
   <button class="nav-item" onclick="showPage('webhooks',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>Webhook Logs</button>
@@ -529,6 +530,32 @@ textarea{resize:vertical;min-height:60px}
   </div>
 </div>
 
+
+<!-- Admin Users -->
+<div id="page-admins" class="page">
+  <div class="page-header">
+    <div><h2>Admin Users</h2><p>Manage who can access Subloop</p></div>
+    <button class="btn btn-primary" onclick="openModal('add-admin-modal')">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add admin
+    </button>
+  </div>
+  <div class="card">
+    <div class="scrollable"><table>
+      <thead><tr><th>Username</th><th>Role</th><th>Last login</th><th>Created</th><th>Actions</th></tr></thead>
+      <tbody id="admins-table"><tr><td colspan="5" class="empty">Loading...</td></tr></tbody>
+    </table></div>
+  </div>
+  <div class="card" style="max-width:600px;">
+    <div class="card-header"><h3>Change your password</h3></div>
+    <div style="padding:18px;">
+      <div class="form-group"><label>New password</label><input type="password" id="change-pass-new" placeholder="New password (min 8 chars)"></div>
+      <div class="form-group"><label>Confirm password</label><input type="password" id="change-pass-confirm" placeholder="Confirm password"></div>
+      <button class="btn btn-primary" onclick="changeMyPassword()">Update password</button>
+    </div>
+  </div>
+</div>
+
 </main>
 </div>
 
@@ -581,6 +608,24 @@ textarea{resize:vertical;min-height:60px}
     <div class="modal-footer"><button class="btn" onclick="closeModal('invoice-modal')">Cancel</button><button class="btn btn-primary" onclick="sendInvoiceFromModal()">Charge</button></div>
   </div>
 </div>
+<div class="modal-bg" id="add-admin-modal">
+  <div class="modal">
+    <h3>Add admin user</h3>
+    <p>They will be able to log in and manage Subloop</p>
+    <div class="form-group"><label>Username</label><input type="text" id="admin-username" placeholder="e.g. john_admin"></div>
+    <div class="form-group"><label>Password</label><input type="password" id="admin-password" placeholder="Min 8 characters"></div>
+    <div class="form-group"><label>Role</label>
+      <select id="admin-role">
+        <option value="admin">Admin — full access</option>
+        <option value="viewer">Viewer — read only</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('add-admin-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="addAdmin()">Add admin</button>
+    </div>
+  </div>
+</div>
 <div id="toast"></div>
 
 <script>
@@ -593,23 +638,31 @@ initTheme();
 
 // Auth
 function doLogin(){
-  const user=document.getElementById('login-user').value.trim();
-  const pass=document.getElementById('login-pass').value;
-  const err=document.getElementById('login-error');
-  if(user==='Tharos333'&&pass==='IssoMoussa544@###'){
-    err.classList.remove('visible');
-    api('/api/security/2fa/status').then(function(s){
-      if(s&&s.enabled){
-        document.getElementById('login-step-1').style.display='none';
-        document.getElementById('login-step-2').style.display='block';
-        setTimeout(function(){document.getElementById('otp-0').focus();},100);
-      } else { completeLogin(); }
-    }).catch(function(){ completeLogin(); });
-  } else {
+  var user=document.getElementById('login-user').value.trim();
+  var pass=document.getElementById('login-pass').value;
+  var err=document.getElementById('login-error');
+  err.classList.remove('visible');
+  api('/api/auth/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:user,password:pass})})
+  .then(function(r){
+    if(r.success){
+      sessionStorage.setItem('subloop_username', user);
+      sessionStorage.setItem('subloop_role', r.role||'admin');
+      api('/api/security/2fa/status').then(function(s){
+        if(s&&s.enabled){
+          document.getElementById('login-step-1').style.display='none';
+          document.getElementById('login-step-2').style.display='block';
+          setTimeout(function(){document.getElementById('otp-0').focus();},100);
+        } else { completeLogin(); }
+      }).catch(function(){ completeLogin(); });
+    } else {
+      err.classList.add('visible');
+      document.getElementById('login-pass').value='';
+      document.getElementById('login-pass').focus();
+    }
+  }).catch(function(){
     err.classList.add('visible');
     document.getElementById('login-pass').value='';
-    document.getElementById('login-pass').focus();
-  }
+  });
 }
 function completeLogin(){
   sessionStorage.setItem('subloop_auth','1');
@@ -650,7 +703,7 @@ function showPage(name,el){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   el.classList.add('active');
-  const loaders={dashboard:()=>{loadStats();loadUpcoming();loadRecentPayments();loadChart();},activity:loadActivity,customers:loadCustomers,subscriptions:loadSubscriptions,payments:loadPayments,links:loadAccounts,settings:loadSettings,accounts:loadAccounts,security:loadSecurity,webhooks:loadWebhooks,forecast:loadForecast,expiry:loadExpiry,summary:loadSummary};
+  const loaders={dashboard:()=>{loadStats();loadUpcoming();loadRecentPayments();loadChart();},activity:loadActivity,customers:loadCustomers,subscriptions:loadSubscriptions,payments:loadPayments,links:loadAccounts,settings:loadSettings,accounts:loadAccounts,security:loadSecurity,webhooks:loadWebhooks,forecast:loadForecast,expiry:loadExpiry,summary:loadSummary,admins:loadAdmins};
   if(loaders[name])loaders[name]();
 }
 
@@ -1077,6 +1130,70 @@ async function sendInvoiceFromModal(){
     result.style.display='block';
     if(r.success){result.style.cssText='background:var(--green-bg);color:var(--green);border:1px solid var(--green);padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);';result.textContent='✓ Charged successfully!';toast('✓ Invoice sent');}
     else{result.style.cssText='background:var(--red-bg);color:var(--red);border:1px solid var(--red);padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);';result.textContent='✗ '+(r.error||'Failed');toast('Failed','error');}
+  }catch(e){toast('Error','error');}
+}
+
+
+// ── Admin Users ───────────────────────────────────────────────────────────────
+var currentAdminId = null;
+
+async function loadAdmins(){
+  try{
+    const list = await api('/api/admin-users');
+    const tb = document.getElementById('admins-table');
+    if(!list.length){tb.innerHTML='<tr><td colspan="5" class="empty">No admins found</td></tr>';return;}
+    tb.innerHTML = list.map(function(a){
+      var roleBadge = a.role==='owner'
+        ? '<span class="badge badge-purple">owner</span>'
+        : '<span class="badge badge-blue">'+a.role+'</span>';
+      return '<tr>'+
+        '<td><strong>'+a.username+'</strong></td>'+
+        '<td>'+roleBadge+'</td>'+
+        '<td class="mono" style="font-size:12px;color:var(--muted);">'+(a.last_login?fmtTime(a.last_login):'Never')+'</td>'+
+        '<td class="mono" style="font-size:12px;color:var(--muted);">'+fmtDate(a.created_at)+'</td>'+
+        '<td><div class="actions">'+
+          (a.role!=='owner'?'<button class="btn btn-sm btn-danger" onclick="deleteAdmin('+a.id+')" >Remove</button>':'')+
+        '</div></td>'+
+      '</tr>';
+    }).join('');
+  }catch(e){console.error(e);}
+}
+
+async function addAdmin(){
+  var username=document.getElementById('admin-username').value.trim();
+  var password=document.getElementById('admin-password').value;
+  var role=document.getElementById('admin-role').value;
+  if(!username||!password){toast('Fill in all fields','error');return;}
+  if(password.length<8){toast('Password must be at least 8 characters','error');return;}
+  try{
+    var r=await api('/api/admin-users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password,role})});
+    if(r.success){toast('✓ Admin added');closeModal('add-admin-modal');document.getElementById('admin-username').value='';document.getElementById('admin-password').value='';loadAdmins();}
+    else toast('Error: '+(r.error||'Failed'),'error');
+  }catch(e){toast('Error','error');}
+}
+
+async function deleteAdmin(id){
+  if(!confirm('Remove this admin user?'))return;
+  try{
+    var r=await api('/api/admin-users/'+id,{method:'DELETE'});
+    if(r.success){toast('✓ Admin removed');loadAdmins();}
+    else toast('Error: '+(r.error||'Failed'),'error');
+  }catch(e){toast('Error','error');}
+}
+
+async function changeMyPassword(){
+  var np=document.getElementById('change-pass-new').value;
+  var cp=document.getElementById('change-pass-confirm').value;
+  if(!np||np.length<8){toast('Password must be at least 8 characters','error');return;}
+  if(np!==cp){toast('Passwords do not match','error');return;}
+  try{
+    // Get current user's ID
+    var list=await api('/api/admin-users');
+    var me=list.find(function(a){return a.username===sessionStorage.getItem('subloop_username');});
+    if(!me){toast('Could not find your account','error');return;}
+    var r=await api('/api/admin-users/'+me.id+'/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:np})});
+    if(r.success){toast('✓ Password updated');document.getElementById('change-pass-new').value='';document.getElementById('change-pass-confirm').value='';}
+    else toast('Error: '+(r.error||'Failed'),'error');
   }catch(e){toast('Error','error');}
 }
 
