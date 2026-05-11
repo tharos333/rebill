@@ -548,16 +548,23 @@ app.get('/api/admin-users', async (req, res) => {
 
 app.post('/api/admin-users', async (req, res) => {
   try {
-    const { username, password, role } = req.body;
+    const { username, password, role, permissions } = req.body;
     if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
     if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
-    await adminUsers.create(username, password, role || 'admin');
-    await activityLog.add('security', `New admin user created: ${username}`);
+    await adminUsers.create(username, password, role || 'admin', permissions || []);
+    await activityLog.add('security', `New admin user created: ${username} (role: ${role||'admin'})`);
     res.json({ success: true });
   } catch(err) {
     if (err.message.includes('unique')) return res.status(400).json({ error: 'Username already exists' });
     res.status(500).json({ error: err.message });
   }
+});
+
+app.patch('/api/admin-users/:id/permissions', async (req, res) => {
+  try {
+    await adminUsers.updatePermissions(req.params.id, req.body.permissions || []);
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
 app.delete('/api/admin-users/:id', async (req, res) => {
@@ -588,7 +595,7 @@ app.post('/api/auth/verify', async (req, res) => {
     if (user) {
       await adminUsers.updateLastLogin(user.id);
       await security.logAttempt(ip, true);
-      res.json({ success: true, role: user.role, username: user.username });
+      res.json({ success: true, role: user.role, username: user.username, permissions: user.permissions || [] });
     } else {
       await security.logAttempt(ip, false);
       res.json({ success: false });
