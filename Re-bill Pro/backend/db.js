@@ -356,17 +356,17 @@ const security = {
 
 const adminUsers = {
   all: async () => {
-    const r = await pool.query('SELECT id, username, role, created_at, last_login FROM admin_users ORDER BY created_at ASC');
+    const r = await pool.query('SELECT id, username, role, permissions, created_at, last_login FROM admin_users ORDER BY created_at ASC');
     return r.rows;
   },
   byUsername: async (username) => {
     const r = await pool.query('SELECT * FROM admin_users WHERE username=$1', [username]);
     return r.rows[0];
   },
-  create: async (username, password, role='admin') => {
+  create: async (username, password, role='admin', permissions=[]) => {
     const crypto = require('crypto');
     const hash = crypto.createHash('sha256').update(password).digest('hex');
-    await pool.query('INSERT INTO admin_users (username, password_hash, role) VALUES ($1,$2,$3)', [username, hash, role]);
+    await pool.query('INSERT INTO admin_users (username, password_hash, role, permissions) VALUES ($1,$2,$3,$4)', [username, hash, role, JSON.stringify(permissions)]);
   },
   delete: async (id) => {
     await pool.query('DELETE FROM admin_users WHERE id=$1', [id]);
@@ -378,6 +378,9 @@ const adminUsers = {
     const crypto = require('crypto');
     const hash = crypto.createHash('sha256').update(newPassword).digest('hex');
     await pool.query('UPDATE admin_users SET password_hash=$1 WHERE id=$2', [hash, id]);
+  },
+  updatePermissions: async (id, permissions) => {
+    await pool.query('UPDATE admin_users SET permissions=$1 WHERE id=$2', [JSON.stringify(permissions), id]);
   },
   verify: async (username, password) => {
     const crypto = require('crypto');
