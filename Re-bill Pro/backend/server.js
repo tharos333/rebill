@@ -611,6 +611,20 @@ app.post('/api/admin-users/:id/change-password', async (req, res) => {
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
+// Check if current session is still valid and get fresh permissions
+app.post('/api/auth/check', async (req, res) => {
+  try {
+    const { username } = req.body;
+    if (!username) return res.json({ valid: false });
+    const r = await pool.query('SELECT id, username, role, permissions FROM admin_users WHERE username=$1', [username]);
+    if (!r.rows[0]) return res.json({ valid: false });
+    const user = r.rows[0];
+    res.json({ valid: true, role: user.role, permissions: user.permissions || [] });
+  } catch(err) {
+    res.json({ valid: false });
+  }
+});
+
 // Verify login against DB (used by frontend)
 app.post('/api/auth/verify', async (req, res) => {
   try {
