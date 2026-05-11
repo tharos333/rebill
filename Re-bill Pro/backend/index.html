@@ -615,10 +615,28 @@ textarea{resize:vertical;min-height:60px}
     <div class="form-group"><label>Username</label><input type="text" id="admin-username" placeholder="e.g. john_admin"></div>
     <div class="form-group"><label>Password</label><input type="password" id="admin-password" placeholder="Min 8 characters"></div>
     <div class="form-group"><label>Role</label>
-      <select id="admin-role">
+      <select id="admin-role" onchange="toggleCustomPerms()">
         <option value="admin">Admin — full access</option>
-        <option value="viewer">Viewer — read only</option>
+        <option value="viewer">Viewer — read only (dashboard, activity, payments, insights)</option>
+        <option value="custom">Custom — choose sections manually</option>
       </select>
+    </div>
+    <div id="custom-perms" style="display:none;">
+      <label style="display:block;font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.3px;">Select accessible sections</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px;background:var(--surface2);border-radius:6px;cursor:pointer;"><input type="checkbox" value="dashboard" style="accent-color:var(--accent);"> Dashboard</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px;background:var(--surface2);border-radius:6px;cursor:pointer;"><input type="checkbox" value="activity" style="accent-color:var(--accent);"> Activity</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px;background:var(--surface2);border-radius:6px;cursor:pointer;"><input type="checkbox" value="customers" style="accent-color:var(--accent);"> Customers</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px;background:var(--surface2);border-radius:6px;cursor:pointer;"><input type="checkbox" value="subscriptions" style="accent-color:var(--accent);"> Subscriptions</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px;background:var(--surface2);border-radius:6px;cursor:pointer;"><input type="checkbox" value="payments" style="accent-color:var(--accent);"> Payments</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px;background:var(--surface2);border-radius:6px;cursor:pointer;"><input type="checkbox" value="links" style="accent-color:var(--accent);"> Payment Links</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px;background:var(--surface2);border-radius:6px;cursor:pointer;"><input type="checkbox" value="accounts" style="accent-color:var(--accent);"> Stripe Accounts</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px;background:var(--surface2);border-radius:6px;cursor:pointer;"><input type="checkbox" value="forecast" style="accent-color:var(--accent);"> Forecast</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px;background:var(--surface2);border-radius:6px;cursor:pointer;"><input type="checkbox" value="expiry" style="accent-color:var(--accent);"> Expiring Cards</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px;background:var(--surface2);border-radius:6px;cursor:pointer;"><input type="checkbox" value="summary" style="accent-color:var(--accent);"> Daily Summary</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px;background:var(--surface2);border-radius:6px;cursor:pointer;"><input type="checkbox" value="settings" style="accent-color:var(--accent);"> Settings</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px;background:var(--surface2);border-radius:6px;cursor:pointer;"><input type="checkbox" value="security" style="accent-color:var(--accent);"> Security</label>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('add-admin-modal')">Cancel</button>
@@ -647,6 +665,7 @@ function doLogin(){
     if(r.success){
       sessionStorage.setItem('subloop_username', user);
       sessionStorage.setItem('subloop_role', r.role||'admin');
+      sessionStorage.setItem('subloop_permissions', JSON.stringify(r.permissions||[]));
       api('/api/security/2fa/status').then(function(s){
         if(s&&s.enabled){
           document.getElementById('login-step-1').style.display='none';
@@ -668,7 +687,60 @@ function completeLogin(){
   sessionStorage.setItem('subloop_auth','1');
   document.getElementById('login-screen').classList.add('hidden');
   document.getElementById('app-screen').classList.remove('hidden');
+  applyAccessControl();
   initApp();
+}
+
+// Access control constants
+var ALL_SECTIONS = ['dashboard','activity','customers','subscriptions','payments','links','accounts','forecast','expiry','summary','admins','settings','security','webhooks'];
+
+function getCurrentRole(){ return sessionStorage.getItem('subloop_role')||'admin'; }
+function getCurrentPermissions(){
+  try{ return JSON.parse(sessionStorage.getItem('subloop_permissions')||'[]'); }catch(e){ return []; }
+}
+
+function canAccess(section){
+  var role=getCurrentRole();
+  if(role==='owner'||role==='admin') return true;
+  if(role==='viewer') return ['dashboard','activity','payments','forecast','expiry','summary'].includes(section);
+  if(role==='custom'){
+    var perms=getCurrentPermissions();
+    return perms.includes(section);
+  }
+  return false;
+}
+
+function applyAccessControl(){
+  var role=getCurrentRole();
+  if(role==='owner'||role==='admin') return; // full access
+  // Hide nav items user can't access
+  document.querySelectorAll('.nav-item').forEach(function(btn){
+    var onclick=btn.getAttribute('onclick')||'';
+    var match=onclick.match(/showPage\('([^']+)'/);
+    if(match){
+      var section=match[1];
+      if(!canAccess(section)){
+        btn.style.display='none';
+      }
+    }
+  });
+  // Hide write buttons for viewer
+  if(role==='viewer'){
+    // Will hide action buttons after page renders
+    sessionStorage.setItem('subloop_readonly','1');
+  }
+}
+
+function enforceReadonly(){
+  if(sessionStorage.getItem('subloop_readonly')!=='1') return;
+  // Hide all btn-primary and btn-danger buttons
+  document.querySelectorAll('.btn-primary,.btn-danger,.btn-success').forEach(function(btn){
+    if(!btn.closest('.login-screen')&&!btn.closest('.login-box')){
+      btn.style.display='none';
+    }
+  });
+  // Hide action columns
+  document.querySelectorAll('.actions').forEach(function(d){ d.innerHTML='<span style="font-size:11px;color:var(--muted);font-family:var(--mono);">view only</span>'; });
 }
 if(sessionStorage.getItem('subloop_auth')==='1'){
   document.getElementById('login-screen').classList.add('hidden');
@@ -704,7 +776,9 @@ function showPage(name,el){
   document.getElementById('page-'+name).classList.add('active');
   el.classList.add('active');
   const loaders={dashboard:()=>{loadStats();loadUpcoming();loadRecentPayments();loadChart();},activity:loadActivity,customers:loadCustomers,subscriptions:loadSubscriptions,payments:loadPayments,links:loadAccounts,settings:loadSettings,accounts:loadAccounts,security:loadSecurity,webhooks:loadWebhooks,forecast:loadForecast,expiry:loadExpiry,summary:loadSummary,admins:loadAdmins};
+  if(!canAccess(name)){toast('Access denied','error');return;}
   if(loaders[name])loaders[name]();
+  setTimeout(enforceReadonly, 200);
 }
 
 // Helpers
@@ -1143,20 +1217,25 @@ async function loadAdmins(){
     const tb = document.getElementById('admins-table');
     if(!list.length){tb.innerHTML='<tr><td colspan="5" class="empty">No admins found</td></tr>';return;}
     tb.innerHTML = list.map(function(a){
-      var roleBadge = a.role==='owner'
-        ? '<span class="badge badge-purple">owner</span>'
-        : '<span class="badge badge-blue">'+a.role+'</span>';
+        var roleColors={owner:'badge-green',admin:'badge-blue',viewer:'badge-amber',custom:'badge-purple'};
+      var roleBadge='<span class="badge '+(roleColors[a.role]||'badge-blue')+'">'+a.role+'</span>';
+      var perms=a.permissions&&a.permissions.length?'<div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:3px;">'+a.permissions.join(', ')+'</div>':'';
       return '<tr>'+
         '<td><strong>'+a.username+'</strong></td>'+
-        '<td>'+roleBadge+'</td>'+
+        '<td>'+roleBadge+perms+'</td>'+
         '<td class="mono" style="font-size:12px;color:var(--muted);">'+(a.last_login?fmtTime(a.last_login):'Never')+'</td>'+
         '<td class="mono" style="font-size:12px;color:var(--muted);">'+fmtDate(a.created_at)+'</td>'+
         '<td><div class="actions">'+
-          (a.role!=='owner'?'<button class="btn btn-sm btn-danger" onclick="deleteAdmin('+a.id+')" >Remove</button>':'')+
+          (a.role!=='owner'?'<button class="btn btn-sm btn-danger" onclick="deleteAdmin('+a.id+')">Remove</button>':'')+
         '</div></td>'+
       '</tr>';
     }).join('');
   }catch(e){console.error(e);}
+}
+
+function toggleCustomPerms(){
+  var role=document.getElementById('admin-role').value;
+  document.getElementById('custom-perms').style.display=role==='custom'?'block':'none';
 }
 
 async function addAdmin(){
@@ -1165,10 +1244,23 @@ async function addAdmin(){
   var role=document.getElementById('admin-role').value;
   if(!username||!password){toast('Fill in all fields','error');return;}
   if(password.length<8){toast('Password must be at least 8 characters','error');return;}
+  var permissions=[];
+  if(role==='custom'){
+    document.querySelectorAll('#custom-perms input[type=checkbox]:checked').forEach(function(cb){ permissions.push(cb.value); });
+    if(!permissions.length){toast('Select at least one section for custom access','error');return;}
+  }
   try{
-    var r=await api('/api/admin-users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password,role})});
-    if(r.success){toast('✓ Admin added');closeModal('add-admin-modal');document.getElementById('admin-username').value='';document.getElementById('admin-password').value='';loadAdmins();}
-    else toast('Error: '+(r.error||'Failed'),'error');
+    var r=await api('/api/admin-users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password,role,permissions})});
+    if(r.success){
+      toast('✓ Admin added');
+      closeModal('add-admin-modal');
+      document.getElementById('admin-username').value='';
+      document.getElementById('admin-password').value='';
+      document.getElementById('admin-role').value='admin';
+      document.getElementById('custom-perms').style.display='none';
+      document.querySelectorAll('#custom-perms input[type=checkbox]').forEach(function(cb){cb.checked=false;});
+      loadAdmins();
+    } else toast('Error: '+(r.error||'Failed'),'error');
   }catch(e){toast('Error','error');}
 }
 
