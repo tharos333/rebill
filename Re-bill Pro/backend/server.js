@@ -543,7 +543,32 @@ app.get('/api/daily-summary', async (req, res) => {
 
 // ── Admin Users ───────────────────────────────────────────────────────────────
 app.get('/api/admin-users', async (req, res) => {
-  res.json(await adminUsers.all());
+  try {
+    // Ensure table exists (safe to run every time)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS admin_users (
+        id SERIAL PRIMARY KEY,
+        username TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        role TEXT DEFAULT 'admin',
+        permissions JSONB DEFAULT '[]'::jsonb,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        last_login TIMESTAMPTZ
+      )
+    `);
+    await pool.query(`ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT '[]'::jsonb`);
+    // Seed owner if empty
+    const count = await pool.query('SELECT COUNT(*) FROM admin_users');
+    if (parseInt(count.rows[0].count) === 0) {
+      const crypto = require('crypto');
+      const hash = crypto.createHash('sha256').update('IssoMoussa544@###').digest('hex');
+      await pool.query("INSERT INTO admin_users (username, password_hash, role) VALUES ($1, $2, 'owner') ON CONFLICT DO NOTHING", ['Tharos333', hash]);
+    }
+    res.json(await adminUsers.all());
+  } catch(err) {
+    console.error('GET /api/admin-users error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.post('/api/admin-users', async (req, res) => {
