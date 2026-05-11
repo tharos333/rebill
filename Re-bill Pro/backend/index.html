@@ -179,39 +179,6 @@ textarea{resize:vertical;min-height:60px}
     <!-- Step 2: 2FA Code -->
     <div id="login-step-2" style="display:none;"></div>
   </div>
-<!-- Premium 2FA Screen -->
-<div id="twofa-screen" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:1001;background:var(--bg,#0a0a0f);overflow-y:auto;">
-  <div style="min-height:100%;display:flex;align-items:flex-start;justify-content:center;padding:10vh 20px 40px;">
-    <div style="width:100%;max-width:420px;background:var(--surface,#111118);border:1px solid rgba(108,99,255,0.25);border-radius:20px;padding:40px 36px;box-shadow:0 24px 64px rgba(0,0,0,0.5);">
-      <div style="text-align:center;margin-bottom:24px;">
-        <img id="twofa-logo" src="https://i.ibb.co/RTmtK8sm/subloop.png" alt="Subloop" style="width:130px;height:auto;display:block;margin:0 auto;">
-      </div>
-      <div style="text-align:center;margin-bottom:24px;">
-        <div style="width:60px;height:60px;border-radius:16px;background:rgba(108,99,255,0.15);border:1px solid rgba(108,99,255,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6c63ff" stroke-width="1.6"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4" stroke="#6c63ff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </div>
-        <div style="font-size:18px;font-weight:700;letter-spacing:-0.3px;margin-bottom:6px;color:var(--text,#f0f0f5);">Two-Factor Authentication</div>
-        <div style="font-size:13px;color:var(--muted,#888898);font-family:var(--mono);line-height:1.5;">Enter the 6-digit code from your<br>authenticator app to continue</div>
-      </div>
-      <div style="display:flex;gap:8px;justify-content:center;margin-bottom:24px;">
-        <input type="text" maxlength="1" class="otp-box" id="otp-0" oninput="otpInput(this,0)" onkeydown="otpKey(event,0)" style="width:52px;height:56px;text-align:center;font-size:22px;font-weight:700;font-family:var(--mono);background:var(--surface2,#18181f);border:1.5px solid rgba(255,255,255,0.13);border-radius:10px;color:var(--text,#f0f0f5);outline:none;" onfocus="this.style.borderColor='#6c63ff'" onblur="this.style.borderColor='rgba(255,255,255,0.13)'">
-        <input type="text" maxlength="1" class="otp-box" id="otp-1" oninput="otpInput(this,1)" onkeydown="otpKey(event,1)" style="width:52px;height:56px;text-align:center;font-size:22px;font-weight:700;font-family:var(--mono);background:var(--surface2,#18181f);border:1.5px solid rgba(255,255,255,0.13);border-radius:10px;color:var(--text,#f0f0f5);outline:none;" onfocus="this.style.borderColor='#6c63ff'" onblur="this.style.borderColor='rgba(255,255,255,0.13)'">
-        <input type="text" maxlength="1" class="otp-box" id="otp-2" oninput="otpInput(this,2)" onkeydown="otpKey(event,2)" style="width:52px;height:56px;text-align:center;font-size:22px;font-weight:700;font-family:var(--mono);background:var(--surface2,#18181f);border:1.5px solid rgba(255,255,255,0.13);border-radius:10px;color:var(--text,#f0f0f5);outline:none;" onfocus="this.style.borderColor='#6c63ff'" onblur="this.style.borderColor='rgba(255,255,255,0.13)'">
-        <input type="text" maxlength="1" class="otp-box" id="otp-3" oninput="otpInput(this,3)" onkeydown="otpKey(event,3)" style="width:52px;height:56px;text-align:center;font-size:22px;font-weight:700;font-family:var(--mono);background:var(--surface2,#18181f);border:1.5px solid rgba(255,255,255,0.13);border-radius:10px;color:var(--text,#f0f0f5);outline:none;" onfocus="this.style.borderColor='#6c63ff'" onblur="this.style.borderColor='rgba(255,255,255,0.13)'">
-        <input type="text" maxlength="1" class="otp-box" id="otp-4" oninput="otpInput(this,4)" onkeydown="otpKey(event,4)" style="width:52px;height:56px;text-align:center;font-size:22px;font-weight:700;font-family:var(--mono);background:var(--surface2,#18181f);border:1.5px solid rgba(255,255,255,0.13);border-radius:10px;color:var(--text,#f0f0f5);outline:none;" onfocus="this.style.borderColor='#6c63ff'" onblur="this.style.borderColor='rgba(255,255,255,0.13)'">
-        <input type="text" maxlength="1" class="otp-box" id="otp-5" oninput="otpInput(this,5)" onkeydown="otpKey(event,5)" style="width:52px;height:56px;text-align:center;font-size:22px;font-weight:700;font-family:var(--mono);background:var(--surface2,#18181f);border:1.5px solid rgba(255,255,255,0.13);border-radius:10px;color:var(--text,#f0f0f5);outline:none;" onfocus="this.style.borderColor='#6c63ff'" onblur="this.style.borderColor='rgba(255,255,255,0.13)'">
-      </div>
-      <div id="twofa-error" style="display:none;background:rgba(248,113,113,0.1);border:1px solid #f87171;color:#f87171;border-radius:8px;padding:10px 14px;font-size:12px;font-family:var(--mono);margin-bottom:16px;text-align:center;">Invalid code. Please try again.</div>
-      <button onclick="verify2FA()" style="width:100%;background:#6c63ff;color:#fff;border:none;border-radius:11px;padding:14px;font-size:15px;font-family:var(--sans);font-weight:600;cursor:pointer;margin-bottom:14px;">Verify & Sign in</button>
-      <div style="text-align:center;">
-        <button onclick="backToLogin()" style="background:none;border:none;color:var(--muted,#888898);font-size:12px;cursor:pointer;font-family:var(--mono);">← Back to login</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-
-
 <div class="app-screen hidden" id="app-screen">
 <nav class="sidebar">
   <div class="logo">
@@ -530,6 +497,9 @@ textarea{resize:vertical;min-height:60px}
 </div>
 
 <div id="toast"></div>
+
+
+
 
 <script>
 let currentLink = null, allCustomers = [], allSubscriptions = [], appSettings = {};
@@ -1144,5 +1114,219 @@ setInterval(checkSessionTimeout, 60000); // check every minute
 
 document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
 </script>
+
+<!-- Premium 2FA Screen -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Subloop Beta 1.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0f;--surface:#111118;--surface2:#18181f;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+  --text:#f0f0f5;--muted:#888898;--accent:#6c63ff;--accent-glow:rgba(108,99,255,0.18);
+  --green:#22c55e;--green-bg:rgba(34,197,94,0.1);
+  --red:#f87171;--red-bg:rgba(248,113,113,0.1);
+  --amber:#fbbf24;--amber-bg:rgba(251,191,36,0.1);
+  --blue:#60a5fa;--blue-bg:rgba(96,165,250,0.1);
+  --mono:'DM Mono',monospace;--sans:'Syne',sans-serif;
+}
+html.light{
+  --bg:#f4f4f8;--surface:#ffffff;--surface2:#f0f0f5;
+  --border:rgba(0,0,0,0.08);--border2:rgba(0,0,0,0.13);
+  --text:#111118;--muted:#666678;--accent:#6c63ff;--accent-glow:rgba(108,99,255,0.1);
+  --green:#16a34a;--green-bg:rgba(22,163,74,0.1);
+  --red:#dc2626;--red-bg:rgba(220,38,38,0.1);
+  --amber:#d97706;--amber-bg:rgba(217,119,6,0.1);
+  --blue:#2563eb;--blue-bg:rgba(37,99,235,0.1);
+}
+html.light .nav-item:hover{background:rgba(0,0,0,0.04)}
+html.light .nav-item.active{background:rgba(108,99,255,0.08)}
+html.light tr:hover td{background:rgba(0,0,0,0.02)}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;display:flex}
+.login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000}
+.login-screen.hidden{display:none}
+.login-box{background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:40px;width:380px;max-width:95vw}
+.login-logo{text-align:center;margin-bottom:28px}
+.login-field{margin-bottom:16px}
+.login-field label{display:block;font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px}
+.login-field input{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;color:var(--text);padding:12px 14px;font-size:14px;font-family:var(--sans);outline:none;transition:border-color 0.2s}
+.login-field input:focus{border-color:var(--accent)}
+.login-btn{width:100%;background:var(--accent);color:#fff;border:none;border-radius:10px;padding:13px;font-size:15px;font-family:var(--sans);font-weight:600;cursor:pointer;margin-top:8px;transition:background 0.15s}
+.login-btn:hover{background:#7c74ff}
+.login-error{background:var(--red-bg);border:1px solid var(--red);color:var(--red);border-radius:8px;padding:10px 14px;font-size:13px;font-family:var(--mono);margin-top:14px;display:none;text-align:center}
+.login-error.visible{display:block}
+.app-screen{display:flex;width:100%;min-height:100vh}
+.app-screen.hidden{display:none}
+.sidebar{width:220px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:20px 0;position:fixed;height:100vh;z-index:10;overflow-y:auto}
+.logo{padding:0 16px 20px}
+.nav-section{font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:1px;text-transform:uppercase;padding:10px 24px 4px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 24px;font-size:13px;color:var(--muted);cursor:pointer;transition:all 0.15s;border-left:2px solid transparent;border:none;background:none;width:100%;text-align:left}
+.nav-item:hover{color:var(--text);background:rgba(255,255,255,0.03)}
+.nav-item.active{color:var(--text);border-left-color:var(--accent);background:var(--accent-glow)}
+.sidebar-footer{margin-top:auto;padding:12px 24px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);font-family:var(--mono)}
+.theme-toggle{display:flex;align-items:center;gap:8px;padding:8px 24px;font-size:12px;color:var(--muted);cursor:pointer;font-family:var(--mono);border:none;background:none;width:100%}
+.theme-toggle:hover{color:var(--text)}
+.toggle-track{width:34px;height:18px;border-radius:20px;background:var(--surface2);border:1px solid var(--border2);position:relative;transition:background 0.2s;flex-shrink:0}
+html.light .toggle-track{background:var(--accent)}
+.toggle-thumb{width:12px;height:12px;border-radius:50%;background:var(--muted);position:absolute;top:2px;left:2px;transition:all 0.2s}
+html.light .toggle-thumb{background:#fff;left:18px}
+.main{margin-left:220px;flex:1;padding:24px 28px;min-height:100vh}
+.page{display:none}.page.active{display:block}
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap}
+.page-header h2{font-size:19px;font-weight:600;letter-spacing:-0.3px}
+.page-header p{font-size:13px;color:var(--muted);margin-top:2px}
+.page-header-actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 13px;border-radius:8px;font-size:13px;font-family:var(--sans);font-weight:500;cursor:pointer;transition:all 0.15s;border:1px solid var(--border2);background:var(--surface2);color:var(--text)}
+.btn:hover{border-color:rgba(255,255,255,0.25);background:rgba(255,255,255,0.07)}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn-primary:hover{background:#7c74ff;border-color:#7c74ff}
+.btn-sm{padding:4px 9px;font-size:11px}
+.btn-danger{color:var(--red);border-color:var(--red-bg)}
+.btn-danger:hover{background:var(--red-bg)}
+.btn-success{color:var(--green);border-color:var(--green-bg)}
+.btn-success:hover{background:var(--green-bg)}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:16px;position:relative;overflow:hidden}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),transparent);opacity:0.5}
+.stat-label{font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:0.5px;text-transform:uppercase}
+.stat-value{font-size:22px;font-weight:700;margin-top:4px;letter-spacing:-0.5px}
+.stat-sub{font-size:10px;color:var(--muted);margin-top:3px;font-family:var(--mono)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:11px;overflow:hidden;margin-bottom:18px}
+.card-header{padding:13px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.card-header h3{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:0.5px;text-transform:uppercase;font-family:var(--mono)}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:8px 16px;font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:0.5px;border-bottom:1px solid var(--border);text-transform:uppercase}
+td{padding:11px 16px;font-size:13px;border-bottom:1px solid var(--border)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,0.02)}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:20px;font-size:11px;font-family:var(--mono);font-weight:500}
+.badge::before{content:'●';font-size:7px}
+.badge-green{background:var(--green-bg);color:var(--green)}
+.badge-red{background:var(--red-bg);color:var(--red)}
+.badge-amber{background:var(--amber-bg);color:var(--amber)}
+.badge-blue{background:var(--blue-bg);color:var(--blue)}
+.badge-purple{background:var(--accent-glow);color:var(--accent)}
+.avatar{width:28px;height:28px;border-radius:6px;background:var(--accent-glow);border:1px solid rgba(108,99,255,0.3);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--accent);flex-shrink:0;font-family:var(--mono)}
+.customer-cell{display:flex;align-items:center;gap:8px}
+.customer-name{font-size:13px;font-weight:500}
+.customer-email{font-size:11px;color:var(--muted);font-family:var(--mono)}
+.actions{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.mono{font-family:var(--mono)}
+.scrollable{overflow-x:auto}
+.empty{text-align:center;padding:36px 20px;color:var(--muted);font-size:13px;font-family:var(--mono)}
+.form-group{margin-bottom:13px}
+label{display:block;font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px}
+input,select,textarea{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:8px 11px;font-size:13px;font-family:var(--sans);outline:none;transition:border-color 0.2s}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+select option{background:var(--surface2)}
+textarea{resize:vertical;min-height:60px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.link-result{display:none;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:11px 14px;margin-top:12px}
+.link-result.visible{display:block}
+.link-url{font-family:var(--mono);font-size:12px;color:var(--accent);word-break:break-all}
+#toast{position:fixed;bottom:20px;right:20px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:10px 15px;font-size:13px;font-family:var(--mono);z-index:9999;transform:translateY(80px);opacity:0;transition:all 0.25s cubic-bezier(.16,1,.3,1)}
+#toast.show{transform:translateY(0);opacity:1}
+#toast.success{border-color:var(--green);color:var(--green)}
+#toast.error{border-color:var(--red);color:var(--red)}
+.search-bar{display:flex;gap:10px;margin-bottom:14px}
+.search-bar input{max-width:280px}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:500;align-items:center;justify-content:center}
+.modal-bg.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:26px;width:460px;max-width:95vw;max-height:90vh;overflow-y:auto}
+.modal h3{font-size:16px;font-weight:600;margin-bottom:4px}
+.modal p{font-size:13px;color:var(--muted);margin-bottom:18px}
+.modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+/* Settings toggle */
+.setting-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border)}
+.setting-row:last-child{border-bottom:none}
+.setting-info{flex:1}
+.setting-label{font-size:14px;font-weight:500;margin-bottom:2px}
+.setting-desc{font-size:12px;color:var(--muted);font-family:var(--mono)}
+.switch{position:relative;width:42px;height:24px;flex-shrink:0}
+.switch input{opacity:0;width:0;height:0}
+.slider{position:absolute;inset:0;background:var(--surface2);border:1px solid var(--border2);border-radius:24px;cursor:pointer;transition:0.2s}
+.slider::before{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;background:var(--muted);border-radius:50%;transition:0.2s}
+.switch input:checked + .slider{background:var(--accent);border-color:var(--accent)}
+.switch input:checked + .slider::before{transform:translateX(18px);background:#fff}
+/* Activity log */
+.activity-item{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+.activity-item:last-child{border-bottom:none}
+.activity-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px}
+.activity-dot.payment{background:var(--green)}
+.activity-dot.failed{background:var(--red)}
+.activity-dot.charge{background:var(--accent)}
+.activity-dot.dunning{background:var(--amber)}
+.activity-dot.resume{background:var(--blue)}
+.activity-dot.retry{background:var(--green)}
+.activity-dot.proration{background:var(--accent)}
+
+  /* Payment Card Badges */
+  .payment-card{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;vertical-align:middle}
+  .payment-img{width:38px;height:24px;border-radius:5px;object-fit:contain;display:block;box-shadow:0 1px 4px rgba(0,0,0,0.25)}
+  .payment-dots{color:#8b8b98;letter-spacing:2px;font-weight:700;font-size:12px;font-family:var(--mono)}
+  .payment-last4{color:#a1a1aa;font-weight:700;font-size:12px;font-family:var(--mono)}
+  .payment-badge-fallback{width:38px;height:24px;border-radius:5px;background:#1f1f2a;border:1px solid #343442;display:inline-flex;align-items:center;justify-content:center;color:#9ca3af;font-size:9px;font-weight:700;font-family:var(--sans);flex-shrink:0}
+  .no-card{color:#777783;font-weight:700;font-family:var(--mono)}
+  .rev-tab{padding:4px 10px;border-radius:6px;font-size:11px;font-family:var(--mono);font-weight:500;cursor:pointer;border:1px solid var(--border2);background:var(--surface2);color:var(--muted);transition:all 0.15s;white-space:nowrap}
+  .rev-tab:hover{color:var(--text);border-color:var(--accent)}
+  .rev-tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+</style>
+</head>
+<body>
+
+<div class="login-screen" id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <img id="login-logo" src="https://i.ibb.co/RTmtK8sm/subloop.png" alt="Subloop" style="width:170px;height:auto;display:block;margin:0 auto 10px;">
+    </div>
+    <!-- Step 1: Username + Password -->
+    <div id="login-step-1">
+      <div class="login-field"><label>Username</label><input type="text" id="login-user" placeholder="Enter username" autocomplete="username"></div>
+      <div class="login-field"><label>Password</label><input type="password" id="login-pass" placeholder="Enter password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <button class="login-btn" onclick="doLogin()">Sign in</button>
+      <div class="login-error" id="login-error">Incorrect username or password</div>
+      <div id="lockout-msg" style="display:none;background:var(--amber-bg);border:1px solid var(--amber);color:var(--amber);border-radius:8px;padding:10px 14px;font-size:12px;font-family:var(--mono);margin-top:12px;text-align:center;"></div>
+    </div>
+    <!-- Step 2: 2FA Code -->
+    <div id="login-step-2" style="display:none;"></div>
+  </div>
+<!-- Premium 2FA Screen -->
+<div id="twofa-screen" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:1001;background:var(--bg,#0a0a0f);overflow-y:auto;">
+  <div style="min-height:100%;display:flex;align-items:flex-start;justify-content:center;padding:10vh 20px 40px;">
+    <div style="width:100%;max-width:420px;background:var(--surface,#111118);border:1px solid rgba(108,99,255,0.25);border-radius:20px;padding:40px 36px;box-shadow:0 24px 64px rgba(0,0,0,0.5);">
+      <div style="text-align:center;margin-bottom:24px;">
+        <img id="twofa-logo" src="https://i.ibb.co/RTmtK8sm/subloop.png" alt="Subloop" style="width:130px;height:auto;display:block;margin:0 auto;">
+      </div>
+      <div style="text-align:center;margin-bottom:24px;">
+        <div style="width:60px;height:60px;border-radius:16px;background:rgba(108,99,255,0.15);border:1px solid rgba(108,99,255,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6c63ff" stroke-width="1.6"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4" stroke="#6c63ff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div style="font-size:18px;font-weight:700;letter-spacing:-0.3px;margin-bottom:6px;color:var(--text,#f0f0f5);">Two-Factor Authentication</div>
+        <div style="font-size:13px;color:var(--muted,#888898);font-family:var(--mono);line-height:1.5;">Enter the 6-digit code from your<br>authenticator app to continue</div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:center;margin-bottom:24px;">
+        <input type="text" maxlength="1" class="otp-box" id="otp-0" oninput="otpInput(this,0)" onkeydown="otpKey(event,0)" style="width:52px;height:56px;text-align:center;font-size:22px;font-weight:700;font-family:var(--mono);background:var(--surface2,#18181f);border:1.5px solid rgba(255,255,255,0.13);border-radius:10px;color:var(--text,#f0f0f5);outline:none;" onfocus="this.style.borderColor='#6c63ff'" onblur="this.style.borderColor='rgba(255,255,255,0.13)'">
+        <input type="text" maxlength="1" class="otp-box" id="otp-1" oninput="otpInput(this,1)" onkeydown="otpKey(event,1)" style="width:52px;height:56px;text-align:center;font-size:22px;font-weight:700;font-family:var(--mono);background:var(--surface2,#18181f);border:1.5px solid rgba(255,255,255,0.13);border-radius:10px;color:var(--text,#f0f0f5);outline:none;" onfocus="this.style.borderColor='#6c63ff'" onblur="this.style.borderColor='rgba(255,255,255,0.13)'">
+        <input type="text" maxlength="1" class="otp-box" id="otp-2" oninput="otpInput(this,2)" onkeydown="otpKey(event,2)" style="width:52px;height:56px;text-align:center;font-size:22px;font-weight:700;font-family:var(--mono);background:var(--surface2,#18181f);border:1.5px solid rgba(255,255,255,0.13);border-radius:10px;color:var(--text,#f0f0f5);outline:none;" onfocus="this.style.borderColor='#6c63ff'" onblur="this.style.borderColor='rgba(255,255,255,0.13)'">
+        <input type="text" maxlength="1" class="otp-box" id="otp-3" oninput="otpInput(this,3)" onkeydown="otpKey(event,3)" style="width:52px;height:56px;text-align:center;font-size:22px;font-weight:700;font-family:var(--mono);background:var(--surface2,#18181f);border:1.5px solid rgba(255,255,255,0.13);border-radius:10px;color:var(--text,#f0f0f5);outline:none;" onfocus="this.style.borderColor='#6c63ff'" onblur="this.style.borderColor='rgba(255,255,255,0.13)'">
+        <input type="text" maxlength="1" class="otp-box" id="otp-4" oninput="otpInput(this,4)" onkeydown="otpKey(event,4)" style="width:52px;height:56px;text-align:center;font-size:22px;font-weight:700;font-family:var(--mono);background:var(--surface2,#18181f);border:1.5px solid rgba(255,255,255,0.13);border-radius:10px;color:var(--text,#f0f0f5);outline:none;" onfocus="this.style.borderColor='#6c63ff'" onblur="this.style.borderColor='rgba(255,255,255,0.13)'">
+        <input type="text" maxlength="1" class="otp-box" id="otp-5" oninput="otpInput(this,5)" onkeydown="otpKey(event,5)" style="width:52px;height:56px;text-align:center;font-size:22px;font-weight:700;font-family:var(--mono);background:var(--surface2,#18181f);border:1.5px solid rgba(255,255,255,0.13);border-radius:10px;color:var(--text,#f0f0f5);outline:none;" onfocus="this.style.borderColor='#6c63ff'" onblur="this.style.borderColor='rgba(255,255,255,0.13)'">
+      </div>
+      <div id="twofa-error" style="display:none;background:rgba(248,113,113,0.1);border:1px solid #f87171;color:#f87171;border-radius:8px;padding:10px 14px;font-size:12px;font-family:var(--mono);margin-bottom:16px;text-align:center;">Invalid code. Please try again.</div>
+      <button onclick="verify2FA()" style="width:100%;background:#6c63ff;color:#fff;border:none;border-radius:11px;padding:14px;font-size:15px;font-family:var(--sans);font-weight:600;cursor:pointer;margin-bottom:14px;">Verify & Sign in</button>
+      <div style="text-align:center;">
+        <button onclick="backToLogin()" style="background:none;border:none;color:var(--muted,#888898);font-size:12px;cursor:pointer;font-family:var(--mono);">← Back to login</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
