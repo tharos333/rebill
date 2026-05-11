@@ -609,33 +609,32 @@ textarea{resize:vertical;min-height:60px}
   </div>
 </div>
 <div class="modal-bg" id="add-admin-modal">
-  <div class="modal">
+  <div class="modal" style="width:540px;max-width:97vw;">
     <h3>Add admin user</h3>
     <p>They will be able to log in and manage Subloop</p>
-    <div class="form-group"><label>Username</label><input type="text" id="admin-username" placeholder="e.g. john_admin"></div>
-    <div class="form-group"><label>Password</label><input type="password" id="admin-password" placeholder="Min 8 characters"></div>
-    <div class="form-group"><label>Role</label>
+    <div class="form-row">
+      <div class="form-group"><label>Username</label><input type="text" id="admin-username" placeholder="e.g. john_admin" autocomplete="off"></div>
+      <div class="form-group"><label>Password</label><input type="password" id="admin-password" placeholder="Min 8 characters" autocomplete="new-password"></div>
+    </div>
+    <div class="form-group"><label>Access level</label>
       <select id="admin-role" onchange="toggleCustomPerms()">
-        <option value="admin">Admin — full access</option>
-        <option value="viewer">Viewer — read only (dashboard, activity, payments, insights)</option>
+        <option value="admin">Admin — full access to everything</option>
+        <option value="viewer">Viewer — read only, no actions</option>
         <option value="custom">Custom — choose sections manually</option>
       </select>
     </div>
-    <div id="custom-perms" style="display:none;">
-      <label style="display:block;font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.3px;">Select accessible sections</label>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-        <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px;background:var(--surface2);border-radius:6px;cursor:pointer;"><input type="checkbox" value="dashboard" style="accent-color:var(--accent);"> Dashboard</label>
-        <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px;background:var(--surface2);border-radius:6px;cursor:pointer;"><input type="checkbox" value="activity" style="accent-color:var(--accent);"> Activity</label>
-        <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px;background:var(--surface2);border-radius:6px;cursor:pointer;"><input type="checkbox" value="customers" style="accent-color:var(--accent);"> Customers</label>
-        <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px;background:var(--surface2);border-radius:6px;cursor:pointer;"><input type="checkbox" value="subscriptions" style="accent-color:var(--accent);"> Subscriptions</label>
-        <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px;background:var(--surface2);border-radius:6px;cursor:pointer;"><input type="checkbox" value="payments" style="accent-color:var(--accent);"> Payments</label>
-        <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px;background:var(--surface2);border-radius:6px;cursor:pointer;"><input type="checkbox" value="links" style="accent-color:var(--accent);"> Payment Links</label>
-        <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px;background:var(--surface2);border-radius:6px;cursor:pointer;"><input type="checkbox" value="accounts" style="accent-color:var(--accent);"> Stripe Accounts</label>
-        <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px;background:var(--surface2);border-radius:6px;cursor:pointer;"><input type="checkbox" value="forecast" style="accent-color:var(--accent);"> Forecast</label>
-        <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px;background:var(--surface2);border-radius:6px;cursor:pointer;"><input type="checkbox" value="expiry" style="accent-color:var(--accent);"> Expiring Cards</label>
-        <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px;background:var(--surface2);border-radius:6px;cursor:pointer;"><input type="checkbox" value="summary" style="accent-color:var(--accent);"> Daily Summary</label>
-        <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px;background:var(--surface2);border-radius:6px;cursor:pointer;"><input type="checkbox" value="settings" style="accent-color:var(--accent);"> Settings</label>
-        <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px;background:var(--surface2);border-radius:6px;cursor:pointer;"><input type="checkbox" value="security" style="accent-color:var(--accent);"> Security</label>
+    <div id="custom-perms" style="display:none;margin-top:4px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div>
+          <div style="font-size:13px;font-weight:600;">Access permissions</div>
+          <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;">Choose which sections this admin can access</div>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-sm" onclick="selectAllPerms()" type="button">Select all</button>
+          <button class="btn btn-sm" onclick="clearAllPerms()" type="button">Clear</button>
+        </div>
+      </div>
+      <div id="perms-list" style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:5px;padding-right:4px;">
       </div>
     </div>
     <div class="modal-footer">
@@ -1233,9 +1232,74 @@ async function loadAdmins(){
   }catch(e){console.error(e);}
 }
 
+var PERM_LIST=[
+  {value:'dashboard',label:'Dashboard',desc:'Overview stats and revenue charts'},
+  {value:'activity',label:'Activity',desc:'Full activity log of all actions'},
+  {value:'customers',label:'Customers',desc:'View and manage customer accounts'},
+  {value:'subscriptions',label:'Subscriptions',desc:'Manage rebilling schedules'},
+  {value:'payments',label:'Payments',desc:'Full payment history and retries'},
+  {value:'links',label:'Payment Links',desc:'Generate Stripe payment links'},
+  {value:'accounts',label:'Stripe Accounts',desc:'Manage connected Stripe accounts'},
+  {value:'forecast',label:'Forecast',desc:'Revenue projection for next 30–90 days'},
+  {value:'expiry',label:'Expiring Cards',desc:'Cards expiring soon that need updating'},
+  {value:'summary',label:'Daily Summary',desc:'Business snapshot and manual invoices'},
+  {value:'settings',label:'Settings',desc:'Dunning, proration and app settings'},
+  {value:'security',label:'Security',desc:'Two-factor auth and login protection'},
+  {value:'webhooks',label:'Webhook Logs',desc:'Incoming Stripe webhook events'},
+];
+
+function buildPermsList(){
+  var container=document.getElementById('perms-list');
+  if(!container)return;
+  container.innerHTML='';
+  PERM_LIST.forEach(function(p){
+    var row=document.createElement('label');
+    row.style.cssText='display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;cursor:pointer;transition:all 0.15s;';
+    var cb=document.createElement('input');
+    cb.type='checkbox';
+    cb.value=p.value;
+    cb.style.cssText='accent-color:var(--accent);width:16px;height:16px;cursor:pointer;flex-shrink:0;';
+    cb.addEventListener('change',function(){
+      row.style.borderColor=cb.checked?'var(--accent)':'var(--border)';
+      row.style.background=cb.checked?'var(--accent-glow)':'var(--surface2)';
+    });
+    row.addEventListener('click',function(e){
+      if(e.target===cb)return;
+      cb.checked=!cb.checked;
+      cb.dispatchEvent(new Event('change'));
+    });
+    var info=document.createElement('div');
+    info.style.flex='1';
+    info.innerHTML='<div style="font-size:13px;font-weight:500;color:var(--text);">'+p.label+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;">'+p.desc+'</div>';
+    row.appendChild(cb);
+    row.appendChild(info);
+    container.appendChild(row);
+  });
+}
+
+
+
+function selectAllPerms(){
+  document.querySelectorAll('#perms-list input[type=checkbox]').forEach(function(cb){
+    cb.checked=true;cb.dispatchEvent(new Event('change'));
+  });
+}
+
+function clearAllPerms(){
+  document.querySelectorAll('#perms-list input[type=checkbox]').forEach(function(cb){
+    cb.checked=false;cb.dispatchEvent(new Event('change'));
+  });
+}
+
 function toggleCustomPerms(){
   var role=document.getElementById('admin-role').value;
-  document.getElementById('custom-perms').style.display=role==='custom'?'block':'none';
+  var el=document.getElementById('custom-perms');
+  if(role==='custom'){
+    el.style.display='block';
+    buildPermsList();
+  } else {
+    el.style.display='none';
+  }
 }
 
 async function addAdmin(){
@@ -1246,7 +1310,7 @@ async function addAdmin(){
   if(password.length<8){toast('Password must be at least 8 characters','error');return;}
   var permissions=[];
   if(role==='custom'){
-    document.querySelectorAll('#custom-perms input[type=checkbox]:checked').forEach(function(cb){ permissions.push(cb.value); });
+    document.querySelectorAll('#perms-list input[type=checkbox]:checked').forEach(function(cb){permissions.push(cb.value);});
     if(!permissions.length){toast('Select at least one section for custom access','error');return;}
   }
   try{
@@ -1258,7 +1322,7 @@ async function addAdmin(){
       document.getElementById('admin-password').value='';
       document.getElementById('admin-role').value='admin';
       document.getElementById('custom-perms').style.display='none';
-      document.querySelectorAll('#custom-perms input[type=checkbox]').forEach(function(cb){cb.checked=false;});
+      clearAllPerms();
       loadAdmins();
     } else toast('Error: '+(r.error||'Failed'),'error');
   }catch(e){toast('Error','error');}
