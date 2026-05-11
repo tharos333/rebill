@@ -47,12 +47,12 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:1
 /* App */
 .app-screen{display:flex;width:100%;min-height:100vh}
 .app-screen.hidden{display:none}
-.sidebar{width:220px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:20px 0;position:fixed;height:100vh;z-index:10;overflow-y:auto}
+.sidebar{width:220px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:0;position:fixed;height:100vh;z-index:10;overflow-y:auto}
 .logo{padding:0}
-.sidebar-header{height:78px;padding:0 20px;display:flex;align-items:center;justify-content:flex-start;border-bottom:1px solid rgba(255,255,255,0.08);}
-.sidebar-logo-img{width:155px;height:auto;display:block;object-fit:contain;}
+.sidebar-header{height:74px;min-height:74px;max-height:74px;padding:0 20px;display:flex;align-items:center;justify-content:flex-start;border-bottom:1px solid rgba(255,255,255,0.08);}
+.sidebar-logo-img{width:150px;height:auto;display:block;object-fit:contain;}
 html.light .sidebar-header{border-bottom:1px solid rgba(0,0,0,0.08);}
-.nav-section{font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:1px;text-transform:uppercase;padding:6px 24px 4px}
+.nav-section{font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:1px;text-transform:uppercase;padding:12px 24px 4px}
 .nav-item{display:flex;align-items:center;gap:10px;padding:9px 24px;font-size:13px;color:var(--muted);cursor:pointer;transition:all 0.15s;border-left:2px solid transparent;border:none;background:none;width:100%;text-align:left}
 .nav-item:hover{color:var(--text);background:rgba(255,255,255,0.03)}
 .nav-item.active{color:var(--text);border-left-color:var(--accent);background:var(--accent-glow)}
