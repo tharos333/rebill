@@ -662,9 +662,9 @@ function doLogin(){
   api('/api/auth/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:user,password:pass})})
   .then(function(r){
     if(r.success){
-      sessionStorage.setItem('subloop_username', user);
-      sessionStorage.setItem('subloop_role', r.role||'admin');
-      sessionStorage.setItem('subloop_permissions', JSON.stringify(r.permissions||[]));
+      localStorage.setItem('subloop_username', user);
+      localStorage.setItem('subloop_role', r.role||'admin');
+      localStorage.setItem('subloop_permissions', JSON.stringify(r.permissions||[]));
       api('/api/security/2fa/status').then(function(s){
         if(s&&s.enabled){
           document.getElementById('login-step-1').style.display='none';
@@ -683,7 +683,7 @@ function doLogin(){
   });
 }
 function completeLogin(){
-  sessionStorage.setItem('subloop_auth','1');
+  localStorage.setItem('subloop_auth','1');
   document.getElementById('login-screen').classList.add('hidden');
   document.getElementById('app-screen').classList.remove('hidden');
   applyAccessControl();
@@ -693,13 +693,14 @@ function completeLogin(){
 // Access control constants
 var ALL_SECTIONS = ['dashboard','activity','customers','subscriptions','payments','links','accounts','forecast','expiry','summary','admins','settings','security','webhooks'];
 
-function getCurrentRole(){ return sessionStorage.getItem('subloop_role')||'admin'; }
+function getCurrentRole(){ return localStorage.getItem('subloop_role')||''; }
 function getCurrentPermissions(){
-  try{ return JSON.parse(sessionStorage.getItem('subloop_permissions')||'[]'); }catch(e){ return []; }
+  try{ return JSON.parse(localStorage.getItem('subloop_permissions')||'[]'); }catch(e){ return []; }
 }
 
 function canAccess(section){
   var role=getCurrentRole();
+  if(!role) return false; // not logged in
   if(role==='owner'||role==='admin') return true;
   if(role==='viewer') return ['dashboard','activity','payments','forecast','expiry','summary'].includes(section);
   if(role==='custom'){
@@ -726,12 +727,12 @@ function applyAccessControl(){
   // Hide write buttons for viewer
   if(role==='viewer'){
     // Will hide action buttons after page renders
-    sessionStorage.setItem('subloop_readonly','1');
+    localStorage.setItem('subloop_readonly','1');
   }
 }
 
 function enforceReadonly(){
-  if(sessionStorage.getItem('subloop_readonly')!=='1') return;
+  if(localStorage.getItem('subloop_readonly')!=='1') return;
   // Hide all btn-primary and btn-danger buttons
   document.querySelectorAll('.btn-primary,.btn-danger,.btn-success').forEach(function(btn){
     if(!btn.closest('.login-screen')&&!btn.closest('.login-box')){
@@ -741,7 +742,7 @@ function enforceReadonly(){
   // Hide action columns
   document.querySelectorAll('.actions').forEach(function(d){ d.innerHTML='<span style="font-size:11px;color:var(--muted);font-family:var(--mono);">view only</span>'; });
 }
-if(sessionStorage.getItem('subloop_auth')==='1'){
+if(localStorage.getItem('subloop_auth')==='1'){
   document.getElementById('login-screen').classList.add('hidden');
   document.getElementById('app-screen').classList.remove('hidden');
   initApp();
@@ -816,7 +817,7 @@ function cardBadge(brand,last4){
   return '<div style="display:inline-flex;align-items:center;gap:8px;white-space:nowrap;vertical-align:middle;">'+img+dots+num+'</div>';
 }
 
-function initApp(){loadStats();loadUpcoming();loadRecentPayments();loadChart();api('/api/settings').then(s=>{appSettings=s;}).catch(()=>{});}
+function initApp(){applyAccessControl();loadStats();loadUpcoming();loadRecentPayments();loadChart();api('/api/settings').then(s=>{appSettings=s;}).catch(()=>{});}
 
 // Stats
 async function loadStats(){
@@ -1365,7 +1366,7 @@ async function changeMyPassword(){
   try{
     // Get current user's ID
     var list=await api('/api/admin-users');
-    var me=list.find(function(a){return a.username===sessionStorage.getItem('subloop_username');});
+    var me=list.find(function(a){return a.username===localStorage.getItem('subloop_username');});
     if(!me){toast('Could not find your account','error');return;}
     var r=await api('/api/admin-users/'+me.id+'/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:np})});
     if(r.success){toast('✓ Password updated');document.getElementById('change-pass-new').value='';document.getElementById('change-pass-confirm').value='';}
