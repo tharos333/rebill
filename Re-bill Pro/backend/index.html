@@ -776,6 +776,19 @@ function showPage(name,el){
   document.getElementById('page-'+name).classList.add('active');
   el.classList.add('active');
   const loaders={dashboard:()=>{loadStats();loadUpcoming();loadRecentPayments();loadChart();},activity:loadActivity,customers:loadCustomers,subscriptions:loadSubscriptions,payments:loadPayments,links:loadAccounts,settings:loadSettings,accounts:loadAccounts,security:loadSecurity,webhooks:loadWebhooks,forecast:loadForecast,expiry:loadExpiry,summary:loadSummary,admins:loadAdmins};
+  // Re-verify permissions on each page navigation
+  var _username=localStorage.getItem('subloop_username');
+  if(_username && (getCurrentRole()==='custom' || getCurrentRole()==='viewer')){
+    api('/api/auth/check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:_username})})
+    .then(function(r){
+      if(!r.valid){forceLogout();return;}
+      localStorage.setItem('subloop_role',r.role||'admin');
+      localStorage.setItem('subloop_permissions',JSON.stringify(r.permissions||[]));
+      if(r.role==='viewer') localStorage.setItem('subloop_readonly','1');
+      else localStorage.removeItem('subloop_readonly');
+      applyAccessControl();
+    }).catch(function(){});
+  }
   if(!canAccess(name)){toast('Access denied','error');return;}
   if(loaders[name])loaders[name]();
   setTimeout(enforceReadonly, 200);
@@ -817,7 +830,52 @@ function cardBadge(brand,last4){
   return '<div style="display:inline-flex;align-items:center;gap:8px;white-space:nowrap;vertical-align:middle;">'+img+dots+num+'</div>';
 }
 
-function initApp(){applyAccessControl();loadStats();loadUpcoming();loadRecentPayments();loadChart();api('/api/settings').then(s=>{appSettings=s;}).catch(()=>{});}
+function initApp(){
+  // Always verify session is still valid + get fresh permissions from server
+  var username=localStorage.getItem('subloop_username');
+  if(username){
+    api('/api/auth/check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:username})})
+    .then(function(r){
+      if(!r.valid){
+        // Account deleted or revoked — force logout
+        forceLogout();
+        return;
+      }
+      // Refresh permissions from server (in case they changed)
+      localStorage.setItem('subloop_role', r.role||'admin');
+      localStorage.setItem('subloop_permissions', JSON.stringify(r.permissions||[]));
+      localStorage.removeItem('subloop_readonly');
+      if(r.role==='viewer') localStorage.setItem('subloop_readonly','1');
+      applyAccessControl();
+      loadStats();loadUpcoming();loadRecentPayments();loadChart();
+      api('/api/settings').then(s=>{appSettings=s;}).catch(()=>{});
+    })
+    .catch(function(){
+      // Network error - still apply cached permissions
+      applyAccessControl();
+      loadStats();loadUpcoming();loadRecentPayments();loadChart();
+      api('/api/settings').then(s=>{appSettings=s;}).catch(()=>{});
+    });
+  } else {
+    applyAccessControl();
+    loadStats();loadUpcoming();loadRecentPayments();loadChart();
+    api('/api/settings').then(s=>{appSettings=s;}).catch(()=>{});
+  }
+}
+
+function forceLogout(){
+  localStorage.removeItem('subloop_auth');
+  localStorage.removeItem('subloop_role');
+  localStorage.removeItem('subloop_permissions');
+  localStorage.removeItem('subloop_username');
+  localStorage.removeItem('subloop_readonly');
+  document.getElementById('app-screen').classList.add('hidden');
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('login-step-1').style.display='block';
+  document.getElementById('login-step-2').style.display='none';
+  document.getElementById('login-error').classList.remove('visible');
+  toast('Your access has been revoked. Please log in again.','error');
+}
 
 // Stats
 async function loadStats(){
