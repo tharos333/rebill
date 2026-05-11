@@ -999,46 +999,30 @@ async function disable2FA() {
 // ── 2FA Login Flow ────────────────────────────────────────────────────────────
 let loginBlocked = false;
 
-async function doLogin() {
-  // Check lockout first
-  try {
-    const lockout = await api('/api/security/lockout-check');
-    if (lockout.locked) {
-      const msg = document.getElementById('lockout-msg');
-      msg.style.display = 'block';
-      msg.textContent = 'Too many failed attempts. Try again in ' + lockout.lockoutMins + ' minutes.';
-      return;
-    }
-  } catch(e) {}
-
+function doLogin() {
   const user = document.getElementById('login-user').value.trim();
   const pass = document.getElementById('login-pass').value;
+  const err = document.getElementById('login-error');
 
   if (user === 'Tharos333' && pass === 'IssoMoussa544@###') {
-    // Check if 2FA is enabled
-    try {
-      const status = await api('/api/security/2fa/status');
-      if (status.enabled) {
-        // Show premium 2FA screen
+    err.classList.remove('visible');
+    // Check if 2FA enabled (non-blocking)
+    api('/api/security/2fa/status').then(function(status) {
+      if (status && status.enabled) {
         document.getElementById('login-screen').style.display = 'none';
-        const tfaScreen = document.getElementById('twofa-screen');
-        tfaScreen.style.display = 'flex';
-        // Update logo based on theme
-        const isLight = document.documentElement.classList.contains('light');
-        document.getElementById('twofa-logo').src = isLight ? 'https://i.ibb.co/Q7YPRnvX/subloop-2.png' : 'https://i.ibb.co/RTmtK8sm/subloop.png';
-        setTimeout(()=>document.getElementById('otp-0').focus(), 100);
-        await api('/api/security/login-attempt', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ success: false }) }); // don't count as success until 2FA done
-        return;
+        document.getElementById('twofa-screen').style.display = 'block';
+        setTimeout(function(){ document.getElementById('otp-0').focus(); }, 100);
+      } else {
+        completeLogin();
       }
-    } catch(e) {}
-    // No 2FA — log in directly
-    await api('/api/security/login-attempt', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ success: true }) }).catch(()=>{});
-    completeLogin();
+    }).catch(function() {
+      // If API fails, just log in
+      completeLogin();
+    });
   } else {
-    document.getElementById('login-error').classList.add('visible');
+    err.classList.add('visible');
     document.getElementById('login-pass').value = '';
     document.getElementById('login-pass').focus();
-    await api('/api/security/login-attempt', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ success: false }) }).catch(()=>{});
   }
 }
 
@@ -1084,8 +1068,9 @@ async function verify2FA() {
 function backToLogin() {
   document.getElementById('twofa-screen').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
-  clearOtp();
-  document.getElementById('twofa-error').style.display = 'none';
+  document.getElementById('otp-0') && clearOtp();
+  const e = document.getElementById('twofa-error');
+  if (e) e.style.display = 'none';
 }
 
 function completeLogin() {
