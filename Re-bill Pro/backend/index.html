@@ -49,6 +49,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:1
 .app-screen.hidden{display:none}
 .sidebar{width:220px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:20px 0;position:fixed;height:100vh;z-index:10;overflow-y:auto}
 .logo{padding:0}
+.sidebar-header{height:92px;padding:0 24px;display:flex;align-items:center;border-bottom:1px solid rgba(255,255,255,0.08);}
+.sidebar-logo-img{width:165px;height:auto;display:block;object-fit:contain;}
+html.light .sidebar-header{border-bottom:1px solid rgba(0,0,0,0.08);}
 .nav-section{font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:1px;text-transform:uppercase;padding:10px 24px 4px}
 .nav-item{display:flex;align-items:center;gap:10px;padding:9px 24px;font-size:13px;color:var(--muted);cursor:pointer;transition:all 0.15s;border-left:2px solid transparent;border:none;background:none;width:100%;text-align:left}
 .nav-item:hover{color:var(--text);background:rgba(255,255,255,0.03)}
@@ -196,8 +199,8 @@ textarea{resize:vertical;min-height:60px}
 <!-- App -->
 <div class="app-screen hidden" id="app-screen">
 <nav class="sidebar">
-  <div style="padding:20px 18px 16px;border-bottom:1px solid var(--border);margin-bottom:8px;">
-    <img id="sidebar-logo" src="https://i.ibb.co/RTmtK8sm/subloop.png" alt="Subloop" style="max-width:120px;width:100%;height:auto;display:block;">
+  <div class="logo sidebar-header">
+    <img id="sidebar-logo" src="https://i.ibb.co/RTmtK8sm/subloop.png" alt="Subloop" class="sidebar-logo-img">
   </div>
   <div class="nav-section">Main</div>
   <button class="nav-item active" onclick="showPage('dashboard',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboard</button>
