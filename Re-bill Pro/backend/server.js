@@ -265,7 +265,21 @@ app.post('/api/payment-links', async (req, res) => {
 });
 
 // ── Activity Log ──────────────────────────────────────────────────────────────
-app.get('/api/activity', async (req, res) => { res.json(await activityLog.recent(100)); });
+app.get('/api/activity', async (req, res) => {
+  try {
+    const username = req.headers['x-username'] || req.query.username;
+    let list = await activityLog.recent(100);
+    // If viewer role, only show payment-related events
+    if (username) {
+      const userRow = await pool.query('SELECT role FROM admin_users WHERE username=$1', [username]);
+      if (userRow.rows[0] && userRow.rows[0].role === 'viewer') {
+        const paymentTypes = ['payment','failed','retry','charge','dunning','proration','resume'];
+        list = list.filter(a => paymentTypes.includes(a.type));
+      }
+    }
+    res.json(list);
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
 
 // ── Webhook Logs ──────────────────────────────────────────────────────────────
 app.get('/api/webhook-logs', async (req, res) => { res.json(await webhookLogs.recent(100)); });
