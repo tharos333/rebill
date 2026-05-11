@@ -215,6 +215,9 @@ textarea{resize:vertical;min-height:60px}
   <button class="nav-item" onclick="showPage('accounts',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Stripe Accounts</button>
   <button class="nav-item" onclick="showPage('security',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Security</button>
   <button class="nav-item" onclick="showPage('webhooks',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>Webhook Logs</button>
+  <button class="nav-item" onclick="showPage('forecast',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Forecast</button>
+  <button class="nav-item" onclick="showPage('expiry',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><circle cx="16" cy="15" r="2" fill="currentColor"/></svg>Expiring Cards</button>
+  <button class="nav-item" onclick="showPage('summary',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Daily Summary</button>
   <button class="theme-toggle" onclick="toggleTheme()"><div class="toggle-track"><div class="toggle-thumb"></div></div><span id="theme-label">Dark mode</span></button>
   <div class="sidebar-footer"><span id="server-status">● loading...</span></div>
 </nav>
@@ -461,6 +464,70 @@ textarea{resize:vertical;min-height:60px}
   </table></div></div>
 </div>
 
+
+<!-- Forecast -->
+<div id="page-forecast" class="page">
+  <div class="page-header"><div><h2>Revenue Forecast</h2><p>Projected revenue based on active subscriptions</p></div></div>
+  <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);">
+    <div class="stat-card"><div class="stat-label">Next 30 Days</div><div class="stat-value" id="forecast-30">—</div><div class="stat-sub">projected revenue</div></div>
+    <div class="stat-card"><div class="stat-label">Next 60 Days</div><div class="stat-value" id="forecast-60">—</div><div class="stat-sub">projected revenue</div></div>
+    <div class="stat-card"><div class="stat-label">Next 90 Days</div><div class="stat-value" id="forecast-90">—</div><div class="stat-sub">projected revenue</div></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><h3>How forecast works</h3></div>
+    <div style="padding:18px;font-size:13px;color:var(--muted);font-family:var(--mono);line-height:1.7;">
+      Forecast is calculated from all active subscriptions, their amounts, billing intervals, and next billing dates.<br>
+      It assumes all payments succeed and no new subscriptions are added or cancelled.
+    </div>
+  </div>
+</div>
+
+<!-- Expiring Cards -->
+<div id="page-expiry" class="page">
+  <div class="page-header">
+    <div><h2>Expiring Cards</h2><p>Customers whose cards expire soon — contact them before rebill fails</p></div>
+    <div class="page-header-actions">
+      <select id="expiry-days" onchange="loadExpiry()" class="btn btn-sm" style="cursor:pointer;">
+        <option value="30">Expiring in 30 days</option>
+        <option value="60">Expiring in 60 days</option>
+        <option value="90">Expiring in 90 days</option>
+      </select>
+    </div>
+  </div>
+  <div class="card"><div class="scrollable"><table>
+    <thead><tr><th>Customer</th><th>Card</th><th>Expires</th><th>Next Billing</th><th>Actions</th></tr></thead>
+    <tbody id="expiry-table"><tr><td colspan="5" class="empty">Loading...</td></tr></tbody>
+  </table></div></div>
+</div>
+
+<!-- Daily Summary -->
+<div id="page-summary" class="page">
+  <div class="page-header"><div><h2>Daily Summary</h2><p>Your business at a glance</p></div><button class="btn" onclick="loadSummary()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/></svg>Refresh</button></div>
+  <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px;">
+    <div class="stat-card"><div class="stat-label">Revenue Today</div><div class="stat-value" id="sum-rev-today">—</div><div class="stat-sub" id="sum-pay-today">payments</div></div>
+    <div class="stat-card"><div class="stat-label">Failed Today</div><div class="stat-value" id="sum-fail-today" style="color:var(--red)">—</div><div class="stat-sub">failed payments</div></div>
+    <div class="stat-card"><div class="stat-label">New Customers Today</div><div class="stat-value" id="sum-cust-today">—</div><div class="stat-sub">joined today</div></div>
+  </div>
+  <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px;">
+    <div class="stat-card"><div class="stat-label">Revenue This Week</div><div class="stat-value" id="sum-rev-7d">—</div><div class="stat-sub" id="sum-pay-7d">payments</div></div>
+    <div class="stat-card"><div class="stat-label">Revenue This Month</div><div class="stat-value" id="sum-rev-month">—</div><div class="stat-sub" id="sum-pay-month">payments</div></div>
+    <div class="stat-card"><div class="stat-label">Active Customers</div><div class="stat-value" id="sum-active">—</div><div class="stat-sub" id="sum-new-7d">new this week</div></div>
+  </div>
+  <div class="card" style="max-width:600px;">
+    <div class="card-header"><h3>Manual Invoice</h3></div>
+    <div style="padding:18px;">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Charge any customer a one-time amount outside their subscription.</p>
+      <div class="form-row">
+        <div class="form-group"><label>Customer Stripe ID (cus_...)</label><input type="text" id="invoice-customer-id" placeholder="cus_xxx..."></div>
+        <div class="form-group"><label>Amount ($)</label><input type="number" id="invoice-amount" placeholder="29.00" step="0.01" min="0.50"></div>
+      </div>
+      <div class="form-group"><label>Description</label><input type="text" id="invoice-desc" placeholder="Manual invoice - November" value="Manual invoice"></div>
+      <button class="btn btn-primary" onclick="sendManualInvoice()">Charge customer</button>
+      <div id="invoice-result" style="display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:13px;font-family:var(--mono);"></div>
+    </div>
+  </div>
+</div>
+
 </main>
 </div>
 
@@ -503,6 +570,16 @@ textarea{resize:vertical;min-height:60px}
   </div>
 </div>
 
+<div class="modal-bg" id="invoice-modal">
+  <div class="modal">
+    <h3>Manual Invoice</h3><p>Charge this customer a one-time amount</p>
+    <input type="hidden" id="invoice-modal-customer-id">
+    <div class="form-group"><label>Amount ($)</label><input type="number" id="invoice-modal-amount" placeholder="29.00" step="0.01" min="0.50"></div>
+    <div class="form-group"><label>Description</label><input type="text" id="invoice-modal-desc" value="Manual invoice"></div>
+    <div id="invoice-modal-result" style="display:none;margin-top:10px;padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);"></div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal('invoice-modal')">Cancel</button><button class="btn btn-primary" onclick="sendInvoiceFromModal()">Charge</button></div>
+  </div>
+</div>
 <div id="toast"></div>
 
 <script>
@@ -572,7 +649,7 @@ function showPage(name,el){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   el.classList.add('active');
-  const loaders={dashboard:()=>{loadStats();loadUpcoming();loadRecentPayments();loadChart();},activity:loadActivity,customers:loadCustomers,subscriptions:loadSubscriptions,payments:loadPayments,links:loadAccounts,settings:loadSettings,accounts:loadAccounts,security:loadSecurity,webhooks:loadWebhooks};
+  const loaders={dashboard:()=>{loadStats();loadUpcoming();loadRecentPayments();loadChart();},activity:loadActivity,customers:loadCustomers,subscriptions:loadSubscriptions,payments:loadPayments,links:loadAccounts,settings:loadSettings,accounts:loadAccounts,security:loadSecurity,webhooks:loadWebhooks,forecast:loadForecast,expiry:loadExpiry,summary:loadSummary};
   if(loaders[name])loaders[name]();
 }
 
@@ -909,6 +986,98 @@ async function loadAccounts(){
 async function addAccount(){const name=document.getElementById('acc-name').value.trim(),key=document.getElementById('acc-key').value.trim(),webhook=document.getElementById('acc-webhook').value.trim();if(!name||!key){toast('Name and key required','error');return;}const r=await api('/api/stripe-accounts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,secret_key:key,webhook_secret:webhook})});if(r.success){toast('✓ Account added');closeModal('add-account-modal');document.getElementById('acc-name').value='';document.getElementById('acc-key').value='';document.getElementById('acc-webhook').value='';loadAccounts();}else toast('Error: '+(r.error||'Failed'),'error');}
 async function setDefaultAccount(id){await api('/api/stripe-accounts/'+id+'/default',{method:'PATCH'});toast('✓ Default updated');loadAccounts();}
 async function deleteAccount(id){if(!confirm('Delete this account?'))return;await api('/api/stripe-accounts/'+id,{method:'DELETE'});toast('Account deleted');loadAccounts();}
+
+
+// ── Forecast ──────────────────────────────────────────────────────────────────
+async function loadForecast(){
+  try{
+    const d=await api('/api/forecast');
+    document.getElementById('forecast-30').textContent=fmt(d.forecast30||0);
+    document.getElementById('forecast-60').textContent=fmt(d.forecast60||0);
+    document.getElementById('forecast-90').textContent=fmt(d.forecast90||0);
+  }catch(e){}
+}
+
+// ── Expiring Cards ────────────────────────────────────────────────────────────
+async function loadExpiry(){
+  try{
+    var days=document.getElementById('expiry-days')?document.getElementById('expiry-days').value:30;
+    var list=await api('/api/expiring-cards?days='+days);
+    var tb=document.getElementById('expiry-table');
+    if(!list.length){tb.innerHTML='<tr><td colspan="5" class="empty">No expiring cards in this period ✅</td></tr>';return;}
+    var now=new Date();
+    var rows=list.map(function(c){
+      var expMonth=String(c.card_exp_month||'?').padStart(2,'0');
+      var expYear=String(c.card_exp_year||'?');
+      var yr=parseInt(c.card_exp_year)||9999;
+      var mo=parseInt(c.card_exp_month)||12;
+      var isExpired=yr<now.getFullYear()||(yr===now.getFullYear()&&mo<=now.getMonth()+1);
+      var color=isExpired?'var(--red)':'var(--amber)';
+      return '<tr>'+
+        '<td><div class="customer-cell"><div class="avatar">'+initials(c.name)+'</div><div><div class="customer-name">'+(c.name||'—')+'</div><div class="customer-email">'+(c.email||'')+'</div></div></div></td>'+
+        '<td>'+cardBadge(c.card_brand,c.card_last4)+'</td>'+
+        '<td><span style="color:'+color+';font-family:var(--mono);font-weight:600;">'+expMonth+'/'+expYear+'</span></td>'+
+        '<td class="mono">'+fmtDate(c.next_billing_date)+'</td>'+
+        '<td><button class="btn btn-sm" onclick="openPortal('+c.id+')">Update card ↗</button></td>'+
+      '</tr>';
+    });
+    tb.innerHTML=rows.join('');
+  }catch(e){console.error(e);}
+}
+
+// ── Daily Summary ─────────────────────────────────────────────────────────────
+async function loadSummary(){
+  try{
+    const d=await api('/api/daily-summary');
+    document.getElementById('sum-rev-today').textContent=fmt(parseInt(d.revenue_today)||0);
+    document.getElementById('sum-pay-today').textContent=(d.payments_today||0)+' payments';
+    document.getElementById('sum-fail-today').textContent=d.failed_today||0;
+    document.getElementById('sum-rev-7d').textContent=fmt(parseInt(d.revenue_7d)||0);
+    document.getElementById('sum-pay-7d').textContent=(d.payments_7d||0)+' payments';
+    document.getElementById('sum-rev-month').textContent=fmt(parseInt(d.revenue_month)||0);
+    document.getElementById('sum-pay-month').textContent=(d.payments_month||0)+' payments';
+    document.getElementById('sum-active').textContent=d.active_total||0;
+    document.getElementById('sum-new-7d').textContent='+'+(d.new_7d||0)+' this week';
+    document.getElementById('sum-cust-today').textContent=d.new_today||0;
+  }catch(e){}
+}
+
+// ── Manual Invoice ────────────────────────────────────────────────────────────
+async function sendManualInvoice(){
+  const custId=document.getElementById('invoice-customer-id').value.trim();
+  const amount=Math.round(parseFloat(document.getElementById('invoice-amount').value)*100);
+  const desc=document.getElementById('invoice-desc').value;
+  const result=document.getElementById('invoice-result');
+  if(!custId||!amount){toast('Fill in all fields','error');return;}
+  try{
+    const r=await api('/api/customers/'+custId+'/charge-once',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount,description:desc})});
+    result.style.display='block';
+    if(r.success){result.style.background='var(--green-bg)';result.style.color='var(--green)';result.style.border='1px solid var(--green)';result.textContent='✓ Payment succeeded!';}
+    else{result.style.background='var(--red-bg)';result.style.color='var(--red)';result.style.border='1px solid var(--red)';result.textContent='✗ '+(r.error||'Failed');}
+  }catch(e){toast('Error','error');}
+}
+
+function openInvoiceModal(customerId){
+  document.getElementById('invoice-modal-customer-id').value=customerId;
+  document.getElementById('invoice-modal-amount').value='';
+  document.getElementById('invoice-modal-desc').value='Manual invoice';
+  document.getElementById('invoice-modal-result').style.display='none';
+  openModal('invoice-modal');
+}
+
+async function sendInvoiceFromModal(){
+  const customerId=document.getElementById('invoice-modal-customer-id').value;
+  const amount=Math.round(parseFloat(document.getElementById('invoice-modal-amount').value)*100);
+  const desc=document.getElementById('invoice-modal-desc').value;
+  const result=document.getElementById('invoice-modal-result');
+  if(!amount||amount<50){toast('Minimum $0.50','error');return;}
+  try{
+    const r=await api('/api/customers/'+customerId+'/charge-once',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount,description:desc})});
+    result.style.display='block';
+    if(r.success){result.style.cssText='background:var(--green-bg);color:var(--green);border:1px solid var(--green);padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);';result.textContent='✓ Charged successfully!';toast('✓ Invoice sent');}
+    else{result.style.cssText='background:var(--red-bg);color:var(--red);border:1px solid var(--red);padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);';result.textContent='✗ '+(r.error||'Failed');toast('Failed','error');}
+  }catch(e){toast('Error','error');}
+}
 
 document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
 </script>
