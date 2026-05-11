@@ -129,11 +129,16 @@ app.get('/api/stats', async (req, res) => {
 });
 
 app.get('/api/revenue-chart', async (req, res) => {
+  const period = req.query.period || 'month';
+  let interval;
+  if (period === 'today' || period === 'yesterday') interval = '2 days';
+  else if (period === 'week') interval = '7 days';
+  else interval = '30 days';
   const r = await pool.query(`
     SELECT DATE_TRUNC('day', created_at) as day,
       SUM(CASE WHEN status='succeeded' THEN amount ELSE 0 END) as revenue,
       COUNT(CASE WHEN status='succeeded' THEN 1 END) as count
-    FROM payments WHERE created_at >= NOW()-INTERVAL '30 days'
+    FROM payments WHERE created_at >= NOW()-INTERVAL '${interval}'
     GROUP BY day ORDER BY day ASC
   `);
   res.json(r.rows);
