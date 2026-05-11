@@ -420,6 +420,126 @@ app.get('/api/security/login-history', async (req, res) => {
   res.json(await security.recentLogins(30));
 });
 
+
+// ── Revenue Forecast ──────────────────────────────────────────────────────────
+app.get('/api/forecast', async (req, res) => {
+  try {
+    const allSubs = await subscriptions.all();
+    const activeSubs = allSubs.filter(s => s.status === 'active');
+    const now = new Date();
+    let forecast30 = 0, forecast60 = 0, forecast90 = 0;
+    activeSubs.forEach(s => {
+      const next = new Date(s.next_billing_date);
+      const diff = (next - now) / (1000*60*60*24);
+      const cycles30 = Math.floor(30 / s.interval_days) + (diff <= 30 ? 1 : 0);
+      const cycles60 = Math.floor(60 / s.interval_days) + (diff <= 60 ? 1 : 0);
+      const cycles90 = Math.floor(90 / s.interval_days) + (diff <= 90 ? 1 : 0);
+      forecast30 += s.amount * cycles30;
+      forecast60 += s.amount * cycles60;
+      forecast90 += s.amount * cycles90;
+    });
+    res.json({ forecast30, forecast60, forecast90, active_count: activeSubs.length });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Card Expiry Scanner ───────────────────────────────────────────────────────
+app.get('/api/expiring-cards', async (req, res) => {
+  try {
+    const days = parseInt(req.query.days) || 30;
+    const now = new Date();
+    const futureMonth = now.getMonth() + 1 + Math.ceil(days / 30);
+    const futureYear = now.getFullYear() + Math.floor((now.getMonth() + Math.ceil(days / 30)) / 12);
+    const r = await pool.query(`
+      SELECT c.*, s.amount, s.interval_days, s.next_billing_date
+      FROM customers c
+      LEFT JOIN subscriptions s ON s.customer_id = c.id AND s.status = 'active'
+      WHERE c.status = 'active'
+        AND c.card_exp_month IS NOT NULL
+        AND c.card_exp_year IS NOT NULL
+        AND (
+          c.card_exp_year < $1
+          OR (c.card_exp_year = $1 AND c.card_exp_month <= $2)
+        )
+      ORDER BY c.card_exp_year ASC, c.card_exp_month ASC
+    `, [futureYear, now.getMonth() + 1 + Math.ceil(days / 30)]);
+    res.json(r.rows);
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Customer Tags ─────────────────────────────────────────────────────────────
+app.patch('/api/customers/:id/tag', async (req, res) => {
+  try {
+    await pool.query('ALTER TABLE customers ADD COLUMN IF NOT EXISTS tag TEXT').catch(()=>{});
+    await pool.query('UPDATE customers SET tag=$1 WHERE id=$2', [req.body.tag, req.params.id]);
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/customers/:id/tag', async (req, res) => {
+  try {
+    await pool.query('ALTER TABLE customers ADD COLUMN IF NOT EXISTS tag TEXT').catch(()=>{});
+    const r = await pool.query('SELECT tag FROM customers WHERE id=$1', [req.params.id]);
+    res.json({ tag: r.rows[0]?.tag || null });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Blacklist ─────────────────────────────────────────────────────────────────
+app.patch('/api/customers/:id/blacklist', async (req, res) => {
+  try {
+    await pool.query('UPDATE customers SET status=$1 WHERE id=$2', ['blacklisted', req.params.id]);
+    await activityLog.add('blacklist', `Customer blacklisted`, req.params.id);
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Manual Invoice (one-time charge) ─────────────────────────────────────────
+app.post('/api/customers/:id/charge-once', async (req, res) => {
+  try {
+    const { amount, currency = 'usd', description = 'Manual invoice' } = req.body;
+    const customer = await customers.byId(req.params.id);
+    if (!customer) return res.status(404).json({ error: 'Not found' });
+    if (!customer.stripe_payment_method) return res.status(400).json({ error: 'No saved card' });
+    const stripe = await getStripe(customer.stripe_account_id);
+    const pi = await stripe.paymentIntents.create({
+      amount: parseInt(amount),
+      currency,
+      customer: customer.stripe_customer_id,
+      payment_method: customer.stripe_payment_method,
+      off_session: true,
+      confirm: true,
+      description,
+    });
+    await payments.insert({ customer_id: customer.id, subscription_id: null, stripe_payment_intent: pi.id, amount: parseInt(amount), currency, status: 'succeeded', failure_reason: null });
+    await activityLog.add('invoice', `Manual invoice of ${(amount/100).toFixed(2)} ${currency.toUpperCase()} charged to ${customer.email}`, customer.id, parseInt(amount));
+    res.json({ success: true, paymentIntentId: pi.id });
+  } catch(err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+// ── Daily Summary ─────────────────────────────────────────────────────────────
+app.get('/api/daily-summary', async (req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT
+        COUNT(CASE WHEN status='succeeded' AND created_at >= CURRENT_DATE THEN 1 END) as payments_today,
+        COALESCE(SUM(CASE WHEN status='succeeded' AND created_at >= CURRENT_DATE THEN amount ELSE 0 END),0) as revenue_today,
+        COUNT(CASE WHEN status='failed' AND created_at >= CURRENT_DATE THEN 1 END) as failed_today,
+        COUNT(CASE WHEN status='succeeded' AND created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as payments_7d,
+        COALESCE(SUM(CASE WHEN status='succeeded' AND created_at >= CURRENT_DATE - INTERVAL '7 days' THEN amount ELSE 0 END),0) as revenue_7d,
+        COUNT(CASE WHEN status='succeeded' AND created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN 1 END) as payments_month,
+        COALESCE(SUM(CASE WHEN status='succeeded' AND created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN amount ELSE 0 END),0) as revenue_month
+      FROM payments
+    `);
+    const custR = await pool.query(`
+      SELECT
+        COUNT(CASE WHEN created_at >= CURRENT_DATE THEN 1 END) as new_today,
+        COUNT(CASE WHEN created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as new_7d,
+        COUNT(CASE WHEN status='active' THEN 1 END) as active_total
+      FROM customers
+    `);
+    res.json({ ...r.rows[0], ...custR.rows[0] });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, async () => {
