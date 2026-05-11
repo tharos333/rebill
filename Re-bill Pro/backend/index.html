@@ -180,44 +180,37 @@ textarea{resize:vertical;min-height:60px}
     <div id="login-step-2" style="display:none;"></div>
   </div>
 <!-- Premium 2FA Screen -->
-<div id="twofa-screen" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:1001;align-items:flex-start;justify-content:center;padding-top:10vh;">
-  <div style="position:absolute;inset:0;background:radial-gradient(ellipse 600px 400px at 50% 38%,rgba(108,99,255,0.08) 0%,transparent 70%);pointer-events:none;"></div>
-  <div style="width:420px;max-width:95vw;background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:40px 36px;position:relative;box-shadow:0 0 0 1px rgba(108,99,255,0.12),0 24px 64px rgba(0,0,0,0.4);">
-    <!-- Purple glow -->
-    <div style="position:absolute;top:-60px;left:50%;transform:translateX(-50%);width:200px;height:120px;background:radial-gradient(ellipse,rgba(108,99,255,0.25) 0%,transparent 70%);pointer-events:none;"></div>
-    <!-- Logo -->
-    <div style="text-align:center;margin-bottom:28px;">
-      <img id="twofa-logo" src="https://i.ibb.co/RTmtK8sm/subloop.png" alt="Subloop" style="width:130px;height:auto;display:block;margin:0 auto;">
-    </div>
-    <!-- Shield icon -->
-    <div style="text-align:center;margin-bottom:20px;">
-      <div style="width:60px;height:60px;border-radius:16px;background:var(--accent-glow);border:1px solid rgba(108,99,255,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.6"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+<div id="twofa-screen" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:1001;background:var(--bg,#0a0a0f);overflow-y:auto;">
+  <div style="min-height:100%;display:flex;align-items:flex-start;justify-content:center;padding:10vh 20px 40px;">
+    <div style="width:100%;max-width:420px;background:var(--surface,#111118);border:1px solid rgba(108,99,255,0.25);border-radius:20px;padding:40px 36px;box-shadow:0 24px 64px rgba(0,0,0,0.5);">
+      <div style="text-align:center;margin-bottom:24px;">
+        <img id="twofa-logo" src="https://i.ibb.co/RTmtK8sm/subloop.png" alt="Subloop" style="width:130px;height:auto;display:block;margin:0 auto;">
       </div>
-      <div style="font-size:18px;font-weight:700;letter-spacing:-0.3px;margin-bottom:6px;">Two-Factor Authentication</div>
-      <div style="font-size:13px;color:var(--muted);font-family:var(--mono);line-height:1.5;">Enter the 6-digit code from your<br>authenticator app to continue</div>
-    </div>
-    <!-- OTP Input boxes -->
-    <div style="display:flex;gap:8px;justify-content:center;margin-bottom:24px;" id="otp-boxes">
-      <input type="text" maxlength="1" class="otp-box" id="otp-0" oninput="otpInput(this,0)" onkeydown="otpKey(event,0)" style="width:52px;height:56px;text-align:center;font-size:22px;font-weight:700;font-family:var(--mono);background:var(--surface2);border:1.5px solid var(--border2);border-radius:10px;color:var(--text);outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'">
-      <input type="text" maxlength="1" class="otp-box" id="otp-1" oninput="otpInput(this,1)" onkeydown="otpKey(event,1)" style="width:52px;height:56px;text-align:center;font-size:22px;font-weight:700;font-family:var(--mono);background:var(--surface2);border:1.5px solid var(--border2);border-radius:10px;color:var(--text);outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'">
-      <input type="text" maxlength="1" class="otp-box" id="otp-2" oninput="otpInput(this,2)" onkeydown="otpKey(event,2)" style="width:52px;height:56px;text-align:center;font-size:22px;font-weight:700;font-family:var(--mono);background:var(--surface2);border:1.5px solid var(--border2);border-radius:10px;color:var(--text);outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'">
-      <input type="text" maxlength="1" class="otp-box" id="otp-3" oninput="otpInput(this,3)" onkeydown="otpKey(event,3)" style="width:52px;height:56px;text-align:center;font-size:22px;font-weight:700;font-family:var(--mono);background:var(--surface2);border:1.5px solid var(--border2);border-radius:10px;color:var(--text);outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'">
-      <input type="text" maxlength="1" class="otp-box" id="otp-4" oninput="otpInput(this,4)" onkeydown="otpKey(event,4)" style="width:52px;height:56px;text-align:center;font-size:22px;font-weight:700;font-family:var(--mono);background:var(--surface2);border:1.5px solid var(--border2);border-radius:10px;color:var(--text);outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'">
-      <input type="text" maxlength="1" class="otp-box" id="otp-5" oninput="otpInput(this,5)" onkeydown="otpKey(event,5)" style="width:52px;height:56px;text-align:center;font-size:22px;font-weight:700;font-family:var(--mono);background:var(--surface2);border:1.5px solid var(--border2);border-radius:10px;color:var(--text);outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'">
-    </div>
-    <!-- Error -->
-    <div id="twofa-error" style="display:none;background:var(--red-bg);border:1px solid var(--red);color:var(--red);border-radius:8px;padding:10px 14px;font-size:12px;font-family:var(--mono);margin-bottom:16px;text-align:center;">Invalid code. Please try again.</div>
-    <!-- Verify button -->
-    <button onclick="verify2FA()" style="width:100%;background:var(--accent);color:#fff;border:none;border-radius:11px;padding:14px;font-size:15px;font-family:var(--sans);font-weight:600;cursor:pointer;transition:background 0.15s;margin-bottom:14px;" onmouseover="this.style.background='#7c74ff'" onmouseout="this.style.background='var(--accent)'">Verify & Sign in</button>
-    <!-- Back link -->
-    <div style="text-align:center;">
-      <button onclick="backToLogin()" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;font-family:var(--mono);transition:color 0.15s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">← Back to login</button>
+      <div style="text-align:center;margin-bottom:24px;">
+        <div style="width:60px;height:60px;border-radius:16px;background:rgba(108,99,255,0.15);border:1px solid rgba(108,99,255,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6c63ff" stroke-width="1.6"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4" stroke="#6c63ff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div style="font-size:18px;font-weight:700;letter-spacing:-0.3px;margin-bottom:6px;color:var(--text,#f0f0f5);">Two-Factor Authentication</div>
+        <div style="font-size:13px;color:var(--muted,#888898);font-family:var(--mono);line-height:1.5;">Enter the 6-digit code from your<br>authenticator app to continue</div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:center;margin-bottom:24px;">
+        <input type="text" maxlength="1" class="otp-box" id="otp-0" oninput="otpInput(this,0)" onkeydown="otpKey(event,0)" style="width:52px;height:56px;text-align:center;font-size:22px;font-weight:700;font-family:var(--mono);background:var(--surface2,#18181f);border:1.5px solid rgba(255,255,255,0.13);border-radius:10px;color:var(--text,#f0f0f5);outline:none;" onfocus="this.style.borderColor='#6c63ff'" onblur="this.style.borderColor='rgba(255,255,255,0.13)'">
+        <input type="text" maxlength="1" class="otp-box" id="otp-1" oninput="otpInput(this,1)" onkeydown="otpKey(event,1)" style="width:52px;height:56px;text-align:center;font-size:22px;font-weight:700;font-family:var(--mono);background:var(--surface2,#18181f);border:1.5px solid rgba(255,255,255,0.13);border-radius:10px;color:var(--text,#f0f0f5);outline:none;" onfocus="this.style.borderColor='#6c63ff'" onblur="this.style.borderColor='rgba(255,255,255,0.13)'">
+        <input type="text" maxlength="1" class="otp-box" id="otp-2" oninput="otpInput(this,2)" onkeydown="otpKey(event,2)" style="width:52px;height:56px;text-align:center;font-size:22px;font-weight:700;font-family:var(--mono);background:var(--surface2,#18181f);border:1.5px solid rgba(255,255,255,0.13);border-radius:10px;color:var(--text,#f0f0f5);outline:none;" onfocus="this.style.borderColor='#6c63ff'" onblur="this.style.borderColor='rgba(255,255,255,0.13)'">
+        <input type="text" maxlength="1" class="otp-box" id="otp-3" oninput="otpInput(this,3)" onkeydown="otpKey(event,3)" style="width:52px;height:56px;text-align:center;font-size:22px;font-weight:700;font-family:var(--mono);background:var(--surface2,#18181f);border:1.5px solid rgba(255,255,255,0.13);border-radius:10px;color:var(--text,#f0f0f5);outline:none;" onfocus="this.style.borderColor='#6c63ff'" onblur="this.style.borderColor='rgba(255,255,255,0.13)'">
+        <input type="text" maxlength="1" class="otp-box" id="otp-4" oninput="otpInput(this,4)" onkeydown="otpKey(event,4)" style="width:52px;height:56px;text-align:center;font-size:22px;font-weight:700;font-family:var(--mono);background:var(--surface2,#18181f);border:1.5px solid rgba(255,255,255,0.13);border-radius:10px;color:var(--text,#f0f0f5);outline:none;" onfocus="this.style.borderColor='#6c63ff'" onblur="this.style.borderColor='rgba(255,255,255,0.13)'">
+        <input type="text" maxlength="1" class="otp-box" id="otp-5" oninput="otpInput(this,5)" onkeydown="otpKey(event,5)" style="width:52px;height:56px;text-align:center;font-size:22px;font-weight:700;font-family:var(--mono);background:var(--surface2,#18181f);border:1.5px solid rgba(255,255,255,0.13);border-radius:10px;color:var(--text,#f0f0f5);outline:none;" onfocus="this.style.borderColor='#6c63ff'" onblur="this.style.borderColor='rgba(255,255,255,0.13)'">
+      </div>
+      <div id="twofa-error" style="display:none;background:rgba(248,113,113,0.1);border:1px solid #f87171;color:#f87171;border-radius:8px;padding:10px 14px;font-size:12px;font-family:var(--mono);margin-bottom:16px;text-align:center;">Invalid code. Please try again.</div>
+      <button onclick="verify2FA()" style="width:100%;background:#6c63ff;color:#fff;border:none;border-radius:11px;padding:14px;font-size:15px;font-family:var(--sans);font-weight:600;cursor:pointer;margin-bottom:14px;">Verify & Sign in</button>
+      <div style="text-align:center;">
+        <button onclick="backToLogin()" style="background:none;border:none;color:var(--muted,#888898);font-size:12px;cursor:pointer;font-family:var(--mono);">← Back to login</button>
+      </div>
     </div>
   </div>
 </div>
 
-</div>
+
 
 <div class="app-screen hidden" id="app-screen">
 <nav class="sidebar">
