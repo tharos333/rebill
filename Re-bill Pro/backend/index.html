@@ -163,7 +163,7 @@ textarea{resize:vertical;min-height:60px}
 <div class="login-screen" id="login-screen">
   <div class="login-box">
     <div class="login-logo">
-      <img id="login-logo" src="https://i.ibb.co/dw8GzHcR/1.png" alt="Subloop" style="width:170px;height:auto;display:block;margin:0 auto 10px;">
+      <img id="login-logo" src="https://i.ibb.co/MDsPb7Nr/1.png" alt="Subloop" style="width:170px;height:auto;display:block;margin:0 auto 10px;">
     </div>
     <!-- Step 1 -->
     <div id="login-step-1">
@@ -200,7 +200,7 @@ textarea{resize:vertical;min-height:60px}
 <div class="app-screen hidden" id="app-screen">
 <nav class="sidebar">
   <div class="logo sidebar-header">
-    <img id="sidebar-logo" src="https://i.ibb.co/dw8GzHcR/1.png" alt="Subloop" class="sidebar-logo-img">
+    <img id="sidebar-logo" src="https://i.ibb.co/MDsPb7Nr/1.png" alt="Subloop" class="sidebar-logo-img">
   </div>
   <div class="nav-section">Main</div>
   <button class="nav-item active" onclick="showPage('dashboard',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboard</button>
@@ -649,7 +649,7 @@ textarea{resize:vertical;min-height:60px}
 let currentLink=null,allCustomers=[],allSubscriptions=[],appSettings={},selectedSubs=new Set(),currentRevPeriod='month',bulkMode=false;
 
 function toggleTheme(){const isLight=document.documentElement.classList.toggle('light');localStorage.setItem('subloop_theme',isLight?'light':'dark');document.getElementById('theme-label').textContent=isLight?'Light mode':'Dark mode';updateLogos(isLight);}
-function updateLogos(isLight){const src=isLight?'https://i.ibb.co/6CTZ6Tr/2.png':'https://i.ibb.co/dw8GzHcR/1.png';['sidebar-logo','login-logo'].forEach(id=>{const el=document.getElementById(id);if(el)el.src=src;});}
+function updateLogos(isLight){const src=isLight?'https://i.ibb.co/QvV8RKkZ/2.png':'https://i.ibb.co/MDsPb7Nr/1.png';['sidebar-logo','login-logo'].forEach(id=>{const el=document.getElementById(id);if(el)el.src=src;});}
 function initTheme(){const isLight=localStorage.getItem('subloop_theme')==='light';if(isLight){document.documentElement.classList.add('light');const l=document.getElementById('theme-label');if(l)l.textContent='Light mode';}updateLogos(isLight);}
 initTheme();
 
