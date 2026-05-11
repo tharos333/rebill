@@ -56,7 +56,7 @@ html.light .sidebar-header{border-bottom:1px solid rgba(0,0,0,0.08);}
 .nav-item{display:flex;align-items:center;gap:10px;padding:9px 24px;font-size:13px;color:var(--muted);cursor:pointer;transition:all 0.15s;border-left:2px solid transparent;border:none;background:none;width:100%;text-align:left}
 .nav-item:hover{color:var(--text);background:rgba(255,255,255,0.03)}
 .nav-item.active{color:var(--text);border-left-color:var(--accent);background:var(--accent-glow)}
-.sidebar-footer{margin-top:auto;padding:0;border-top:1px solid var(--border);font-size:11px;color:var(--muted);font-family:var(--mono)}
+.sidebar-footer{margin-top:auto;padding:12px 24px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);font-family:var(--mono)}
 .theme-toggle{display:flex;align-items:center;gap:8px;padding:8px 24px;font-size:12px;color:var(--muted);cursor:pointer;font-family:var(--mono);border:none;background:none;width:100%}
 .theme-toggle:hover{color:var(--text)}
 .toggle-track{width:34px;height:18px;border-radius:20px;background:var(--surface2);border:1px solid var(--border2);position:relative;transition:background 0.2s;flex-shrink:0}
@@ -221,11 +221,7 @@ textarea{resize:vertical;min-height:60px}
   <button class="nav-item" onclick="showPage('security',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Security</button>
   <button class="nav-item" onclick="showPage('webhooks',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>Webhook Logs</button>
   <button class="theme-toggle" onclick="toggleTheme()"><div class="toggle-track"><div class="toggle-thumb"></div></div><span id="theme-label">Dark mode</span></button>
-  <div class="sidebar-footer" style="padding:0;">
-    <div id="sidebar-username" style="display:none;padding:12px 24px 0;font-size:12px;font-weight:600;color:var(--text);font-family:var(--sans);letter-spacing:-0.2px;"></div>
-    <div id="sidebar-divider" style="display:none;height:1px;background:var(--border);margin:10px 24px 0;"></div>
-    <div style="padding:12px 24px;display:flex;align-items:center;"><span id="server-status">● loading...</span></div>
-  </div>
+  <div class="sidebar-footer"><span id="server-status">● loading...</span></div>
 </nav>
 <main class="main">
 
@@ -953,20 +949,7 @@ async function loadStats(){
     document.getElementById('stat-ltv').textContent=fmt(s.avg_ltv||0);
     document.getElementById('server-status').textContent='● connected';
     document.getElementById('server-status').style.color='var(--green)';
-    var uEl=document.getElementById('sidebar-username');
-    if(uEl){
-      var role=localStorage.getItem('subloop_role')||'';
-      var divider=document.getElementById('sidebar-divider');
-      if(role && role!=='owner'){
-        uEl.textContent=localStorage.getItem('subloop_username')||'';
-        uEl.style.display='block';
-        if(divider) divider.style.display='block';
-      } else {
-        uEl.textContent='';
-        uEl.style.display='none';
-        if(divider) divider.style.display='none';
-      }
-    }
+
   }catch(e){document.getElementById('server-status').textContent='● offline';document.getElementById('server-status').style.color='var(--red)';}
 }
 
