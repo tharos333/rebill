@@ -1004,7 +1004,7 @@ async function loadExpiry(){
     var days=document.getElementById('expiry-days')?document.getElementById('expiry-days').value:30;
     var list=await api('/api/expiring-cards?days='+days);
     var tb=document.getElementById('expiry-table');
-    if(!list.length){tb.innerHTML='<tr><td colspan="5" class="empty">No expiring cards in this period ✅</td></tr>';return;}
+    if(!list.length){tb.innerHTML='<tr><td colspan="5" class="empty"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" style="vertical-align:middle;margin-right:6px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>No expiring cards in this period</td></tr>';return;}
     var now=new Date();
     var rows=list.map(function(c){
       var expMonth=String(c.card_exp_month||'?').padStart(2,'0');
