@@ -288,19 +288,25 @@ textarea{resize:vertical;min-height:60px}
   <div class="page-header">
     <div><h2>Subscriptions</h2><p>All rebilling schedules</p></div>
     <div class="page-header-actions">
-      <div id="bulk-actions-bar" style="display:none;align-items:center;gap:8px;">
-        <span id="bulk-count" style="font-size:12px;color:var(--muted);font-family:var(--mono);"></span>
-        <button class="btn btn-primary btn-sm" onclick="bulkCharge()">Charge selected</button>
-        <button class="btn btn-sm" onclick="bulkPause()">Pause selected</button>
-        <button class="btn btn-sm btn-danger" onclick="bulkCancel()">Cancel selected</button>
-        <button class="btn btn-sm" onclick="clearSelection()">✕ Clear</button>
+      <div id="sub-default-btn">
+        <button class="btn btn-sm" onclick="enterBulkMode()">Select</button>
       </div>
-      <button class="btn btn-sm" onclick="toggleSelectAll()">Select all</button>
+      <div id="sub-bulk-btns" style="display:none;align-items:center;gap:6px;flex-wrap:wrap;">
+        <span id="bulk-count" style="font-size:12px;color:var(--muted);font-family:var(--mono);min-width:60px;"></span>
+        <button class="btn btn-sm" id="bulk-charge-btn" onclick="bulkCharge()" disabled style="opacity:0.4;">Charge</button>
+        <button class="btn btn-sm" id="bulk-pause-btn" onclick="bulkPause()" disabled style="opacity:0.4;">Pause</button>
+        <button class="btn btn-sm btn-danger" id="bulk-cancel-btn" onclick="bulkCancel()" disabled style="opacity:0.4;">Cancel</button>
+        <button class="btn btn-sm" onclick="clearSelection()">Clear</button>
+        <button class="btn btn-sm" onclick="exitBulkMode()" style="color:var(--accent);border-color:var(--accent);">Done</button>
+      </div>
     </div>
   </div>
   <div class="search-bar"><input type="text" id="sub-search" placeholder="Search by name or email..." oninput="filterSubscriptions()"></div>
   <div class="card"><div class="scrollable"><table>
-    <thead id="sub-thead"><tr><th id="bulk-checkbox-header" style="width:36px;display:none;"><input type="checkbox" id="select-all-checkbox" onchange="toggleSelectAll()" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;"></th><th>Customer</th><th>Amount</th><th>Interval</th><th>Next billing</th><th>Status</th><th>Actions</th></tr></thead>
+    <thead><tr>
+      <th id="bulk-cb-header" style="width:36px;display:none;"><input type="checkbox" id="select-all-checkbox" onchange="toggleSelectAll()" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;"></th>
+      <th>Customer</th><th>Amount</th><th>Interval</th><th>Next billing</th><th>Status</th><th>Actions</th>
+    </tr></thead>
     <tbody id="subscriptions-table"><tr><td colspan="7" class="empty">Loading...</td></tr></tbody>
   </table></div></div>
 </div>
@@ -677,71 +683,99 @@ function filterCustomers(){const q=document.getElementById('customer-search').va
 // Subscriptions
 async function loadSubscriptions(){try{allSubscriptions=await api('/api/subscriptions');renderSubscriptions(allSubscriptions);}catch(e){}}
 function renderSubscriptions(list){
-  const tb=document.getElementById('subscriptions-table');
+  var tb=document.getElementById('subscriptions-table');
   if(!list.length){tb.innerHTML='<tr><td colspan="7" class="empty">No subscriptions yet</td></tr>';return;}
-  tb.innerHTML=list.map(s=>'<tr id="sub-row-'+s.id+'" style="'+(selectedSubs.has(s.id)?'background:var(--accent-glow);':'')+'"><td id="cb-'+s.id+'" style="width:36px;display:'+(bulkMode?'table-cell':'none')+'"><input type="checkbox" class="sub-checkbox" data-id="'+s.id+'" '+(selectedSubs.has(s.id)?'checked':'')+' onchange="toggleSubSelect('+s.id+')" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;"></td><td><div class="customer-cell"><div class="avatar">'+initials(s.name)+'</div><div><div class="customer-name">'+(s.name||'—')+'</div><div class="customer-email">'+(s.email||'')+'</div></div></div></td><td class="mono">'+fmt(s.amount,s.currency)+'</td><td class="mono">'+(s.interval_days||30)+' days</td><td class="mono">'+fmtDate(s.next_billing_date)+(s.resume_date?'<br><span style="font-size:10px;color:var(--blue);">Resumes '+fmtDate(s.resume_date)+'</span>':'')+'</td><td>'+badge(s.status)+(s.dunning_count>0?'<br><span style="font-size:10px;color:var(--amber);">Retry #'+s.dunning_count+'</span>':'')+'</td><td><div class="actions">'+(s.status==='active'?'<button class="btn btn-sm" onclick="chargeNow('+s.id+')">Charge</button>':'')+'<button class="btn btn-sm" onclick="showEditAmount('+s.id+','+s.amount+')">Edit $</button><span id="edit-'+s.id+'"></span>'+(s.status==='active'?'<button class="btn btn-sm" onclick="openPauseModal('+s.id+')">Pause</button>':'')+(s.status==='paused'?'<button class="btn btn-sm" onclick="setSubStatus('+s.id+',\'active\')">Resume</button>':'')+(s.status==='dunning'?'<button class="btn btn-sm btn-success" onclick="chargeNow('+s.id+')">Retry now</button>':'')+'<button class="btn btn-sm btn-danger" onclick="setSubStatus('+s.id+',\'cancelled\')">Cancel</button></div></td></tr>').join('');
+  var rows=[];
+  list.forEach(function(s){
+    var sel=bulkMode&&selectedSubs.has(s.id);
+    var bg=sel?'background:var(--accent-glow);':'';
+    var cbDisplay=bulkMode?'table-cell':'none';
+    var cbChecked=sel?'checked':'';
+    var resumeBtn=s.status==='paused'?'<button class="btn btn-sm" onclick="resumeSub('+s.id+')">Resume</button>':'';
+    var chargeBtn=s.status==='active'?'<button class="btn btn-sm" onclick="chargeNow('+s.id+')">Charge</button>':'';
+    var pauseBtn=s.status==='active'?'<button class="btn btn-sm" onclick="openPauseModal('+s.id+')">Pause</button>':'';
+    var retryBtn=s.status==='dunning'?'<button class="btn btn-sm btn-success" onclick="chargeNow('+s.id+')">Retry now</button>':'';
+    var cancelBtn='<button class="btn btn-sm btn-danger" onclick="cancelSub('+s.id+')">Cancel</button>';
+    var editSpan='<button class="btn btn-sm" onclick="showEditAmount('+s.id+','+s.amount+')">Edit $</button><span id="edit-'+s.id+'"></span>';
+    var dunningBadge=s.dunning_count>0?'<br><span style="font-size:10px;color:var(--amber);">Retry #'+s.dunning_count+'</span>':'';
+    var resumeDate=s.resume_date?'<br><span style="font-size:10px;color:var(--blue);">Resumes '+fmtDate(s.resume_date)+'</span>':'';
+    rows.push(
+      '<tr id="sub-row-'+s.id+'" style="'+bg+'">'+
+      '<td style="width:36px;display:'+cbDisplay+';"><input type="checkbox" class="sub-checkbox" data-id="'+s.id+'" '+cbChecked+' onchange="toggleSubSelect('+s.id+')" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;"></td>'+
+      '<td><div class="customer-cell"><div class="avatar">'+initials(s.name)+'</div><div><div class="customer-name">'+(s.name||'—')+'</div><div class="customer-email">'+(s.email||'')+'</div></div></div></td>'+
+      '<td class="mono">'+fmt(s.amount,s.currency)+'</td>'+
+      '<td class="mono">'+(s.interval_days||30)+' days</td>'+
+      '<td class="mono">'+fmtDate(s.next_billing_date)+resumeDate+'</td>'+
+      '<td>'+badge(s.status)+dunningBadge+'</td>'+
+      '<td><div class="actions">'+chargeBtn+editSpan+pauseBtn+resumeBtn+retryBtn+cancelBtn+'</div></td>'+
+      '</tr>'
+    );
+  });
+  tb.innerHTML=rows.join('');
 }
+
 function filterSubscriptions(){const q=document.getElementById('sub-search').value.toLowerCase();renderSubscriptions(allSubscriptions.filter(s=>(s.name||'').toLowerCase().includes(q)||(s.email||'').toLowerCase().includes(q)));}
 
 // Bulk actions
 function enterBulkMode(){
   bulkMode=true;
   selectedSubs.clear();
-  document.getElementById('bulk-mode-off').style.display='none';
-  document.getElementById('bulk-mode-on').style.display='flex';
-  document.getElementById('bulk-checkbox-header').style.display='table-cell';
+  document.getElementById('sub-default-btn').style.display='none';
+  document.getElementById('sub-bulk-btns').style.display='flex';
+  document.getElementById('bulk-cb-header').style.display='table-cell';
   renderSubscriptions(allSubscriptions);
   updateBulkBar();
 }
 function exitBulkMode(){
   bulkMode=false;
   selectedSubs.clear();
-  document.getElementById('bulk-mode-off').style.display='block';
-  document.getElementById('bulk-mode-on').style.display='none';
-  document.getElementById('bulk-checkbox-header').style.display='none';
-  const cb=document.getElementById('select-all-checkbox');
+  document.getElementById('sub-default-btn').style.display='block';
+  document.getElementById('sub-bulk-btns').style.display='none';
+  document.getElementById('bulk-cb-header').style.display='none';
+  var cb=document.getElementById('select-all-checkbox');
   if(cb)cb.checked=false;
   renderSubscriptions(allSubscriptions);
 }
 function toggleSubSelect(id){
   if(selectedSubs.has(id))selectedSubs.delete(id);
   else selectedSubs.add(id);
-  const row=document.getElementById('sub-row-'+id);
+  var row=document.getElementById('sub-row-'+id);
   if(row)row.style.background=selectedSubs.has(id)?'var(--accent-glow)':'';
   updateBulkBar();
 }
 function toggleSelectAll(){
-  const cbs=document.querySelectorAll('.sub-checkbox');
-  const allChecked=selectedSubs.size===cbs.length&&cbs.length>0;
+  var cbs=document.querySelectorAll('.sub-checkbox');
+  var allChecked=selectedSubs.size===cbs.length&&cbs.length>0;
   selectedSubs.clear();
-  if(!allChecked)cbs.forEach(cb=>selectedSubs.add(parseInt(cb.dataset.id)));
-  cbs.forEach(cb=>{
+  if(!allChecked){cbs.forEach(function(cb){selectedSubs.add(parseInt(cb.dataset.id));});}
+  cbs.forEach(function(cb){
     cb.checked=!allChecked;
-    const row=document.getElementById('sub-row-'+cb.dataset.id);
+    var row=document.getElementById('sub-row-'+cb.dataset.id);
     if(row)row.style.background=(!allChecked)?'var(--accent-glow)':'';
   });
   updateBulkBar();
 }
 function updateBulkBar(){
-  const countEl=document.getElementById('bulk-count');
-  const cb=document.getElementById('select-all-checkbox');
-  const n=selectedSubs.size;
-  if(countEl)countEl.textContent=n>0?n+' selected':'No selection';
+  var n=selectedSubs.size;
+  var countEl=document.getElementById('bulk-count');
+  if(countEl)countEl.textContent=n>0?n+' selected':'';
   ['bulk-charge-btn','bulk-pause-btn','bulk-cancel-btn'].forEach(function(id){
-    const el=document.getElementById(id);
+    var el=document.getElementById(id);
     if(el){el.disabled=n===0;el.style.opacity=n===0?'0.4':'1';}
   });
-  const total=document.querySelectorAll('.sub-checkbox').length;
+  var cb=document.getElementById('select-all-checkbox');
+  var total=document.querySelectorAll('.sub-checkbox').length;
   if(cb)cb.checked=n>0&&n===total;
 }
 function clearSelection(){
   selectedSubs.clear();
-  document.querySelectorAll('.sub-checkbox').forEach(cb=>{cb.checked=false;});
-  document.querySelectorAll('[id^="sub-row-"]').forEach(row=>{row.style.background='';});
-  const cb=document.getElementById('select-all-checkbox');
+  document.querySelectorAll('.sub-checkbox').forEach(function(cb){cb.checked=false;});
+  document.querySelectorAll('[id^="sub-row-"]').forEach(function(row){row.style.background='';});
+  var cb=document.getElementById('select-all-checkbox');
   if(cb)cb.checked=false;
   updateBulkBar();
 }
+
 async function bulkCharge(){if(!selectedSubs.size)return;if(!confirm('Charge '+selectedSubs.size+' subscriptions now?'))return;toast('Charging '+selectedSubs.size+' subscriptions…');let ok=0,fail=0;for(const id of selectedSubs){try{const r=await api('/api/subscriptions/'+id+'/charge',{method:'POST'});if(r.success)ok++;else fail++;}catch(e){fail++;}}toast('✓ '+ok+' charged'+(fail?' — '+fail+' failed':''));exitBulkMode();loadStats();loadSubscriptions();}
 async function bulkPause(){if(!selectedSubs.size)return;if(!confirm('Pause '+selectedSubs.size+' subscriptions?'))return;for(const id of selectedSubs){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'paused'})}).catch(()=>{});}toast('✓ '+selectedSubs.size+' paused');exitBulkMode();loadSubscriptions();}
 async function bulkCancel(){if(!selectedSubs.size)return;if(!confirm('Cancel '+selectedSubs.size+' subscriptions? Cannot be undone.'))return;for(const id of selectedSubs){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'cancelled'})}).catch(()=>{});}toast('✓ '+selectedSubs.size+' cancelled');exitBulkMode();loadSubscriptions();loadStats();}
@@ -814,6 +848,8 @@ async function disable2FA(){if(!confirm('Disable 2FA?'))return;await api('/api/s
 async function chargeNow(subId){toast('Charging…');try{const r=await api('/api/subscriptions/'+subId+'/charge',{method:'POST'});if(r.success){toast('✓ Payment succeeded');loadUpcoming();loadStats();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
 function openPauseModal(subId){document.getElementById('pause-sub-id').value=subId;document.getElementById('pause-resume-date').value='';openModal('pause-modal');}
 async function confirmPause(){const id=document.getElementById('pause-sub-id').value;const resumeDate=document.getElementById('pause-resume-date').value;await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'paused',resume_date:resumeDate||null})});toast('Subscription paused');closeModal('pause-modal');loadUpcoming();loadSubscriptions();}
+function resumeSub(id){setSubStatus(id,'active');}
+function cancelSub(id){setSubStatus(id,'cancelled');}
 async function setSubStatus(id,status){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});toast('Subscription '+status);loadUpcoming();loadSubscriptions();loadStats();}
 async function setCustStatus(id,status){await api('/api/customers/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});toast('Customer '+status);loadCustomers();}
 async function openPortal(customerId){try{const r=await api('/api/customers/'+customerId+'/portal',{method:'POST'});if(r.url)window.open(r.url,'_blank');else toast('Could not open portal','error');}catch(e){toast('Error','error');}}
