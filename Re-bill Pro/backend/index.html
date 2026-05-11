@@ -1211,16 +1211,26 @@ async function sendInvoiceFromModal(){
 var currentAdminId = null;
 
 async function loadAdmins(){
+  var tb=document.getElementById('admins-table');
+  if(!tb)return;
+  tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:28px;color:var(--muted);font-size:13px;font-family:var(--mono);">Loading...</td></tr>';
   try{
-    const list = await api('/api/admin-users');
-    const tb = document.getElementById('admins-table');
-    if(!list.length){tb.innerHTML='<tr><td colspan="5" class="empty">No admins found</td></tr>';return;}
-    tb.innerHTML = list.map(function(a){
-        var roleColors={owner:'badge-green',admin:'badge-blue',viewer:'badge-amber',custom:'badge-purple'};
+    var list=await api('/api/admin-users');
+    if(!list||!list.length){
+      tb.innerHTML=
+        '<tr><td colspan="5" style="text-align:center;padding:40px 20px;">'+
+          '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" style="display:block;margin:0 auto 12px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'+
+          '<div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px;">No admin users yet</div>'+
+          '<div style="font-size:12px;color:var(--muted);font-family:var(--mono);">Add your first admin to manage access.</div>'+
+        '</td></tr>';
+      return;
+    }
+    var rows=list.map(function(a){
+      var roleColors={owner:'badge-green',admin:'badge-blue',viewer:'badge-amber',custom:'badge-purple'};
       var roleBadge='<span class="badge '+(roleColors[a.role]||'badge-blue')+'">'+a.role+'</span>';
-      var perms=a.permissions&&a.permissions.length?'<div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:3px;">'+a.permissions.join(', ')+'</div>':'';
+      var perms=a.permissions&&a.permissions.length?'<div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:3px;">'+a.permissions.join(' · ')+'</div>':'';
       return '<tr>'+
-        '<td><strong>'+a.username+'</strong></td>'+
+        '<td><strong style="font-size:13px;">'+a.username+'</strong></td>'+
         '<td>'+roleBadge+perms+'</td>'+
         '<td class="mono" style="font-size:12px;color:var(--muted);">'+(a.last_login?fmtTime(a.last_login):'Never')+'</td>'+
         '<td class="mono" style="font-size:12px;color:var(--muted);">'+fmtDate(a.created_at)+'</td>'+
@@ -1228,8 +1238,18 @@ async function loadAdmins(){
           (a.role!=='owner'?'<button class="btn btn-sm btn-danger" onclick="deleteAdmin('+a.id+')">Remove</button>':'')+
         '</div></td>'+
       '</tr>';
-    }).join('');
-  }catch(e){console.error(e);}
+    });
+    tb.innerHTML=rows.join('');
+  }catch(e){
+    console.error('loadAdmins:',e);
+    tb.innerHTML=
+      '<tr><td colspan="5" style="text-align:center;padding:40px 20px;">'+
+        '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="1.5" style="display:block;margin:0 auto 12px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'+
+        '<div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px;">Failed to load admin users</div>'+
+        '<div style="font-size:12px;color:var(--muted);font-family:var(--mono);">Please try again.</div>'+
+        '<button class="btn btn-sm" onclick="loadAdmins()" style="margin-top:12px;">Retry</button>'+
+      '</td></tr>';
+  }
 }
 
 var PERM_LIST=[
