@@ -782,7 +782,7 @@ function enforceReadonly(){
     var bar=document.createElement('div');
     bar.id='viewer-notice';
     bar.style.cssText='position:fixed;top:0;left:220px;right:0;background:var(--amber-bg);border-bottom:1px solid var(--amber);color:var(--amber);font-size:12px;font-family:var(--mono);padding:7px 20px;z-index:999;display:flex;align-items:center;gap:8px;';
-    bar.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> View only access — you can see data but cannot make changes.';
+    bar.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> View only access — you can see data but cannot make changes.';
     document.body.appendChild(bar);
     // Push main content down
     var main=document.querySelector('.main');
