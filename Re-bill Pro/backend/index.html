@@ -733,14 +733,61 @@ function applyAccessControl(){
 
 function enforceReadonly(){
   if(localStorage.getItem('subloop_readonly')!=='1') return;
-  // Hide all btn-primary and btn-danger buttons
+
+  // 1. Hide all action buttons (charge, pause, cancel, add, retry etc)
   document.querySelectorAll('.btn-primary,.btn-danger,.btn-success').forEach(function(btn){
     if(!btn.closest('.login-screen')&&!btn.closest('.login-box')){
       btn.style.display='none';
     }
   });
-  // Hide action columns
-  document.querySelectorAll('.actions').forEach(function(d){ d.innerHTML='<span style="font-size:11px;color:var(--muted);font-family:var(--mono);">view only</span>'; });
+
+  // 2. Replace action columns with "view only"
+  document.querySelectorAll('.actions').forEach(function(d){
+    d.innerHTML='<span style="font-size:11px;color:var(--muted);font-family:var(--mono);">view only</span>';
+  });
+
+  // 3. Hide "Retry" button in payments table specifically
+  document.querySelectorAll('#payments-table .btn').forEach(function(btn){
+    btn.style.display='none';
+  });
+
+  // 4. Hide the Manual Invoice section in Daily Summary
+  var summaryCard=document.querySelector('#page-summary .card:last-of-type');
+  if(summaryCard){
+    var h3=summaryCard.querySelector('h3');
+    if(h3&&h3.textContent.includes('Manual Invoice')) summaryCard.style.display='none';
+  }
+
+  // 5. Hide invoice button on customers table
+  document.querySelectorAll('[onclick*="openInvoiceModal"]').forEach(function(btn){
+    btn.style.display='none';
+  });
+
+  // 6. Hide Run Rebills button on dashboard
+  document.querySelectorAll('[onclick*="runRebills"]').forEach(function(btn){
+    btn.style.display='none';
+  });
+
+  // 7. Hide Select button (bulk actions) on subscriptions
+  var selectBtn=document.getElementById('sub-default-btn');
+  if(selectBtn) selectBtn.style.display='none';
+
+  // 8. Hide export CSV buttons
+  document.querySelectorAll('[onclick*="export"]').forEach(function(btn){
+    btn.style.display='none';
+  });
+
+  // 9. Show viewer notice bar at top if not already shown
+  if(!document.getElementById('viewer-notice')){
+    var bar=document.createElement('div');
+    bar.id='viewer-notice';
+    bar.style.cssText='position:fixed;top:0;left:220px;right:0;background:var(--amber-bg);border-bottom:1px solid var(--amber);color:var(--amber);font-size:12px;font-family:var(--mono);padding:7px 20px;z-index:999;display:flex;align-items:center;gap:8px;';
+    bar.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> View only access — you can see data but cannot make changes.';
+    document.body.appendChild(bar);
+    // Push main content down
+    var main=document.querySelector('.main');
+    if(main) main.style.paddingTop='52px';
+  }
 }
 if(localStorage.getItem('subloop_auth')==='1'){
   document.getElementById('login-screen').classList.add('hidden');
@@ -1072,7 +1119,8 @@ async function loadPayments(){
     const list=await api('/api/payments');
     const tb=document.getElementById('payments-table');
     if(!list.length){tb.innerHTML='<tr><td colspan="6" class="empty">No payments yet</td></tr>';return;}
-    tb.innerHTML=list.map(p=>'<tr><td><div class="customer-cell"><div class="avatar">'+initials(p.name)+'</div><div><div class="customer-name">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div></div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+badge(p.status)+'</td><td class="mono">'+fmtDate(p.created_at)+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+(p.stripe_payment_intent?p.stripe_payment_intent.slice(0,22)+'…':'—')+'</td><td>'+(p.status==='failed'?'<button class="btn btn-sm btn-success" onclick="retryPayment('+p.id+')">Retry</button>':'')+'</td></tr>').join('');
+    var isViewer=localStorage.getItem('subloop_readonly')==='1';
+    tb.innerHTML=list.map(p=>'<tr><td><div class="customer-cell"><div class="avatar">'+initials(p.name)+'</div><div><div class="customer-name">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div></div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+badge(p.status)+'</td><td class="mono">'+fmtDate(p.created_at)+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+(p.stripe_payment_intent?p.stripe_payment_intent.slice(0,22)+'…':'—')+'</td><td>'+(!isViewer&&p.status==='failed'?'<button class="btn btn-sm btn-success" onclick="retryPayment('+p.id+')">Retry</button>':'')+'</td></tr>').join('');
   }catch(e){}
 }
 async function retryPayment(id){toast('Retrying…');try{const r=await api('/api/payments/'+id+'/retry',{method:'POST'});if(r.success){toast('✓ Succeeded');loadPayments();loadStats();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
