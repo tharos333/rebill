@@ -156,6 +156,9 @@ textarea{resize:vertical;min-height:60px}
   .payment-last4{color:#a1a1aa;font-weight:700;font-size:12px;font-family:var(--mono)}
   .payment-badge-fallback{width:38px;height:24px;border-radius:5px;background:#1f1f2a;border:1px solid #343442;display:inline-flex;align-items:center;justify-content:center;color:#9ca3af;font-size:9px;font-weight:700;font-family:var(--sans);flex-shrink:0}
   .no-card{color:#777783;font-weight:700;font-family:var(--mono)}
+  .rev-tab{padding:4px 10px;border-radius:6px;font-size:11px;font-family:var(--mono);font-weight:500;cursor:pointer;border:1px solid var(--border2);background:var(--surface2);color:var(--muted);transition:all 0.15s;white-space:nowrap}
+  .rev-tab:hover{color:var(--text);border-color:var(--accent)}
+  .rev-tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
 </style>
 </head>
 <body>
@@ -230,8 +233,20 @@ textarea{resize:vertical;min-height:60px}
     <div class="stat-card"><div class="stat-label">Avg LTV</div><div class="stat-value" id="stat-ltv">—</div><div class="stat-sub">per customer</div></div>
   </div>
   <div class="card" style="overflow:visible;">
-    <div style="padding:14px 18px 0;"><div style="font-size:13px;font-weight:600;">Revenue Overview</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;">Last 30 days performance</div></div>
-    <div id="revenue-summary" style="padding:12px 18px 16px;"><div style="color:var(--muted);font-size:13px;font-family:var(--mono)">Loading...</div></div>
+    <div style="padding:14px 18px 12px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:13px;font-weight:600;">Revenue Overview</div>
+        <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;">Track revenue by selected period</div>
+      </div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;">
+        <button class="rev-tab active" id="rev-tab-month" onclick="setRevPeriod('month')">This Month</button>
+        <button class="rev-tab" id="rev-tab-week" onclick="setRevPeriod('week')">This Week</button>
+        <button class="rev-tab" id="rev-tab-yesterday" onclick="setRevPeriod('yesterday')">Yesterday</button>
+        <button class="rev-tab" id="rev-tab-today" onclick="setRevPeriod('today')">Today</button>
+      </div>
+    </div>
+    <div style="height:1px;background:var(--border);"></div>
+    <div id="revenue-summary" style="padding:14px 18px 16px;"><div style="color:var(--muted);font-size:13px;font-family:var(--mono)">Loading...</div></div>
   </div>
   <div class="card">
     <div class="card-header"><h3>Upcoming rebills</h3></div>
@@ -593,24 +608,60 @@ async function loadStats() {
 }
 
 // ── Revenue Chart ─────────────────────────────────────────────────────────────
+let currentRevPeriod = 'month';
+
+function setRevPeriod(period) {
+  currentRevPeriod = period;
+  document.querySelectorAll('.rev-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('rev-tab-' + period).classList.add('active');
+  loadChart();
+}
+
 async function loadChart() {
   try {
     const data = await api('/api/revenue-chart');
     const wrap = document.getElementById('revenue-summary');
-    const total = data.reduce((s,d)=>s+(parseInt(d.revenue)||0),0);
-    const totalCount = data.reduce((s,d)=>s+(parseInt(d.count)||0),0);
+    const now = new Date();
+
+    // Filter data based on period
+    let filtered, periodLabel, bestLabel;
+    if (currentRevPeriod === 'today') {
+      const today = now.toISOString().split('T')[0];
+      filtered = data.filter(d => d.day && d.day.startsWith(today));
+      periodLabel = 'Today';
+      bestLabel = 'Best Period';
+    } else if (currentRevPeriod === 'yesterday') {
+      const yest = new Date(now); yest.setDate(yest.getDate()-1);
+      const yestStr = yest.toISOString().split('T')[0];
+      filtered = data.filter(d => d.day && d.day.startsWith(yestStr));
+      periodLabel = 'Yesterday';
+      bestLabel = 'Best Period';
+    } else if (currentRevPeriod === 'week') {
+      const weekAgo = new Date(now); weekAgo.setDate(weekAgo.getDate()-7);
+      filtered = data.filter(d => d.day && new Date(d.day) >= weekAgo);
+      periodLabel = 'This Week';
+      bestLabel = 'Best Day';
+    } else {
+      filtered = data;
+      periodLabel = 'This Month';
+      bestLabel = 'Best Day';
+    }
+
+    const total = filtered.reduce((s,d)=>s+(parseInt(d.revenue)||0),0);
+    const totalCount = filtered.reduce((s,d)=>s+(parseInt(d.count)||0),0);
     const avg = totalCount>0 ? Math.round(total/totalCount) : 0;
-    const activeDays = data.filter(d=>parseInt(d.revenue)>0);
+    const activeDays = filtered.filter(d=>parseInt(d.revenue)>0);
     const best = activeDays.length ? activeDays.reduce((a,b)=>(parseInt(b.revenue)||0)>=(parseInt(a.revenue)||0)?b:a) : null;
     const bestDay = best ? new Date(best.day).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}) : '—';
-    const last7 = data.slice(-7).reduce((s,d)=>s+(parseInt(d.revenue)||0),0);
+
     const cards = [
-      {label:'Total Revenue',value:fmt(total),sub:'last 30 days'},
-      {label:'Payments',value:totalCount,sub:'successful'},
-      {label:'Avg Payment',value:fmt(avg),sub:'per transaction'},
-      {label:'Best Day',value:fmt(parseInt(best?.revenue)||0),sub:bestDay},
+      {label:'Total Revenue', value:fmt(total), sub:periodLabel},
+      {label:'Payments', value:totalCount, sub:'successful'},
+      {label:'Avg Payment', value:fmt(avg), sub:'per transaction'},
+      {label:bestLabel, value:fmt(parseInt(best?.revenue)||0), sub:bestDay},
     ];
-    let html = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:0;">';
+
+    let html = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">';
     cards.forEach(c => {
       html += '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;">'+
         '<div style="font-size:10px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">'+c.label+'</div>'+
@@ -619,7 +670,6 @@ async function loadChart() {
     });
     html += '</div>';
     wrap.innerHTML = html;
-
   } catch(e) { console.error(e); }
 }
 
