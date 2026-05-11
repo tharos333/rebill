@@ -686,6 +686,7 @@ function filterSubscriptions(){const q=document.getElementById('sub-search').val
 // Bulk actions
 function enterBulkMode(){
   bulkMode=true;
+  selectedSubs.clear();
   document.getElementById('bulk-mode-off').style.display='none';
   document.getElementById('bulk-mode-on').style.display='flex';
   document.getElementById('bulk-checkbox-header').style.display='table-cell';
