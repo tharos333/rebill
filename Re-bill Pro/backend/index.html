@@ -177,18 +177,46 @@ textarea{resize:vertical;min-height:60px}
       <div id="lockout-msg" style="display:none;background:var(--amber-bg);border:1px solid var(--amber);color:var(--amber);border-radius:8px;padding:10px 14px;font-size:12px;font-family:var(--mono);margin-top:12px;text-align:center;"></div>
     </div>
     <!-- Step 2: 2FA Code -->
-    <div id="login-step-2" style="display:none;">
-      <div style="text-align:center;margin-bottom:20px;">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5" style="margin-bottom:10px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        <div style="font-size:15px;font-weight:600;margin-bottom:4px;">Two-Factor Authentication</div>
-        <div style="font-size:12px;color:var(--muted);font-family:var(--mono);">Enter the 6-digit code from your authenticator app</div>
+    <div id="login-step-2" style="display:none;"></div>
+  </div>
+<!-- Premium 2FA Screen -->
+<div id="twofa-screen" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:1001;display:none;align-items:flex-start;justify-content:center;padding-top:10vh;">
+  <div style="position:absolute;inset:0;background:radial-gradient(ellipse 600px 400px at 50% 38%,rgba(108,99,255,0.08) 0%,transparent 70%);pointer-events:none;"></div>
+  <div style="width:420px;max-width:95vw;background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:40px 36px;position:relative;box-shadow:0 0 0 1px rgba(108,99,255,0.12),0 24px 64px rgba(0,0,0,0.4);">
+    <!-- Purple glow -->
+    <div style="position:absolute;top:-60px;left:50%;transform:translateX(-50%);width:200px;height:120px;background:radial-gradient(ellipse,rgba(108,99,255,0.25) 0%,transparent 70%);pointer-events:none;"></div>
+    <!-- Logo -->
+    <div style="text-align:center;margin-bottom:28px;">
+      <img id="twofa-logo" src="https://i.ibb.co/RTmtK8sm/subloop.png" alt="Subloop" style="width:130px;height:auto;display:block;margin:0 auto;">
+    </div>
+    <!-- Shield icon -->
+    <div style="text-align:center;margin-bottom:20px;">
+      <div style="width:60px;height:60px;border-radius:16px;background:var(--accent-glow);border:1px solid rgba(108,99,255,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.6"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </div>
-      <div class="login-field"><label>Authentication Code</label><input type="text" id="login-2fa" placeholder="000000" maxlength="6" style="text-align:center;font-size:20px;letter-spacing:8px;font-family:var(--mono);" oninput="this.value=this.value.replace(/\D/g,'')" onkeydown="if(event.key==='Enter')verify2FA()"></div>
-      <button class="login-btn" onclick="verify2FA()">Verify</button>
-      <button style="width:100%;background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;margin-top:10px;font-family:var(--mono);" onclick="backToLogin()">← Back to login</button>
-      <div class="login-error" id="login-2fa-error">Invalid authentication code</div>
+      <div style="font-size:18px;font-weight:700;letter-spacing:-0.3px;margin-bottom:6px;">Two-Factor Authentication</div>
+      <div style="font-size:13px;color:var(--muted);font-family:var(--mono);line-height:1.5;">Enter the 6-digit code from your<br>authenticator app to continue</div>
+    </div>
+    <!-- OTP Input boxes -->
+    <div style="display:flex;gap:8px;justify-content:center;margin-bottom:24px;" id="otp-boxes">
+      <input type="text" maxlength="1" class="otp-box" id="otp-0" oninput="otpInput(this,0)" onkeydown="otpKey(event,0)" style="width:52px;height:56px;text-align:center;font-size:22px;font-weight:700;font-family:var(--mono);background:var(--surface2);border:1.5px solid var(--border2);border-radius:10px;color:var(--text);outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'">
+      <input type="text" maxlength="1" class="otp-box" id="otp-1" oninput="otpInput(this,1)" onkeydown="otpKey(event,1)" style="width:52px;height:56px;text-align:center;font-size:22px;font-weight:700;font-family:var(--mono);background:var(--surface2);border:1.5px solid var(--border2);border-radius:10px;color:var(--text);outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'">
+      <input type="text" maxlength="1" class="otp-box" id="otp-2" oninput="otpInput(this,2)" onkeydown="otpKey(event,2)" style="width:52px;height:56px;text-align:center;font-size:22px;font-weight:700;font-family:var(--mono);background:var(--surface2);border:1.5px solid var(--border2);border-radius:10px;color:var(--text);outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'">
+      <input type="text" maxlength="1" class="otp-box" id="otp-3" oninput="otpInput(this,3)" onkeydown="otpKey(event,3)" style="width:52px;height:56px;text-align:center;font-size:22px;font-weight:700;font-family:var(--mono);background:var(--surface2);border:1.5px solid var(--border2);border-radius:10px;color:var(--text);outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'">
+      <input type="text" maxlength="1" class="otp-box" id="otp-4" oninput="otpInput(this,4)" onkeydown="otpKey(event,4)" style="width:52px;height:56px;text-align:center;font-size:22px;font-weight:700;font-family:var(--mono);background:var(--surface2);border:1.5px solid var(--border2);border-radius:10px;color:var(--text);outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'">
+      <input type="text" maxlength="1" class="otp-box" id="otp-5" oninput="otpInput(this,5)" onkeydown="otpKey(event,5)" style="width:52px;height:56px;text-align:center;font-size:22px;font-weight:700;font-family:var(--mono);background:var(--surface2);border:1.5px solid var(--border2);border-radius:10px;color:var(--text);outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'">
+    </div>
+    <!-- Error -->
+    <div id="twofa-error" style="display:none;background:var(--red-bg);border:1px solid var(--red);color:var(--red);border-radius:8px;padding:10px 14px;font-size:12px;font-family:var(--mono);margin-bottom:16px;text-align:center;">Invalid code. Please try again.</div>
+    <!-- Verify button -->
+    <button onclick="verify2FA()" style="width:100%;background:var(--accent);color:#fff;border:none;border-radius:11px;padding:14px;font-size:15px;font-family:var(--sans);font-weight:600;cursor:pointer;transition:background 0.15s;margin-bottom:14px;" onmouseover="this.style.background='#7c74ff'" onmouseout="this.style.background='var(--accent)'">Verify & Sign in</button>
+    <!-- Back link -->
+    <div style="text-align:center;">
+      <button onclick="backToLogin()" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;font-family:var(--mono);transition:color 0.15s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">← Back to login</button>
     </div>
   </div>
+</div>
+
 </div>
 
 <div class="app-screen hidden" id="app-screen">
@@ -522,8 +550,8 @@ function toggleTheme() {
 }
 function updateLogos(isLight) {
   const src = isLight ? 'https://i.ibb.co/Q7YPRnvX/subloop-2.png' : 'https://i.ibb.co/RTmtK8sm/subloop.png';
-  const s = document.getElementById('sidebar-logo'), l = document.getElementById('login-logo');
-  if (s) s.src = src; if (l) l.src = src;
+  const s = document.getElementById('sidebar-logo'), l = document.getElementById('login-logo'), t = document.getElementById('twofa-logo');
+  if (s) s.src = src; if (l) l.src = src; if (t) t.src = src;
 }
 function initTheme() {
   const isLight = localStorage.getItem('subloop_theme') === 'light';
@@ -1028,10 +1056,14 @@ async function doLogin() {
     try {
       const status = await api('/api/security/2fa/status');
       if (status.enabled) {
-        // Show 2FA step
-        document.getElementById('login-step-1').style.display = 'none';
-        document.getElementById('login-step-2').style.display = 'block';
-        document.getElementById('login-2fa').focus();
+        // Show premium 2FA screen
+        document.getElementById('login-screen').style.display = 'none';
+        const tfaScreen = document.getElementById('twofa-screen');
+        tfaScreen.style.display = 'flex';
+        // Update logo based on theme
+        const isLight = document.documentElement.classList.contains('light');
+        document.getElementById('twofa-logo').src = isLight ? 'https://i.ibb.co/Q7YPRnvX/subloop-2.png' : 'https://i.ibb.co/RTmtK8sm/subloop.png';
+        setTimeout(()=>document.getElementById('otp-0').focus(), 100);
         await api('/api/security/login-attempt', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ success: false }) }); // don't count as success until 2FA done
         return;
       }
@@ -1047,26 +1079,50 @@ async function doLogin() {
   }
 }
 
+// OTP box helpers
+function otpInput(el, idx) {
+  el.value = el.value.replace(/\D/g, '').slice(0,1);
+  if (el.value && idx < 5) document.getElementById('otp-'+(idx+1)).focus();
+  // Auto-verify when all filled
+  const code = getOtpCode();
+  if (code.length === 6) verify2FA();
+}
+function otpKey(e, idx) {
+  if (e.key === 'Backspace' && !e.target.value && idx > 0) {
+    document.getElementById('otp-'+(idx-1)).focus();
+  }
+  if (e.key === 'Enter') verify2FA();
+}
+function getOtpCode() {
+  return [0,1,2,3,4,5].map(i => document.getElementById('otp-'+i).value).join('');
+}
+function clearOtp() {
+  [0,1,2,3,4,5].forEach(i => { document.getElementById('otp-'+i).value = ''; });
+  document.getElementById('otp-0').focus();
+}
+
 async function verify2FA() {
-  const token = document.getElementById('login-2fa').value;
+  const token = getOtpCode();
+  if (token.length !== 6) return;
   try {
     const r = await api('/api/security/2fa/validate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token }) });
     if (r.valid) {
       await api('/api/security/login-attempt', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ success: true }) }).catch(()=>{});
+      document.getElementById('twofa-screen').style.display = 'none';
       completeLogin();
     } else {
-      document.getElementById('login-2fa-error').classList.add('visible');
-      document.getElementById('login-2fa').value = '';
+      document.getElementById('twofa-error').style.display = 'block';
+      clearOtp();
       await api('/api/security/login-attempt', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ success: false }) }).catch(()=>{});
     }
   } catch(e) { toast('Error verifying code', 'error'); }
 }
 
 function backToLogin() {
-  document.getElementById('login-step-2').style.display = 'none';
-  document.getElementById('login-step-1').style.display = 'block';
-  document.getElementById('login-2fa').value = '';
-  document.getElementById('login-2fa-error').classList.remove('visible');
+  document.getElementById('twofa-screen').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  clearOtp();
+  document.getElementById('twofa-error').style.display = 'none';
 }
 
 function completeLogin() {
