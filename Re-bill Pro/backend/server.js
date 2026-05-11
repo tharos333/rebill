@@ -3,7 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const Stripe = require('stripe');
 const path = require('path');
-const { init, pool, settingsDb, stripeAccounts, customers, subscriptions, payments, activityLog, webhookLogs, security } = require('./db');
+const { init, pool, settingsDb, stripeAccounts, customers, subscriptions, payments, activityLog, webhookLogs, security, adminUsers } = require('./db');
 let speakeasy, QRCode;
 try { speakeasy = require('speakeasy'); QRCode = require('qrcode'); } catch(e) { console.log('[2FA] speakeasy/qrcode not installed yet'); }
 const { initScheduler } = require('./scheduler');
@@ -537,6 +537,62 @@ app.get('/api/daily-summary', async (req, res) => {
       FROM customers
     `);
     res.json({ ...r.rows[0], ...custR.rows[0] });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+
+// ── Admin Users ───────────────────────────────────────────────────────────────
+app.get('/api/admin-users', async (req, res) => {
+  res.json(await adminUsers.all());
+});
+
+app.post('/api/admin-users', async (req, res) => {
+  try {
+    const { username, password, role } = req.body;
+    if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
+    if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    await adminUsers.create(username, password, role || 'admin');
+    await activityLog.add('security', `New admin user created: ${username}`);
+    res.json({ success: true });
+  } catch(err) {
+    if (err.message.includes('unique')) return res.status(400).json({ error: 'Username already exists' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/admin-users/:id', async (req, res) => {
+  try {
+    const all = await adminUsers.all();
+    if (all.length <= 1) return res.status(400).json({ error: 'Cannot delete the last admin user' });
+    await adminUsers.delete(req.params.id);
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin-users/:id/change-password', async (req, res) => {
+  try {
+    const { password } = req.body;
+    if (!password || password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    await adminUsers.changePassword(req.params.id, password);
+    await activityLog.add('security', `Admin password changed for user ID ${req.params.id}`);
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// Verify login against DB (used by frontend)
+app.post('/api/auth/verify', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+    const user = await adminUsers.verify(username, password);
+    if (user) {
+      await adminUsers.updateLastLogin(user.id);
+      await security.logAttempt(ip, true);
+      res.json({ success: true, role: user.role, username: user.username });
+    } else {
+      await security.logAttempt(ip, false);
+      res.json({ success: false });
+    }
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
