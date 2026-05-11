@@ -81,6 +81,14 @@ async function init() {
       value TEXT NOT NULL,
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
+    CREATE TABLE IF NOT EXISTS admin_users (
+      id SERIAL PRIMARY KEY,
+      username TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      role TEXT DEFAULT 'admin',
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      last_login TIMESTAMPTZ
+    );
     CREATE TABLE IF NOT EXISTS login_attempts (
       id SERIAL PRIMARY KEY,
       ip TEXT,
@@ -98,6 +106,17 @@ async function init() {
     'ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS last_failed_at TIMESTAMPTZ',
   ];
   for (const m of migrations) await pool.query(m).catch(() => {});
+
+  // Seed default admin user (Tharos333)
+  const adminCount = await pool.query('SELECT COUNT(*) FROM admin_users');
+  if (parseInt(adminCount.rows[0].count) === 0) {
+    const crypto = require('crypto');
+    const hash = crypto.createHash('sha256').update('IssoMoussa544@###').digest('hex');
+    await pool.query(
+      "INSERT INTO admin_users (username, password_hash, role) VALUES ($1, $2, 'owner')",
+      ['Tharos333', hash]
+    ).catch(()=>{});
+  }
 
   // Default settings
   const defaults = {
@@ -335,4 +354,37 @@ const security = {
   },
 };
 
-module.exports = { init, pool, settingsDb, stripeAccounts, customers, subscriptions, payments, activityLog, webhookLogs, security };
+const adminUsers = {
+  all: async () => {
+    const r = await pool.query('SELECT id, username, role, created_at, last_login FROM admin_users ORDER BY created_at ASC');
+    return r.rows;
+  },
+  byUsername: async (username) => {
+    const r = await pool.query('SELECT * FROM admin_users WHERE username=$1', [username]);
+    return r.rows[0];
+  },
+  create: async (username, password, role='admin') => {
+    const crypto = require('crypto');
+    const hash = crypto.createHash('sha256').update(password).digest('hex');
+    await pool.query('INSERT INTO admin_users (username, password_hash, role) VALUES ($1,$2,$3)', [username, hash, role]);
+  },
+  delete: async (id) => {
+    await pool.query('DELETE FROM admin_users WHERE id=$1', [id]);
+  },
+  updateLastLogin: async (id) => {
+    await pool.query('UPDATE admin_users SET last_login=NOW() WHERE id=$1', [id]);
+  },
+  changePassword: async (id, newPassword) => {
+    const crypto = require('crypto');
+    const hash = crypto.createHash('sha256').update(newPassword).digest('hex');
+    await pool.query('UPDATE admin_users SET password_hash=$1 WHERE id=$2', [hash, id]);
+  },
+  verify: async (username, password) => {
+    const crypto = require('crypto');
+    const hash = crypto.createHash('sha256').update(password).digest('hex');
+    const r = await pool.query('SELECT * FROM admin_users WHERE username=$1 AND password_hash=$2', [username, hash]);
+    return r.rows[0] || null;
+  },
+};
+
+module.exports = { init, pool, settingsDb, stripeAccounts, customers, subscriptions, payments, activityLog, webhookLogs, security, adminUsers };
