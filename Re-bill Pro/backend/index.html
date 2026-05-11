@@ -300,7 +300,7 @@ textarea{resize:vertical;min-height:60px}
   </div>
   <div class="search-bar"><input type="text" id="sub-search" placeholder="Search by name or email..." oninput="filterSubscriptions()"></div>
   <div class="card"><div class="scrollable"><table>
-    <thead><tr><th id="bulk-checkbox-header" style="width:36px;display:none;"><input type="checkbox" id="select-all-checkbox" onchange="toggleSelectAll()" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;"></th><th>Customer</th><th>Amount</th><th>Interval</th><th>Next billing</th><th>Status</th><th>Actions</th></tr></thead>
+    <thead id="sub-thead"><tr><th id="bulk-checkbox-header" style="width:36px;display:none;"><input type="checkbox" id="select-all-checkbox" onchange="toggleSelectAll()" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;"></th><th>Customer</th><th>Amount</th><th>Interval</th><th>Next billing</th><th>Status</th><th>Actions</th></tr></thead>
     <tbody id="subscriptions-table"><tr><td colspan="7" class="empty">Loading...</td></tr></tbody>
   </table></div></div>
 </div>
@@ -699,24 +699,49 @@ function exitBulkMode(){
   document.getElementById('bulk-mode-off').style.display='block';
   document.getElementById('bulk-mode-on').style.display='none';
   document.getElementById('bulk-checkbox-header').style.display='none';
-  document.getElementById('select-all-checkbox').checked=false;
+  const cb=document.getElementById('select-all-checkbox');
+  if(cb)cb.checked=false;
   renderSubscriptions(allSubscriptions);
 }
-function toggleSubSelect(id){if(selectedSubs.has(id))selectedSubs.delete(id);else selectedSubs.add(id);updateBulkBar();}
-function toggleSelectAll(){const cbs=document.querySelectorAll('.sub-checkbox');const allChecked=selectedSubs.size===cbs.length&&cbs.length>0;selectedSubs.clear();if(!allChecked)cbs.forEach(cb=>selectedSubs.add(parseInt(cb.dataset.id)));renderSubscriptions(allSubscriptions);updateBulkBar();}
+function toggleSubSelect(id){
+  if(selectedSubs.has(id))selectedSubs.delete(id);
+  else selectedSubs.add(id);
+  const row=document.getElementById('sub-row-'+id);
+  if(row)row.style.background=selectedSubs.has(id)?'var(--accent-glow)':'';
+  updateBulkBar();
+}
+function toggleSelectAll(){
+  const cbs=document.querySelectorAll('.sub-checkbox');
+  const allChecked=selectedSubs.size===cbs.length&&cbs.length>0;
+  selectedSubs.clear();
+  if(!allChecked)cbs.forEach(cb=>selectedSubs.add(parseInt(cb.dataset.id)));
+  cbs.forEach(cb=>{
+    cb.checked=!allChecked;
+    const row=document.getElementById('sub-row-'+cb.dataset.id);
+    if(row)row.style.background=(!allChecked)?'var(--accent-glow)':'';
+  });
+  updateBulkBar();
+}
 function updateBulkBar(){
-  const count=document.getElementById('bulk-count');
+  const countEl=document.getElementById('bulk-count');
   const cb=document.getElementById('select-all-checkbox');
   const n=selectedSubs.size;
-  count.textContent=n>0?n+' selected':'';
-  ['bulk-charge-btn','bulk-pause-btn','bulk-cancel-btn'].forEach(id=>{
+  if(countEl)countEl.textContent=n>0?n+' selected':'No selection';
+  ['bulk-charge-btn','bulk-pause-btn','bulk-cancel-btn'].forEach(function(id){
     const el=document.getElementById(id);
-    if(el)el.style.display=n>0?'inline-flex':'none';
+    if(el){el.disabled=n===0;el.style.opacity=n===0?'0.4':'1';}
   });
   const total=document.querySelectorAll('.sub-checkbox').length;
-  if(cb)cb.checked=n===total&&total>0;
+  if(cb)cb.checked=n>0&&n===total;
 }
-function clearSelection(){selectedSubs.clear();if(bulkMode)renderSubscriptions(allSubscriptions);updateBulkBar();}
+function clearSelection(){
+  selectedSubs.clear();
+  document.querySelectorAll('.sub-checkbox').forEach(cb=>{cb.checked=false;});
+  document.querySelectorAll('[id^="sub-row-"]').forEach(row=>{row.style.background='';});
+  const cb=document.getElementById('select-all-checkbox');
+  if(cb)cb.checked=false;
+  updateBulkBar();
+}
 async function bulkCharge(){if(!selectedSubs.size)return;if(!confirm('Charge '+selectedSubs.size+' subscriptions now?'))return;toast('Charging '+selectedSubs.size+' subscriptions…');let ok=0,fail=0;for(const id of selectedSubs){try{const r=await api('/api/subscriptions/'+id+'/charge',{method:'POST'});if(r.success)ok++;else fail++;}catch(e){fail++;}}toast('✓ '+ok+' charged'+(fail?' — '+fail+' failed':''));exitBulkMode();loadStats();loadSubscriptions();}
 async function bulkPause(){if(!selectedSubs.size)return;if(!confirm('Pause '+selectedSubs.size+' subscriptions?'))return;for(const id of selectedSubs){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'paused'})}).catch(()=>{});}toast('✓ '+selectedSubs.size+' paused');exitBulkMode();loadSubscriptions();}
 async function bulkCancel(){if(!selectedSubs.size)return;if(!confirm('Cancel '+selectedSubs.size+' subscriptions? Cannot be undone.'))return;for(const id of selectedSubs){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'cancelled'})}).catch(()=>{});}toast('✓ '+selectedSubs.size+' cancelled');exitBulkMode();loadSubscriptions();loadStats();}
