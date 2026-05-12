@@ -806,6 +806,21 @@ app.patch('/api/payments/:id/note', async (req, res) => {
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
+// ── IP Geolocation ───────────────────────────────────────────────────────────
+app.get('/api/ip-geo', async (req, res) => {
+  try {
+    const ip = req.query.ip;
+    if (!ip || ip === '::1' || ip === '127.0.0.1' || ip.startsWith('192.168') || ip.startsWith('10.')) {
+      return res.json({ country: 'Local', code: null });
+    }
+    const response = await fetch('https://ipapi.co/' + ip + '/json/');
+    const data = await response.json();
+    res.json({ country: data.country_name || null, code: data.country_code ? data.country_code.toLowerCase() : null });
+  } catch(err) {
+    res.json({ country: null, code: null });
+  }
+});
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, async () => {
