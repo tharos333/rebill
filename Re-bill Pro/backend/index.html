@@ -1377,7 +1377,7 @@ async function loadSecurity(){
       var ip=h.ip||'';
       if(!ip||ip==='unknown'||ip==='::1'||ip==='127.0.0.1'||seen[ip])return;
       seen[ip]=true;
-      fetch('https://ip-api.com/json/'+ip+'?fields=country,countryCode')
+      fetch('https://ipapi.co/'+ip+'/json/')
       .then(function(r){return r.json();})
       .then(function(d){
         if(!d||!d.countryCode)return;
@@ -1387,8 +1387,8 @@ async function loadSecurity(){
         history.forEach(function(h2){
           if(h2.ip===ip){
             var flagEl=document.getElementById('flag-'+h2.id);
-            if(flagEl){var img=document.createElement('img');img.src=flagUrl;img.width=20;img.height=15;img.style.cssText='border-radius:2px;display:block;';img.alt=d.countryCode;img.onerror=function(){this.style.display='none';};flagEl.innerHTML='';flagEl.appendChild(img);}
-            if(countryEl) countryEl.textContent=d.country;
+            if(flagEl){var img=document.createElement('img');img.src=flagUrl;img.width=20;img.height=15;img.style.cssText='border-radius:2px;display:block;';img.alt=d.country_code||'';img.onerror=function(){this.style.display='none';};flagEl.innerHTML='';flagEl.appendChild(img);}
+            if(countryEl) countryEl.textContent=countryName;
           }
         });
       }).catch(function(){});
