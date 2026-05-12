@@ -57,7 +57,7 @@ html.light .sidebar-header{border-bottom:1px solid rgba(0,0,0,0.08);}
 .nav-item:hover{color:var(--text);background:rgba(255,255,255,0.03)}
 .nav-item.active{color:var(--text);border-left-color:var(--accent);background:var(--accent-glow)}
 .sidebar-footer{margin-top:auto;padding:12px 24px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);font-family:var(--mono)}
-.theme-toggle{display:flex;align-items:center;gap:8px;padding:8px 24px;font-size:12px;color:var(--muted);cursor:pointer;font-family:var(--mono);border:none;background:none;width:100%}
+.theme-toggle{display:flex;align-items:center;gap:8px;padding:0;font-size:12px;color:var(--muted);cursor:pointer;font-family:var(--mono);border:none;background:none;width:100%}
 .theme-toggle:hover{color:var(--text)}
 .toggle-track{width:34px;height:18px;border-radius:20px;background:var(--surface2);border:1px solid var(--border2);position:relative;transition:background 0.2s;flex-shrink:0}
 html.light .toggle-track{background:var(--accent)}
@@ -253,13 +253,15 @@ textarea{resize:vertical;min-height:60px}
   </div>
 
   </div><!-- end scrollable nav -->
-  <div style="flex-shrink:0;background:var(--surface);padding:16px 24px;">
-    <button onclick="toggleTheme()" style="display:flex;align-items:center;gap:10px;background:none;border:none;cursor:pointer;padding:0;width:100%;color:var(--muted);font-size:12px;font-family:var(--mono);">
-      <div class="toggle-track" style="flex-shrink:0;"><div class="toggle-thumb"></div></div>
+  <div style="flex-shrink:0;background:var(--surface);padding:18px 24px 16px;">
+    <button class="theme-toggle" onclick="toggleTheme()">
+      <div class="toggle-track"><div class="toggle-thumb"></div></div>
       <span id="theme-label">Dark mode</span>
     </button>
     <div style="height:1px;background:var(--border);width:100%;margin:14px 0;"></div>
-    <div style="display:flex;align-items:center;gap:0;font-size:11px;color:var(--muted);font-family:var(--mono);"><span id="server-status">● loading...</span></div>
+    <div style="display:flex;align-items:center;font-size:11px;color:var(--muted);font-family:var(--mono);">
+      <span id="server-status">● loading...</span>
+    </div>
   </div>
 </nav>
 <main class="main">
