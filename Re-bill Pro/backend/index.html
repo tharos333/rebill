@@ -202,6 +202,13 @@ textarea{resize:vertical;min-height:60px}
   <div class="logo sidebar-header">
     <img id="sidebar-logo" src="https://i.ibb.co/MDsPb7Nr/1.png" alt="Subloop" class="sidebar-logo-img">
   </div>
+  <div style="padding:8px 12px;">
+    <div style="position:relative;">
+      <input type="text" id="global-search-input" placeholder="Search customers, payments..." oninput="globalSearch(this.value)" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:7px 10px 7px 30px;font-size:12px;font-family:var(--mono);outline:none;">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" style="position:absolute;left:9px;top:8px;pointer-events:none;"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    </div>
+    <div id="global-search-results" style="display:none;position:absolute;left:8px;right:8px;background:var(--surface);border:1px solid var(--border2);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.3);z-index:200;max-height:320px;overflow-y:auto;margin-top:4px;"></div>
+  </div>
   <div class="nav-section">Main</div>
   <button class="nav-item active" onclick="showPage('dashboard',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboard</button>
   <button class="nav-item" onclick="showPage('activity',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Activity</button>
@@ -215,6 +222,9 @@ textarea{resize:vertical;min-height:60px}
   <button class="nav-item" onclick="showPage('forecast',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Forecast</button>
   <button class="nav-item" onclick="showPage('expiry',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><circle cx="16" cy="15" r="2" fill="currentColor"/></svg>Expiring Cards</button>
   <button class="nav-item" onclick="showPage('summary',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Daily Summary</button>
+  <button class="nav-item" onclick="showPage('mrr',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>MRR Growth</button>
+  <button class="nav-item" onclick="showPage('best',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Best Customers</button>
+  <button class="nav-item" onclick="showPage('recovery',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/></svg>Recovery Rate</button>
   <div class="nav-section">Settings</div>
   <button class="nav-item" onclick="showPage('admins',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Admin Users</button>
   <button class="nav-item" onclick="showPage('settings',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
@@ -241,6 +251,17 @@ textarea{resize:vertical;min-height:60px}
     <div class="stat-card"><div class="stat-label">Churn rate</div><div class="stat-value" id="stat-churn">—</div><div class="stat-sub">last 30 days</div></div>
     <div class="stat-card"><div class="stat-label">Success rate</div><div class="stat-value" id="stat-success" style="color:var(--green)">—</div><div class="stat-sub">payment success</div></div>
     <div class="stat-card"><div class="stat-label">Avg LTV</div><div class="stat-value" id="stat-ltv">—</div><div class="stat-sub">per customer</div></div>
+  </div>
+  <!-- Churn Alerts -->
+  <div id="churn-alerts-section" style="display:none;margin-bottom:16px;">
+    <div style="background:var(--red-bg);border:1px solid var(--red);border-radius:10px;padding:14px 18px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span style="font-size:13px;font-weight:600;color:var(--red);">Churn Alerts</span>
+        <span id="churn-count" style="background:var(--red);color:#fff;font-size:10px;font-family:var(--mono);padding:1px 6px;border-radius:20px;"></span>
+      </div>
+      <div id="churn-alerts-list" style="display:flex;flex-direction:column;gap:6px;"></div>
+    </div>
   </div>
   <div class="card">
     <div style="padding:14px 18px 0;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
@@ -328,7 +349,7 @@ textarea{resize:vertical;min-height:60px}
     <button class="btn" onclick="window.location='/api/payments/export'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export CSV</button>
   </div>
   <div class="card"><div class="scrollable"><table>
-    <thead><tr><th>Customer</th><th>Amount</th><th>Status</th><th>Date</th><th>Reference</th><th>Action</th></tr></thead>
+    <thead><tr><th>Customer</th><th>Amount</th><th>Status</th><th>Failure Reason</th><th>Date</th><th>Reference</th><th>Action</th></tr></thead>
     <tbody id="payments-table"><tr><td colspan="6" class="empty">Loading...</td></tr></tbody>
   </table></div></div>
 </div>
@@ -336,6 +357,18 @@ textarea{resize:vertical;min-height:60px}
 <!-- Payment Links -->
 <div id="page-links" class="page">
   <div class="page-header"><div><h2>Payment Links</h2><p>Generate Stripe links that save cards automatically</p></div></div>
+  <div class="card" style="max-width:500px;margin-bottom:14px;">
+    <div class="card-header"><h3>Plan templates <span id="template-count" style="color:var(--muted);font-weight:400;"></span></h3></div>
+    <div style="padding:12px 18px 16px;">
+      <div id="templates-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;min-height:32px;"><span style="font-size:12px;color:var(--muted);font-family:var(--mono);">Loading...</span></div>
+      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+        <div class="form-group" style="margin:0;flex:1;min-width:120px;"><label>Template name</label><input type="text" id="tmpl-name" placeholder="Monthly Pro"></div>
+        <div class="form-group" style="margin:0;width:90px;"><label>Amount ($)</label><input type="number" id="tmpl-amount" placeholder="29" min="0.50" step="0.01"></div>
+        <div class="form-group" style="margin:0;width:100px;"><label>Interval</label><select id="tmpl-interval"><option value="7">Weekly</option><option value="30" selected>Monthly</option><option value="90">Quarterly</option><option value="365">Yearly</option></select></div>
+        <button class="btn btn-primary btn-sm" onclick="saveTemplate()" style="margin-bottom:1px;">Save template</button>
+      </div>
+    </div>
+  </div>
   <div class="card" style="max-width:500px;">
     <div class="card-header"><h3>Create payment link</h3></div>
     <div style="padding:18px;">
@@ -481,6 +514,39 @@ textarea{resize:vertical;min-height:60px}
       Forecast is calculated from all active subscriptions, their amounts, billing intervals, and next billing dates.<br>
       It assumes all payments succeed and no new subscriptions are added or cancelled.
     </div>
+  </div>
+</div>
+
+<!-- MRR Growth -->
+<div id="page-mrr" class="page">
+  <div class="page-header"><div><h2>MRR Growth</h2><p>Monthly recurring revenue over the last 12 months</p></div></div>
+  <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px;">
+    <div class="stat-card"><div class="stat-label">This Month</div><div class="stat-value" id="mrr-this">—</div><div class="stat-sub">revenue</div></div>
+    <div class="stat-card"><div class="stat-label">Last Month</div><div class="stat-value" id="mrr-last">—</div><div class="stat-sub">revenue</div></div>
+    <div class="stat-card"><div class="stat-label">Growth</div><div class="stat-value" id="mrr-growth">—</div><div class="stat-sub">month over month</div></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><h3>Revenue by month</h3></div>
+    <div id="mrr-chart" style="padding:18px;display:flex;align-items:flex-end;gap:8px;height:200px;"></div>
+  </div>
+</div>
+
+<!-- Best Customers -->
+<div id="page-best" class="page">
+  <div class="page-header"><div><h2>Best Customers</h2><p>Top 10 customers by total amount paid</p></div></div>
+  <div class="card"><div class="scrollable"><table>
+    <thead><tr><th>#</th><th>Customer</th><th>Card</th><th>Total Paid</th><th>Payments</th><th>Last Payment</th></tr></thead>
+    <tbody id="best-table"><tr><td colspan="6" class="empty">Loading...</td></tr></tbody>
+  </table></div></div>
+</div>
+
+<!-- Recovery Rate -->
+<div id="page-recovery" class="page">
+  <div class="page-header"><div><h2>Payment Recovery</h2><p>How well your dunning recovers failed payments</p></div></div>
+  <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);">
+    <div class="stat-card"><div class="stat-label">Failed (30 days)</div><div class="stat-value" id="rec-failed" style="color:var(--red)">—</div><div class="stat-sub">total failures</div></div>
+    <div class="stat-card"><div class="stat-label">Recovered</div><div class="stat-value" id="rec-recovered" style="color:var(--green)">—</div><div class="stat-sub">retried successfully</div></div>
+    <div class="stat-card"><div class="stat-label">Recovery Rate</div><div class="stat-value" id="rec-rate">—</div><div class="stat-sub">last 30 days</div></div>
   </div>
 </div>
 
@@ -641,6 +707,14 @@ textarea{resize:vertical;min-height:60px}
       <button class="btn" onclick="closeModal('add-admin-modal')">Cancel</button>
       <button class="btn btn-primary" onclick="addAdmin()">Add admin</button>
     </div>
+  </div>
+</div>
+<div class="modal-bg" id="payment-note-modal">
+  <div class="modal">
+    <h3>Payment note</h3><p>Add an internal note to this payment</p>
+    <input type="hidden" id="payment-note-id">
+    <div class="form-group"><label>Note</label><textarea id="payment-note-text" placeholder="e.g. Customer agreed to retry next week..."></textarea></div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal('payment-note-modal')">Cancel</button><button class="btn btn-primary" onclick="savePaymentNote()">Save</button></div>
   </div>
 </div>
 <div id="toast"></div>
@@ -822,7 +896,7 @@ function showPage(name,el){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   el.classList.add('active');
-  const loaders={dashboard:()=>{loadStats();loadUpcoming();loadRecentPayments();loadChart();},activity:loadActivity,customers:loadCustomers,subscriptions:loadSubscriptions,payments:loadPayments,links:loadAccounts,settings:loadSettings,accounts:loadAccounts,security:loadSecurity,webhooks:loadWebhooks,forecast:loadForecast,expiry:loadExpiry,summary:loadSummary,admins:loadAdmins};
+  const loaders={dashboard:()=>{loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();},activity:loadActivity,customers:loadCustomers,subscriptions:loadSubscriptions,payments:loadPayments,links:loadAccounts,settings:loadSettings,accounts:loadAccounts,security:loadSecurity,webhooks:loadWebhooks,forecast:loadForecast,expiry:loadExpiry,summary:loadSummary,admins:loadAdmins,mrr:loadMrr,best:loadBest,recovery:loadRecovery,links:()=>{loadAccounts();loadTemplates();}};
   // Re-verify permissions on each page navigation
   var _username=localStorage.getItem('subloop_username');
   if(_username && (getCurrentRole()==='custom' || getCurrentRole()==='viewer')){
@@ -902,18 +976,18 @@ function initApp(){
       localStorage.removeItem('subloop_readonly');
       if(r.role==='viewer') localStorage.setItem('subloop_readonly','1');
       applyAccessControl();
-      loadStats();loadUpcoming();loadRecentPayments();loadChart();
+      loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();
       api('/api/settings').then(s=>{appSettings=s;}).catch(()=>{});
     })
     .catch(function(){
       // Network error - still apply cached permissions
       applyAccessControl();
-      loadStats();loadUpcoming();loadRecentPayments();loadChart();
+      loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();
       api('/api/settings').then(s=>{appSettings=s;}).catch(()=>{});
     });
   } else {
     applyAccessControl();
-    loadStats();loadUpcoming();loadRecentPayments();loadChart();
+    loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();
     api('/api/settings').then(s=>{appSettings=s;}).catch(()=>{});
   }
 }
@@ -1141,7 +1215,13 @@ async function loadPayments(){
     const tb=document.getElementById('payments-table');
     if(!list.length){tb.innerHTML='<tr><td colspan="6" class="empty">No payments yet</td></tr>';return;}
     var isViewer=localStorage.getItem('subloop_readonly')==='1';
-    tb.innerHTML=list.map(p=>'<tr><td><div class="customer-cell"><div class="avatar">'+initials(p.name)+'</div><div><div class="customer-name">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div></div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+badge(p.status)+'</td><td class="mono">'+fmtDate(p.created_at)+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+(p.stripe_payment_intent?p.stripe_payment_intent.slice(0,22)+'…':'—')+'</td><td>'+(!isViewer&&p.status==='failed'?'<button class="btn btn-sm btn-success" onclick="retryPayment('+p.id+')">Retry</button>':'')+'</td></tr>').join('');
+    var reasonLabels={'insufficient_funds':'Insufficient funds','card_declined':'Card declined','expired_card':'Card expired','incorrect_cvc':'Wrong CVC','lost_card':'Card reported lost','stolen_card':'Card stolen','do_not_honor':'Bank declined','processing_error':'Processing error','fraudulent':'Fraud suspected'};
+    tb.innerHTML=list.map(p=>{
+      var reasonText=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'—';
+      var reasonColor=p.status==='failed'?'color:var(--red);':'color:var(--muted);';
+      var noteBtn=!isViewer?'<button class="btn btn-sm" onclick="openPaymentNote('+p.id+')" title="Note">Note</button>':'';
+      return '<tr><td><div class="customer-cell"><div class="avatar">'+initials(p.name)+'</div><div><div class="customer-name">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div></div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+badge(p.status)+'</td><td class="mono" style="font-size:12px;'+reasonColor+'">'+reasonText+'</td><td class="mono">'+fmtDate(p.created_at)+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+(p.stripe_payment_intent?p.stripe_payment_intent.slice(0,22)+'…':'—')+'</td><td><div class="actions">'+(!isViewer&&p.status==='failed'?'<button class="btn btn-sm btn-success" onclick="retryPayment('+p.id+')">Retry</button>':'')+noteBtn+'</div></td></tr>';
+    }).join('');
   }catch(e){}
 }
 async function retryPayment(id){toast('Retrying…');try{const r=await api('/api/payments/'+id+'/retry',{method:'POST'});if(r.success){toast('✓ Succeeded');loadPayments();loadStats();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
@@ -1499,6 +1579,252 @@ async function changeMyPassword(){
     if(r.success){toast('✓ Password updated');document.getElementById('change-pass-new').value='';document.getElementById('change-pass-confirm').value='';}
     else toast('Error: '+(r.error||'Failed'),'error');
   }catch(e){toast('Error','error');}
+}
+
+
+// ── Global Search ─────────────────────────────────────────────────────────────
+var searchTimer=null;
+function globalSearch(q){
+  clearTimeout(searchTimer);
+  var res=document.getElementById('global-search-results');
+  if(!q||q.length<2){res.style.display='none';return;}
+  searchTimer=setTimeout(async function(){
+    try{
+      var data=await api('/api/search?q='+encodeURIComponent(q));
+      var total=data.customers.length+data.payments.length+data.subscriptions.length;
+      res.innerHTML='';
+      if(!total){
+        var empty=document.createElement('div');
+        empty.style.cssText='padding:16px;text-align:center;font-size:13px;color:var(--muted);font-family:var(--mono);';
+        empty.textContent='No results found';
+        res.appendChild(empty);
+        res.style.display='block';
+        return;
+      }
+      function addSection(title,items,renderFn){
+        if(!items.length)return;
+        var hdr=document.createElement('div');
+        hdr.style.cssText='padding:8px 14px 4px;font-size:10px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.5px;border-top:1px solid var(--border);';
+        hdr.textContent=title;
+        res.appendChild(hdr);
+        items.forEach(function(item){
+          var row=renderFn(item);
+          res.appendChild(row);
+        });
+      }
+      function makeRow(content,onclick){
+        var row=document.createElement('div');
+        row.style.cssText='padding:8px 14px;cursor:pointer;';
+        row.innerHTML=content;
+        row.addEventListener('mouseenter',function(){row.style.background='var(--surface2)';});
+        row.addEventListener('mouseleave',function(){row.style.background='';});
+        row.addEventListener('click',function(){
+          onclick();
+          document.getElementById('global-search-input').value='';
+          res.style.display='none';
+        });
+        return row;
+      }
+      addSection('Customers',data.customers,function(c){
+        return makeRow('<div style="display:flex;align-items:center;gap:8px;"><div class="avatar">'+initials(c.name)+'</div><div><div style="font-size:13px;font-weight:500;">'+(c.name||'—')+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+(c.email||'')+'</div></div></div>',function(){
+          var navBtn=document.querySelector('.nav-item[onclick*="customers"]');
+          if(navBtn)showPage('customers',navBtn);
+        });
+      });
+      addSection('Payments',data.payments,function(p){
+        return makeRow('<div style="display:flex;align-items:center;justify-content:space-between;"><div style="font-size:13px;">'+(p.name||'—')+'</div><div style="display:flex;gap:8px;align-items:center;"><span class="mono" style="font-size:12px;">'+fmt(p.amount,p.currency)+'</span>'+badge(p.status)+'</div></div>',function(){
+          var navBtn=document.querySelector('.nav-item[onclick*="payments"]');
+          if(navBtn)showPage('payments',navBtn);
+        });
+      });
+      addSection('Subscriptions',data.subscriptions,function(s){
+        return makeRow('<div style="display:flex;align-items:center;justify-content:space-between;"><div style="font-size:13px;">'+(s.name||'—')+'</div><div style="display:flex;gap:8px;align-items:center;"><span class="mono" style="font-size:12px;">'+fmt(s.amount,s.currency)+'</span>'+badge(s.status)+'</div></div>',function(){
+          var navBtn=document.querySelector('.nav-item[onclick*="subscriptions"]');
+          if(navBtn)showPage('subscriptions',navBtn);
+        });
+      });
+      res.style.display='block';
+    }catch(e){res.style.display='none';}
+  },300);
+}
+document.addEventListener('click',function(e){
+  if(!e.target.closest('#global-search-input')&&!e.target.closest('#global-search-results')){
+    var r=document.getElementById('global-search-results');
+    if(r)r.style.display='none';
+  }
+});
+
+
+// ── Churn Alerts ──────────────────────────────────────────────────────────────
+async function loadChurnAlerts(){
+  try{
+    var d=await api('/api/churn-alerts');
+    var section=document.getElementById('churn-alerts-section');
+    var list=document.getElementById('churn-alerts-list');
+    var count=document.getElementById('churn-count');
+    var all=[...d.cancelled,...d.failing];
+    if(!all.length){section.style.display='none';return;}
+    section.style.display='block';
+    count.textContent=all.length;
+    var html='';
+    d.cancelled.forEach(function(c){
+      html+='<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(248,113,113,0.15);">'+
+        '<div class="avatar">'+initials(c.name)+'</div>'+
+        '<div style="flex:1;"><div style="font-size:13px;font-weight:500;">'+(c.name||'—')+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+(c.email||'')+'</div></div>'+
+        '<span class="badge badge-red">cancelled</span>'+
+      '</div>';
+    });
+    d.failing.forEach(function(c){
+      html+='<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(248,113,113,0.15);">'+
+        '<div class="avatar">'+initials(c.name)+'</div>'+
+        '<div style="flex:1;"><div style="font-size:13px;font-weight:500;">'+(c.name||'—')+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+(c.email||'')+'</div></div>'+
+        '<span class="badge badge-amber">'+c.dunning_count+' failures</span>'+
+      '</div>';
+    });
+    list.innerHTML=html;
+  }catch(e){}
+}
+
+// ── Plan Templates ────────────────────────────────────────────────────────────
+async function loadTemplates(){
+  try{
+    var list=await api('/api/plan-templates');
+    var el=document.getElementById('templates-list');
+    var count=document.getElementById('template-count');
+    if(!el)return;
+    if(count)count.textContent='('+list.length+')';
+    el.innerHTML='';
+    if(!list.length){
+      var empty=document.createElement('span');
+      empty.style.cssText='font-size:12px;color:var(--muted);font-family:var(--mono);';
+      empty.textContent='No templates yet — save one below';
+      el.appendChild(empty);
+      return;
+    }
+    list.forEach(function(t){
+      var chip=document.createElement('div');
+      chip.style.cssText='display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:5px 10px;cursor:pointer;';
+      chip.addEventListener('click',function(){applyTemplate(t.amount,t.currency,t.interval_days,t.name);});
+      var name=document.createElement('span');
+      name.style.cssText='font-size:12px;font-weight:500;';
+      name.textContent=t.name;
+      var price=document.createElement('span');
+      price.style.cssText='font-size:11px;color:var(--muted);font-family:var(--mono);';
+      price.textContent=fmt(t.amount,t.currency)+'/'+t.interval_days+'d';
+      var del=document.createElement('button');
+      del.style.cssText='background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:0 2px;line-height:1;';
+      del.textContent='✕';
+      del.addEventListener('click',function(e){e.stopPropagation();deleteTemplate(t.id);});
+      chip.appendChild(name);chip.appendChild(price);chip.appendChild(del);
+      el.appendChild(chip);
+    });
+  }catch(e){console.error(e);}
+}
+
+function applyTemplate(amount,currency,interval,name){
+  document.getElementById('link-name').value=name;
+  document.getElementById('link-amount').value=(amount/100).toFixed(2);
+  document.getElementById('link-currency').value=currency;
+  document.getElementById('link-interval').value=String(interval);
+  toast('✓ Template applied');
+}
+
+async function saveTemplate(){
+  var name=document.getElementById('tmpl-name').value.trim();
+  var amount=Math.round(parseFloat(document.getElementById('tmpl-amount').value)*100);
+  var interval=document.getElementById('tmpl-interval').value;
+  if(!name||!amount){toast('Fill in name and amount','error');return;}
+  await api('/api/plan-templates',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,amount,currency:'usd',interval_days:parseInt(interval)})});
+  toast('✓ Template saved');
+  document.getElementById('tmpl-name').value='';
+  document.getElementById('tmpl-amount').value='';
+  loadTemplates();
+}
+
+async function deleteTemplate(id){
+  await api('/api/plan-templates/'+id,{method:'DELETE'});
+  toast('Template deleted');
+  loadTemplates();
+}
+
+// ── MRR Growth ────────────────────────────────────────────────────────────────
+async function loadMrr(){
+  try{
+    var data=await api('/api/mrr-history');
+    var chart=document.getElementById('mrr-chart');
+    if(!data.length){chart.innerHTML='<div class="empty">No data yet</div>';return;}
+    var maxRev=Math.max(...data.map(d=>parseInt(d.revenue)||0));
+    var bars=data.map(function(d){
+      var h=maxRev>0?Math.max(4,Math.round(((parseInt(d.revenue)||0)/maxRev)*160)):4;
+      return '<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;">'+
+        '<div style="font-size:10px;color:var(--muted);font-family:var(--mono);">'+fmt(parseInt(d.revenue)||0)+'</div>'+
+        '<div style="height:'+h+'px;width:100%;background:var(--accent);border-radius:4px 4px 0 0;min-width:20px;"></div>'+
+        '<div style="font-size:10px;color:var(--muted);font-family:var(--mono);">'+d.month+'</div>'+
+      '</div>';
+    }).join('');
+    chart.innerHTML='<div style="display:flex;align-items:flex-end;gap:8px;width:100%;height:100%;">'+bars+'</div>';
+    // Stats
+    if(data.length>=2){
+      var last=parseInt(data[data.length-1].revenue)||0;
+      var prev=parseInt(data[data.length-2].revenue)||0;
+      var growth=prev>0?Math.round(((last-prev)/prev)*100):0;
+      var el=document.getElementById('mrr-this');if(el)el.textContent=fmt(last);
+      var el2=document.getElementById('mrr-last');if(el2)el2.textContent=fmt(prev);
+      var el3=document.getElementById('mrr-growth');
+      if(el3){el3.textContent=(growth>=0?'+':'')+growth+'%';el3.style.color=growth>=0?'var(--green)':'var(--red)';}
+    }
+  }catch(e){console.error(e);}
+}
+
+// ── Best Customers ────────────────────────────────────────────────────────────
+async function loadBest(){
+  try{
+    var list=await api('/api/best-customers');
+    var tb=document.getElementById('best-table');
+    if(!list.length){tb.innerHTML='<tr><td colspan="6" class="empty">No data yet</td></tr>';return;}
+    tb.innerHTML=list.map(function(c,i){
+      var medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'#'+(i+1);
+      return '<tr>'+
+        '<td style="font-size:16px;text-align:center;">'+medal+'</td>'+
+        '<td><div class="customer-cell"><div class="avatar">'+initials(c.name)+'</div><div><div class="customer-name">'+(c.name||'—')+'</div><div class="customer-email">'+(c.email||'')+'</div></div></div></td>'+
+        '<td>'+cardBadge(c.card_brand,c.card_last4)+'</td>'+
+        '<td class="mono" style="font-weight:700;color:var(--green);">'+fmt(parseInt(c.total_paid)||0)+'</td>'+
+        '<td class="mono">'+( c.payment_count||0)+' payments</td>'+
+        '<td class="mono" style="font-size:12px;color:var(--muted);">'+fmtDate(c.last_payment)+'</td>'+
+      '</tr>';
+    }).join('');
+  }catch(e){}
+}
+
+// ── Recovery Rate ─────────────────────────────────────────────────────────────
+async function loadRecovery(){
+  try{
+    var d=await api('/api/recovery-rate');
+    var rf=document.getElementById('rec-failed');if(rf)rf.textContent=d.total_failed||0;
+    var rr=document.getElementById('rec-recovered');if(rr)rr.textContent=d.recovered||0;
+    var rt=document.getElementById('rec-rate');
+    if(rt){rt.textContent=(d.rate||0)+'%';rt.style.color=(d.rate||0)>=50?'var(--green)':'var(--red)';}
+  }catch(e){}
+}
+
+// ── Payment Notes ─────────────────────────────────────────────────────────────
+async function openPaymentNote(id){
+  document.getElementById('payment-note-id').value=id;
+  document.getElementById('payment-note-text').value='Loading...';
+  openModal('payment-note-modal');
+  try{
+    var list=await api('/api/payments');
+    var p=list.find(function(x){return x.id===id;});
+    document.getElementById('payment-note-text').value=p&&p.note?p.note:'';
+  }catch(e){document.getElementById('payment-note-text').value='';}
+}
+async function savePaymentNote(){
+  var id=document.getElementById('payment-note-id').value;
+  var note=document.getElementById('payment-note-text').value;
+  await api('/api/payments/'+id+'/note',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({note})});
+  toast('✓ Note saved');
+  closeModal('payment-note-modal');
+  loadPayments();
 }
 
 document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
