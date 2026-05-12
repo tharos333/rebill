@@ -2054,24 +2054,41 @@ async function savePaymentNote(){
   loadPayments();
 }
 
+// Store refs for copy buttons
+var _refStore={};
+var _refIdx=0;
+
 function buildRefCell(pi){
   if(!pi) return '—';
   var short=pi.slice(0,8)+'...'+pi.slice(-4);
-  var wrap=document.createElement('div');
-  wrap.style.display='flex';
-  wrap.style.alignItems='center';
-  wrap.style.gap='4px';
-  var span=document.createElement('span');
-  span.className='mono';
-  span.style.cssText='font-size:11px;color:var(--muted);';
-  span.textContent=short;
-  var btn=document.createElement('button');
-  btn.className='btn btn-sm';
-  btn.style.cssText='padding:1px 5px;font-size:10px;';
-  btn.textContent='Copy';
-  btn.addEventListener('click',function(){navigator.clipboard.writeText(pi);toast('Copied!');});
-  wrap.appendChild(span);wrap.appendChild(btn);
-  return wrap.outerHTML;
+  var key='ref_'+(++_refIdx);
+  _refStore[key]=pi;
+  var btn='<button class="btn btn-sm" style="padding:1px 5px;font-size:10px;" ';
+  btn+='onclick="copyStoredRef(this.dataset.k)" data-k="'+key+'">Copy</button>';
+  return '<div style="display:flex;align-items:center;gap:4px;">'
+    +'<span class="mono" style="font-size:11px;color:var(--muted);">'+short+'</span>'
+    +btn
+    +'</div>';
+}
+
+
+function copyStoredRef(keyOrEl){
+  var key=typeof keyOrEl==='string'?keyOrEl:keyOrEl.dataset.k;
+  var val=_refStore[key];
+  if(!val)return;
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(val).then(function(){toast('Copied!');}).catch(function(){fallbackCopy(val);});
+  } else { fallbackCopy(val); }
+}
+
+function fallbackCopy(text){
+  var ta=document.createElement('textarea');
+  ta.value=text;
+  ta.style.cssText='position:fixed;left:-9999px;top:-9999px;';
+  document.body.appendChild(ta);
+  ta.select();
+  try{document.execCommand('copy');toast('Copied!');}catch(e){toast('Copy failed','error');}
+  document.body.removeChild(ta);
 }
 function copyRef(btn){var ref=btn.dataset.ref;navigator.clipboard.writeText(ref);toast('Copied!');}
 document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
