@@ -1272,7 +1272,7 @@ function renderPayments(list){
     actions+='</div>';
     return '<tr style="'+(p.status==='failed'?'background:rgba(248,113,113,0.04);':'')+'">'+
       '<td><div class="customer-cell"><div class="avatar">'+initials(p.name)+'</div><div><div class="customer-name" style="font-size:12px;">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div></div></div></td>'+
-      '<td class="mono" style="font-size:13px;font-weight:600;">'+fmt(p.amount,p.currency)+'</td>'+
+      '<td class="mono">'+fmt(p.amount,p.currency)+'</td>'+
       '<td>'+badge(p.status)+'</td>'+
       '<td>'+reasonHtml+'</td>'+
       '<td class="mono" style="font-size:12px;white-space:nowrap;">'+fmtDate(p.created_at)+'</td>'+
