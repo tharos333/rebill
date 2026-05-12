@@ -47,7 +47,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:1
 /* App */
 .app-screen{display:flex;width:100%;min-height:100vh}
 .app-screen.hidden{display:none}
-.sidebar{width:220px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:0;position:fixed;height:100vh;z-index:10;overflow-y:auto}
+.sidebar{width:220px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:0;position:fixed;height:100vh;z-index:10;overflow:hidden}
 .logo{padding:0}
 .sidebar-header{height:52px!important;min-height:52px!important;max-height:52px!important;padding:0 0 0 24px!important;display:flex!important;align-items:center!important;justify-content:flex-start!important;box-sizing:border-box!important;border-bottom:1px solid rgba(255,255,255,0.08);}
 .sidebar-logo-img{width:150px!important;height:auto!important;display:block!important;object-fit:contain!important;margin:0!important;}
@@ -205,6 +205,7 @@ textarea{resize:vertical;min-height:60px}
   <div class="logo sidebar-header">
     <img id="sidebar-logo" src="https://i.ibb.co/xq0HVT9G/1.png" alt="Subloop" class="sidebar-logo-img">
   </div>
+  <div style="flex:1;overflow-y:auto;overflow-x:hidden;">
   <div class="nav-section">Main</div>
   <button class="nav-item active" onclick="showPage('dashboard',this)">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Dashboard</button>
@@ -251,10 +252,11 @@ textarea{resize:vertical;min-height:60px}
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 16.98h-5.99c-1.1 0-1.95.94-2.48 1.9A4 4 0 0 1 2 17c.01-.7.2-1.4.57-2"/><path d="m6 17 3.13-5.78c.53-.97.1-2.18-.5-3.1a4 4 0 1 1 6.89-4.06"/><path d="m12 6 3.13 5.73C15.66 12.7 16.9 13 18 13a4 4 0 0 1 0 8"/></svg>Webhook Logs</button>
   </div>
 
-  <div style="border-top:1px solid var(--border);padding:10px 0 0;">
+  </div><!-- end scrollable nav -->
+  <div style="flex-shrink:0;border-top:1px solid var(--border);background:var(--surface);">
     <button class="theme-toggle" onclick="toggleTheme()" style="padding:8px 24px;"><div class="toggle-track"><div class="toggle-thumb"></div></div><span id="theme-label">Dark mode</span></button>
     <div style="height:1px;background:var(--border);margin:8px 24px;opacity:0.5;"></div>
-    <div class="sidebar-footer" style="border-top:none;padding:8px 24px 12px;"><span id="server-status">● loading...</span></div>
+    <div style="padding:8px 24px 12px;font-size:11px;color:var(--muted);font-family:var(--mono);display:flex;align-items:center;"><span id="server-status">● loading...</span></div>
   </div>
 </nav>
 <main class="main">
