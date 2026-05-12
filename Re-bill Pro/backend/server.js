@@ -1,2086 +1,795 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Subloop Beta 1.0 — Manage & Rebill Subscriptions</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --bg:#0a0a0f;--surface:#111118;--surface2:#18181f;
-  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
-  --text:#f0f0f5;--muted:#888898;--accent:#6c63ff;--accent-glow:rgba(108,99,255,0.18);
-  --green:#22c55e;--green-bg:rgba(34,197,94,0.1);
-  --red:#f87171;--red-bg:rgba(248,113,113,0.1);
-  --amber:#fbbf24;--amber-bg:rgba(251,191,36,0.1);
-  --blue:#60a5fa;--blue-bg:rgba(96,165,250,0.1);
-  --mono:'DM Mono',monospace;--sans:'Syne',sans-serif;
-}
-html.light{
-  --bg:#f4f4f8;--surface:#ffffff;--surface2:#f0f0f5;
-  --border:rgba(0,0,0,0.08);--border2:rgba(0,0,0,0.13);
-  --text:#111118;--muted:#666678;--accent:#6c63ff;--accent-glow:rgba(108,99,255,0.1);
-  --green:#16a34a;--green-bg:rgba(22,163,74,0.1);
-  --red:#dc2626;--red-bg:rgba(220,38,38,0.1);
-  --amber:#d97706;--amber-bg:rgba(217,119,6,0.1);
-  --blue:#2563eb;--blue-bg:rgba(37,99,235,0.1);
-}
-html.light .nav-item:hover{background:rgba(0,0,0,0.04)}
-html.light .nav-item.active{background:rgba(108,99,255,0.08)}
-html.light tr:hover td{background:rgba(0,0,0,0.02)}
-body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;display:flex}
-/* Login */
-.login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000}
-.login-screen.hidden{display:none}
-.login-box{background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:40px;width:380px;max-width:95vw}
-.login-logo{text-align:center;margin-bottom:28px}
-.login-field{margin-bottom:16px}
-.login-field label{display:block;font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px}
-.login-field input{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;color:var(--text);padding:12px 14px;font-size:14px;font-family:var(--sans);outline:none;transition:border-color 0.2s}
-.login-field input:focus{border-color:var(--accent)}
-.login-btn{width:100%;background:var(--accent);color:#fff;border:none;border-radius:10px;padding:13px;font-size:15px;font-family:var(--sans);font-weight:600;cursor:pointer;margin-top:8px}
-.login-btn:hover{background:#7c74ff}
-.login-error{background:var(--red-bg);border:1px solid var(--red);color:var(--red);border-radius:8px;padding:10px 14px;font-size:13px;font-family:var(--mono);margin-top:14px;display:none;text-align:center}
-.login-error.visible{display:block}
-/* App */
-.app-screen{display:flex;width:100%;min-height:100vh}
-.app-screen.hidden{display:none}
-.sidebar{width:220px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:0;position:fixed;height:100vh;z-index:10;overflow-y:auto}
-.logo{padding:0}
-.sidebar-header{height:52px!important;min-height:52px!important;max-height:52px!important;padding:0 0 0 24px!important;display:flex!important;align-items:center!important;justify-content:flex-start!important;box-sizing:border-box!important;border-bottom:1px solid rgba(255,255,255,0.08);}
-.sidebar-logo-img{width:150px!important;height:auto!important;display:block!important;object-fit:contain!important;margin:0!important;}
-html.light .sidebar-header{border-bottom:1px solid rgba(0,0,0,0.08);}
-.nav-section{font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:1px;text-transform:uppercase;padding:12px 24px 4px}
-.nav-item{display:flex;align-items:center;gap:10px;padding:9px 24px;font-size:13px;color:var(--muted);cursor:pointer;transition:all 0.15s;border-left:2px solid transparent;border:none;background:none;width:100%;text-align:left}
-.nav-item:hover{color:var(--text);background:rgba(255,255,255,0.03)}
-.nav-item.active{color:var(--text);border-left-color:var(--accent);background:var(--accent-glow)}
-.sidebar-footer{margin-top:auto;padding:12px 24px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);font-family:var(--mono)}
-.theme-toggle{display:flex;align-items:center;gap:8px;padding:8px 24px;font-size:12px;color:var(--muted);cursor:pointer;font-family:var(--mono);border:none;background:none;width:100%}
-.theme-toggle:hover{color:var(--text)}
-.toggle-track{width:34px;height:18px;border-radius:20px;background:var(--surface2);border:1px solid var(--border2);position:relative;transition:background 0.2s;flex-shrink:0}
-html.light .toggle-track{background:var(--accent)}
-.toggle-thumb{width:12px;height:12px;border-radius:50%;background:var(--muted);position:absolute;top:2px;left:2px;transition:all 0.2s}
-html.light .toggle-thumb{background:#fff;left:18px}
-.main{margin-left:220px;flex:1;padding:24px 28px;min-height:100vh}
-.page{display:none}.page.active{display:block}
-.page-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap}
-.page-header h2{font-size:19px;font-weight:600;letter-spacing:-0.3px}
-.page-header p{font-size:13px;color:var(--muted);margin-top:2px}
-.page-header-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 13px;border-radius:8px;font-size:13px;font-family:var(--sans);font-weight:500;cursor:pointer;transition:all 0.15s;border:1px solid var(--border2);background:var(--surface2);color:var(--text)}
-.btn:hover{border-color:rgba(255,255,255,0.25);background:rgba(255,255,255,0.07)}
-.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
-.btn-primary:hover{background:#7c74ff;border-color:#7c74ff}
-.btn-sm{padding:4px 9px;font-size:11px}
-.btn-danger{color:var(--red);border-color:var(--red-bg)}
-.btn-danger:hover{background:var(--red-bg)}
-.btn-success{color:var(--green);border-color:var(--green-bg)}
-.btn-success:hover{background:var(--green-bg)}
-.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px}
-.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:16px;position:relative;overflow:hidden}
-.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),transparent);opacity:0.5}
-.stat-label{font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:0.5px;text-transform:uppercase}
-.stat-value{font-size:22px;font-weight:700;margin-top:4px;letter-spacing:-0.5px}
-.stat-sub{font-size:10px;color:var(--muted);margin-top:3px;font-family:var(--mono)}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:11px;overflow:hidden;margin-bottom:18px}
-.card-header{padding:13px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
-.card-header h3{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:0.5px;text-transform:uppercase;font-family:var(--mono)}
-table{width:100%;border-collapse:collapse}
-th{text-align:left;padding:8px 16px;font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:0.5px;border-bottom:1px solid var(--border);text-transform:uppercase}
-td{padding:11px 16px;font-size:13px;border-bottom:1px solid var(--border)}
-tr:last-child td{border-bottom:none}
-tr:hover td{background:rgba(255,255,255,0.02)}
-.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:20px;font-size:11px;font-family:var(--mono);font-weight:500}
-.badge::before{content:'●';font-size:7px}
-.badge-green{background:var(--green-bg);color:var(--green)}
-.badge-red{background:var(--red-bg);color:var(--red)}
-.badge-amber{background:var(--amber-bg);color:var(--amber)}
-.badge-blue{background:var(--blue-bg);color:var(--blue)}
-.avatar{width:28px;height:28px;border-radius:6px;background:var(--accent-glow);border:1px solid rgba(108,99,255,0.3);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--accent);flex-shrink:0;font-family:var(--mono)}
-.customer-cell{display:flex;align-items:center;gap:8px}
-.customer-name{font-size:13px;font-weight:500}
-.customer-email{font-size:11px;color:var(--muted);font-family:var(--mono)}
-.actions{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
-.mono{font-family:var(--mono)}
-.scrollable{overflow-x:auto}
-.empty{text-align:center;padding:36px 20px;color:var(--muted);font-size:13px;font-family:var(--mono)}
-.form-group{margin-bottom:13px}
-label{display:block;font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px}
-input,select,textarea{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:8px 11px;font-size:13px;font-family:var(--sans);outline:none;transition:border-color 0.2s}
-input:focus,select:focus,textarea:focus{border-color:var(--accent)}
-select option{background:var(--surface2)}
-textarea{resize:vertical;min-height:60px}
-.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
-.link-result{display:none;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:11px 14px;margin-top:12px}
-.link-result.visible{display:block}
-.link-url{font-family:var(--mono);font-size:12px;color:var(--accent);word-break:break-all}
-#toast{position:fixed;bottom:20px;right:20px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:10px 15px;font-size:13px;font-family:var(--mono);z-index:9999;transform:translateY(80px);opacity:0;transition:all 0.25s}
-#toast.show{transform:translateY(0);opacity:1}
-#toast.success{border-color:var(--green);color:var(--green)}
-#toast.error{border-color:var(--red);color:var(--red)}
-.search-bar{display:flex;gap:10px;margin-bottom:14px}
-.search-bar input{max-width:280px}
-.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:500;align-items:center;justify-content:center}
-.modal-bg.open{display:flex}
-.modal{background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:26px;width:460px;max-width:95vw;max-height:90vh;overflow-y:auto}
-.modal h3{font-size:16px;font-weight:600;margin-bottom:4px}
-.modal p{font-size:13px;color:var(--muted);margin-bottom:18px}
-.modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
-.setting-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border)}
-.setting-row:last-child{border-bottom:none}
-.setting-info{flex:1}
-.setting-label{font-size:14px;font-weight:500;margin-bottom:2px}
-.setting-desc{font-size:12px;color:var(--muted);font-family:var(--mono)}
-.switch{position:relative;width:42px;height:24px;flex-shrink:0}
-.switch input{opacity:0;width:0;height:0}
-.slider{position:absolute;inset:0;background:var(--surface2);border:1px solid var(--border2);border-radius:24px;cursor:pointer;transition:0.2s}
-.slider::before{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;background:var(--muted);border-radius:50%;transition:0.2s}
-.switch input:checked + .slider{background:var(--accent);border-color:var(--accent)}
-.switch input:checked + .slider::before{transform:translateX(18px);background:#fff}
-.activity-item{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
-.activity-item:last-child{border-bottom:none}
-.activity-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px}
-.rev-tab{padding:4px 10px;border-radius:6px;font-size:11px;font-family:var(--mono);font-weight:500;cursor:pointer;border:1px solid var(--border2);background:var(--surface2);color:var(--muted);transition:all 0.15s;white-space:nowrap}
-.rev-tab:hover{color:var(--text);border-color:var(--accent)}
-.rev-tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
-.payment-card{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;vertical-align:middle}
-.payment-img{width:38px;height:24px;border-radius:5px;object-fit:contain;display:block;box-shadow:0 1px 4px rgba(0,0,0,0.25)}
-.payment-dots{color:#8b8b98;letter-spacing:2px;font-weight:700;font-size:12px;font-family:var(--mono)}
-.payment-last4{color:#a1a1aa;font-weight:700;font-size:12px;font-family:var(--mono)}
-.payment-badge-fallback{width:38px;height:24px;border-radius:5px;background:#1f1f2a;border:1px solid #343442;display:inline-flex;align-items:center;justify-content:center;color:#9ca3af;font-size:9px;font-weight:700;font-family:var(--sans);flex-shrink:0}
-.no-card{color:#777783;font-weight:700;font-family:var(--mono)}
-/* OTP boxes */
-.otp-input{width:46px;height:52px;text-align:center;font-size:20px;font-weight:700;font-family:var(--mono);background:var(--surface2);border:1.5px solid var(--border2);border-radius:10px;color:var(--text);outline:none}
-.otp-input:focus{border-color:var(--accent)}
-</style>
-</head>
-<body>
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const Stripe = require('stripe');
+const path = require('path');
+const { init, pool, settingsDb, stripeAccounts, customers, subscriptions, payments, activityLog, webhookLogs, security, adminUsers } = require('./db');
+let speakeasy, QRCode;
+try { speakeasy = require('speakeasy'); QRCode = require('qrcode'); } catch(e) { console.log('[2FA] speakeasy/qrcode not installed yet'); }
+const { initScheduler } = require('./scheduler');
 
-<!-- Login -->
-<div class="login-screen" id="login-screen">
-  <div class="login-box">
-    <div class="login-logo">
-      <img id="login-logo" src="https://i.ibb.co/MDsPb7Nr/1.png" alt="Subloop" style="width:170px;height:auto;display:block;margin:0 auto 10px;">
-    </div>
-    <!-- Step 1 -->
-    <div id="login-step-1">
-      <div class="login-field"><label>Username</label><input type="text" id="login-user" placeholder="Enter username" autocomplete="username"></div>
-      <div class="login-field"><label>Password</label><input type="password" id="login-pass" placeholder="Enter password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
-      <button class="login-btn" onclick="doLogin()">Sign in</button>
-      <div class="login-error" id="login-error">Incorrect username or password</div>
-    </div>
-    <!-- Step 2: 2FA -->
-    <div id="login-step-2" style="display:none;">
-      <div style="text-align:center;margin-bottom:20px;">
-        <div style="width:52px;height:52px;border-radius:14px;background:var(--accent-glow);border:1px solid rgba(108,99,255,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </div>
-        <div style="font-size:16px;font-weight:700;margin-bottom:6px;">Two-Factor Auth</div>
-        <div style="font-size:12px;color:var(--muted);font-family:var(--mono);">Enter the 6-digit code from your authenticator app</div>
-      </div>
-      <div style="display:flex;gap:6px;justify-content:center;margin-bottom:20px;">
-        <input type="text" maxlength="1" class="otp-input" id="otp-0" oninput="otpInput(this,0)" onkeydown="otpKey(event,0)">
-        <input type="text" maxlength="1" class="otp-input" id="otp-1" oninput="otpInput(this,1)" onkeydown="otpKey(event,1)">
-        <input type="text" maxlength="1" class="otp-input" id="otp-2" oninput="otpInput(this,2)" onkeydown="otpKey(event,2)">
-        <input type="text" maxlength="1" class="otp-input" id="otp-3" oninput="otpInput(this,3)" onkeydown="otpKey(event,3)">
-        <input type="text" maxlength="1" class="otp-input" id="otp-4" oninput="otpInput(this,4)" onkeydown="otpKey(event,4)">
-        <input type="text" maxlength="1" class="otp-input" id="otp-5" oninput="otpInput(this,5)" onkeydown="otpKey(event,5)">
-      </div>
-      <div id="twofa-error" style="display:none;background:var(--red-bg);border:1px solid var(--red);color:var(--red);border-radius:8px;padding:10px 14px;font-size:12px;font-family:var(--mono);margin-bottom:14px;text-align:center;">Invalid code. Please try again.</div>
-      <button onclick="verify2FA()" style="width:100%;background:var(--accent);color:#fff;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:600;cursor:pointer;margin-bottom:10px;">Verify & Sign in</button>
-      <div style="text-align:center;"><button onclick="backToLogin()" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;font-family:var(--mono);">← Back to login</button></div>
-    </div>
-  </div>
-</div>
+const app = express();
+app.use(cors());
+app.use('/webhook', express.raw({ type: 'application/json' }));
+app.use(express.json());
+app.use(express.static(path.join(__dirname)));
 
-<!-- App -->
-<div class="app-screen hidden" id="app-screen">
-<nav class="sidebar">
-  <div class="logo sidebar-header">
-    <img id="sidebar-logo" src="https://i.ibb.co/MDsPb7Nr/1.png" alt="Subloop" class="sidebar-logo-img">
-  </div>
-  <div class="nav-section">Main</div>
-  <button class="nav-item active" onclick="showPage('dashboard',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboard</button>
-  <button class="nav-item" onclick="showPage('activity',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Activity</button>
-  <div class="nav-section">Billing</div>
-  <button class="nav-item" onclick="showPage('customers',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><path d="M21 21v-2a4 4 0 0 0-3-3.85"/></svg>Customers</button>
-  <button class="nav-item" onclick="showPage('subscriptions',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/></svg>Subscriptions</button>
-  <button class="nav-item" onclick="showPage('payments',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>Payments</button>
-  <button class="nav-item" onclick="showPage('links',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Payment Links</button>
-  <button class="nav-item" onclick="showPage('accounts',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Stripe Accounts</button>
-  <div class="nav-section">Insights</div>
-  <button class="nav-item" onclick="showPage('forecast',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Forecast</button>
-  <button class="nav-item" onclick="showPage('expiry',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><circle cx="16" cy="15" r="2" fill="currentColor"/></svg>Expiring Cards</button>
-  <button class="nav-item" onclick="showPage('summary',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Daily Summary</button>
-  <button class="nav-item" onclick="showPage('mrr',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>MRR Growth</button>
-  <button class="nav-item" onclick="showPage('best',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Best Customers</button>
-  <button class="nav-item" onclick="showPage('recovery',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/></svg>Recovery Rate</button>
-  <div class="nav-section">Settings</div>
-  <button class="nav-item" onclick="showPage('admins',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Admin Users</button>
-  <button class="nav-item" onclick="showPage('settings',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
-  <button class="nav-item" onclick="showPage('security',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Security</button>
-  <button class="nav-item" onclick="showPage('webhooks',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>Webhook Logs</button>
-  <button class="theme-toggle" onclick="toggleTheme()"><div class="toggle-track"><div class="toggle-thumb"></div></div><span id="theme-label">Dark mode</span></button>
-  <div class="sidebar-footer"><span id="server-status">● loading...</span></div>
-</nav>
-<main class="main">
-
-<!-- Dashboard -->
-<div id="page-dashboard" class="page active">
-  <div class="page-header">
-    <div><h2>Dashboard</h2><p>Your subscription overview</p></div>
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-      <div style="position:relative;">
-        <input type="text" id="global-search-input" placeholder="Search..." oninput="globalSearch(this.value)" style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:7px 10px 7px 30px;font-size:13px;font-family:var(--mono);outline:none;width:220px;">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" style="position:absolute;left:9px;top:9px;pointer-events:none;"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        <div id="global-search-results" style="display:none;position:absolute;top:calc(100% + 6px);left:0;width:340px;background:var(--surface);border:1px solid var(--border2);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.3);z-index:200;max-height:320px;overflow-y:auto;"></div>
-      </div>
-      <button class="btn" onclick="runRebills()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/></svg>Run rebills now</button>
-    </div>
-  </div>
-  <div class="stats-grid">
-    <div class="stat-card"><div class="stat-label">MRR</div><div class="stat-value" id="stat-mrr">—</div><div class="stat-sub">monthly recurring</div></div>
-    <div class="stat-card"><div class="stat-label">Active subs</div><div class="stat-value" id="stat-subs">—</div><div class="stat-sub">subscriptions</div></div>
-    <div class="stat-card"><div class="stat-label">Customers</div><div class="stat-value" id="stat-customers">—</div><div class="stat-sub" id="stat-new-customers">total</div></div>
-    <div class="stat-card"><div class="stat-label">Saved cards</div><div class="stat-value" id="stat-cards">—</div><div class="stat-sub">payment methods</div></div>
-    <div class="stat-card"><div class="stat-label">Failed</div><div class="stat-value" id="stat-failed" style="color:var(--red)">—</div><div class="stat-sub">failed payments</div></div>
-    <div class="stat-card"><div class="stat-label">Revenue</div><div class="stat-value" id="stat-revenue">—</div><div class="stat-sub" id="stat-revenue-sub">total collected</div></div>
-    <div class="stat-card"><div class="stat-label">Churn rate</div><div class="stat-value" id="stat-churn">—</div><div class="stat-sub">last 30 days</div></div>
-    <div class="stat-card"><div class="stat-label">Success rate</div><div class="stat-value" id="stat-success" style="color:var(--green)">—</div><div class="stat-sub">payment success</div></div>
-    <div class="stat-card"><div class="stat-label">Avg LTV</div><div class="stat-value" id="stat-ltv">—</div><div class="stat-sub">per customer</div></div>
-  </div>
-  <!-- Churn Alerts -->
-  <div id="churn-alerts-section" style="display:none;margin-bottom:16px;">
-    <div style="background:var(--red-bg);border:1px solid var(--red);border-radius:10px;padding:14px 18px;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        <span style="font-size:13px;font-weight:600;color:var(--red);">Churn Alerts</span>
-        <span id="churn-count" style="background:var(--red);color:#fff;font-size:10px;font-family:var(--mono);padding:1px 6px;border-radius:20px;"></span>
-      </div>
-      <div id="churn-alerts-list" style="display:flex;flex-direction:column;gap:6px;"></div>
-    </div>
-  </div>
-  <div class="card">
-    <div style="padding:14px 18px 0;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-      <div><div style="font-size:13px;font-weight:600;">Revenue Overview</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;">Track revenue by selected period</div></div>
-      <div style="display:flex;gap:5px;flex-wrap:wrap;">
-        <button class="rev-tab active" id="rev-tab-month" onclick="setRevPeriod('month')">This Month</button>
-        <button class="rev-tab" id="rev-tab-week" onclick="setRevPeriod('week')">This Week</button>
-        <button class="rev-tab" id="rev-tab-yesterday" onclick="setRevPeriod('yesterday')">Yesterday</button>
-        <button class="rev-tab" id="rev-tab-today" onclick="setRevPeriod('today')">Today</button>
-      </div>
-    </div>
-    <div style="height:1px;background:var(--border);margin-top:12px;"></div>
-    <div id="revenue-summary" style="padding:14px 18px 16px;"><div style="color:var(--muted);font-size:13px;font-family:var(--mono)">Loading...</div></div>
-  </div>
-  <div class="card">
-    <div class="card-header"><h3>Upcoming rebills</h3></div>
-    <div class="scrollable"><table>
-      <thead><tr><th>Customer</th><th>Amount</th><th>Next billing</th><th>Status</th><th>Action</th></tr></thead>
-      <tbody id="upcoming-table"><tr><td colspan="5" class="empty">Loading...</td></tr></tbody>
-    </table></div>
-  </div>
-  <div class="card">
-    <div class="card-header"><h3>Recent payments</h3></div>
-    <div class="scrollable"><table>
-      <thead><tr><th>Customer</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
-      <tbody id="recent-payments-table"><tr><td colspan="4" class="empty">Loading...</td></tr></tbody>
-    </table></div>
-  </div>
-</div>
-
-<!-- Activity -->
-<div id="page-activity" class="page">
-  <div class="page-header"><div><h2>Activity Log</h2><p>All actions and events</p></div></div>
-  <div class="card"><div style="padding:4px 18px 18px;" id="activity-list"><div class="empty">Loading...</div></div></div>
-</div>
-
-<!-- Customers -->
-<div id="page-customers" class="page">
-  <div class="page-header">
-    <div><h2>Customers</h2><p>All customers with saved cards</p></div>
-    <div class="page-header-actions">
-      <button class="btn" onclick="window.location='/api/customers/export'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export CSV</button>
-      <button class="btn btn-primary" onclick="openModal('add-customer-modal')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add customer</button>
-    </div>
-  </div>
-  <div class="search-bar"><input type="text" id="customer-search" placeholder="Search by name or email..." oninput="filterCustomers()"></div>
-  <div class="card"><div class="scrollable"><table>
-    <thead><tr><th>Customer</th><th>Card</th><th>Account</th><th>Status</th><th>Note</th><th>Total paid</th><th>Actions</th></tr></thead>
-    <tbody id="customers-table"><tr><td colspan="7" class="empty">Loading...</td></tr></tbody>
-  </table></div></div>
-</div>
-
-<!-- Subscriptions -->
-<div id="page-subscriptions" class="page">
-  <div class="page-header">
-    <div><h2>Subscriptions</h2><p>All rebilling schedules</p></div>
-    <div class="page-header-actions">
-      <div id="sub-default-btn">
-        <button class="btn btn-sm" onclick="enterBulkMode()">Select</button>
-      </div>
-      <div id="sub-bulk-btns" style="display:none;align-items:center;gap:6px;flex-wrap:wrap;">
-        <span id="bulk-count" style="font-size:12px;color:var(--muted);font-family:var(--mono);min-width:60px;"></span>
-        <button class="btn btn-sm" id="bulk-charge-btn" onclick="bulkCharge()" disabled style="opacity:0.4;">Charge</button>
-        <button class="btn btn-sm" id="bulk-pause-btn" onclick="bulkPause()" disabled style="opacity:0.4;">Pause</button>
-        <button class="btn btn-sm btn-danger" id="bulk-cancel-btn" onclick="bulkCancel()" disabled style="opacity:0.4;">Cancel</button>
-        <button class="btn btn-sm" onclick="clearSelection()">Clear</button>
-        <button class="btn btn-sm" onclick="exitBulkMode()" style="color:var(--accent);border-color:var(--accent);">Done</button>
-      </div>
-    </div>
-  </div>
-  <div class="search-bar"><input type="text" id="sub-search" placeholder="Search by name or email..." oninput="filterSubscriptions()"></div>
-  <div class="card"><div class="scrollable"><table>
-    <thead><tr>
-      <th id="bulk-cb-header" style="width:36px;display:none;"><input type="checkbox" id="select-all-checkbox" onchange="toggleSelectAll()" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;"></th>
-      <th>Customer</th><th>Amount</th><th>Interval</th><th>Next billing</th><th>Status</th><th>Actions</th>
-    </tr></thead>
-    <tbody id="subscriptions-table"><tr><td colspan="7" class="empty">Loading...</td></tr></tbody>
-  </table></div></div>
-</div>
-
-<!-- Payments -->
-<div id="page-payments" class="page">
-  <div class="page-header">
-    <div><h2>Payments</h2><p>Full payment history</p></div>
-    <button class="btn" onclick="window.location='/api/payments/export'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export CSV</button>
-  </div>
-  <div class="card"><div class="scrollable"><table>
-    <thead><tr><th>Customer</th><th>Amount</th><th>Status</th><th>Failure Reason</th><th>Date</th><th>Reference</th><th>Action</th></tr></thead>
-    <tbody id="payments-table"><tr><td colspan="6" class="empty">Loading...</td></tr></tbody>
-  </table></div></div>
-</div>
-
-<!-- Payment Links -->
-<div id="page-links" class="page">
-  <div class="page-header"><div><h2>Payment Links</h2><p>Generate Stripe links that save cards automatically</p></div></div>
-  <div class="card" style="max-width:500px;margin-bottom:14px;">
-    <div class="card-header"><h3>Plan templates <span id="template-count" style="color:var(--muted);font-weight:400;"></span></h3></div>
-    <div style="padding:12px 18px 16px;">
-      <div id="templates-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;min-height:32px;"><span style="font-size:12px;color:var(--muted);font-family:var(--mono);">Loading...</span></div>
-      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
-        <div class="form-group" style="margin:0;flex:1;min-width:120px;"><label>Template name</label><input type="text" id="tmpl-name" placeholder="Monthly Pro"></div>
-        <div class="form-group" style="margin:0;width:90px;"><label>Amount ($)</label><input type="number" id="tmpl-amount" placeholder="29" min="0.50" step="0.01"></div>
-        <div class="form-group" style="margin:0;width:100px;"><label>Interval</label><select id="tmpl-interval"><option value="7">Weekly</option><option value="30" selected>Monthly</option><option value="90">Quarterly</option><option value="365">Yearly</option></select></div>
-        <button class="btn btn-primary btn-sm" onclick="saveTemplate()" style="margin-bottom:1px;">Save template</button>
-      </div>
-    </div>
-  </div>
-  <div class="card" style="max-width:500px;">
-    <div class="card-header"><h3>Create payment link</h3></div>
-    <div style="padding:18px;">
-      <div class="form-group"><label>Product name</label><input type="text" id="link-name" value="Monthly Subscription"></div>
-      <div class="form-row">
-        <div class="form-group"><label>Amount ($)</label><input type="number" id="link-amount" value="29" min="0.50" step="0.01"></div>
-        <div class="form-group"><label>Currency</label><select id="link-currency"><option value="usd">USD</option><option value="eur">EUR</option><option value="gbp">GBP</option><option value="mad">MAD</option></select></div>
-      </div>
-      <div class="form-group"><label>Stripe account</label><select id="link-account"><option value="">Loading...</option></select></div>
-      <div class="form-group"><label>Rebill interval</label>
-        <select id="link-interval"><option value="7">Weekly</option><option value="14">Biweekly</option><option value="30" selected>Monthly</option><option value="90">Quarterly</option><option value="365">Yearly</option></select>
-      </div>
-      <button class="btn btn-primary" onclick="createPaymentLink()" id="create-link-btn">Generate payment link</button>
-      <div class="link-result" id="link-result">
-        <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;">✓ Link created</div>
-        <div class="link-url" id="link-url"></div>
-        <div style="display:flex;gap:8px;margin-top:10px;">
-          <button class="btn btn-sm" onclick="copyLink()">Copy</button>
-          <button class="btn btn-sm btn-primary" onclick="openLink()">Open ↗</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Settings -->
-<div id="page-settings" class="page">
-  <div class="page-header"><div><h2>Settings</h2><p>Configure Subloop features</p></div></div>
-  <div class="card" style="max-width:600px;">
-    <div class="card-header"><h3>Dunning Management</h3></div>
-    <div style="padding:4px 18px 18px;">
-      <p style="font-size:12px;color:var(--muted);font-family:var(--mono);margin:10px 0 16px;">When a rebill fails, automatically retry before cancelling.</p>
-      <div class="setting-row">
-        <div class="setting-info"><div class="setting-label">Enable Dunning</div><div class="setting-desc">Auto-retry failed payments before cancelling</div></div>
-        <label class="switch"><input type="checkbox" id="setting-dunning" onchange="saveSetting('dunning_enabled',this.checked)"><span class="slider"></span></label>
-      </div>
-      <div class="setting-row">
-        <div class="setting-info"><div class="setting-label">Retry Schedule (days)</div><div class="setting-desc">Comma-separated days after failure to retry</div></div>
-        <input type="text" id="setting-dunning-days" style="width:120px;" placeholder="3,7,14" onblur="saveSetting('dunning_days',this.value)">
-      </div>
-    </div>
-  </div>
-  <div class="card" style="max-width:600px;">
-    <div class="card-header"><h3>Subscription Features</h3></div>
-    <div style="padding:4px 18px 18px;">
-      <div class="setting-row">
-        <div class="setting-info"><div class="setting-label">Auto-Resume Paused Subscriptions</div><div class="setting-desc">Resume subscriptions automatically when resume date is reached</div></div>
-        <label class="switch"><input type="checkbox" id="setting-auto-resume" onchange="saveSetting('pause_auto_resume',this.checked)"><span class="slider"></span></label>
-      </div>
-      <div class="setting-row">
-        <div class="setting-info"><div class="setting-label">Proration</div><div class="setting-desc">Charge difference when upgrading mid-cycle</div></div>
-        <label class="switch"><input type="checkbox" id="setting-proration" onchange="saveSetting('proration_enabled',this.checked)"><span class="slider"></span></label>
-      </div>
-      <div class="setting-row">
-        <div class="setting-info"><div class="setting-label">Webhook Logs</div><div class="setting-desc">Record all incoming webhook events</div></div>
-        <label class="switch"><input type="checkbox" id="setting-webhook-logs" onchange="saveSetting('webhook_logs_enabled',this.checked)"><span class="slider"></span></label>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Security -->
-<div id="page-security" class="page">
-  <div class="page-header"><div><h2>Security</h2><p>Protect your Subloop account</p></div></div>
-  <div class="card" style="max-width:600px;">
-    <div class="card-header"><h3>Two-Factor Authentication (2FA)</h3></div>
-    <div style="padding:18px;">
-      <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
-        <div style="flex:1;"><div style="font-size:14px;font-weight:500;margin-bottom:3px;">Authenticator App</div><div style="font-size:12px;color:var(--muted);font-family:var(--mono);">Use Google Authenticator or Authy</div></div>
-        <span id="2fa-badge" class="badge badge-red">disabled</span>
-      </div>
-      <div id="2fa-disabled-view">
-        <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">When enabled, you'll need a 6-digit code from your app at every login.</p>
-        <button class="btn btn-primary" onclick="setup2FA()">Enable 2FA</button>
-      </div>
-      <div id="2fa-setup-view" style="display:none;">
-        <div style="text-align:center;margin-bottom:16px;"><img id="2fa-qr" src="" style="width:180px;height:180px;border-radius:10px;border:2px solid var(--border2);"></div>
-        <p style="font-size:12px;color:var(--muted);font-family:var(--mono);text-align:center;margin-bottom:8px;">Scan with your authenticator app, then enter the 6-digit code to confirm</p>
-        <div style="display:flex;gap:8px;"><input type="text" id="2fa-verify-code" placeholder="000000" maxlength="6" style="text-align:center;font-size:18px;letter-spacing:6px;font-family:var(--mono);"><button class="btn btn-primary" onclick="confirm2FA()">Confirm</button></div>
-        <button class="btn btn-sm" style="margin-top:10px;" onclick="cancel2FASetup()">Cancel</button>
-      </div>
-      <div id="2fa-enabled-view" style="display:none;">
-        <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">2FA is active. Every login requires your authenticator app code.</p>
-        <button class="btn btn-danger" onclick="disable2FA()">Disable 2FA</button>
-      </div>
-    </div>
-  </div>
-  <div class="card" style="max-width:600px;">
-    <div class="card-header"><h3>Login Protection</h3></div>
-    <div style="padding:4px 18px 18px;">
-      <div class="setting-row">
-        <div class="setting-info"><div class="setting-label">Max Login Attempts</div><div class="setting-desc">Lock after this many failed attempts</div></div>
-        <input type="number" id="setting-max-attempts" style="width:70px;" min="3" max="20" onblur="saveSetting('max_login_attempts',this.value)">
-      </div>
-      <div class="setting-row">
-        <div class="setting-info"><div class="setting-label">Lockout Duration (minutes)</div><div class="setting-desc">How long to block after too many failures</div></div>
-        <input type="number" id="setting-lockout-mins" style="width:70px;" min="5" max="60" onblur="saveSetting('lockout_minutes',this.value)">
-      </div>
-    </div>
-  </div>
-  <div class="card" style="max-width:600px;">
-    <div class="card-header"><h3>Recent Login Activity</h3></div>
-    <div class="scrollable"><table>
-      <thead><tr><th>IP Address</th><th>Result</th><th>Time</th></tr></thead>
-      <tbody id="login-history-table"><tr><td colspan="3" class="empty">Loading...</td></tr></tbody>
-    </table></div>
-  </div>
-</div>
-
-<!-- Stripe Accounts -->
-<div id="page-accounts" class="page">
-  <div class="page-header">
-    <div><h2>Stripe Accounts</h2><p>Manage multiple Stripe accounts</p></div>
-    <button class="btn btn-primary" onclick="openModal('add-account-modal')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add account</button>
-  </div>
-  <div class="card"><div class="scrollable"><table>
-    <thead><tr><th>Name</th><th>Key</th><th>Status</th><th>Actions</th></tr></thead>
-    <tbody id="accounts-table"><tr><td colspan="4" class="empty">Loading...</td></tr></tbody>
-  </table></div></div>
-</div>
-
-<!-- Webhook Logs -->
-<div id="page-webhooks" class="page">
-  <div class="page-header"><div><h2>Webhook Logs</h2><p>Incoming Stripe events</p></div></div>
-  <div class="card"><div class="scrollable"><table>
-    <thead><tr><th>Event</th><th>Account</th><th>Status</th><th>Time</th></tr></thead>
-    <tbody id="webhook-table"><tr><td colspan="4" class="empty">Loading...</td></tr></tbody>
-  </table></div></div>
-</div>
-
-
-<!-- Forecast -->
-<div id="page-forecast" class="page">
-  <div class="page-header"><div><h2>Revenue Forecast</h2><p>Projected revenue based on active subscriptions</p></div></div>
-  <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);">
-    <div class="stat-card"><div class="stat-label">Next 30 Days</div><div class="stat-value" id="forecast-30">—</div><div class="stat-sub">projected revenue</div></div>
-    <div class="stat-card"><div class="stat-label">Next 60 Days</div><div class="stat-value" id="forecast-60">—</div><div class="stat-sub">projected revenue</div></div>
-    <div class="stat-card"><div class="stat-label">Next 90 Days</div><div class="stat-value" id="forecast-90">—</div><div class="stat-sub">projected revenue</div></div>
-  </div>
-  <div class="card">
-    <div class="card-header"><h3>How forecast works</h3></div>
-    <div style="padding:18px;font-size:13px;color:var(--muted);font-family:var(--mono);line-height:1.7;">
-      Forecast is calculated from all active subscriptions, their amounts, billing intervals, and next billing dates.<br>
-      It assumes all payments succeed and no new subscriptions are added or cancelled.
-    </div>
-  </div>
-</div>
-
-<!-- MRR Growth -->
-<div id="page-mrr" class="page">
-  <div class="page-header">
-    <div><h2>MRR Growth</h2><p>Revenue performance over time</p></div>
-    <select id="mrr-period" onchange="loadMrr()" class="btn btn-sm" style="cursor:pointer;">
-      <option value="month">This Month (daily)</option>
-      <option value="3months">Last 3 Months</option>
-      <option value="12months">Last 12 Months</option>
-    </select>
-  </div>
-  <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px;">
-    <div class="stat-card"><div class="stat-label">This Month</div><div class="stat-value" id="mrr-this">—</div><div class="stat-sub">revenue</div></div>
-    <div class="stat-card"><div class="stat-label">Last Month</div><div class="stat-value" id="mrr-last">—</div><div class="stat-sub">revenue</div></div>
-    <div class="stat-card"><div class="stat-label">Growth</div><div class="stat-value" id="mrr-growth">—</div><div class="stat-sub">month over month</div></div>
-  </div>
-  <div class="card">
-    <div class="card-header"><h3 id="mrr-chart-title">Daily revenue — this month</h3></div>
-    <div style="padding:18px 18px 8px;position:relative;">
-      <canvas id="mrr-canvas" style="width:100%;height:220px;display:block;"></canvas>
-      <div id="mrr-tooltip" style="display:none;position:absolute;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:8px 12px;font-size:12px;font-family:var(--mono);pointer-events:none;z-index:10;min-width:120px;"></div>
-      <div id="mrr-empty" style="display:none;text-align:center;padding:48px 20px;color:var(--muted);font-size:13px;font-family:var(--mono);">No revenue data available yet</div>
-    </div>
-  </div>
-</div>
-
-<!-- Best Customers -->
-<div id="page-best" class="page">
-  <div class="page-header"><div><h2>Best Customers</h2><p>Top 10 customers by total amount paid</p></div></div>
-  <div class="card"><div class="scrollable"><table>
-    <thead><tr><th>#</th><th>Customer</th><th>Card</th><th>Total Paid</th><th>Payments</th><th>Last Payment</th></tr></thead>
-    <tbody id="best-table"><tr><td colspan="6" class="empty">Loading...</td></tr></tbody>
-  </table></div></div>
-</div>
-
-<!-- Recovery Rate -->
-<div id="page-recovery" class="page">
-  <div class="page-header"><div><h2>Payment Recovery</h2><p>How well your dunning recovers failed payments</p></div></div>
-  <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);">
-    <div class="stat-card"><div class="stat-label">Failed (30 days)</div><div class="stat-value" id="rec-failed" style="color:var(--red)">—</div><div class="stat-sub">total failures</div></div>
-    <div class="stat-card"><div class="stat-label">Recovered</div><div class="stat-value" id="rec-recovered" style="color:var(--green)">—</div><div class="stat-sub">retried successfully</div></div>
-    <div class="stat-card"><div class="stat-label">Recovery Rate</div><div class="stat-value" id="rec-rate">—</div><div class="stat-sub">last 30 days</div></div>
-  </div>
-</div>
-
-<!-- Expiring Cards -->
-<div id="page-expiry" class="page">
-  <div class="page-header">
-    <div><h2>Expiring Cards</h2><p>Customers whose cards expire soon — contact them before rebill fails</p></div>
-    <div class="page-header-actions">
-      <select id="expiry-days" onchange="loadExpiry()" class="btn btn-sm" style="cursor:pointer;">
-        <option value="30">Expiring in 30 days</option>
-        <option value="60">Expiring in 60 days</option>
-        <option value="90">Expiring in 90 days</option>
-      </select>
-    </div>
-  </div>
-  <div class="card"><div class="scrollable"><table>
-    <thead><tr><th>Customer</th><th>Card</th><th>Expires</th><th>Next Billing</th><th>Actions</th></tr></thead>
-    <tbody id="expiry-table"><tr><td colspan="5" class="empty">Loading...</td></tr></tbody>
-  </table></div></div>
-</div>
-
-<!-- Daily Summary -->
-<div id="page-summary" class="page">
-  <div class="page-header"><div><h2>Daily Summary</h2><p>Your business at a glance</p></div><button class="btn" onclick="loadSummary()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/></svg>Refresh</button></div>
-  <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px;">
-    <div class="stat-card"><div class="stat-label">Revenue Today</div><div class="stat-value" id="sum-rev-today">—</div><div class="stat-sub" id="sum-pay-today">payments</div></div>
-    <div class="stat-card"><div class="stat-label">Failed Today</div><div class="stat-value" id="sum-fail-today" style="color:var(--red)">—</div><div class="stat-sub">failed payments</div></div>
-    <div class="stat-card"><div class="stat-label">New Customers Today</div><div class="stat-value" id="sum-cust-today">—</div><div class="stat-sub">joined today</div></div>
-  </div>
-  <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px;">
-    <div class="stat-card"><div class="stat-label">Revenue This Week</div><div class="stat-value" id="sum-rev-7d">—</div><div class="stat-sub" id="sum-pay-7d">payments</div></div>
-    <div class="stat-card"><div class="stat-label">Revenue This Month</div><div class="stat-value" id="sum-rev-month">—</div><div class="stat-sub" id="sum-pay-month">payments</div></div>
-    <div class="stat-card"><div class="stat-label">Active Customers</div><div class="stat-value" id="sum-active">—</div><div class="stat-sub" id="sum-new-7d">new this week</div></div>
-  </div>
-  <div class="card" style="max-width:600px;">
-    <div class="card-header"><h3>Manual Invoice</h3></div>
-    <div style="padding:18px;">
-      <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Charge any customer a one-time amount outside their subscription.</p>
-      <div class="form-row">
-        <div class="form-group"><label>Customer Stripe ID (cus_...)</label><input type="text" id="invoice-customer-id" placeholder="cus_xxx..."></div>
-        <div class="form-group"><label>Amount ($)</label><input type="number" id="invoice-amount" placeholder="29.00" step="0.01" min="0.50"></div>
-      </div>
-      <div class="form-group"><label>Description</label><input type="text" id="invoice-desc" placeholder="Manual invoice - November" value="Manual invoice"></div>
-      <button class="btn btn-primary" onclick="sendManualInvoice()">Charge customer</button>
-      <div id="invoice-result" style="display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:13px;font-family:var(--mono);"></div>
-    </div>
-  </div>
-</div>
-
-
-<!-- Admin Users -->
-<div id="page-admins" class="page">
-  <div class="page-header">
-    <div><h2>Admin Users</h2><p>Manage who can access Subloop</p></div>
-    <button class="btn btn-primary" onclick="openModal('add-admin-modal')">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      Add admin
-    </button>
-  </div>
-  <div class="card">
-    <div class="scrollable"><table>
-      <thead><tr><th>Username</th><th>Role</th><th>Last login</th><th>Created</th><th>Actions</th></tr></thead>
-      <tbody id="admins-table"><tr><td colspan="5" class="empty">Loading...</td></tr></tbody>
-    </table></div>
-  </div>
-  <div class="card" style="max-width:600px;">
-    <div class="card-header"><h3>Change your password</h3></div>
-    <div style="padding:18px;">
-      <div class="form-group"><label>New password</label><input type="password" id="change-pass-new" placeholder="New password (min 8 chars)"></div>
-      <div class="form-group"><label>Confirm password</label><input type="password" id="change-pass-confirm" placeholder="Confirm password"></div>
-      <button class="btn btn-primary" onclick="changeMyPassword()">Update password</button>
-    </div>
-  </div>
-</div>
-
-</main>
-</div>
-
-<!-- Modals -->
-<div class="modal-bg" id="add-customer-modal">
-  <div class="modal">
-    <h3>Add customer manually</h3><p>Link a Stripe customer to Subloop for rebilling</p>
-    <div class="form-row"><div class="form-group"><label>Name</label><input type="text" id="mc-name" placeholder="John Doe"></div><div class="form-group"><label>Email</label><input type="email" id="mc-email" placeholder="john@example.com"></div></div>
-    <div class="form-group"><label>Stripe customer ID (cus_...)</label><input type="text" id="mc-stripe-id" placeholder="cus_xxx..."></div>
-    <div class="form-group"><label>Payment method ID (pm_...) — optional</label><input type="text" id="mc-pm-id" placeholder="pm_xxx..."></div>
-    <div class="form-row"><div class="form-group"><label>Card brand</label><input type="text" id="mc-brand" placeholder="visa"></div><div class="form-group"><label>Last 4 digits</label><input type="text" id="mc-last4" placeholder="4242" maxlength="4"></div></div>
-    <div class="form-row-3"><div class="form-group"><label>Exp month</label><input type="number" id="mc-exp-m" placeholder="12" min="1" max="12"></div><div class="form-group"><label>Exp year</label><input type="number" id="mc-exp-y" placeholder="2027"></div><div class="form-group"><label>Stripe account</label><select id="mc-account"><option value="">Default</option></select></div></div>
-    <div class="form-group"><label>Note (optional)</label><textarea id="mc-note" placeholder="Internal note..."></textarea></div>
-    <div class="modal-footer"><button class="btn" onclick="closeModal('add-customer-modal')">Cancel</button><button class="btn btn-primary" onclick="addCustomer()">Add customer</button></div>
-  </div>
-</div>
-<div class="modal-bg" id="add-account-modal">
-  <div class="modal">
-    <h3>Add Stripe account</h3><p>Connect a new Stripe account</p>
-    <div class="form-group"><label>Account name</label><input type="text" id="acc-name" placeholder="My Store"></div>
-    <div class="form-group"><label>Secret key (sk_live_...)</label><input type="password" id="acc-key" placeholder="sk_live_..."></div>
-    <div class="form-group"><label>Webhook secret (whsec_...) — optional</label><input type="text" id="acc-webhook" placeholder="whsec_..."></div>
-    <div class="modal-footer"><button class="btn" onclick="closeModal('add-account-modal')">Cancel</button><button class="btn btn-primary" onclick="addAccount()">Save account</button></div>
-  </div>
-</div>
-<div class="modal-bg" id="note-modal">
-  <div class="modal">
-    <h3>Customer note</h3><p>Add a private note about this customer</p>
-    <input type="hidden" id="note-customer-id">
-    <div class="form-group"><label>Note</label><textarea id="note-text" placeholder="Internal notes..."></textarea></div>
-    <div class="modal-footer"><button class="btn" onclick="closeModal('note-modal')">Cancel</button><button class="btn btn-primary" onclick="saveNote()">Save</button></div>
-  </div>
-</div>
-<div class="modal-bg" id="pause-modal">
-  <div class="modal">
-    <h3>Pause subscription</h3><p>Set an optional date to auto-resume</p>
-    <input type="hidden" id="pause-sub-id">
-    <div class="form-group"><label>Resume date (optional)</label><input type="date" id="pause-resume-date"></div>
-    <div class="modal-footer"><button class="btn" onclick="closeModal('pause-modal')">Cancel</button><button class="btn btn-primary" onclick="confirmPause()">Pause</button></div>
-  </div>
-</div>
-
-<div class="modal-bg" id="invoice-modal">
-  <div class="modal">
-    <h3>Manual Invoice</h3><p>Charge this customer a one-time amount</p>
-    <input type="hidden" id="invoice-modal-customer-id">
-    <div class="form-group"><label>Amount ($)</label><input type="number" id="invoice-modal-amount" placeholder="29.00" step="0.01" min="0.50"></div>
-    <div class="form-group"><label>Description</label><input type="text" id="invoice-modal-desc" value="Manual invoice"></div>
-    <div id="invoice-modal-result" style="display:none;margin-top:10px;padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);"></div>
-    <div class="modal-footer"><button class="btn" onclick="closeModal('invoice-modal')">Cancel</button><button class="btn btn-primary" onclick="sendInvoiceFromModal()">Charge</button></div>
-  </div>
-</div>
-<div class="modal-bg" id="add-admin-modal">
-  <div class="modal" style="width:540px;max-width:97vw;">
-    <h3>Add admin user</h3>
-    <p>They will be able to log in and manage Subloop</p>
-    <div class="form-row">
-      <div class="form-group"><label>Username</label><input type="text" id="admin-username" placeholder="e.g. john_admin" autocomplete="off"></div>
-      <div class="form-group"><label>Password</label><input type="password" id="admin-password" placeholder="Min 8 characters" autocomplete="new-password"></div>
-    </div>
-    <div class="form-group"><label>Access level</label>
-      <select id="admin-role" onchange="toggleCustomPerms()">
-        <option value="admin">Admin — full access to everything</option>
-        <option value="viewer">Viewer — read only, no actions</option>
-        <option value="custom">Custom — choose sections manually</option>
-      </select>
-    </div>
-    <div id="custom-perms" style="display:none;margin-top:4px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-        <div>
-          <div style="font-size:13px;font-weight:600;">Access permissions</div>
-          <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;">Choose which sections this admin can access</div>
-        </div>
-        <div style="display:flex;gap:6px;">
-          <button class="btn btn-sm" onclick="selectAllPerms()" type="button">Select all</button>
-          <button class="btn btn-sm" onclick="clearAllPerms()" type="button">Clear</button>
-        </div>
-      </div>
-      <div id="perms-list" style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:5px;padding-right:4px;">
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn" onclick="closeModal('add-admin-modal')">Cancel</button>
-      <button class="btn btn-primary" onclick="addAdmin()">Add admin</button>
-    </div>
-  </div>
-</div>
-<div class="modal-bg" id="payment-note-modal">
-  <div class="modal">
-    <h3>Payment note</h3><p>Add an internal note to this payment</p>
-    <input type="hidden" id="payment-note-id">
-    <div class="form-group"><label>Note</label><textarea id="payment-note-text" placeholder="e.g. Customer agreed to retry next week..."></textarea></div>
-    <div class="modal-footer"><button class="btn" onclick="closeModal('payment-note-modal')">Cancel</button><button class="btn btn-primary" onclick="savePaymentNote()">Save</button></div>
-  </div>
-</div>
-<div id="toast"></div>
-
-<script>
-let currentLink=null,allCustomers=[],allSubscriptions=[],allPayments=[],appSettings={},selectedSubs=new Set(),currentRevPeriod='month',bulkMode=false;
-
-function toggleTheme(){const isLight=document.documentElement.classList.toggle('light');localStorage.setItem('subloop_theme',isLight?'light':'dark');document.getElementById('theme-label').textContent=isLight?'Light mode':'Dark mode';updateLogos(isLight);}
-function updateLogos(isLight){const src=isLight?'https://i.ibb.co/QvV8RKkZ/2.png':'https://i.ibb.co/MDsPb7Nr/1.png';['sidebar-logo','login-logo'].forEach(id=>{const el=document.getElementById(id);if(el)el.src=src;});}
-function initTheme(){const isLight=localStorage.getItem('subloop_theme')==='light';if(isLight){document.documentElement.classList.add('light');const l=document.getElementById('theme-label');if(l)l.textContent='Light mode';}updateLogos(isLight);}
-initTheme();
-
-// Auth
-function doLogin(){
-  var user=document.getElementById('login-user').value.trim();
-  var pass=document.getElementById('login-pass').value;
-  var err=document.getElementById('login-error');
-  err.classList.remove('visible');
-  api('/api/auth/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:user,password:pass})})
-  .then(function(r){
-    if(r.success){
-      localStorage.setItem('subloop_username', user);
-      localStorage.setItem('subloop_role', r.role||'admin');
-      localStorage.setItem('subloop_permissions', JSON.stringify(r.permissions||[]));
-      api('/api/security/2fa/status').then(function(s){
-        if(s&&s.enabled){
-          document.getElementById('login-step-1').style.display='none';
-          document.getElementById('login-step-2').style.display='block';
-          setTimeout(function(){document.getElementById('otp-0').focus();},100);
-        } else { completeLogin(); }
-      }).catch(function(){ completeLogin(); });
-    } else {
-      err.classList.add('visible');
-      document.getElementById('login-pass').value='';
-      document.getElementById('login-pass').focus();
-    }
-  }).catch(function(){
-    err.classList.add('visible');
-    document.getElementById('login-pass').value='';
-  });
-}
-function completeLogin(){
-  localStorage.setItem('subloop_auth','1');
-  document.getElementById('login-screen').classList.add('hidden');
-  document.getElementById('app-screen').classList.remove('hidden');
-  applyAccessControl();
-  initApp();
+async function getStripe(accountId) {
+  let acc = accountId ? await stripeAccounts.byId(accountId) : null;
+  if (!acc) acc = await stripeAccounts.default();
+  return new Stripe(acc ? acc.secret_key : process.env.STRIPE_SECRET_KEY);
 }
 
-// Access control constants
-var ALL_SECTIONS = ['dashboard','activity','customers','subscriptions','payments','links','accounts','forecast','expiry','summary','admins','settings','security','webhooks'];
-
-function getCurrentRole(){ return localStorage.getItem('subloop_role')||''; }
-function getCurrentPermissions(){
-  try{ return JSON.parse(localStorage.getItem('subloop_permissions')||'[]'); }catch(e){ return []; }
-}
-
-function canAccess(section){
-  var role=getCurrentRole();
-  if(!role) return false; // not logged in
-  if(role==='owner'||role==='admin') return true;
-  if(role==='viewer') return ['dashboard','activity','payments','forecast','expiry','summary'].includes(section);
-  if(role==='custom'){
-    var perms=getCurrentPermissions();
-    return perms.includes(section);
+// ── Webhook ───────────────────────────────────────────────────────────────────
+app.post('/webhook', async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  let event, matchedAccount = null;
+  const accs = await pool.query('SELECT * FROM stripe_accounts');
+  for (const acc of accs.rows) {
+    try {
+      if (acc.webhook_secret) { event = Stripe.webhooks.constructEvent(req.body, sig, acc.webhook_secret); matchedAccount = acc; break; }
+    } catch(e) {}
   }
-  return false;
-}
+  if (!event && process.env.STRIPE_WEBHOOK_SECRET) {
+    try { event = Stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET); }
+    catch(e) { return res.status(400).send('Webhook Error: ' + e.message); }
+  }
+  if (!event) return res.status(400).send('No matching webhook secret');
 
-function applyAccessControl(){
-  var role=getCurrentRole();
-  if(role==='owner'||role==='admin') return; // full access
-  // Hide nav items user can't access
-  document.querySelectorAll('.nav-item').forEach(function(btn){
-    var onclick=btn.getAttribute('onclick')||'';
-    var match=onclick.match(/showPage\('([^']+)'/);
-    if(match){
-      var section=match[1];
-      if(!canAccess(section)){
-        btn.style.display='none';
+  const logsEnabled = await settingsDb.get('webhook_logs_enabled');
+  if (logsEnabled === 'true') await webhookLogs.add({ event_type: event.type, account_name: matchedAccount?.name });
+
+  console.log('[webhook]', event.type, matchedAccount ? '→ '+matchedAccount.name : '');
+  const stripe = matchedAccount ? new Stripe(matchedAccount.secret_key) : new Stripe(process.env.STRIPE_SECRET_KEY);
+
+  switch (event.type) {
+    case 'payment_intent.succeeded': {
+      const pi = event.data.object;
+      let customerId = pi.customer;
+      if (!customerId) {
+        try {
+          const sessions = await stripe.checkout.sessions.list({ payment_intent: pi.id, limit: 1 });
+          if (sessions.data.length > 0 && sessions.data[0].customer) customerId = sessions.data[0].customer;
+        } catch(e) {}
+      }
+      if (!customerId) { console.log('[webhook] No customer ID, skipping'); break; }
+      try {
+        const sc = await stripe.customers.retrieve(customerId);
+        const pms = await stripe.paymentMethods.list({ customer: customerId, type: 'card', limit: 1 });
+        const pm = pms.data[0]; const card = pm?.card || {};
+        await customers.upsert({ email: sc.email, name: sc.name||sc.email, stripe_customer_id: sc.id, stripe_payment_method: pm?.id||null, stripe_account_id: matchedAccount?.id||null, card_brand: card.brand||null, card_last4: card.last4||null, card_exp_month: card.exp_month||null, card_exp_year: card.exp_year||null });
+        const customer = await customers.byStripeId(sc.id);
+        const existingSubs = await subscriptions.byCustomer(customer.id);
+        if (existingSubs.length === 0) {
+          const next = new Date(); next.setDate(next.getDate()+30);
+          await subscriptions.create({ customer_id: customer.id, amount: pi.amount, currency: pi.currency, interval_days: 30, next_billing_date: next.toISOString().split('T')[0] });
+        }
+        await payments.insert({ customer_id: customer.id, subscription_id: null, stripe_payment_intent: pi.id, amount: pi.amount, currency: pi.currency, status: 'succeeded', failure_reason: null });
+        await activityLog.add('payment', `Payment of ${(pi.amount/100).toFixed(2)} ${pi.currency.toUpperCase()} received from ${sc.email}`, customer.id, pi.amount);
+        console.log('[webhook] ✓ Saved card for', sc.email);
+      } catch(err) { console.error('[webhook] Error:', err.message); }
+      break;
+    }
+    case 'payment_intent.payment_failed': {
+      const pi = event.data.object;
+      if (!pi.customer) break;
+      const customer = await customers.byStripeId(pi.customer);
+      if (!customer) break;
+      await payments.insert({ customer_id: customer.id, subscription_id: null, stripe_payment_intent: pi.id, amount: pi.amount, currency: pi.currency, status: 'failed', failure_reason: pi.last_payment_error?.message||'Unknown' });
+      await activityLog.add('failed', `Payment failed for ${customer.email}`, customer.id, pi.amount);
+      break;
+    }
+  }
+  res.json({ received: true });
+});
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+app.get('/api/settings', async (req, res) => { res.json(await settingsDb.getAll()); });
+app.patch('/api/settings', async (req, res) => {
+  const { key, value } = req.body;
+  await settingsDb.set(key, value);
+  res.json({ success: true });
+});
+
+// ── Stripe Accounts ───────────────────────────────────────────────────────────
+app.get('/api/stripe-accounts', async (req, res) => { res.json(await stripeAccounts.all()); });
+app.post('/api/stripe-accounts', async (req, res) => {
+  try {
+    const { name, secret_key, webhook_secret } = req.body;
+    if (!name || !secret_key) return res.status(400).json({ error: 'Name and secret key required' });
+    const acc = await stripeAccounts.create({ name, secret_key, webhook_secret });
+    res.json({ success: true, id: acc.id });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+app.patch('/api/stripe-accounts/:id/default', async (req, res) => { await stripeAccounts.setDefault(req.params.id); res.json({ success: true }); });
+app.delete('/api/stripe-accounts/:id', async (req, res) => { await stripeAccounts.delete(req.params.id); res.json({ success: true }); });
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+app.get('/api/stats', async (req, res) => {
+  const [pStats, allSubs, allCust, custStats] = await Promise.all([payments.stats(), subscriptions.all(), customers.all(), customers.stats()]);
+  const activeSubs = allSubs.filter(s => s.status === 'active');
+  const churnRate = parseInt(custStats.total) > 0 ? ((parseInt(custStats.churned_30d)||0) / parseInt(custStats.total) * 100).toFixed(1) : 0;
+  const avgLtv = parseInt(custStats.total) > 0 ? Math.round(parseInt(pStats.total_revenue) / parseInt(custStats.total)) : 0;
+  const successRate = (parseInt(pStats.succeeded_count)+parseInt(pStats.failed_count)) > 0
+    ? (parseInt(pStats.succeeded_count)/(parseInt(pStats.succeeded_count)+parseInt(pStats.failed_count))*100).toFixed(1) : 100;
+  res.json({
+    mrr: activeSubs.reduce((s,sub) => s+(sub.amount*30/sub.interval_days), 0),
+    active_subscriptions: activeSubs.length,
+    dunning_subscriptions: allSubs.filter(s=>s.status==='dunning').length,
+    failed_payments: parseInt(pStats.failed_count)||0,
+    saved_cards: allCust.filter(c=>c.stripe_payment_method).length,
+    total_revenue: parseInt(pStats.total_revenue)||0,
+    total_customers: parseInt(custStats.total)||0,
+    new_customers_30d: parseInt(custStats.new_30d)||0,
+    churn_rate: churnRate,
+    avg_ltv: avgLtv,
+    payment_success_rate: successRate,
+    revenue_30d: parseInt(pStats.revenue_30d)||0,
+  });
+});
+
+app.get('/api/revenue-chart', async (req, res) => {
+  const period = req.query.period || 'month';
+  let interval;
+  if (period === 'today' || period === 'yesterday') interval = '2 days';
+  else if (period === 'week') interval = '7 days';
+  else interval = '30 days';
+  const r = await pool.query(`
+    SELECT DATE_TRUNC('day', created_at) as day,
+      SUM(CASE WHEN status='succeeded' THEN amount ELSE 0 END) as revenue,
+      COUNT(CASE WHEN status='succeeded' THEN 1 END) as count
+    FROM payments WHERE created_at >= NOW()-INTERVAL '${interval}'
+    GROUP BY day ORDER BY day ASC
+  `);
+  res.json(r.rows);
+});
+
+// ── Customers ─────────────────────────────────────────────────────────────────
+app.get('/api/customers', async (req, res) => { res.json(await customers.all()); });
+app.post('/api/customers', async (req, res) => {
+  try {
+    const { name, email, stripe_customer_id, stripe_payment_method, card_brand, card_last4, card_exp_month, card_exp_year, stripe_account_id, note } = req.body;
+    if (!email || !stripe_customer_id) return res.status(400).json({ error: 'Email and Stripe customer ID required' });
+    await customers.upsert({ name, email, stripe_customer_id, stripe_payment_method, stripe_account_id, card_brand, card_last4, card_exp_month: parseInt(card_exp_month)||null, card_exp_year: parseInt(card_exp_year)||null });
+    const customer = await customers.byStripeId(stripe_customer_id);
+    if (note) await customers.updateNote(customer.id, note);
+    res.json({ success: true, id: customer.id });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+app.patch('/api/customers/:id/status', async (req, res) => { await customers.updateStatus(req.params.id, req.body.status); res.json({ success: true }); });
+app.patch('/api/customers/:id/note', async (req, res) => { await customers.updateNote(req.params.id, req.body.note); res.json({ success: true }); });
+app.post('/api/customers/:id/portal', async (req, res) => {
+  const customer = await customers.byId(req.params.id);
+  if (!customer) return res.status(404).json({ error: 'Not found' });
+  try {
+    const stripe = await getStripe(customer.stripe_account_id);
+    const session = await stripe.billingPortal.sessions.create({ customer: customer.stripe_customer_id, return_url: process.env.BASE_URL||'http://localhost:8080' });
+    res.json({ url: session.url });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+app.get('/api/customers/export', async (req, res) => {
+  const list = await customers.all();
+  const header = 'Name,Email,Card Brand,Last 4,Status,Total Paid,Account,Created\n';
+  const rows = list.map(c => [c.name||'', c.email, c.card_brand||'', c.card_last4||'', c.status, ((c.total_paid||0)/100).toFixed(2), c.account_name||'', new Date(c.created_at).toLocaleDateString()].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  res.setHeader('Content-Type','text/csv'); res.setHeader('Content-Disposition','attachment; filename="customers.csv"');
+  res.send(header+rows);
+});
+
+// ── Subscriptions ─────────────────────────────────────────────────────────────
+app.get('/api/subscriptions', async (req, res) => { res.json(await subscriptions.all()); });
+app.patch('/api/subscriptions/:id/amount', async (req, res) => {
+  const { amount, prorate } = req.body;
+  if (!amount||isNaN(amount)) return res.status(400).json({ error: 'Invalid amount' });
+  const prorateEnabled = await settingsDb.get('proration_enabled');
+  if (prorate && prorateEnabled === 'true') {
+    // Proration: charge difference immediately
+    try {
+      const allSubs = await subscriptions.all();
+      const sub = allSubs.find(s => s.id === parseInt(req.params.id));
+      const customer = await customers.byId(sub.customer_id);
+      const today = new Date();
+      const nextBilling = new Date(sub.next_billing_date);
+      const daysLeft = Math.max(0, Math.ceil((nextBilling - today) / (1000*60*60*24)));
+      const daysTotal = sub.interval_days;
+      const oldDailyRate = sub.amount / daysTotal;
+      const newDailyRate = parseInt(amount) / daysTotal;
+      const proratedDiff = Math.round((newDailyRate - oldDailyRate) * daysLeft);
+      if (proratedDiff > 50) {
+        const stripe = await getStripe(customer.stripe_account_id);
+        const pi = await stripe.paymentIntents.create({ amount: proratedDiff, currency: sub.currency, customer: customer.stripe_customer_id, payment_method: customer.stripe_payment_method, off_session: true, confirm: true, description: 'Proration charge' });
+        await payments.insert({ customer_id: customer.id, subscription_id: sub.id, stripe_payment_intent: pi.id, amount: proratedDiff, currency: sub.currency, status: 'succeeded', failure_reason: null });
+        await activityLog.add('proration', `Proration charge of ${(proratedDiff/100).toFixed(2)} for ${customer.email}`, customer.id, proratedDiff);
+      }
+    } catch(err) { console.error('[proration]', err.message); }
+  }
+  await subscriptions.updateAmount(parseInt(req.params.id), parseInt(amount));
+  res.json({ success: true });
+});
+app.patch('/api/subscriptions/:id/status', async (req, res) => {
+  const { status, resume_date } = req.body;
+  await subscriptions.updateStatus(req.params.id, status);
+  if (status === 'paused' && resume_date) await subscriptions.setResumeDate(req.params.id, resume_date);
+  if (status === 'active') await subscriptions.setResumeDate(req.params.id, null);
+  res.json({ success: true });
+});
+app.post('/api/subscriptions/:id/charge', async (req, res) => {
+  try {
+    const allSubs = await subscriptions.all();
+    const sub = allSubs.find(s => s.id === parseInt(req.params.id));
+    if (!sub) return res.status(404).json({ error: 'Not found' });
+    const customer = await customers.byId(sub.customer_id);
+    const stripe = await getStripe(customer.stripe_account_id);
+    const pi = await stripe.paymentIntents.create({ amount: sub.amount, currency: sub.currency, customer: customer.stripe_customer_id, payment_method: customer.stripe_payment_method, off_session: true, confirm: true });
+    await payments.insert({ customer_id: customer.id, subscription_id: sub.id, stripe_payment_intent: pi.id, amount: sub.amount, currency: sub.currency, status: 'succeeded', failure_reason: null });
+    await subscriptions.advanceBillingDate(sub.id, sub.interval_days);
+    await activityLog.add('charge', `Manual charge of ${(sub.amount/100).toFixed(2)} for ${customer.email}`, customer.id, sub.amount);
+    res.json({ success: true, paymentIntentId: pi.id });
+  } catch(err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+// ── Payments ──────────────────────────────────────────────────────────────────
+app.get('/api/payments', async (req, res) => { res.json(await payments.recent(100)); });
+app.post('/api/payments/:id/retry', async (req, res) => {
+  try {
+    const r = await pool.query('SELECT p.*, c.stripe_customer_id, c.stripe_payment_method, c.stripe_account_id, c.email FROM payments p JOIN customers c ON c.id=p.customer_id WHERE p.id=$1', [req.params.id]);
+    const pmt = r.rows[0]; if (!pmt) return res.status(404).json({ error: 'Not found' });
+    const stripe = await getStripe(pmt.stripe_account_id);
+    const pi = await stripe.paymentIntents.create({ amount: pmt.amount, currency: pmt.currency, customer: pmt.stripe_customer_id, payment_method: pmt.stripe_payment_method, off_session: true, confirm: true });
+    await payments.insert({ customer_id: pmt.customer_id, subscription_id: pmt.subscription_id, stripe_payment_intent: pi.id, amount: pmt.amount, currency: pmt.currency, status: 'succeeded', failure_reason: null });
+    await activityLog.add('retry', `Retry payment succeeded for ${pmt.email}`, pmt.customer_id, pmt.amount);
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ success: false, error: err.message }); }
+});
+app.get('/api/payments/export', async (req, res) => {
+  const list = await payments.recent(10000);
+  const header = 'Customer,Email,Amount,Currency,Status,Reason,Date,Stripe ID\n';
+  const rows = list.map(p => [p.name||'', p.email, ((p.amount||0)/100).toFixed(2), p.currency, p.status, p.failure_reason||'', new Date(p.created_at).toLocaleDateString(), p.stripe_payment_intent||''].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  res.setHeader('Content-Type','text/csv'); res.setHeader('Content-Disposition','attachment; filename="payments.csv"');
+  res.send(header+rows);
+});
+
+// ── Payment Links ─────────────────────────────────────────────────────────────
+app.post('/api/payment-links', async (req, res) => {
+  try {
+    const { amount, currency='usd', name='Subscription', interval_days=30, stripe_account_id } = req.body;
+    const stripe = await getStripe(stripe_account_id);
+    const price = await stripe.prices.create({ unit_amount: amount, currency, product_data: { name } });
+    const link = await stripe.paymentLinks.create({
+      line_items: [{ price: price.id, quantity: 1 }],
+      payment_intent_data: { setup_future_usage: 'off_session' },
+      customer_creation: 'always',
+      after_completion: { type: 'hosted_confirmation', hosted_confirmation: { custom_message: 'Thank you! Your subscription is active.' } },
+    });
+    res.json({ url: link.url, id: link.id });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Activity Log ──────────────────────────────────────────────────────────────
+app.get('/api/activity', async (req, res) => {
+  try {
+    const username = req.headers['x-username'] || req.query.username;
+    let list = await activityLog.recent(100);
+    // If viewer role, only show payment-related events
+    if (username) {
+      const userRow = await pool.query('SELECT role FROM admin_users WHERE username=$1', [username]);
+      if (userRow.rows[0] && userRow.rows[0].role === 'viewer') {
+        const paymentTypes = ['payment','failed','retry','charge','dunning','proration','resume'];
+        list = list.filter(a => paymentTypes.includes(a.type));
       }
     }
-  });
-  // Hide write buttons for viewer
-  if(role==='viewer'){
-    // Will hide action buttons after page renders
-    localStorage.setItem('subloop_readonly','1');
-  }
-}
+    res.json(list);
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
 
-function enforceReadonly(){
-  if(localStorage.getItem('subloop_readonly')!=='1') return;
+// ── Webhook Logs ──────────────────────────────────────────────────────────────
+app.get('/api/webhook-logs', async (req, res) => { res.json(await webhookLogs.recent(100)); });
 
-  // 1. Hide all action buttons (charge, pause, cancel, add, retry etc)
-  document.querySelectorAll('.btn-primary,.btn-danger,.btn-success').forEach(function(btn){
-    if(!btn.closest('.login-screen')&&!btn.closest('.login-box')){
-      btn.style.display='none';
+// ── Run Rebills (with dunning + auto-resume) ──────────────────────────────────
+app.post('/api/run-rebills', async (req, res) => {
+  const due = await subscriptions.due();
+  const dunningEnabled = await settingsDb.get('dunning_enabled');
+  const dunningDaysStr = await settingsDb.get('dunning_days') || '3,7,14';
+  const dunningDays = dunningDaysStr.split(',').map(Number);
+  const pauseAutoResume = await settingsDb.get('pause_auto_resume');
+  let succeeded=0, failed=0, resumed=0;
+
+  // Auto-resume paused subscriptions
+  if (pauseAutoResume === 'true') {
+    const toResume = await subscriptions.resumeDue();
+    for (const sub of toResume) {
+      await subscriptions.updateStatus(sub.id, 'active');
+      await subscriptions.setResumeDate(sub.id, null);
+      await activityLog.add('resume', `Subscription auto-resumed`, sub.customer_id);
+      resumed++;
     }
-  });
-
-  // 2. Replace action columns with "view only"
-  document.querySelectorAll('.actions').forEach(function(d){
-    d.innerHTML='<span style="font-size:11px;color:var(--muted);font-family:var(--mono);">view only</span>';
-  });
-
-  // 3. Hide "Retry" button in payments table specifically
-  document.querySelectorAll('#payments-table .btn').forEach(function(btn){
-    btn.style.display='none';
-  });
-
-  // 4. Hide the Manual Invoice section in Daily Summary
-  var summaryCard=document.querySelector('#page-summary .card:last-of-type');
-  if(summaryCard){
-    var h3=summaryCard.querySelector('h3');
-    if(h3&&h3.textContent.includes('Manual Invoice')) summaryCard.style.display='none';
   }
 
-  // 5. Hide invoice button on customers table
-  document.querySelectorAll('[onclick*="openInvoiceModal"]').forEach(function(btn){
-    btn.style.display='none';
-  });
-
-  // 6. Hide Run Rebills button on dashboard
-  document.querySelectorAll('[onclick*="runRebills"]').forEach(function(btn){
-    btn.style.display='none';
-  });
-
-  // 7. Hide Select button (bulk actions) on subscriptions
-  var selectBtn=document.getElementById('sub-default-btn');
-  if(selectBtn) selectBtn.style.display='none';
-
-  // 8. Hide export CSV buttons
-  document.querySelectorAll('[onclick*="export"]').forEach(function(btn){
-    btn.style.display='none';
-  });
-
-  // 9. Show viewer notice bar at top if not already shown
-  if(!document.getElementById('viewer-notice')){
-    var bar=document.createElement('div');
-    bar.id='viewer-notice';
-    bar.style.cssText='position:fixed;top:0;left:220px;right:0;background:#854d0e;border-bottom:1px solid #facc15;color:#fefce8;font-size:12px;font-family:var(--mono);padding:7px 20px;z-index:999;display:flex;align-items:center;gap:8px;';
-    bar.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> View only access — you can see data but cannot make changes.';
-    document.body.appendChild(bar);
-    // Push main content down
-    var main=document.querySelector('.main');
-    if(main) main.style.paddingTop='52px';
-  }
-}
-if(localStorage.getItem('subloop_auth')==='1'){
-  document.getElementById('login-screen').classList.add('hidden');
-  document.getElementById('app-screen').classList.remove('hidden');
-  initApp();
-}
-
-// OTP
-function otpInput(el,idx){el.value=el.value.replace(/\D/g,'').slice(0,1);if(el.value&&idx<5)document.getElementById('otp-'+(idx+1)).focus();if(getOtpCode().length===6)verify2FA();}
-function otpKey(e,idx){if(e.key==='Backspace'&&!e.target.value&&idx>0)document.getElementById('otp-'+(idx-1)).focus();if(e.key==='Enter')verify2FA();}
-function getOtpCode(){return[0,1,2,3,4,5].map(i=>document.getElementById('otp-'+i).value).join('');}
-function clearOtp(){[0,1,2,3,4,5].forEach(i=>{document.getElementById('otp-'+i).value='';});document.getElementById('otp-0').focus();}
-async function verify2FA(){
-  const token=getOtpCode();
-  if(token.length!==6)return;
-  try{
-    const r=await api('/api/security/2fa/validate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});
-    if(r.valid){completeLogin();}
-    else{document.getElementById('twofa-error').style.display='block';clearOtp();}
-  }catch(e){toast('Error verifying code','error');}
-}
-function backToLogin(){
-  document.getElementById('login-step-2').style.display='none';
-  document.getElementById('login-step-1').style.display='block';
-  clearOtp();
-  document.getElementById('twofa-error').style.display='none';
-}
-
-// Nav
-function showPage(name,el){
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-  document.getElementById('page-'+name).classList.add('active');
-  el.classList.add('active');
-  const loaders={dashboard:()=>{loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();},activity:loadActivity,customers:loadCustomers,subscriptions:loadSubscriptions,payments:loadPayments,links:loadAccounts,settings:loadSettings,accounts:loadAccounts,security:loadSecurity,webhooks:loadWebhooks,forecast:loadForecast,expiry:loadExpiry,summary:loadSummary,admins:loadAdmins,mrr:loadMrr,best:loadBest,recovery:loadRecovery,links:()=>{loadAccounts();loadTemplates();}};
-  // Re-verify permissions on each page navigation
-  var _username=localStorage.getItem('subloop_username');
-  if(_username && (getCurrentRole()==='custom' || getCurrentRole()==='viewer')){
-    api('/api/auth/check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:_username})})
-    .then(function(r){
-      if(!r.valid){forceLogout();return;}
-      localStorage.setItem('subloop_role',r.role||'admin');
-      localStorage.setItem('subloop_permissions',JSON.stringify(r.permissions||[]));
-      if(r.role==='viewer') localStorage.setItem('subloop_readonly','1');
-      else localStorage.removeItem('subloop_readonly');
-      applyAccessControl();
-    }).catch(function(){});
-  }
-  if(!canAccess(name)){toast('Access denied','error');return;}
-  if(loaders[name])loaders[name]();
-  setTimeout(enforceReadonly, 200);
-}
-
-// Helpers
-function fmt(c,cur){return new Intl.NumberFormat('en-US',{style:'currency',currency:(cur||'usd').toUpperCase()}).format((c||0)/100);}
-function fmtDate(d){return d?new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';}
-function fmtTime(d){return d?new Date(d).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'—';}
-function initials(n){return(n||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();}
-function badge(s){const m={active:'green',succeeded:'green',failed:'red',paused:'amber',cancelled:'red',pending:'blue',dunning:'amber',ok:'green'};return '<span class="badge badge-'+(m[s]||'blue')+'">'+s+'</span>';}
-async function api(path,opts){
-  opts=opts||{};
-  opts.headers=opts.headers||{};
-  var u=localStorage.getItem('subloop_username');
-  if(u) opts.headers['x-username']=u;
-  const r=await fetch(path,opts);
-  if(!r.ok)throw new Error('HTTP '+r.status);
-  return r.json();
-}
-function toast(msg,type){const t=document.getElementById('toast');t.textContent=msg;t.className='show '+(type||'success');setTimeout(()=>t.className='',2800);}
-function openModal(id){document.getElementById(id).classList.add('open');}
-function closeModal(id){document.getElementById(id).classList.remove('open');}
-
-function cardBadge(brand,last4){
-  if(!brand&&!last4)return '<span class="no-card">—</span>';
-  var b=(brand||'').toLowerCase().replace(/ /g,'_');
-  var icons={
-  'visa':'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiB2aWV3Qm94PSIwIDAgMTIwIDgwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cmVjdCB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiByeD0iNCIgZmlsbD0id2hpdGUiLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik04Ni42NjY2IDQ0LjkzNzVMOTAuMzIzOSAzNS4wNjI1TDkyLjM4MDkgNDQuOTM3NUg4Ni42NjY2Wk0xMDAuOTUyIDUyLjgzNzVMOTUuODA4NiAyNy4xNjI1SDg4LjczODNDODYuMzUyNSAyNy4xNjI1IDg1Ljc3MjMgMjkuMDc1OSA4NS43NzIzIDI5LjA3NTlMNzYuMTkwNCA1Mi44Mzc1SDgyLjg4NjhMODQuMjI2OSA0OS4wMjQ0SDkyLjM5NDdMOTMuMTQ3OSA1Mi44Mzc1SDEwMC45NTJaIiBmaWxsPSIjMTQzNENCIi8+CjxwYXRoIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1ydWxlPSJldmVub2RkIiBkPSJNNzcuMTg2NiAzMy41NzExTDc4LjA5NTIgMjguMjQ0Qzc4LjA5NTIgMjguMjQ0IDc1LjI4OTYgMjcuMTYyNSA3Mi4zNjQ4IDI3LjE2MjVDNjkuMjAzMSAyNy4xNjI1IDYxLjY5NTUgMjguNTYzOCA2MS42OTU1IDM1LjM3MzhDNjEuNjk1NSA0MS43ODI1IDcwLjUwNzEgNDEuODYyMSA3MC41MDcxIDQ1LjIyNjZDNzAuNTA3MSA0OC41OTEyIDYyLjYwMzQgNDcuOTkwMSA1OS45OTU1IDQ1Ljg2NzZMNTkuMDQ3NiA1MS40MzYyQzU5LjA0NzYgNTEuNDM2MiA2MS44OTE5IDUyLjgzNzUgNjYuMjM5NyA1Mi44Mzc1QzcwLjU4NjkgNTIuODM3NSA3Ny4xNDY3IDUwLjU1NDQgNzcuMTQ2NyA0NC4zNDU1Qzc3LjE0NjcgMzcuODk2NCA2OC4yNTUyIDM3LjI5NiA2OC4yNTUyIDM0LjQ5MjFDNjguMjU1MiAzMS42ODgyIDc0LjQ2MDIgMzIuMDQ4NCA3Ny4xODY2IDMzLjU3MTFaIiBmaWxsPSIjMTQzNENCIi8+CjxwYXRoIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1ydWxlPSJldmVub2RkIiBkPSJNNTQuNjUxNyA1Mi44Mzc1SDQ3LjYxOTFMNTIuMDE0NCAyNy4xNjI1SDU5LjA0NzdMNTQuNjUxNyA1Mi44Mzc1WiIgZmlsbD0iIzE0MzRDQiIvPgo8cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTQyLjMxMTMgMjcuMTYyNUwzNS45MjE3IDQ0LjgyMTNMMzUuMTY2MyA0MS4wMTg1TDM1LjE2NyA0MS4wMTk5TDMyLjkxMTQgMjkuNDc0OUMzMi45MTE0IDI5LjQ3NDkgMzIuNjM5NCAyNy4xNjI1IDI5LjczMjQgMjcuMTYyNUgxOS4xNzA5TDE5LjA0NzYgMjcuNTk2NkMxOS4wNDc2IDI3LjU5NjYgMjIuMjc4MiAyOC4yNjY5IDI2LjA1NyAzMC41MzI2TDMxLjg3OTMgNTIuODM3NUgzOC44NjE3TDQ5LjUyMzggMjcuMTYyNUg0Mi4zMTEzWiIgZmlsbD0iIzE0MzRDQiIvPgo8L3N2Zz4K',
-  'mastercard':'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiB2aWV3Qm94PSIwIDAgMTIwIDgwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cmVjdCB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiByeD0iNCIgZmlsbD0id2hpdGUiLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik05Ny41Mjg4IDU0LjY1NjJWNTMuNzM4NEg5Ny4yODlMOTcuMDEzNyA1NC4zNjk4TDk2LjczNzggNTMuNzM4NEg5Ni40OThWNTQuNjU2Mkg5Ni42Njc1VjUzLjk2MzdMOTYuOTI1NyA1NC41NjA5SDk3LjEwMTFMOTcuMzYgNTMuOTYyNFY1NC42NTYySDk3LjUyODhaTTk2LjAxMTEgNTQuNjU2MlY1My44OTQ3SDk2LjMxOFY1My43Mzk3SDk1LjUzNjFWNTMuODk0N0g5NS44NDNWNTQuNjU2Mkg5Ni4wMTExWiIgZmlsbD0iI0Y3OUUxQiIvPgo8cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTQ5LjY1MjEgNTguNTk1SDcwLjM0NzlWMjEuNDA0NEg0OS42NTIxVjU4LjU5NVoiIGZpbGw9IiNGRjVGMDAiLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik05OC4yNjc1IDQwLjAwMDNDOTguMjY3NSA1My4wNjMgODcuNjc5MSA2My42NTIgNzQuNjE3MSA2My42NTJDNjkuMDk5NiA2My42NTIgNjQuMDIyOSA2MS43NjI0IDYwIDU4LjU5NTZDNjUuNTAxMSA1NC4yNjQ2IDY5LjAzMzkgNDcuNTQ0OCA2OS4wMzM5IDQwLjAwMDNDNjkuMDMzOSAzMi40NTUyIDY1LjUwMTEgMjUuNzM1NCA2MCAyMS40MDQ0QzY0LjAyMjkgMTguMjM3NiA2OS4wOTk2IDE2LjM0OCA3NC42MTcxIDE2LjM0OEM4Ny42NzkxIDE2LjM0OCA5OC4yNjc1IDI2LjkzNyA5OC4yNjc1IDQwLjAwMDNaIiBmaWxsPSIjRjc5RTFCIi8+CjxwYXRoIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1ydWxlPSJldmVub2RkIiBkPSJNNTAuOTY2IDQwLjAwMDNDNTAuOTY2IDMyLjQ1NTIgNTQuNDk4OCAyNS43MzU0IDU5Ljk5OTkgMjEuNDA0NEM1NS45NzcgMTguMjM3NiA1MC45MDAzIDE2LjM0OCA0NS4zODI4IDE2LjM0OEMzMi4zMjA4IDE2LjM0OCAyMS43MzI0IDI2LjkzNyAyMS43MzI0IDQwLjAwMDNDMjEuNzMyNCA1My4wNjMgMzIuMzIwOCA2My42NTIgNDUuMzgyOCA2My42NTJDNTAuOTAwMyA2My42NTIgNTUuOTc3IDYxLjc2MjQgNTkuOTk5OSA1OC41OTU2QzU0LjQ5ODggNTQuMjY0NiA1MC45NjYgNDcuNTQ0OCA1MC45NjYgNDAuMDAwM1oiIGZpbGw9IiNFQjAwMUIiLz4KPC9zdmc+Cg==',
-  'amex':'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiB2ZXJzaW9uPSIxLjEiIHZpZXdCb3g9IjAgMCAxMjAgODAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHg9IjQwIiB3aWR0aD0iODAiIGhlaWdodD0iODAiIHJ4PSI0IiBmaWxsPSIjZmZmIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIC8+CjxwYXRoIGQ9Im0xMjAgNzZ2LTguNjc2M2gtOS42NTFsLTQuOTY5LTUuNDk0NC00Ljk5NCA1LjQ5NDRoLTMxLjgyMnYtMjUuNjA3aC0xMC4yN2wxMi43NC0yOC44MzFoMTIuMjg2bDQuMzg1NyA5Ljg3N3YtOS44NzdoMTUuMjA4bDIuNjQgNy40NDI5IDIuNjU4LTcuNDQyOWgxMS43ODl2LTguODg1NGMwLTIuMjA5MS0xLjc5MDktNC00LTRoLTExMmMtMi4yMDkxIDQuNDQwOWUtMTYgLTQgMS43OTA5LTQgNHY3MmM0LjQ0MDllLTE2IDIuMjA5MSAxLjc5MDkgNCA0IDRoMTEyYzIuMjA5MSAwIDQtMS43OTA5IDQtNHptLTguMDI2LTExLjg4Mmg4LjAyNmwtMTAuNjE2LTExLjI1OCAxMC42MTYtMTEuMTNoLTcuODk4bC02LjU1NiA3LjE2NDUtNi40OTM1LTcuMTY0NWgtOC4wMjc1bDEwLjU1NCAxMS4xOTQtMTAuNTU0IDExLjE5NGg3LjgwNDFsNi41ODg5LTcuMjI4MyA2LjU1NiA3LjIyODN6bTEuODc4LTExLjI0OSA2LjE0OCA2LjU0MDZ2LTEzLjAyN2wtNi4xNDggNi40ODYxem0tMzUuNzggNi4wNjc1di0zLjQ4NjRoMTIuNjMzdi01LjA1MzRoLTEyLjYzM3YtMy40ODU5aDEyLjk1M2w1ZS00IC01LjE4MTVoLTE5LjA2MnYyMi4zODhoMTkuMDYybC01ZS00IC01LjE4MTNoLTEyLjk1M3ptMzUuODgzLTIwLjQ1Nmg2LjA0NXYtMjIuMzg4aC05LjQwM2wtNS4wMjIgMTMuOTQ0LTQuOTg5LTEzLjk0NGgtOS41NjMxdjIyLjM4OGg2LjA0NDZ2LTE1LjY3Mmw1Ljc1NzUgMTUuNjcyaDUuMzczbDUuNzU3LTE1LjcwNHYxNS43MDR6bS0yOS44MDkgMGg2Ljg3NjVsLTkuODgyNC0yMi4zODhoLTcuODY4MmwtOS44ODMzIDIyLjM4OGg2LjcxNjZsMS44NTU0LTQuNDc3NmgxMC4yOThsMS44ODcgNC40Nzc2em0tMy45OTc2LTkuNDk5MmgtNi4wNzczbDMuMDM4Ny03LjMyNDIgMy4wMzg2IDcuMzI0MnoiIGZpbGw9IiMwNjkwRkYiLz4KPC9zdmc+Cg==',
-  'american_express':'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiB2ZXJzaW9uPSIxLjEiIHZpZXdCb3g9IjAgMCAxMjAgODAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHg9IjQwIiB3aWR0aD0iODAiIGhlaWdodD0iODAiIHJ4PSI0IiBmaWxsPSIjZmZmIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIC8+CjxwYXRoIGQ9Im0xMjAgNzZ2LTguNjc2M2gtOS42NTFsLTQuOTY5LTUuNDk0NC00Ljk5NCA1LjQ5NDRoLTMxLjgyMnYtMjUuNjA3aC0xMC4yN2wxMi43NC0yOC44MzFoMTIuMjg2bDQuMzg1NyA5Ljg3N3YtOS44NzdoMTUuMjA4bDIuNjQgNy40NDI5IDIuNjU4LTcuNDQyOWgxMS43ODl2LTguODg1NGMwLTIuMjA5MS0xLjc5MDktNC00LTRoLTExMmMtMi4yMDkxIDQuNDQwOWUtMTYgLTQgMS43OTA5LTQgNHY3MmM0LjQ0MDllLTE2IDIuMjA5MSAxLjc5MDkgNCA0IDRoMTEyYzIuMjA5MSAwIDQtMS43OTA5IDQtNHptLTguMDI2LTExLjg4Mmg4LjAyNmwtMTAuNjE2LTExLjI1OCAxMC42MTYtMTEuMTNoLTcuODk4bC02LjU1NiA3LjE2NDUtNi40OTM1LTcuMTY0NWgtOC4wMjc1bDEwLjU1NCAxMS4xOTQtMTAuNTU0IDExLjE5NGg3LjgwNDFsNi41ODg5LTcuMjI4MyA2LjU1NiA3LjIyODN6bTEuODc4LTExLjI0OSA2LjE0OCA2LjU0MDZ2LTEzLjAyN2wtNi4xNDggNi40ODYxem0tMzUuNzggNi4wNjc1di0zLjQ4NjRoMTIuNjMzdi01LjA1MzRoLTEyLjYzM3YtMy40ODU5aDEyLjk1M2w1ZS00IC01LjE4MTVoLTE5LjA2MnYyMi4zODhoMTkuMDYybC01ZS00IC01LjE4MTNoLTEyLjk1M3ptMzUuODgzLTIwLjQ1Nmg2LjA0NXYtMjIuMzg4aC05LjQwM2wtNS4wMjIgMTMuOTQ0LTQuOTg5LTEzLjk0NGgtOS41NjMxdjIyLjM4OGg2LjA0NDZ2LTE1LjY3Mmw1Ljc1NzUgMTUuNjcyaDUuMzczbDUuNzU3LTE1LjcwNHYxNS43MDR6bS0yOS44MDkgMGg2Ljg3NjVsLTkuODgyNC0yMi4zODhoLTcuODY4MmwtOS44ODMzIDIyLjM4OGg2LjcxNjZsMS44NTU0LTQuNDc3NmgxMC4yOThsMS44ODcgNC40Nzc2em0tMy45OTc2LTkuNDk5MmgtNi4wNzczbDMuMDM4Ny03LjMyNDIgMy4wMzg2IDcuMzI0MnoiIGZpbGw9IiMwNjkwRkYiLz4KPC9zdmc+Cg==',
-  'discover':'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiB2aWV3Qm94PSIwIDAgMTIwIDgwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cmVjdCB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiByeD0iNCIgZmlsbD0id2hpdGUiLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0yOSA4MEgxMTYuMDAyQzExOC4yMSA4MCAxMjAgNzguMjExIDEyMCA3NS45OTU3VjQ4QzEyMCA0OCA4Ny44NjE2IDcwLjEwNjMgMjkgODBaIiBmaWxsPSIjRTc3OTJCIi8+CjxwYXRoIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1ydWxlPSJldmVub2RkIiBkPSJNMTEzLjA4OCAzMy44NjI0QzExMy4wODggMzAuNzEyNSAxMTAuODg4IDI4Ljg5NTEgMTA3LjA1MyAyOC44OTUxSDEwMi4xMlY0NS43MTk3SDEwNS40NDNWMzguOTYwOUgxMDUuODc3TDExMC40ODEgNDUuNzE5N0gxMTQuNTcxTDEwOS4yMDIgMzguNjMxNEMxMTEuNzA4IDM4LjEyOSAxMTMuMDg4IDM2LjQzODMgMTEzLjA4OCAzMy44NjI0Wk0xMDYuNDE0IDM2LjY0MTFIMTA1LjQ0M1YzMS41NDUxSDEwNi40NjdDMTA4LjUzOCAzMS41NDUxIDEwOS42NjUgMzIuNDAxOCAxMDkuNjY1IDM0LjAzODVDMTA5LjY2NSAzNS43MzA1IDEwOC41MzggMzYuNjQxMSAxMDYuNDE0IDM2LjY0MTFaIiBmaWxsPSIjMUExOTE4Ii8+CjxwYXRoIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1ydWxlPSJldmVub2RkIiBkPSJNOTAuNDgzOSA0NS43MTk3SDk5LjkxNzZWNDIuODcxM0g5My44MDc3VjM4LjMyOThIOTkuNjkyM1YzNS40ODAySDkzLjgwNzdWMzEuNzQ2SDk5LjkxNzZWMjguODk1MUg5MC40ODM5VjQ1LjcxOTdaIiBmaWxsPSIjMUExOTE4Ii8+CjxwYXRoIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1ydWxlPSJldmVub2RkIiBkPSJNODAuNzY3NyA0MC4xOTU5TDc2LjIyMDUgMjguODk1MUg3Mi41ODY0TDc5LjgyMzYgNDYuMTUxMkg4MS42MTNMODguOTc5OSAyOC44OTUxSDg1LjM3NDJMODAuNzY3NyA0MC4xOTU5WiIgZmlsbD0iIzFBMTkxOCIvPgo8cGF0aCBkPSJNNjQuNjE3OCA0Ni43MTk3QzY5LjcxMTggNDYuNzE5NyA3My44NDE0IDQyLjY0NTQgNzMuODQxNCAzNy42MTk3QzczLjg0MTQgMzIuNTkzOSA2OS43MTE4IDI4LjUxOTcgNjQuNjE3OCAyOC41MTk3QzU5LjUyMzggMjguNTE5NyA1NS4zOTQzIDMyLjU5MzkgNTUuMzk0MyAzNy42MTk3QzU1LjM5NDMgNDIuNjQ1NCA1OS41MjM4IDQ2LjcxOTcgNjQuNjE3OCA0Ni43MTk3WiIgZmlsbD0idXJsKCNwYWludDBfcmFkaWFsXzgyM18zNDEpIi8+CjxwYXRoIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1ydWxlPSJldmVub2RkIiBkPSJNNDEuMjIzMSAzNy4zMTkxQzQxLjIyMzEgNDIuMjY0MyA0NS4xNTkgNDYuMDk4NiA1MC4yMjQgNDYuMDk4NkM1MS42NTU2IDQ2LjA5ODYgNTIuODgxNyA0NS44MjExIDU0LjM5NDMgNDUuMTE4NFY0MS4yNTU1QzUzLjA2NDIgNDIuNTY4NSA1MS44ODY5IDQzLjA5ODIgNTAuMzc4OCA0My4wOTgyQzQ3LjAyODcgNDMuMDk4MiA0NC42NTEgNDAuNzAxNyA0NC42NTEgMzcuMjk0NEM0NC42NTEgMzQuMDY0NSA0Ny4xMDM4IDMxLjUxNjUgNTAuMjI0IDMxLjUxNjVDNTEuODEwNCAzMS41MTY1IDUzLjAxMTUgMzIuMDc0OSA1NC4zOTQzIDMzLjQwOTNWMjkuNTQ4M0M1Mi45MzQ0IDI4LjgxNzcgNTEuNzMzNCAyOC41MTQ4IDUwLjMwMjQgMjguNTE0OEM0NS4yNjMxIDI4LjUxNDggNDEuMjIzMSAzMi40MjcyIDQxLjIyMzEgMzcuMzE5MVoiIGZpbGw9IiMxQTE5MTgiLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0zNS4yNjg3IDM1LjM1MTVDMzMuMjcyNSAzNC42MjI5IDMyLjY4NjggMzQuMTQxOSAzMi42ODY4IDMzLjIzMzJDMzIuNjg2OCAzMi4xNzMgMzMuNzMxIDMxLjM2ODMgMzUuMTY0NiAzMS4zNjgzQzM2LjE2MTQgMzEuMzY4MyAzNi45ODAzIDMxLjc3MiAzNy44NDY3IDMyLjczMDdMMzkuNTg3MyAzMC40ODI0QzM4LjE1NyAyOS4yNDggMzYuNDQ2IDI4LjYxNjkgMzQuNTc2MyAyOC42MTY5QzMxLjU1ODkgMjguNjE2OSAyOS4yNTc2IDMwLjY4MzkgMjkuMjU3NiAzMy40Mzc5QzI5LjI1NzYgMzUuNzU1OCAzMC4zMjk1IDM2Ljk0MjEgMzMuNDUzIDM4LjA1MTZDMzQuNzU1NSAzOC41MDQ3IDM1LjQxODIgMzguODA2MyAzNS43NTI5IDM5LjAwOTdDMzYuNDE3IDM5LjQzODEgMzYuNzQ5NyA0MC4wNDM5IDM2Ljc0OTcgNDAuNzUwNEMzNi43NDk3IDQyLjExMzUgMzUuNjUxNSA0My4xMjM2IDM0LjE2NzEgNDMuMTIzNkMzMi41ODA3IDQzLjEyMzYgMzEuMzAzMiA0Mi4zNDEgMzAuNTM3IDQwLjg3OThMMjguMzg3OSA0Mi45MjE0QzI5LjkyMDQgNDUuMTQwNSAzMS43NjExIDQ2LjEyNCAzNC4yOTIzIDQ2LjEyNEMzNy43NDg1IDQ2LjEyNCA0MC4xNzM2IDQzLjg1NjggNDAuMTczNiA0MC41OTk2QzQwLjE3MzYgMzcuOTI2OCAzOS4wNTIzIDM2LjcxNjUgMzUuMjY4NyAzNS4zNTE1WiIgZmlsbD0iIzFBMTkxOCIvPgo8cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTIzLjgwOTEgMjguODk1MUgyNy4xMzU1VjQ1LjcxOTdIMjMuODA5MVYyOC44OTUxWiIgZmlsbD0iIzFBMTkxOCIvPgo8cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTEzLjEyNDIgMjguODk1MUg4LjI0MTdWNDUuNzE5N0gxMy4wOTg1QzE1LjY4MTEgNDUuNzE5NyAxNy41NDU2IDQ1LjExODQgMTkuMTgyOCA0My43Nzc1QzIxLjEyODMgNDIuMTg4OSAyMi4yNzg2IDM5Ljc5NDkgMjIuMjc4NiAzNy4zMTlDMjIuMjc4NiAzMi4zNTM3IDE4LjUxODcgMjguODk1MSAxMy4xMjQyIDI4Ljg5NTFaTTE3LjAxIDQxLjUzMzZDMTUuOTY0NCA0Mi40NjUxIDE0LjYwNzMgNDIuODcxMyAxMi40NTgyIDQyLjg3MTNIMTEuNTY1NVYzMS43NDZIMTIuNDU4MkMxNC42MDczIDMxLjc0NiAxNS45MTExIDMyLjEyNDkgMTcuMDEgMzMuMTA2NEMxOC4xNjAzIDM0LjExNzEgMTguODUyMSAzNS42ODMgMTguODUyMSAzNy4yOTQzQzE4Ljg1MjEgMzguOTA5NiAxOC4xNjAzIDQwLjUyMzUgMTcuMDEgNDEuNTMzNloiIGZpbGw9IiMxQTE5MTgiLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0xMTUuMjEgMjkuNTI3NUMxMTUuMjEgMjkuMjMzIDExNS4wMDUgMjkuMDcxMiAxMTQuNjQzIDI5LjA3MTJIMTE0LjE2MlYzMC41NDk5SDExNC41MlYyOS45NzY2TDExNC45MzkgMzAuNTQ5OUgxMTUuMzc2TDExNC44ODMgMjkuOTQwMkMxMTUuMDk0IDI5Ljg4NDMgMTE1LjIxIDI5LjczMjkgMTE1LjIxIDI5LjUyNzVaTTExNC41OCAyOS43Mjk2SDExNC41MlYyOS4zNDI5SDExNC41ODRDMTE0Ljc2MSAyOS4zNDI5IDExNC44NTMgMjkuNDA1OSAxMTQuODUzIDI5LjUzMjdDMTE0Ljg1MyAyOS42NjQgMTE0Ljc2IDI5LjcyOTYgMTE0LjU4IDI5LjcyOTZaIiBmaWxsPSIjMUExOTE4Ii8+CjxwYXRoIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1ydWxlPSJldmVub2RkIiBkPSJNMTE0LjcxNSAyOC41MTg3QzExMy45ODcgMjguNTE4NyAxMTMuNDEgMjkuMDkyIDExMy40MSAyOS44MDc3QzExMy40MSAzMC41MjMzIDExMy45OTQgMzEuMDk3MyAxMTQuNzE1IDMxLjA5NzNDMTE1LjQyNCAzMS4wOTczIDExNi4wMDUgMzAuNTE3NSAxMTYuMDA1IDI5LjgwNzdDMTE2LjAwNSAyOS4xMDE4IDExNS40MjQgMjguNTE4NyAxMTQuNzE1IDI4LjUxODdaTTExNC43MSAzMC44NjcyQzExNC4xMzggMzAuODY3MiAxMTMuNjY5IDMwLjM5NjYgMTEzLjY2OSAyOS44MDk2QzExMy42NjkgMjkuMjIwNyAxMTQuMTMyIDI4Ljc1MDggMTE0LjcxIDI4Ljc1MDhDMTE1LjI4IDI4Ljc1MDggMTE1Ljc0NSAyOS4yMzE4IDExNS43NDUgMjkuODA5NkMxMTUuNzQ1IDMwLjM5MTQgMTE1LjI4IDMwLjg2NzIgMTE0LjcxIDMwLjg2NzJaIiBmaWxsPSIjMUExOTE4Ii8+CjxkZWZzPgo8cmFkaWFsR3JhZGllbnQgaWQ9InBhaW50MF9yYWRpYWxfODIzXzM0MSIgY3g9IjAiIGN5PSIwIiByPSIxIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgZ3JhZGllbnRUcmFuc2Zvcm09InRyYW5zbGF0ZSg3MS41IDQ0KSByb3RhdGUoLTE0Mi40MzEpIHNjYWxlKDE2LjQwMTIgMTYuMTgxNikiPgo8c3RvcCBzdG9wLWNvbG9yPSIjRjU5OTAwIi8+CjxzdG9wIG9mZnNldD0iMC4yMTAwODIiIHN0b3AtY29sb3I9IiNGMzk1MDEiLz4KPHN0b3Agb2Zmc2V0PSIwLjkwODE2MyIgc3RvcC1jb2xvcj0iI0NFM0MwQiIvPgo8c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiNBNDQyMEEiLz4KPC9yYWRpYWxHcmFkaWVudD4KPC9kZWZzPgo8L3N2Zz4K',
-  'jcb':'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiB2aWV3Qm94PSIwIDAgMTIwIDgwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cmVjdCB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiByeD0iNCIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTEwMC45IDU4LjhDMTAwLjkgNjUuOCA5NS4xOTk2IDcxLjUgODguMTk5NiA3MS41SDE5LjA5OTZWMjEuMkMxOS4wOTk2IDE0LjIgMjQuNzk5NiA4LjUgMzEuNzk5NiA4LjVIMTAwLjlWNTguOFoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik03OC4zOTk0IDQ1LjlIODMuNjQ5NEM4My43OTk0IDQ1LjkgODQuMTQ5NCA0NS44NSA4NC4yOTk0IDQ1Ljg1Qzg1LjI5OTQgNDUuNjUgODYuMTQ5NCA0NC43NSA4Ni4xNDk0IDQzLjVDODYuMTQ5NCA0Mi4zIDg1LjI5OTQgNDEuNCA4NC4yOTk0IDQxLjE1Qzg0LjE0OTQgNDEuMSA4My44NDk0IDQxLjEgODMuNjQ5NCA0MS4xSDc4LjM5OTRWNDUuOVoiIGZpbGw9InVybCgjcGFpbnQwX2xpbmVhcl84MzNfNjE0OSkiLz4KPHBhdGggZD0iTTgzLjA0OTQgMTIuNzVDNzguMDQ5NCAxMi43NSA3My45NDk0IDE2LjggNzMuOTQ5NCAyMS44NVYzMS4zSDg2Ljc5OTRDODcuMDk5NCAzMS4zIDg3LjQ0OTQgMzEuMyA4Ny42OTk0IDMxLjM1QzkwLjU5OTQgMzEuNSA5Mi43NDk0IDMzIDkyLjc0OTQgMzUuNkM5Mi43NDk0IDM3LjY1IDkxLjI5OTQgMzkuNCA4OC41OTk0IDM5Ljc1VjM5Ljg1QzkxLjU0OTQgNDAuMDUgOTMuNzk5NCA0MS43IDkzLjc5OTQgNDQuMjVDOTMuNzk5NCA0NyA5MS4yOTk0IDQ4LjggODcuOTk5NCA0OC44SDczLjg5OTRWNjcuM0g4Ny4yNDk0QzkyLjI0OTQgNjcuMyA5Ni4zNDk0IDYzLjI1IDk2LjM0OTQgNTguMlYxMi43NUg4My4wNDk0WiIgZmlsbD0idXJsKCNwYWludDFfbGluZWFyXzgzM182MTQ5KSIvPgo8cGF0aCBkPSJNODUuNDk5NCAzNi4yQzg1LjQ5OTQgMzUgODQuNjQ5NCAzNC4yIDgzLjY0OTQgMzQuMDVDODMuNTQ5NCAzNC4wNSA4My4yOTk0IDM0IDgzLjE0OTQgMzRINzguMzk5NFYzOC40SDgzLjE0OTRDODMuMjk5NCAzOC40IDgzLjU5OTQgMzguNCA4My42NDk0IDM4LjM1Qzg0LjY0OTQgMzguMiA4NS40OTk0IDM3LjQgODUuNDk5NCAzNi4yWiIgZmlsbD0idXJsKCNwYWludDJfbGluZWFyXzgzM182MTQ5KSIvPgo8cGF0aCBkPSJNNTcuODk4OCAxMi43NUM1Mi44OTg4IDEyLjc1IDQ4Ljc5ODggMTYuOCA0OC43OTg4IDIxLjg1VjMzLjc1QzUxLjA5ODggMzEuOCA1NS4wOTg4IDMwLjU1IDYxLjU0ODggMzAuODVDNjQuOTk4OCAzMSA2OC42OTg4IDMxLjk1IDY4LjY5ODggMzEuOTVWMzUuOEM2Ni44NDg4IDM0Ljg1IDY0LjY0ODggMzQgNjEuNzk4OCAzMy44QzU2Ljg5ODggMzMuNDUgNTMuOTQ4OCAzNS44NSA1My45NDg4IDQwLjA1QzUzLjk0ODggNDQuMyA1Ni44OTg4IDQ2LjcgNjEuNzk4OCA0Ni4zQzY0LjY0ODggNDYuMSA2Ni44NDg4IDQ1LjIgNjguNjk4OCA0NC4zVjQ4LjE1QzY4LjY5ODggNDguMTUgNjUuMDQ4OCA0OS4xIDYxLjU0ODggNDkuMjVDNTUuMDk4OCA0OS41NSA1MS4wOTg4IDQ4LjMgNDguNzk4OCA0Ni4zNVY2Ny4zNUg2Mi4xNDg4QzY3LjE0ODggNjcuMzUgNzEuMjQ4OCA2My4zIDcxLjI0ODggNTguMjVWMTIuNzVINTcuODk4OFoiIGZpbGw9InVybCgjcGFpbnQzX2xpbmVhcl84MzNfNjE0OSkiLz4KPHBhdGggZD0iTTMyLjc0OTYgMTIuNzVDMjcuNzQ5NiAxMi43NSAyMy42NDk2IDE2LjggMjMuNjQ5NiAyMS44NVY0NC4zQzI2LjE5OTYgNDUuNTUgMjguODQ5NiA0Ni4zNSAzMS40OTk2IDQ2LjM1QzM0LjY0OTYgNDYuMzUgMzYuMzQ5NiA0NC40NSAzNi4zNDk2IDQxLjg1VjMxLjI1SDQ0LjE0OTZWNDEuOEM0NC4xNDk2IDQ1LjkgNDEuNTk5NiA0OS4yNSAzMi45NDk2IDQ5LjI1QzI3LjY5OTYgNDkuMjUgMjMuNTk5NiA0OC4xIDIzLjU5OTYgNDguMVY2Ny4yNUgzNi45NDk2QzQxLjk0OTYgNjcuMjUgNDYuMDQ5NiA2My4yIDQ2LjA0OTYgNTguMTVWMTIuNzVIMzIuNzQ5NloiIGZpbGw9InVybCgjcGFpbnQ0X2xpbmVhcl84MzNfNjE0OSkiLz4KPGRlZnM+CjxsaW5lYXJHcmFkaWVudCBpZD0icGFpbnQwX2xpbmVhcl84MzNfNjE0OSIgeDE9IjYwLjk4MDQiIHkxPSI0MC4wODIxIiB4Mj0iMTI2LjA3NSIgeTI9IjQwLjA4MjEiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj4KPHN0b3Agc3RvcC1jb2xvcj0iIzAwNzk0MCIvPgo8c3RvcCBvZmZzZXQ9IjAuMjI4NSIgc3RvcC1jb2xvcj0iIzAwODczRiIvPgo8c3RvcCBvZmZzZXQ9IjAuNzQzMyIgc3RvcC1jb2xvcj0iIzQwQTczNyIvPgo8c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiM1Q0I1MzEiLz4KPC9saW5lYXJHcmFkaWVudD4KPGxpbmVhckdyYWRpZW50IGlkPSJwYWludDFfbGluZWFyXzgzM182MTQ5IiB4MT0iNzMuOTQwNCIgeTE9IjQwLjAwMjMiIHgyPSI5Ni40MTA4IiB5Mj0iNDAuMDAyMyIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPgo8c3RvcCBzdG9wLWNvbG9yPSIjMDA3OTQwIi8+CjxzdG9wIG9mZnNldD0iMC4yMjg1IiBzdG9wLWNvbG9yPSIjMDA4NzNGIi8+CjxzdG9wIG9mZnNldD0iMC43NDMzIiBzdG9wLWNvbG9yPSIjNDBBNzM3Ii8+CjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzVDQjUzMSIvPgo8L2xpbmVhckdyYWRpZW50Pgo8bGluZWFyR3JhZGllbnQgaWQ9InBhaW50Ml9saW5lYXJfODMzXzYxNDkiIHgxPSI3My45Mzk2IiB5MT0iMzYuMTkyNSIgeDI9Ijk2LjQwOSIgeTI9IjM2LjE5MjUiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj4KPHN0b3Agc3RvcC1jb2xvcj0iIzAwNzk0MCIvPgo8c3RvcCBvZmZzZXQ9IjAuMjI4NSIgc3RvcC1jb2xvcj0iIzAwODczRiIvPgo8c3RvcCBvZmZzZXQ9IjAuNzQzMyIgc3RvcC1jb2xvcj0iIzQwQTczNyIvPgo8c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiM1Q0I1MzEiLz4KPC9saW5lYXJHcmFkaWVudD4KPGxpbmVhckdyYWRpZW50IGlkPSJwYWludDNfbGluZWFyXzgzM182MTQ5IiB4MT0iNDguNjY4OSIgeTE9IjQwLjAwMjMiIHgyPSI3MC44Mjg3IiB5Mj0iNDAuMDAyMyIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPgo8c3RvcCBzdG9wLWNvbG9yPSIjNkMyQzJGIi8+CjxzdG9wIG9mZnNldD0iMC4xNzM1IiBzdG9wLWNvbG9yPSIjODgyNzMwIi8+CjxzdG9wIG9mZnNldD0iMC41NzMxIiBzdG9wLWNvbG9yPSIjQkUxODMzIi8+CjxzdG9wIG9mZnNldD0iMC44NTg1IiBzdG9wLWNvbG9yPSIjREMwNDM2Ii8+CjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iI0U2MDAzOSIvPgo8L2xpbmVhckdyYWRpZW50Pgo8bGluZWFyR3JhZGllbnQgaWQ9InBhaW50NF9saW5lYXJfODMzXzYxNDkiIHgxPSIyMy42MzgyIiB5MT0iNDAuMDAyMyIgeDI9IjQ2LjQ1NTMiIHkyPSI0MC4wMDIzIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CjxzdG9wIHN0b3AtY29sb3I9IiMxRjI4NkYiLz4KPHN0b3Agb2Zmc2V0PSIwLjQ3NTEiIHN0b3AtY29sb3I9IiMwMDRFOTQiLz4KPHN0b3Agb2Zmc2V0PSIwLjgyNjEiIHN0b3AtY29sb3I9IiMwMDY2QjEiLz4KPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjMDA2RkJDIi8+CjwvbGluZWFyR3JhZGllbnQ+CjwvZGVmcz4KPC9zdmc+Cg==',
-  'diners':'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiB2aWV3Qm94PSIwIDAgMTIwIDgwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cmVjdCB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiByeD0iNCIgZmlsbD0idXJsKCNwYWludDBfbGluZWFyXzgwNF8yKSIvPgo8cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTY1LjM5OTcgNjQuODM0M0M3OS4wMjEzIDY0Ljg5OTIgOTEuNDU0MiA1My43NjMxIDkxLjQ1NDIgNDAuMjE1N0M5MS40NTQyIDI1LjQwMDcgNzkuMDIxMyAxNS4xNjA1IDY1LjM5OTcgMTUuMTY1NEg1My42NzY4QzM5Ljg5MjEgMTUuMTYwNSAyOC41NDU5IDI1LjQwMzggMjguNTQ1OSA0MC4yMTU3QzI4LjU0NTkgNTMuNzY2MSAzOS44OTIxIDY0Ljg5OTMgNTMuNjc2OCA2NC44MzQzSDY1LjM5OTdaIiBmaWxsPSIjMzQ3N0I5Ii8+CjxwYXRoIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1ydWxlPSJldmVub2RkIiBkPSJNNTMuNjg1MiAxNy4xNTIyQzQxLjA4OTEgMTcuMTU2MSAzMC44ODIxIDI3LjMzMTMgMzAuODc5MiAzOS44ODk2QzMwLjg4MjEgNTIuNDQ1NiA0MS4wODkgNjIuNjE5OSA1My42ODUyIDYyLjYyMzhDNjYuMjg0MyA2Mi42MTk5IDc2LjQ5MzQgNTIuNDQ1NiA3Ni40OTUyIDM5Ljg4OTZDNzYuNDkzMyAyNy4zMzEzIDY2LjI4NDMgMTcuMTU2MSA1My42ODUyIDE3LjE1MjJaTTM5LjIyOTEgMzkuODg5NkMzOS4yNDEgMzMuNzUyOSA0My4wODY2IDI4LjUxOTkgNDguNTA5NSAyNi40NDA0VjUzLjMzNTVDNDMuMDg2NiA1MS4yNTcyIDM5LjI0MDkgNDYuMDI3MSAzOS4yMjkxIDM5Ljg4OTZaTTU4Ljg1OSA1My4zNDE1VjI2LjQzOTZDNjQuMjgzOCAyOC41MTQgNjguMTM1NSAzMy43NDk5IDY4LjE0NTMgMzkuODg5NkM2OC4xMzU1IDQ2LjAzMTEgNjQuMjgzOCA1MS4yNjMgNTguODU5IDUzLjM0MTVaIiBmaWxsPSJ3aGl0ZSIvPgo8ZGVmcz4KPGxpbmVhckdyYWRpZW50IGlkPSJwYWludDBfbGluZWFyXzgwNF8yIiB4MT0iMS42ODE0MWUtMDYiIHkxPSIyMSIgeDI9IjEyMCIgeTI9IjU0IiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CjxzdG9wIHN0b3AtY29sb3I9IiMzNDc5QzAiLz4KPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjMTMzMzYyIi8+CjwvbGluZWFyR3JhZGllbnQ+CjwvZGVmcz4KPC9zdmc+Cg==',
-  'unionpay':'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiB2aWV3Qm94PSIwIDAgMTIwIDgwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cmVjdCB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiByeD0iNCIgZmlsbD0id2hpdGUiLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik03Ni41MjgyIDE0LjE3ODhDNzMuNzQyMSAxNC4yNjU0IDcwLjMzNTEgMTYuNDU5NiA2OS43MTQ2IDE5LjE2NTNMNjAuMjk4MSA2MC44MzcxQzU5LjY3NzYgNjMuNTY4IDYxLjM2NTYgNjUuNzkwMyA2NC4wODEzIDY1LjgzMTJIODQuOTk5NkM4Ny42NzM5IDY1LjY5ODkgOTAuMjcyNSA2My41Mjk4IDkwLjg4MjQgNjAuODU0OUwxMDAuMjk5IDE5LjE4MjhDMTAwLjkzIDE2LjQyNCA5OS4yMDEgMTQuMTgzOSA5Ni40NDAyIDE0LjE4MzlMNzYuNTI4MiAxNC4xNzg4WiIgZmlsbD0iIzAxNzk4QSIvPgo8cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTYwLjI5ODIgNjAuODM3MUw2OS43MTQ4IDE5LjE2NTNDNzAuMzM1MyAxNi40NTk2IDczLjc0MjIgMTQuMjY1NCA3Ni40Nzc2IDE0LjE4MTVMNjguNTYwNyAxNC4xNzY0TDU0LjI5NjcgMTQuMTczN0M1MS41NTM2IDE0LjIyOTggNDguMTAyMyAxNi40Mzk0IDQ3LjQ4MiAxOS4xNjUzTDM4LjA2MjcgNjAuODM3MUMzNy40Mzk5IDYzLjU2OCAzOS4xMzA0IDY1Ljc5MDMgNDEuODQ0MyA2NS44MzEySDY0LjA4MTRDNjEuMzY1NyA2NS43OTAzIDU5LjY3NzcgNjMuNTY4IDYwLjI5ODIgNjAuODM3MVoiIGZpbGw9IiMwMjQzODEiLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0zOC4wNjI3IDYwLjgzNzFMNDcuNDgyIDE5LjE2NTNDNDguMTAyMyAxNi40Mzk0IDUxLjU1MzYgMTQuMjI5OCA1NC4yOTY3IDE0LjE3MzdMMzYuMDIzNyAxNC4xNjg5QzMzLjI2NTMgMTQuMTY4OSAyOS43Mjg3IDE2LjQwMzkgMjkuMDk4MyAxOS4xNjUzTDE5LjY3ODkgNjAuODM3MUMxOS42MjE2IDYxLjA5MTQgMTkuNTg5OCA2MS4zNDA2IDE5LjU3MDggNjEuNTg0NVY2Mi4zNTc2QzE5Ljc1NTIgNjQuMzQ4MyAyMS4yNzU0IDY1Ljc5OCAyMy40NjA1IDY1LjgzMTJINDEuODQ0M0MzOS4xMzA0IDY1Ljc5MDMgMzcuNDM5OSA2My41NjggMzguMDYyNyA2MC44MzcxWiIgZmlsbD0iI0REMDIyOCIvPgo8cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTU0LjY4MTggNDQuNTM4NEg1NS4wMjc2QzU1LjM0NTQgNDQuNTM4NCA1NS41NTkyIDQ0LjQzMTggNTUuNjU5NCA0NC4yMjA2TDU2LjU1OCA0Mi44NzU2SDU4Ljk2NDRMNTguNDYyNiA0My43NjAzSDYxLjM0NzlMNjAuOTgxOSA0NS4xMTU3SDU3LjU0ODZDNTcuMTUzMiA0NS43MTA3IDU2LjY2NjUgNDUuOTkwNCA1Ni4wODEyIDQ1Ljk1NzJINTQuMjkyOUw1NC42ODE4IDQ0LjUzODRaTTU0LjI4NjcgNDYuNDgxMUg2MC42MDhMNjAuMjA1MSA0Ny45NTM1SDU3LjY2MjlMNTcuMjc1IDQ5LjM3NDdINTkuNzQ4OEw1OS4zNDU4IDUwLjg0NjlINTYuODcyTDU2LjI5NzQgNTIuOTQ3QzU2LjE1NTEgNTMuMjk4IDU2LjM0MjIgNTMuNDU1OSA1Ni44NTU2IDUzLjQyMDFINTguODcxN0w1OC40OTgyIDU0Ljc4ODJINTQuNjI3NEM1My44OTM3IDU0Ljc4ODIgNTMuNjQyIDU0LjM2ODUgNTMuODcyMiA1My41MjdMNTQuNjA2OSA1MC44NDY5SDUzLjAyNTZMNTMuNDI3MyA0OS4zNzQ3SDU1LjAwODhMNTUuMzk2NCA0Ny45NTM1SDUzLjg4NDhMNTQuMjg2NyA0Ni40ODExWk02NC4zNzYyIDQyLjg2NTZMNjQuMjc2NiA0My43Mjc1QzY0LjI3NjYgNDMuNzI3NSA2NS40NjkxIDQyLjgzMjIgNjYuNTUyIDQyLjgzMjJINzAuNTUzOEw2OS4wMjM0IDQ4LjM3MjdDNjguODk2NSA0OS4wMDYxIDY4LjM1MjMgNDkuMzIxMSA2Ny4zOTExIDQ5LjMyMTFINjIuODU1NEw2MS43OTI5IDUzLjIxMTZDNjEuNzMxNyA1My40MjAxIDYxLjgxODIgNTMuNTI3IDYyLjA0NzEgNTMuNTI3SDYyLjkzOTVMNjIuNjExNSA1NC43MzQ2SDYwLjM0MjZDNTkuNDcxNyA1NC43MzQ2IDU5LjEwOTUgNTQuNDcyNyA1OS4yNTMxIDUzLjk0NjZMNjIuMjU1NCA0Mi44NjU2SDY0LjM3NjJaTTY3Ljc2NSA0NC40MzE4SDY0LjE5MzJMNjMuNzY1OSA0NS45MjY4QzYzLjc2NTkgNDUuOTI2OCA2NC4zNjA4IDQ1LjQ5NzMgNjUuMzU0OCA0NS40ODE5QzY2LjM0NjEgNDUuNDY2NCA2Ny40Nzc2IDQ1LjQ4MTkgNjcuNDc3NiA0NS40ODE5TDY3Ljc2NSA0NC40MzE4Wk02Ni40NzEgNDcuODk5OUM2Ni43MzUgNDcuOTM1NyA2Ni44ODI4IDQ3LjgzMTIgNjYuOTAwNiA0Ny41ODQ1TDY3LjExOTIgNDYuNzk2NEg2My41NDE5TDYzLjI0MTkgNDcuODk5OUg2Ni40NzFaTTY0LjA1ODEgNDkuNjg5OUg2Ni4xMkw2Ni4wODE3IDUwLjU4MjNINjYuNjMwN0M2Ni45MDgxIDUwLjU4MjMgNjcuMDQ1NiA1MC40OTM1IDY3LjA0NTYgNTAuMzE4MUw2Ny4yMDgxIDQ5Ljc0MDhINjguOTIxOEw2OC42OTMgNTAuNTgyM0M2OC40OTk0IDUxLjI4NDIgNjcuOTg2MyA1MS42NTAzIDY3LjE1MjMgNTEuNjg2MUg2Ni4wNTRMNjYuMDQ4OCA1My4yMTE2QzY2LjAyODcgNTMuNDU1OSA2Ni4yNDk2IDUzLjU4MDQgNjYuNzA0NiA1My41ODA0SDY3LjczNjlMNjcuNDAzNyA1NC43ODgySDY0LjkyNzZDNjQuMjMzNSA1NC44MjEyIDYzLjg5MzIgNTQuNDkwNSA2My45MDA0IDUzLjc4ODlMNjQuMDU4MSA0OS42ODk5WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik03Mi44MjE4IDQ0LjU5OTVMNzMuMyA0Mi45MTY0SDc1LjcxNzdMNzUuNjEzMyA0My41MzRDNzUuNjEzMyA0My41MzQgNzYuODQ4OCA0Mi45MTY0IDc3LjczODUgNDIuOTE2NEg4MC43MjgyTDgwLjI1MyA0NC41OTk1SDc5Ljc4MjdMNzcuNTI3NSA1Mi41Mzc4SDc3Ljk5NzhMNzcuNTUwNCA1NC4xMTQzSDc3LjA4MDFMNzYuODg0NCA1NC43OTgzSDc0LjU0M0w3NC43MzgzIDU0LjExNDNINzAuMTE5MUw3MC41NjkzIDUyLjUzNzhINzEuMDMyMUw3My4yODk0IDQ0LjU5OTVINzIuODIxOFpNNzUuNDMwMyA0NC41OTk1TDc0LjgxNSA0Ni43NDc5Qzc0LjgxNSA0Ni43NDc5IDc1Ljg2NzggNDYuMzQzOSA3Ni43NzUzIDQ2LjIyOTVDNzYuOTc1OCA0NS40NzkyIDc3LjIzNzggNDQuNTk5NSA3Ny4yMzc4IDQ0LjU5OTVINzUuNDMwM1pNNzQuNTMgNDcuNzU1TDczLjkxMjYgNTAuMDA1M0M3My45MTI2IDUwLjAwNTMgNzUuMDc5NCA0OS40MzA3IDc1Ljg4MDEgNDkuMzgyM0M3Ni4xMTE0IDQ4LjUxMjYgNzYuMzQyOSA0Ny43NTUgNzYuMzQyOSA0Ny43NTVINzQuNTNaTTc0Ljk4MjYgNTIuNTM3OEw3NS40NDU0IDUwLjkwNTVINzMuNjQwN0w3My4xNzU1IDUyLjUzNzhINzQuOTgyNlpNODAuODMwMSA0Mi44MTIySDgzLjEwMzFMODMuMTk5NSA0My42NTFDODMuMTg0NSA0My44NjQ1IDgzLjMxMTQgNDMuOTY2NSA4My41ODA5IDQzLjk2NjVIODMuOTgyNUw4My41NzYyIDQ1LjM4NzdIODEuOTA1NUM4MS4yNjc2IDQ1LjQyMDcgODAuOTM5NSA0NS4xNzY4IDgwLjkwOTEgNDQuNjUwM0w4MC44MzAxIDQyLjgxMjJaTTg3LjUyNjYgNDUuODYwOEw4Ny4wOTQ2IDQ3LjM4NjVIODQuNzUwNEw4NC4zNDg1IDQ4LjgwNUg4Ni42OTAzTDg2LjI1NTUgNTAuMzI4Mkg4My42NDczTDgzLjA1NzIgNTEuMjIwOUg4NC4zMzM4TDg0LjYyODcgNTMuMDA4MkM4NC42NjM5IDUzLjE4NjIgODQuODIxNiA1My4yNzI3IDg1LjA5MTEgNTMuMjcyN0g4NS40ODc2TDg1LjA3MSA1NC43NDQ3SDgzLjY2NzVDODIuOTQwMyA1NC43ODA1IDgyLjU2NDMgNTQuNTM2MyA4Mi41MzM2IDU0LjAxMDFMODIuMTk1MyA1Mi4zNzc3TDgxLjAzMzYgNTQuMTE0M0M4MC43NTg5IDU0LjYwNSA4MC4zMzY4IDU0LjgzNCA3OS43Njc3IDU0Ljc5ODNINzcuNjI0M0w3OC4wNDEzIDUzLjMyNTlINzguNzFDNzguOTg0NyA1My4zMjU5IDc5LjIxMzIgNTMuMjAzOSA3OS40MTkxIDUyLjk1NzNMODEuMjM3MSA1MC4zMjgySDc4Ljg5M0w3OS4zMjc0IDQ4LjgwNUg4MS44N0w4Mi4yNzQzIDQ3LjM4NjVINzkuNzI5M0w4MC4xNjQxIDQ1Ljg2MDhIODcuNTI2NloiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1ydWxlPSJldmVub2RkIiBkPSJNODkuODU1NCA0MC45MTc5Qzg5LjA5MjYgNDIuNTM5OSA4OC4zNjU3IDQzLjQ4NTcgODcuOTM4OCA0My45MjU2Qzg3LjUxMTMgNDQuMzYwNiA4Ni42NjUgNDUuMzcyNiA4NC42MjYgNDUuMjk2Mkw4NC44MDE1IDQ0LjA1OEM4Ni41MTcyIDQzLjUyOTEgODcuNDQ1MiA0MS4xNDY0IDg3Ljk3NDEgNDAuMDkxM0w4Ny4zNDM3IDMyLjMyMDlMODguNjcwOCAzMi4zMDMxSDg5Ljc4NDNMODkuOTA0IDM3LjE3NzVMOTEuOTkwOSAzMi4zMDMxSDk0LjEwMzhMODkuODU1NCA0MC45MTc5WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik04My45NDcyIDMyLjg5MDRMODMuMTA3OCAzMy40Njc3QzgyLjIzMDggMzIuNzgxMyA4MS40MyAzMi4zNTY2IDc5Ljg4NDYgMzMuMDczNUM3Ny43NzkyIDM0LjA0OTkgNzYuMDIgNDEuNTM4MiA4MS44MTY1IDM5LjA3MTdMODIuMTQ3IDM5LjQ2MzNMODQuNDI3NSAzOS41MjE4TDg1LjkyNSAzMi43MTc1TDgzLjk0NzIgMzIuODkwNFpNODIuNjUwNSAzNi42MTA0QzgyLjI4NDEgMzcuNjkxMSA4MS40NjU5IDM4LjQwNTUgODAuODI1MiAzOC4yMDIyQzgwLjE4NDYgMzguMDAzOCA3OS45NTU3IDM2Ljk2MTIgODAuMzI2OSAzNS44NzgxQzgwLjY5MjkgMzQuNzk0OSA4MS41MTY1IDM0LjA4MyA4Mi4xNTIxIDM0LjI4NjRDODIuNzkyOCAzNC40ODQ3IDgzLjAyNCAzNS41MjcyIDgyLjY1MDUgMzYuNjEwNFoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1ydWxlPSJldmVub2RkIiBkPSJNNzAuNzYyNSAyNy44MjU0SDc1Ljk1OTFDNzYuOTU4MyAyNy44MjU0IDc3LjczMSAyOC4wNTE5IDc4LjI2MjIgMjguNDk2NkM3OC43OTExIDI4Ljk0NjggNzkuMDU1OCAyOS41OTI3IDc5LjA1NTggMzAuNDM0M1YzMC40NTk2Qzc5LjA1NTggMzAuNjE5NyA3OS4wNDUyIDMwLjgwMDMgNzkuMDMwMiAzMC45OTZDNzkuMDA0NSAzMS4xODkzIDc4Ljk3MTMgMzEuMzg1IDc4LjkyODYgMzEuNTg4NUM3OC42OTk3IDMyLjcwMjMgNzguMTY4MiAzMy41OTczIDc3LjM0NzIgMzQuMjc2MkM3Ni41MjMyIDM0Ljk1MjUgNzUuNTQ3MyAzNS4yOTMzIDc0LjQyMzYgMzUuMjkzM0g3MS42MzY5TDcwLjc3NTIgMzkuNTIxOEg2OC4zNjIzTDcwLjc2MjUgMjcuODI1NFpNNzIuMDYxMyAzMy4yNTkySDc0LjM3MjdDNzQuOTc1IDMzLjI1OTIgNzUuNDUyOSAzMy4xMTkyIDc1LjgwMTQgMzIuODQyMkM3Ni4xNDczIDMyLjU2MjUgNzYuMzc2MSAzMi4xMzU0IDc2LjUwMyAzMS41NTU3Qzc2LjUyMzIgMzEuNDQ4NiA3Ni41MzU4IDMxLjM1MjEgNzYuNTUxMiAzMS4yNjMyQzc2LjU1OTEgMzEuMTc5NCA3Ni41NjkgMzEuMDk1MiA3Ni41NjkgMzEuMDE0MUM3Ni41NjkgMzAuNTk5NSA3Ni40MjE5IDMwLjI5OTUgNzYuMTI2NyAzMC4xMTEzQzc1LjgzMTkgMjkuOTIwNCA3NS4zNjk0IDI5LjgyOTEgNzQuNzI4NCAyOS44MjkxSDcyLjc2NTdMNzIuMDYxMyAzMy4yNTkyWiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik02MS45MTQ2IDMyLjMwMDZINjMuNzA0Nkw2My41MDE1IDMzLjM0MzFMNjMuNzU1MyAzMy4wNDU2QzY0LjMzNTQgMzIuNDI1MyA2NS4wNDIxIDMyLjExNzUgNjUuODcwOSAzMi4xMTc1QzY2LjYyMzUgMzIuMTE3NSA2Ny4xNjczIDMyLjMzNjMgNjcuNTA1MyAzMi43NzZDNjcuODM4OCAzMy4yMTYgNjcuOTM1MyAzMy44MjM3IDY3Ljc3MjQgMzQuNjA0M0w2Ni43OTExIDM5LjUyMThINjQuOTUwNEw2NS44NDA1IDM1LjA2NDZDNjUuOTMxOCAzNC42MDQzIDY1LjkwNjUgMzQuMjYxIDY1Ljc2NjYgMzQuMDM5N0M2NS42MjE2IDMzLjgxODUgNjUuMzU5NSAzMy43MDkzIDY0Ljk3NjEgMzMuNzA5M0M2NC41MDMgMzMuNzA5MyA2NC4xMDY2IDMzLjg1NjYgNjMuNzc4NSAzNC4xNDkyQzYzLjQ1MjkgMzQuNDQ0MSA2My4yMzcgMzQuODUzNSA2My4xMzU1IDM1LjM3NDdMNjIuMzExOCAzOS41MjE4SDYwLjQ3MjJMNjEuOTE0NiAzMi4zMDA2WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik01My40NDUyIDM4Ljk3QzUyLjkyNjUgMzguNDc0MiA1Mi42NjQ2IDM3LjgwNTUgNTIuNjYyMSAzNi45NTYzQzUyLjY2MjEgMzYuODExMiA1Mi42NzA5IDM2LjY0NjEgNTIuNjkwMiAzNi40NjU0QzUyLjcwOTMgMzYuMjgyMyA1Mi43MzM1IDM2LjEwNDMgNTIuNzY3NyAzNS45MzkyQzUzLjAwMjggMzQuNzY3IDUzLjUwMzggMzMuODM2NCA1NC4yNzUzIDMzLjE0OThDNTUuMDQ1NiAzMi40NjA4IDU1Ljk3NSAzMi4xMTQ5IDU3LjA2MzEgMzIuMTE0OUM1Ny45NTQxIDMyLjExNDkgNTguNjYwOCAzMi4zNjQyIDU5LjE3ODQgMzIuODYyNUM1OS42OTU2IDMzLjM2MzUgNTkuOTU0OCAzNC4wMzk3IDU5Ljk1NDggMzQuODk5NEM1OS45NTQ4IDM1LjA0NjYgNTkuOTQzNiAzNS4yMTcgNTkuOTI0NCAzNS40MDAxQzU5LjkwMTUgMzUuNTg1NyA1OS44NzM4IDM1Ljc2MzcgNTkuODQxNiAzNS45MzkyQzU5LjYxMTggMzcuMDkzNSA1OS4xMTI0IDM4LjAxNCA1OC4zNDA3IDM4LjY4NzlDNTcuNTY5IDM5LjM2NjggNTYuNjQyMyAzOS43MDQ3IDU1LjU2MTggMzkuNzA0N0M1NC42NjY5IDM5LjcwNDcgNTMuOTYyNiAzOS40NjA3IDUzLjQ0NTIgMzguOTdaTTU3LjIyNDUgMzcuNTQxQzU3LjU3NDEgMzcuMTYyMiA1Ny44MjQ1IDM2LjU4NzQgNTcuOTc3MSAzNS44MjIyQzU4IDM1LjcwMjggNTguMDIwMiAzNS41NzgxIDU4LjAzMjggMzUuNDUzNUM1OC4wNDU1IDM1LjMzMTQgNTguMDUwNiAzNS4yMTcgNTguMDUwNiAzNS4xMTI4QzU4LjA1MDYgMzQuNjY3OCA1Ny45Mzc0IDM0LjMyMjEgNTcuNzA5OSAzNC4wNzc5QzU3LjQ4MzggMzMuODMxMiA1Ny4xNjIzIDMzLjcwOTMgNTYuNzQ2NyAzMy43MDkzQzU2LjE5NzMgMzMuNzA5MyA1NS43NDk5IDMzLjkwMjMgNTUuMzk5MyAzNC4yODg5QzU1LjA0NTYgMzQuNjc1NSA1NC43OTUyIDM1LjI2MDMgNTQuNjM3NSAzNi4wMzgzQzU0LjYxNiAzNi4xNTc4IDU0LjU5ODIgMzYuMjc3NCA1NC41ODE4IDM2LjM5NDNDNTQuNTY5MSAzNi41MTM4IDU0LjU2NTMgMzYuNjI1NyA1NC41Njc3IDM2LjcyNzNDNTQuNTY3NyAzNy4xNjk4IDU0LjY4MSAzNy41MTA2IDU0LjkwODQgMzcuNzUyQzU1LjEzNDUgMzcuOTkzNyA1NS40NTQ3IDM4LjExMzEgNTUuODc1OCAzOC4xMTMxQzU2LjQyNzUgMzguMTEzMSA1Ni44NzQ5IDM3LjkyMjQgNTcuMjI0NSAzNy41NDFaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTQ5LjcwNjUgMzIuMzAzMUg1MS42ODk3TDUwLjEzNjIgMzkuNTE5M0g0OC4xNTdMNDkuNzA2NSAzMi4zMDMxWk01MC4zMzA4IDI5LjY3NDFINTIuMzMxNkw1MS45NTc5IDMxLjQyNTdINDkuOTU3Mkw1MC4zMzA4IDI5LjY3NDFaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTQxLjQwNDQgMzIuMzAwNkg0My4xOTI5TDQyLjk4ODQgMzMuMzQzMUw0My4yNDUgMzMuMDQ1NkM0My44MjQ4IDMyLjQyNTMgNDQuNTI5IDMyLjExNzUgNDUuMzYwMyAzMi4xMTc1QzQ2LjExMjkgMzIuMTE3NSA0Ni42NTU2IDMyLjMzNjMgNDYuOTk2NCAzMi43NzZDNDcuMzMxOCAzMy4yMTYgNDcuNDIzNCAzMy44MjM3IDQ3LjI2NDcgMzQuNjA0M0w0Ni4yNzk0IDM5LjUyMThINDQuNDQxM0w0NS4zMzExIDM1LjA2NDZDNDUuNDIyNyAzNC42MDQzIDQ1LjM5NzQgMzQuMjYxIDQ1LjI1NiAzNC4wMzk3QzQ1LjExNjQgMzMuODE4NSA0NC44NDkyIDMzLjcwOTMgNDQuNDY0MSAzMy43MDkzQzQzLjk5MTMgMzMuNzA5MyA0My41OTM0IDMzLjg1NjYgNDMuMjY5MiAzNC4xNDkyQzQyLjk0MzcgMzQuNDQ0MSA0Mi43MjkgMzQuODUzNSA0Mi42MjM1IDM1LjM3NDdMNDEuODAzNiAzOS41MjE4SDM5Ljk2MTdMNDEuNDA0NCAzMi4zMDA2WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0zOS4wNzIxIDM1LjQ4NEMzOC43OTI0IDM2Ljg1NDYgMzguMTQ0MSAzNy45MDcyIDM3LjEzODUgMzguNjU0OEMzNi4xNDIgMzkuMzg5NiAzNC44NTY3IDM5Ljc1ODIgMzMuMjgzMSAzOS43NTgyQzMxLjgwMjIgMzkuNzU4MiAzMC43MTY1IDM5LjM4MTkgMzAuMDIzNyAzOC42MjY3QzI5LjU0MzIgMzguMDkwMiAyOS4zMDQyIDM3LjQwODcgMjkuMzA0MiAzNi41ODQ5QzI5LjMwNDIgMzYuMjQ0MyAyOS4zNDUgMzUuODc4MSAyOS40MjYzIDM1LjQ4NEwzMS4xMDMgMjcuMzk4NEgzMy42MzUyTDMxLjk4MTQgMzUuMzkyNUMzMS45MzA1IDM1LjYxMzggMzEuOTEwMiAzNS44MTk3IDMxLjkxMjggMzYuMDA1M0MzMS45MTAyIDM2LjQxNDggMzIuMDExOCAzNi43NTAzIDMyLjIxNzcgMzcuMDEyMUMzMi41MTc3IDM3LjQwMTMgMzMuMDA0NiAzNy41OTQ0IDMzLjY4MjIgMzcuNTk0NEMzNC40NjEzIDM3LjU5NDQgMzUuMTAzMyAzNy40MDM4IDM1LjYwMTYgMzcuMDE5N0MzNi4xIDM2LjYzODQgMzYuNDI1NCAzNi4wOTY5IDM2LjU3MTUgMzUuMzkyNUwzOC4yMzA1IDI3LjM5ODRINDAuNzQ5OUwzOS4wNzIxIDM1LjQ4NFoiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo=',
-  'maestro':'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiB2aWV3Qm94PSIwIDAgMTIwIDgwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cmVjdCB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiByeD0iNCIgZmlsbD0id2hpdGUiLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik05Ny41Mjg4IDU0LjY1NjJWNTMuNzM4NEg5Ny4yODlMOTcuMDEzNyA1NC4zNjk4TDk2LjczNzggNTMuNzM4NEg5Ni40OThWNTQuNjU2Mkg5Ni42Njc1VjUzLjk2MzdMOTYuOTI1NyA1NC41NjA5SDk3LjEwMTFMOTcuMzYgNTMuOTYyNFY1NC42NTYySDk3LjUyODhaTTk2LjAxMTEgNTQuNjU2MlY1My44OTQ3SDk2LjMxOFY1My43Mzk3SDk1LjUzNjFWNTMuODk0N0g5NS44NDNWNTQuNjU2Mkg5Ni4wMTExWiIgZmlsbD0iIzAwQTJFNSIvPgo8cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTQ5LjY1MjEgNTguNTk1SDcwLjM0NzlWMjEuNDA0NEg0OS42NTIxVjU4LjU5NVoiIGZpbGw9IiM3Mzc1Q0YiLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik05OC4yNjc1IDQwLjAwMDNDOTguMjY3NSA1My4wNjMgODcuNjc5MSA2My42NTIgNzQuNjE3MSA2My42NTJDNjkuMDk5NiA2My42NTIgNjQuMDIyOSA2MS43NjI0IDYwIDU4LjU5NTZDNjUuNTAxMSA1NC4yNjQ2IDY5LjAzMzkgNDcuNTQ0OCA2OS4wMzM5IDQwLjAwMDNDNjkuMDMzOSAzMi40NTUyIDY1LjUwMTEgMjUuNzM1NCA2MCAyMS40MDQ0QzY0LjAyMjkgMTguMjM3NiA2OS4wOTk2IDE2LjM0OCA3NC42MTcxIDE2LjM0OEM4Ny42NzkxIDE2LjM0OCA5OC4yNjc1IDI2LjkzNyA5OC4yNjc1IDQwLjAwMDNaIiBmaWxsPSIjMDBBMkU1Ii8+CjxwYXRoIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1ydWxlPSJldmVub2RkIiBkPSJNNTAuOTY2IDQwLjAwMDNDNTAuOTY2IDMyLjQ1NTIgNTQuNDk4OCAyNS43MzU0IDU5Ljk5OTkgMjEuNDA0NEM1NS45NzcgMTguMjM3NiA1MC45MDAzIDE2LjM0OCA0NS4zODI4IDE2LjM0OEMzMi4zMjA4IDE2LjM0OCAyMS43MzI0IDI2LjkzNyAyMS43MzI0IDQwLjAwMDNDMjEuNzMyNCA1My4wNjMgMzIuMzIwOCA2My42NTIgNDUuMzgyOCA2My42NTJDNTAuOTAwMyA2My42NTIgNTUuOTc3IDYxLjc2MjQgNTkuOTk5OSA1OC41OTU2QzU0LjQ5ODggNTQuMjY0NiA1MC45NjYgNDcuNTQ0OCA1MC45NjYgNDAuMDAwM1oiIGZpbGw9IiNFQjAwMUIiLz4KPC9zdmc+Cg==',
-  'elo':'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiB2aWV3Qm94PSIwIDAgMTIwIDgwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cmVjdCB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiByeD0iNCIgZmlsbD0iYmxhY2siLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0yNy43MDggMzAuNUMyOC42OTUgMzAuMTY2NyAyOS43NTA4IDI5Ljk4NTcgMzAuODQ5NSAyOS45ODU3QzM1LjY0NDEgMjkuOTg1NyAzOS42NDM1IDMzLjQyNzQgNDAuNTYxIDM3Ljk5OTZMNDcuMzU1NCAzNi41OTk2QzQ1Ljc5NjQgMjguODI4OSAzOC45OTk2IDIyLjk3OTYgMzAuODQ5NSAyMi45Nzk2QzI4Ljk4MzUgMjIuOTc5NiAyNy4xODc0IDIzLjI4NjggMjUuNTEwNyAyMy44NTI3TDI3LjcwOCAzMC41WiIgZmlsbD0iI0ZGRjIwMCIvPgo8cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTE5LjY5MDkgNTIuNzQ4OUwyNC4yODQ2IDQ3LjUwMDVDMjIuMjM0MSA0NS42NjUzIDIwLjkzOTkgNDIuOTg2MSAyMC45Mzk5IDM5Ljk5OTZDMjAuOTM5OSAzNy4wMTU0IDIyLjIzMjkgMzQuMzM2MSAyNC4yODI4IDMyLjUwMjNMMTkuNjg2NyAyNy4yNTQ1QzE2LjIwMjUgMzAuMzcyNSAxNC4wMDY4IDM0LjkyNjkgMTQuMDA2OCAzOS45OTk2QzE0LjAwNjggNDUuMDc0OSAxNi4yMDU3IDQ5LjYzMSAxOS42OTA5IDUyLjc0ODlaIiBmaWxsPSIjMDBBNEUwIi8+CjxwYXRoIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1ydWxlPSJldmVub2RkIiBkPSJNNDAuNTU4MiA0Mi4wMDk5QzM5LjYzNzUgNDYuNTc4NCAzNS42NDAxIDUwLjAxMzcgMzAuODQ5MSA1MC4wMTM3QzI5Ljc0OTggNTAuMDEzNyAyOC42OTE4IDQ5LjgzMjMgMjcuNzA0NiA0OS40OTgxTDI1LjUwMzkgNTYuMTQ0N0MyNy4xODM0IDU2LjcxMyAyOC45ODAzIDU3LjAyMDQgMzAuODQ5MSA1Ny4wMjA0QzM4Ljk5MjggNTcuMDIwNCA0NS43ODU5IDUxLjE3ODcgNDcuMzUxMyA0My40MTZMNDAuNTU4MiA0Mi4wMDk5WiIgZmlsbD0iI0VGNDEyMyIvPgo8cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTY5Ljk3MDYgNDYuNzA2QzY4Ljg0ODYgNDcuODA4OSA2Ny4zMjcyIDQ4LjQ4MDkgNjUuNjQ3MyA0OC40NTY4QzY0LjQ5NTkgNDguNDM3MyA2My40MjkgNDguMDg4OSA2Mi41MjE5IDQ3LjUwODRMNjAuMjczMSA1MS4xMjk3QzYxLjgxMzIgNTIuMTEzNiA2My42MjkyIDUyLjY5NTcgNjUuNTg2OSA1Mi43MjY0QzY4LjQzNjcgNTIuNzY5MiA3MS4wMzQxIDUxLjYzNzggNzIuOTIyNyA0OS43Njk3TDY5Ljk3MDYgNDYuNzA2Wk01OS43Mjg0IDQyLjk4MjRDNTkuNzAyOSA0Mi43NDE4IDU5LjY4NDkgNDIuNDk1MSA1OS42OTE3IDQyLjI0NjFDNTkuNzQ1MSAzOC44NjcgNjIuNDk2NSAzNi4xNzA3IDY1LjgzNzUgMzYuMjI2N0M2Ny42NTYxIDM2LjI1MTMgNjkuMjcwOSAzNy4wOTI5IDcwLjM2MjUgMzguMzk1NUw1OS43Mjg0IDQyLjk4MjRaTTY1Ljg5ODggMzEuOTUyN0M2MC4yMjggMzEuODY0OCA1NS41NTQ2IDM2LjQ0MyA1NS40NjkgNDIuMTc4NEM1NS40MzU5IDQ0LjMyNzkgNTYuMDUwNSA0Ni4zMzc4IDU3LjEzMTggNDguMDA4NEw3NS43NDcyIDM5Ljk2NzZDNzQuNjk5OCAzNS40MzYgNzAuNzExOSAzMi4wMjkgNjUuODk4OCAzMS45NTI3Wk04MS41ODY3IDI3LjI3MjRWNDcuMzI4MUw4NS4wMzA0IDQ4Ljc3MDdMODMuNDAxMyA1Mi43MjY0TDc5Ljk5NTggNTEuMjk1OEM3OS4yMzAxIDUwLjk2MDIgNzguNzExOSA1MC40NDg5IDc4LjMxODEgNDkuODcxNEM3Ny45NDAxIDQ5LjI4MDYgNzcuNjU5OCA0OC40NzMgNzcuNjU5OCA0Ny4zODMzVjI3LjI3MjRIODEuNTg2N1pNOTQuMDAxMSAzNi41NDA1Qzk0LjYwMzQgMzYuMzM2MiA5NS4yNDgxIDM2LjIyNjYgOTUuOTE4OCAzNi4yMjY2Qzk4Ljg0NTMgMzYuMjI2NiAxMDEuMjg2IDM4LjMyNjggMTAxLjg0NSA0MS4xMTgzTDEwNS45OTMgNDAuMjYzN0MxMDUuMDQyIDM1LjUyMDUgMTAwLjg5MyAzMS45NDk5IDk1LjkxODggMzEuOTQ5OUM5NC43NzkxIDMxLjk0OTkgOTMuNjgzOCAzMi4xMzc0IDkyLjY2MTEgMzIuNDgyNUw5NC4wMDExIDM2LjU0MDVaTTg5LjEwODQgNTAuMTJMOTEuOTExMiA0Ni45MTY4QzkwLjY1OTQgNDUuNzk2OCA4OS44NzEyIDQ0LjE2MSA4OS44NzEyIDQyLjMzNzhDODkuODcxMiA0MC41MTY0IDkwLjY1OTQgMzguODgxNCA5MS45MSAzNy43NjIyTDg5LjEwNTIgMzQuNTU5MUM4Ni45Nzg4IDM2LjQ2MjMgODUuNjM5MSAzOS4yNDMyIDg1LjYzOTEgNDIuMzM3OEM4NS42MzkxIDQ1LjQzNjMgODYuOTc5OCA0OC4yMTYyIDg5LjEwODQgNTAuMTJaTTEwMS44NDUgNDMuNTY1NEMxMDEuMjgzIDQ2LjM1MjggOTguODQyNiA0OC40NTEyIDk1LjkxODcgNDguNDUxMkM5NS4yNDc1IDQ4LjQ1MTIgOTQuNjAyNCA0OC4zMzk4IDkzLjk5OTEgNDguMTM2MUw5Mi42NTYgNTIuMTkyNkM5My42ODE1IDUyLjUzOTQgOTQuNzc4MSA1Mi43Mjc1IDk1LjkxODcgNTIuNzI3NUMxMDAuODg4IDUyLjcyNzUgMTA1LjAzNiA0OS4xNjE3IDEwNS45OTIgNDQuNDIzNkwxMDEuODQ1IDQzLjU2NTRaIiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K',
-  'hipercard':'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiB2aWV3Qm94PSIwIDAgMTIwIDgwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cmVjdCB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiByeD0iNCIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTkwLjIxNjUgNjAuNTUyNEM5NC45NzAzIDYwLjU1MjQgOTkuMTIxMiA1OS4wOTAzIDEwMC4wNzYgNTQuMzg4OUMxMDEuMDMgNDkuNjg3NSAxMDcuMjQyIDE5LjQ1MDEgMTA3LjI0MiAxOS40NTAxSDI5Ljc2NzJDMjUuMDA5NSAxOS40NTAxIDIwLjg0MzMgMjEuMTQzOSAxOS45MDYxIDI1LjYxMUMxOC45Njc2IDMwLjA3NjggMTIuNzU5MyA2MC41NDYgMTIuNzU5MyA2MC41NDZMOTAuMjE2NSA2MC41NTI0WiIgZmlsbD0iI0IzMTMxQiIvPgo8cGF0aCBkPSJNOTAuMjE2MyA2MC44OTMxVjYwLjU1MjVWNjAuMjA5NEM5NC45MjkyIDYwLjE4ODkgOTguODI3OCA1OC43OTg0IDk5LjczOTQgNTQuMzE4NkMxMDAuNjI5IDQ5Ljk0MTIgMTA2LjA3NiAyMy40MjMxIDEwNi44MjMgMTkuNzkyMUgyOS43NjdDMjUuMDY1NiAxOS44MDYxIDIxLjEzMTIgMjEuNDM3MyAyMC4yNDAxIDI1LjY4MDNDMTkuNzcxNSAyNy45MTE5IDE3Ljk4NDEgMzYuNjQ1IDE2LjMxMzMgNDQuODIxMUMxNC44NzI5IDUxLjg4MDkgMTMuNTIwOSA1OC41MTU1IDEzLjE3NjUgNjAuMjAzTDkwLjIxNjMgNjAuMjA5NFY2MC41NTI1TDkwLjIxNSA2MC44OTMxTDEyLjMzNzkgNjAuODg1NEwxMi40MjI0IDYwLjQ3NTdDMTIuNDIyNCA2MC40NzU3IDE4LjYyOTQgMzAuMDA3OCAxOS41NjkyIDI1LjUzOTRDMjAuNTU1IDIwLjg1MjIgMjQuOTUzIDE5LjA5MDQgMjkuNzY3IDE5LjEwNThIMTA3LjY2MkwxMDcuNTc4IDE5LjUxODFDMTA3LjU3OCAxOS41MzM0IDEwNi4wMjYgMjcuMDc1OCAxMDQuMzUyIDM1LjIyNTFDMTAyLjY3OSA0My4zNzE4IDEwMC44ODggNTIuMTA2MiAxMDAuNDEzIDU0LjQ1NTZDOTkuNDIxOCA1OS4zNTAzIDk1LjA2NzQgNjAuODk0NCA5MC4zMDg1IDYwLjg5NDRDOTAuMjc5IDYwLjg5NDQgOTAuMjQ3IDYwLjg5NDQgOTAuMjE2MyA2MC44OTMxWiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTIxLjEwNjIgNDUuNjk4NkwyMS43NTAyIDQyLjQxMzNMMjIuNDAzMiAzOC45NDYyTDIzLjQ4NjMgMzIuMTczMkwyMy41MzI0IDMxLjk2MzNIMjUuODUyNEMyNS44MjggMzIuMDY4MyAyNS44MjggMzIuMTMyMyAyNS44MDc2IDMyLjE3MzJDMjUuNzI0MyAzMi41NzAxIDI1LjU1NzkgMzMuNDQ4NCAyNS4zMjc0IDM0LjgwNDNDMjUuMjAyIDM1LjUzNjcgMjUuMDMzIDM2LjM3MjcgMjQuODQ2IDM3LjMxNUwyNC44MDUxIDM3LjYwOTVIMjQuOTkzM0wyOC4wMjEyIDM3LjY0NzlMMzAuOTY5OCAzNy42MDk1SDMxLjIwMjlMMzEuMjQyNSAzNy4zMTVDMzEuMzY4IDM2LjQ5OTUgMzEuNDkzNSAzNS42NDE2IDMxLjY1OTkgMzQuNzIxMUMzMS45OTY3IDMyLjg4MjUgMzIuMDE3MSAzMi43NTU4IDMyLjEyMjEgMzEuOTY0NkgzNC40ODA1QzM0LjQ0MzQgMzIuMTExOCAzNC40NDM0IDMyLjExMTggMzQuNDE5IDMyLjE3NDVDMzQuMzc2OCAzMi4zODMyIDM0LjE3MDcgMzMuNDcwMiAzMy44MTM0IDM1LjQ1NDdMMzMuMTY2OSAzOC45NDYyTDMyLjU4MDUgNDIuNDE0NkMzMi4yNDc2IDQ0LjM4MTIgMzIuMDc4NiA0NS40NjgyIDMyLjA0MTUgNDUuNjk4NkMzMi4wNDE1IDQ1Ljc3OCAzMi4wNDE1IDQ1Ljc3OCAzMi4wMTcxIDQ1LjkwNDdIMjkuNjU0OUwyOS42OTk4IDQ1LjY5ODZDMjkuNzU3NCA0NS40NDY0IDI5Ljg2MzYgNDQuODQwOCAzMC4wMjg4IDQzLjg3OTNDMzAuMDkxNSA0My41MTk1IDMwLjIxODMgNDIuOTE3NyAzMC4zODQ3IDQxLjk5NTlMMzAuNzIwMiA0MC4xNTYxQzMwLjgyNTIgMzkuNTk0IDMwLjg4NzkgMzkuMjU2IDMwLjkwNzEgMzkuMTcyOEMzMC45MDcxIDM5LjEzMDUgMzAuOTI4OSAzOS4wNzE2IDMwLjk0ODEgMzguOTY1NEgzMC42Nzc5QzMwLjI4MjMgMzguOTQ2MiAyOC44NTk5IDM4Ljk0NjIgMjcuNTAxNCAzOC45NDYyQzI2LjE0MyAzOC45NDYyIDI1LjI0MDQgMzguOTQ2MiAyNC44MjMgMzguOTY0MUgyNC41NTQxQzI0LjUxMTkgMzkuMzY0OCAyNC40OTE0IDM5LjQ0NDIgMjQuMzY1OSA0MC4xNTYxQzI0LjI2MDkgNDAuNjk4OSAyNC4xNTk4IDQxLjMyNjMgMjQuMDUzNSA0MS45OTQ2QzIzLjg4NzEgNDIuOTgwNSAyMy43Nzk1IDQzLjYwNTMgMjMuNzM4NiA0My44NzhDMjMuNTcyMSA0NC44ODE4IDIzLjQ2NTggNDUuNDg0OCAyMy40MjQ5IDQ1LjY5ODZDMjMuNDI0OSA0NS43MzU3IDIzLjQyNDkgNDUuODIxNSAyMy40MDU3IDQ1LjkwMzVIMjEuMDY0TDIxLjEwNjIgNDUuNjk4NloiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0zNC4xMjY4IDQ1LjcwNzRMMzQuNTY2IDQzLjQ2ODFMMzUuMDQ2MSA0MC45NTIzTDM1LjQ0NTYgMzguNTE0NUMzNS42NDY2IDM3LjI3MzkgMzUuNzY1NiAzNi40OTY4IDM1LjgwNCAzNi4xNzY3QzM1LjgwNCAzNi4xMzU3IDM1LjgwNCAzNi4wNzU1IDM1LjgyNDUgMzUuOTc2OUgzNy44Nzk1QzM3Ljg2MjggMzYuMDc1NSAzNy44NDEgMzYuMTM1NyAzNy44MjQ0IDM2LjE3NjdDMzcuNzQzNyAzNi40OTY4IDM3LjYwNDIgMzcuMjczOSAzNy4zNjA5IDM4LjUxNDVMMzYuOTAyNiA0MC45NTIzTDM2LjQ4NjUgNDMuNDY4MUMzNi4zMDIxIDQ0LjY0NiAzNi4xODE3IDQ1LjQwNTMgMzYuMTQwOCA0NS43MDc0QzM2LjE0MDggNDUuNzQ1OCAzNi4xNDA4IDQ1LjgyNjUgMzYuMTI1NCA0NS45MDQ2SDM0LjA2NTRMMzQuMTI2OCA0NS43MDc0Wk0zNi4yMjY2IDMzLjM5NzFDMzYuMjI2NiAzMi4zODA1IDM2LjcyNDYgMzEuNzc4NyAzNy42MDQyIDMxLjc3ODdDMzguMjAzNCAzMS43Nzg3IDM4LjUwMyAzMi4wNjA0IDM4LjUwMyAzMi42MzkxQzM4LjUwMyAzMy42MzkxIDM3Ljk4MTkgMzQuMjU3NSAzNy4xMjI4IDM0LjI1NzVDMzYuNjIzNSAzNC4yNTc1IDM2LjMyMzkgMzQuMDU1MiAzNi4yNDE5IDMzLjY3ODhDMzYuMjI2NiAzMy41NzYzIDM2LjIyNjYgMzMuNDk2OSAzNi4yMjY2IDMzLjM5NzFaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMzcuMjI0MSA1MC4xMTkxQzM3LjMyMTQgNDkuNjgxMyAzNy41NjIxIDQ4LjQ0MzIgMzcuOTQyNCA0Ni4zNjY1TDM4LjYwMDUgNDIuNzg4TDM5LjE4MDQgMzkuMzUyOUMzOS40NjA4IDM3LjY3NDQgMzkuNjIyMiAzNi42MTU1IDM5LjY4MjMgMzYuMTc2NEMzOS42ODIzIDM2LjA5NTcgMzkuNjgyMyAzNi4wOTU3IDM5LjcwMDMgMzUuOTc1NEg0MS40ODEyTDQxLjQzNzcgMzYuMTc2NEw0MS4zNDE2IDM2LjczMkw0MS4zMDE5IDM2Ljk1MzVDNDIuMjYwOSAzNi4xMTQ5IDQzLjIzOTEgMzUuNzU3NyA0NC41NTY1IDM1Ljc1NzdDNDYuNzkzMyAzNS43NTc3IDQ3Ljk5MjkgMzYuOTc0IDQ3Ljk5MjkgMzkuMjUzQzQ3Ljk5MjkgNDAuNTExNiA0Ny42NTM2IDQxLjkzMDIgNDcuMDcyNCA0My4xOUM0Ni4xMzAxIDQ1LjE2NjggNDQuNTc1NyA0Ni4xNjY4IDQyLjQ3ODYgNDYuMTY2OEM0MS4xNTczIDQ2LjE2NjggNDAuNTU4MSA0NS44MDU3IDQwLjA4MDUgNDQuNzY4Nkw0MC4wNDA4IDQ1LjAwNTVMMzkuNTgxMiA0Ny45NjMxQzM5LjQyMTEgNDguOTYzIDM5LjI5NjkgNDkuNjgxMyAzOS4yNTk4IDUwLjEwMTJDMzkuMjU5OCA1MC4xMTkxIDM5LjI1OTggNTAuMTk5OCAzOS4yNDMyIDUwLjM0MDZIMzcuMTYyNkMzNy4yMDExIDUwLjE5OTggMzcuMjAxMSA1MC4xOTk4IDM3LjIyNDEgNTAuMTE5MVpNNDEuMjE2MiAzOC40MTA1TDQwLjU1ODEgNDIuMTI4NkM0MC41MTcxIDQyLjM4ODUgNDAuNDggNDIuNjI2NyA0MC40OCA0Mi44OTA0QzQwLjQ4IDQ0LjE4NzQgNDEuMTQwNiA0NC44MzAxIDQyLjQzNjMgNDQuODMwMUM0My4yOTY3IDQ0LjgzMDEgNDMuOTk1NyA0NC41MjU0IDQ0LjUxNTYgNDMuOTQ2N0M0NS4zMzUgNDMuMDA5NSA0NS44OTQ1IDQxLjE3MjIgNDUuODk0NSAzOS40OTM3QzQ1Ljg5NDUgMzcuODc0MSA0NS4xNzYyIDM3LjA3MjYgNDMuNjE2OCAzNy4wNzI2QzQyLjY3NyAzNy4wNzI2IDQxLjg5NzMgMzcuNDM0OSA0MS4yNzYzIDM4LjExMjJMNDEuMjE2MiAzOC40MTA1WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTUyLjU0NTIgNDYuMTI0MkM0OS44NTI3IDQ2LjEyNDIgNDguNTI4OCA0NC45Njk0IDQ4LjUyODggNDIuNTY4OEM0OC41Mjg4IDQxLjI0ODcgNDguODcwNiAzOS43NzEyIDQ5LjQ1MDYgMzguNTM0NUM1MC4zMjg5IDM2LjY3NTQgNTEuOTcwMyAzNS43NTc0IDU0LjM4NSAzNS43NTc0QzU2LjY4MTkgMzUuNzU3NCA1Ny44MjUzIDM2LjYzMzIgNTcuODI1MyAzOC4zNzMxQzU3LjgyNTMgMzguODcxMiA1Ny43MDIzIDM5LjY1MzUgNTcuNTAzOSA0MC41NDk3TDU3LjI4MzcgNDAuNTI5MkM1Ni45MjUyIDQwLjUxMTMgNTUuODAzNiA0MC41MTEzIDUzLjkyNTQgNDAuNTExM0M1Mi4zMjc1IDQwLjUxMTMgNTEuMzUwNiA0MC41MTEzIDUwLjk3MTcgNDAuNTI5Mkw1MC43NjY4IDQwLjU0OTdDNTAuNTg4OCA0MS40NDg1IDUwLjU3MjIgNDEuNjcxMiA1MC41NzIyIDQyLjMxMDFDNTAuNTcyMiA0My45MTA1IDUxLjQ4NzYgNDQuNzY4NCA1My4yMDcxIDQ0Ljc2ODRDNTQuMzI4NyA0NC43Njg0IDU1LjQwNDIgNDQuNTQ5NCA1Ni42MDY0IDQ0LjAyODNMNTYuMzA0MiA0NS42MjYyQzU1LjE0NTUgNDUuOTQ2MyA1My43ODQ1IDQ2LjEyNDIgNTIuNTQ1MiA0Ni4xMjQyWk01MS4yNDgyIDM5LjM5MUM1MS40Njg0IDM5LjQxMjggNTIuMjA4NSAzOS40MTI4IDUzLjQ0NzggMzkuNDEyOEg1My43NjY2QzU0LjY2NTQgMzkuNDEyOCA1NS4yODUxIDM5LjQxMjggNTUuNjQzNiAzOS4zOTFINTUuODI1NEw1NS44NjM4IDM5LjEzMTFDNTUuOTAzNSAzOC44OTI5IDU1LjkyNTIgMzguNjcxNCA1NS45MjUyIDM4LjQ3NDNDNTUuOTI1MiAzNy40OTM1IDU1LjI2MzMgMzcuMDE2IDUzLjk4NTYgMzcuMDE2QzUyLjM2NTkgMzcuMDE2IDUxLjQ0NjcgMzcuNzMzIDUxLjAyOCAzOS4zOTFINTEuMjQ4MloiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik01OC4xMjA0IDQ1LjcwNzRMNTguNTYyMSA0My40NjgxTDU5LjA0MDkgNDAuOTUyM0w1OS40NDA0IDM4LjUxNDVDNTkuNjQwMSAzNy4yNzM5IDU5Ljc1OTIgMzYuNDk2OCA1OS44MDAyIDM2LjE3NjdDNTkuODAwMiAzNi4xMzU3IDU5LjgyMDYgMzYuMDc1NSA1OS44MjA2IDM1Ljk3NjlINjEuNjE2OUw2MS41Nzg1IDM2LjE3NjdMNjEuMzQzIDM3LjQzNTJMNjEuMjc4OSAzNy43MTMxQzYxLjYxNjkgMzcuMTc2NiA2MS43Mzg2IDM3LjAzMzIgNjEuOTk1OSAzNi43MzIzQzYyLjU2MDUgMzYuMDk2IDYzLjI5OCAzNS43NTU0IDY0LjA3NjUgMzUuNzU1NEM2NC40Nzg1IDM1Ljc1NTQgNjQuODE3OCAzNS44MzYxIDY1LjE5NDIgMzYuMDE1M0w2NC45MzY4IDM3LjQ1NDRDNjQuNDk2NCAzNy4zMTQ5IDY0LjEzNjYgMzcuMjU3MyA2My43NTc2IDM3LjI1NzNDNjIuNTYwNSAzNy4yNTczIDYxLjQ5OTIgMzguMzM1MyA2MS4wNzc5IDM5Ljk5MDhDNjAuOTIxNyA0MC42MTE3IDYwLjc3NyA0MS4zMzEzIDYwLjY0MjYgNDIuMTcxMkM2MC4yNDE5IDQ0LjY2NzggNjAuMTk4MyA0NC44NjYyIDYwLjEyMDIgNDUuOTA0Nkg1OC4wODJMNTguMTIwNCA0NS43MDc0WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTcyLjM4MjggMzcuNTMzM0M3MS41NDI5IDM3LjIzNSA3MC42NDQxIDM3LjA3MjQgNjkuODIyMiAzNy4wNzI0QzY4Ljg0NTMgMzcuMDcyNCA2OC4xMDE0IDM3LjMxNDQgNjcuNjA1OSAzNy43OTMyQzY2Ljc4NjUgMzguNTcyOSA2Ni4xNDc2IDQwLjUxMTMgNjYuMTQ3NiA0Mi4yNDg3QzY2LjE0NzYgNDMuOTQ5IDY2Ljg4ODkgNDQuNzY4NCA2OC40MDc0IDQ0Ljc2ODRDNjkuMzA2MiA0NC43Njg0IDcwLjQ2NDkgNDQuNDg4IDcxLjI2MTIgNDQuMDg4Nkw3MC45ODA5IDQ1LjYwNDVDNjkuOTYzIDQ1Ljk0NjMgNjguODg2MiA0Ni4xMjQzIDY3Ljc4NzcgNDYuMTI0M0M2Ni4yMjU3IDQ2LjEyNDMgNjUuMzY3OSA0NS43NjMyIDY0LjcwNzMgNDQuODY3QzY0LjI2ODEgNDQuMjI4MSA2NC4wODg5IDQzLjU2ODcgNjQuMDg4OSA0Mi41MDk5QzY0LjA4ODkgNDEuMTMxIDY0LjQyODEgMzkuNjkzMiA2NS4wNjgzIDM4LjQzMjFDNjUuMzUgMzcuODUyMSA2NS43NDY5IDM3LjMzMzYgNjYuMjQ3NSAzNi44OTMxQzY3LjEyNzEgMzYuMDk1NSA2OC4yNDYxIDM1Ljc1NDkgNzAuMDY0MSAzNS43NTQ5QzcwLjcwMyAzNS43NTQ5IDcxLjM4MDMgMzUuNzk1OSA3Mi40NjA5IDM1Ljg5NDVMNzIuNjYwNiAzNS45MTM3TDcyLjM4MjggMzcuNTMzM1oiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik03NS4zNzg3IDQ2LjEyNDJDNzMuMzU5NyA0Ni4xMjQyIDcyLjQwMzMgNDUuMjg0MyA3Mi40MDMzIDQzLjUyOUM3Mi40MDMzIDQwLjkyOTkgNzQuMjM5MyAzOS40MzQ1IDc3LjQxNyAzOS40MzQ1Qzc3LjkxNTEgMzkuNDM0NSA3OC44OTU4IDM5LjQ3MTYgNzkuNTUyNiAzOS41MTI2TDc5LjU5NjEgMzkuMjkzN0M3OS43MzQ0IDM4LjU3MjkgNzkuNzM0NCAzOC41MTQgNzkuNzM0NCAzOC4yNzMzQzc5LjczNDQgMzcuNDc0MyA3OS4wNzUgMzcuMDcyMyA3Ny43MTUzIDM3LjA3MjNDNzYuNjc5NiAzNy4wNzIzIDc1LjY4MDkgMzcuMjM0OSA3NC4zNzg4IDM3LjU5Nkw3NC43ODA4IDM1Ljk1NDZDNzQuODU4OSAzNS45NzUxIDc0LjkxOTEgMzUuOTc1MSA3NC45NTg4IDM1Ljk3NTFDNzUuMjc2MyAzNS45NzUxIDc1Ljc3OTUgMzUuOTM1NCA3Ni40NzczIDM1Ljg1NDdDNzcuMDc2NSAzNS43OTU4IDc3LjY3NTcgMzUuNzU3NCA3OC4yMzM5IDM1Ljc1NzRDODAuNjExNCAzNS43NTc0IDgxLjY3MjggMzYuMzc3MSA4MS42NzI4IDM3Ljc1NDdDODEuNjcyOCAzOC4xMTE5IDgxLjYxMzkgMzguNTE0IDgxLjQ1MjYgMzkuMzkxTDgxLjEzMjUgNDEuMjEwM0M4MC43NzY2IDQzLjE1IDgwLjU3NTYgNDQuNjg5IDgwLjU3NTYgNDUuNTg2NUM4MC41NzU2IDQ1LjY2NTkgODAuNTc1NiA0NS43ODQ5IDgwLjU5MjIgNDUuOTA0SDc4Ljc5NDdWNDUuNzQ2NUM3OC43OTQ3IDQ1LjQ2MzYgNzguODc2NiA0NC44NDUyIDc4Ljk1NDcgNDQuMjY1MkM3OC4wNTU5IDQ1LjU4NjUgNzYuOTk4NCA0Ni4xMjQyIDc1LjM3ODcgNDYuMTI0MlpNNzkuMTM1MiA0MC42NTIxQzc4LjUzMzUgNDAuNTkzMiA3OC4yMzM5IDQwLjU5MzIgNzcuODE2NSA0MC41OTMyQzc2LjU5NjMgNDAuNTkzMiA3NS44NzgxIDQwLjc0OTQgNzUuMzE5OSA0MS4xOTExQzc0LjcyMTkgNDEuNjUwOCA3NC4zNTk2IDQyLjQwNzQgNzQuMzU5NiA0My4yNDczQzc0LjM1OTYgNDQuMjQ5OCA3NC45NTg4IDQ0Ljc4NSA3Ni4wNTQ4IDQ0Ljc4NUM3Ny4xNTcxIDQ0Ljc4NSA3OC4xMzUzIDQ0LjE4NzEgNzguNjE4IDQzLjIxMDJDNzguOTE2MyA0Mi41Njg4IDc5LjEzNTIgNDEuNzg5IDc5LjMzMzcgNDAuNjdMNzkuMTM1MiA0MC42NTIxWiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTgyLjMxMyA0NS43MDc0TDgyLjc0ODMgNDMuNDY4MUw4My4yMzM2IDQwLjk1MjNMODMuNjMzIDM4LjUxNDVDODMuODMwMiAzNy4yNzM5IDgzLjk1MDYgMzYuNDk2OCA4My45ODc3IDM2LjE3NjdDODMuOTg3NyAzNi4xMzU3IDg0LjAwOTQgMzYuMDc1NSA4NC4wMDk0IDM1Ljk3NjlIODUuODA5Nkw4NS43NjQ4IDM2LjE3NjdMODUuNTI2NiAzNy40MzUyTDg1LjQ2NzcgMzcuNzEzMUM4NS44MDk2IDM3LjE3NjYgODUuOTI3NCAzNy4wMzMyIDg2LjE4NzMgMzYuNzMyM0M4Ni43NDkzIDM2LjA5NiA4Ny40ODU1IDM1Ljc1NTQgODguMjY2NSAzNS43NTU0Qzg4LjY2NDcgMzUuNzU1NCA4OS4wMDQgMzUuODM2MSA4OS4zODQzIDM2LjAxNTNMODkuMTI0MyAzNy40NTQ0Qzg4LjY4MzkgMzcuMzE0OSA4OC4zMjY3IDM3LjI1NzMgODcuOTQyNiAzNy4yNTczQzg2Ljc0OTMgMzcuMjU3MyA4NS42ODkyIDM4LjMzNTMgODUuMjcwNiAzOS45OTA4Qzg1LjExMDUgNDAuNjExNyA4NC45Njk3IDQxLjMzMTMgODQuODMwMSA0Mi4xNzEyQzg0LjQzMDcgNDQuNjY3OCA4NC4zODk3IDQ0Ljg2NjIgODQuMzA3OCA0NS45MDQ2SDgyLjI3Mkw4Mi4zMTMgNDUuNzA3NFoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik05MS43MTU3IDQ2LjEyNDFDODkuMzc3OCA0Ni4xMjQxIDg4LjI3OTMgNDUuMDQ2MSA4OC4yNzkzIDQyLjcxMDhDODguMjc5MyA0MS4zNTExIDg4LjYxODUgMzkuOTEwNyA4OS4yNTc0IDM4LjY3MTNDOTAuMjE2NCAzNi43NTYgOTEuODc3IDM1Ljc1NzMgOTQuMDcxNSAzNS43NTczQzk0LjY5MzcgMzUuNzU3MyA5NS4zMTIxIDM1LjgxNDkgOTUuODEwMSAzNS45MzUzQzk1Ljk3MjcgMzUuOTk0MiA5Ni4wNzM5IDM2LjAxNDcgOTYuMzcyMiAzNi4xMTQ1TDk2LjQxMDYgMzUuODczOEM5Ni40OTEzIDM1LjQ3NDQgOTYuNTkxMSAzNC44MzggOTYuNzI5NCAzMy45NTcyQzk2Ljg4ODIgMzIuOTk4MiA5Ni45OTA2IDMyLjI5OTIgOTcuMDQ5NSAzMS44NTYyTDk3LjA3MTMgMzEuNjk3NEg5OS4xMDgzTDk5LjA2OTkgMzEuODM4MkM5OC45MDcyIDMyLjYzOTcgOTguNjcxNyAzMy44MzgxIDk4LjM3MDggMzUuNDc0NEM5Ny44Mjc5IDM4LjM5NDggOTcuNjMwOCAzOS40OTMzIDk3LjMyOTkgNDEuMzA4OEM5Ni45Njg4IDQzLjUyODkgOTYuODEwMSA0NC44ODYgOTYuODEwMSA0NS43NjMxVjQ1LjkwMzlIOTQuOTUyM0M5NC45NzAyIDQ1LjU4NjQgOTQuOTcwMiA0NS40ODUyIDk1LjAzMyA0NS4wNjY2Qzk1LjA5MzIgNDQuNzQzOSA5NS4xMTQ5IDQ0LjYyODcgOTUuMTUzMyA0NC4yODY5Qzk0LjM1NyA0NS42NDY2IDkzLjQzNjQgNDYuMTI0MSA5MS43MTU3IDQ2LjEyNDFaTTk0LjE3MjYgMzcuMDU1NkM5My4yOTQzIDM3LjA1NTYgOTIuNTc4NiAzNy4yOTM3IDkyLjA1NDkgMzcuNzU0NkM5MS4wNTc2IDM4LjYzMjkgOTAuMzc3NyA0MC41MjkxIDkwLjM3NzcgNDIuNDg5M0M5MC4zNzc3IDQ0LjA2NzkgOTEuMDE3OSA0NC43ODQ5IDkyLjQxMzQgNDQuNzg0OUM5My40NTQzIDQ0Ljc4NDkgOTQuNDMzOCA0NC4xODcgOTQuODcwNCA0My4yNjUyQzk1LjA3NCA0Mi44Mjk4IDk1LjIzMTQgNDIuMjg4MyA5NS4zNzIzIDQxLjY3MTFDOTUuNjEzIDQwLjQ1MSA5NS45MzMxIDM4LjcxMjMgOTYuMTEyMyAzNy42NTIyTDk2LjEzMjggMzcuNDM0NkM5NS40MTQ1IDM3LjE3NTkgOTQuODQ5OSAzNy4wNTU2IDk0LjE3MjYgMzcuMDU1NloiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo='
-};
-  var src=icons[b]||icons[b.replace('_','')];
-  var img=src
-    ?'<img src="'+src+'" class="payment-img" alt="'+b+'" style="width:32px;height:20px;border-radius:4px;object-fit:contain;display:block;box-shadow:0 1px 3px rgba(0,0,0,0.2);">'
-    :'<div style="width:38px;height:24px;border-radius:5px;background:#1f1f2a;border:1px solid #343442;display:inline-flex;align-items:center;justify-content:center;color:#9ca3af;font-size:9px;font-weight:700;">CARD</div>';
-  var dots=last4?'<span style="color:#8b8b98;letter-spacing:2px;font-weight:700;font-size:12px;font-family:var(--mono);">••••</span>':'';
-  var num=last4?'<span style="color:#a1a1aa;font-weight:700;font-size:12px;font-family:var(--mono);">'+last4+'</span>':'';
-  return '<div style="display:inline-flex;align-items:center;gap:8px;white-space:nowrap;vertical-align:middle;">'+img+dots+num+'</div>';
-}
-
-function initApp(){
-  // Always verify session is still valid + get fresh permissions from server
-  var username=localStorage.getItem('subloop_username');
-  if(username){
-    api('/api/auth/check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:username})})
-    .then(function(r){
-      if(!r.valid){
-        // Account deleted or revoked — force logout
-        forceLogout();
-        return;
+  // Process dunning retries
+  if (dunningEnabled === 'true') {
+    const dunning = await subscriptions.dunningDue();
+    for (const sub of dunning) {
+      try {
+        const stripe = sub.stripe_secret_key ? new Stripe(sub.stripe_secret_key) : new Stripe(process.env.STRIPE_SECRET_KEY);
+        const pi = await stripe.paymentIntents.create({ amount: sub.amount, currency: sub.currency, customer: sub.stripe_customer_id, payment_method: sub.stripe_payment_method, off_session: true, confirm: true });
+        await payments.insert({ customer_id: sub.customer_id, subscription_id: sub.id, stripe_payment_intent: pi.id, amount: sub.amount, currency: sub.currency, status: 'succeeded', failure_reason: null });
+        await subscriptions.advanceBillingDate(sub.id, sub.interval_days);
+        await subscriptions.updateStatus(sub.id, 'active');
+        await activityLog.add('dunning_success', `Dunning retry succeeded for ${sub.email}`, sub.customer_id, sub.amount);
+        succeeded++;
+      } catch(err) {
+        const count = sub.dunning_count || 0;
+        if (count >= dunningDays.length) {
+          await subscriptions.updateStatus(sub.id, 'cancelled');
+          await activityLog.add('dunning_cancelled', `Subscription cancelled after ${count} dunning retries for ${sub.email}`, sub.customer_id);
+        } else {
+          const nextRetryDays = dunningDays[count] || 7;
+          const retryDate = new Date(); retryDate.setDate(retryDate.getDate()+nextRetryDays);
+          await subscriptions.markDunning(sub.id, retryDate.toISOString().split('T')[0]);
+          await activityLog.add('dunning_retry', `Dunning retry ${count+1} scheduled for ${sub.email}`, sub.customer_id);
+        }
+        failed++;
       }
-      // Refresh permissions from server (in case they changed)
-      localStorage.setItem('subloop_role', r.role||'admin');
-      localStorage.setItem('subloop_permissions', JSON.stringify(r.permissions||[]));
-      localStorage.removeItem('subloop_readonly');
-      if(r.role==='viewer') localStorage.setItem('subloop_readonly','1');
-      applyAccessControl();
-      loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();
-      api('/api/settings').then(s=>{appSettings=s;}).catch(()=>{});
-    })
-    .catch(function(){
-      // Network error - still apply cached permissions
-      applyAccessControl();
-      loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();
-      api('/api/settings').then(s=>{appSettings=s;}).catch(()=>{});
-    });
-  } else {
-    applyAccessControl();
-    loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();
-    api('/api/settings').then(s=>{appSettings=s;}).catch(()=>{});
-  }
-}
-
-function forceLogout(){
-  localStorage.removeItem('subloop_auth');
-  localStorage.removeItem('subloop_role');
-  localStorage.removeItem('subloop_permissions');
-  localStorage.removeItem('subloop_username');
-  localStorage.removeItem('subloop_readonly');
-  document.getElementById('app-screen').classList.add('hidden');
-  document.getElementById('login-screen').classList.remove('hidden');
-  document.getElementById('login-step-1').style.display='block';
-  document.getElementById('login-step-2').style.display='none';
-  document.getElementById('login-error').classList.remove('visible');
-  toast('Your access has been revoked. Please log in again.','error');
-}
-
-// Stats
-async function loadStats(){
-  try{
-    const s=await api('/api/stats');
-    document.getElementById('stat-mrr').textContent=fmt(s.mrr||0);
-    document.getElementById('stat-subs').textContent=s.active_subscriptions||0;
-    document.getElementById('stat-customers').textContent=s.total_customers||0;
-    document.getElementById('stat-new-customers').textContent='+'+(s.new_customers_30d||0)+' this month';
-    document.getElementById('stat-cards').textContent=s.saved_cards||0;
-    document.getElementById('stat-failed').textContent=s.failed_payments||0;
-    document.getElementById('stat-revenue').textContent=fmt(s.total_revenue||0);
-    document.getElementById('stat-revenue-sub').textContent=fmt(s.revenue_30d||0)+' this month';
-    document.getElementById('stat-churn').textContent=(s.churn_rate||0)+'%';
-    document.getElementById('stat-success').textContent=(s.payment_success_rate||100)+'%';
-    document.getElementById('stat-ltv').textContent=fmt(s.avg_ltv||0);
-    document.getElementById('server-status').textContent='● connected';
-    document.getElementById('server-status').style.color='var(--green)';
-
-  }catch(e){document.getElementById('server-status').textContent='● offline';document.getElementById('server-status').style.color='var(--red)';}
-}
-
-// Revenue
-function setRevPeriod(period){currentRevPeriod=period;document.querySelectorAll('.rev-tab').forEach(t=>t.classList.remove('active'));document.getElementById('rev-tab-'+period).classList.add('active');loadChart();}
-async function loadChart(){
-  try{
-    const data=await api('/api/revenue-chart');
-    const wrap=document.getElementById('revenue-summary');
-    const now=new Date();
-    let filtered;
-    if(currentRevPeriod==='today'){const t=now.toISOString().split('T')[0];filtered=data.filter(d=>d.day&&d.day.startsWith(t));}
-    else if(currentRevPeriod==='yesterday'){const y=new Date(now);y.setDate(y.getDate()-1);const ys=y.toISOString().split('T')[0];filtered=data.filter(d=>d.day&&d.day.startsWith(ys));}
-    else if(currentRevPeriod==='week'){const w=new Date(now);w.setDate(w.getDate()-7);filtered=data.filter(d=>d.day&&new Date(d.day)>=w);}
-    else{filtered=data;}
-    const total=filtered.reduce((s,d)=>s+(parseInt(d.revenue)||0),0);
-    const totalCount=filtered.reduce((s,d)=>s+(parseInt(d.count)||0),0);
-    const avg=totalCount>0?Math.round(total/totalCount):0;
-    const active=filtered.filter(d=>parseInt(d.revenue)>0);
-    const best=active.length?active.reduce((a,b)=>(parseInt(b.revenue)||0)>=(parseInt(a.revenue)||0)?b:a):null;
-    const bestDay=best?new Date(best.day).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}):'—';
-    const cards=[{label:'Total Revenue',value:fmt(total),sub:'period total'},{label:'Payments',value:totalCount,sub:'successful'},{label:'Avg Payment',value:fmt(avg),sub:'per transaction'},{label:'Best Day',value:fmt(parseInt(best?.revenue)||0),sub:bestDay}];
-    let html='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">';
-    cards.forEach(c=>{html+='<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;"><div style="font-size:10px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">'+c.label+'</div><div style="font-size:18px;font-weight:700;letter-spacing:-0.5px;margin-bottom:3px;">'+c.value+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+c.sub+'</div></div>';});
-    html+='</div>';
-    wrap.innerHTML=html;
-  }catch(e){console.error(e);}
-}
-
-// Upcoming
-async function loadUpcoming(){
-  try{
-    const subs=await api('/api/subscriptions');
-    const tb=document.getElementById('upcoming-table');
-    if(!subs.length){tb.innerHTML='<tr><td colspan="5" class="empty">No subscriptions yet.</td></tr>';return;}
-    tb.innerHTML=subs.slice(0,10).map(s=>'<tr><td><div class="customer-cell"><div class="avatar">'+initials(s.name)+'</div><div><div class="customer-name">'+(s.name||'—')+'</div><div class="customer-email">'+(s.email||'')+'</div></div></div></td><td class="mono">'+fmt(s.amount,s.currency)+'</td><td class="mono">'+fmtDate(s.next_billing_date)+'</td><td>'+badge(s.status)+'</td><td><div class="actions">'+(s.status==='active'?'<button class="btn btn-sm" onclick="chargeNow('+s.id+')">Charge</button>':'')+(s.status==='active'?'<button class="btn btn-sm" onclick="openPauseModal('+s.id+')">Pause</button>':'')+(s.status==='paused'?'<button class="btn btn-sm" onclick="setSubStatus('+s.id+',\'active\')">Resume</button>':'')+'</div></td></tr>').join('');
-  }catch(e){}
-}
-
-// Recent Payments
-async function loadRecentPayments(){
-  try{
-    const pmts=await api('/api/payments');
-    const tb=document.getElementById('recent-payments-table');
-    if(!pmts.length){tb.innerHTML='<tr><td colspan="4" class="empty">No payments yet</td></tr>';return;}
-    tb.innerHTML=pmts.slice(0,8).map(p=>'<tr><td><div class="customer-cell"><div class="avatar">'+initials(p.name)+'</div><div><div class="customer-name">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div></div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+badge(p.status)+'</td><td class="mono">'+fmtDate(p.created_at)+'</td></tr>').join('');
-  }catch(e){}
-}
-
-// Activity
-async function loadActivity(){
-  try{
-    var list=await api('/api/activity');
-    var wrap=document.getElementById('activity-list');
-    var isViewer=localStorage.getItem('subloop_readonly')==='1';
-    // Viewers only see payment-related events
-    if(isViewer){
-      list=list.filter(function(a){
-        return ['payment','failed','retry','charge','dunning','proration','resume'].includes(a.type);
-      });
     }
-    if(!list.length){
-      wrap.innerHTML='<div class="empty">'+(isViewer?'No payment activity yet':'No activity yet')+'</div>';
-      return;
-    }
-    var colors={payment:'var(--green)',failed:'var(--red)',charge:'var(--accent)',dunning:'var(--amber)',resume:'var(--blue)',retry:'var(--green)',proration:'var(--accent)'};
-    wrap.innerHTML=list.map(function(a){
-      return '<div class="activity-item"><div class="activity-dot" style="background:'+(colors[a.type]||'var(--muted)')+'"></div><div style="flex:1;"><div style="font-size:13px;">'+a.description+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;">'+fmtTime(a.created_at)+'</div></div></div>';
-    }).join('');
-  }catch(e){}
-}
-
-// Customers
-async function loadCustomers(){try{allCustomers=await api('/api/customers');renderCustomers(allCustomers);}catch(e){}}
-function renderCustomers(list){
-  const tb=document.getElementById('customers-table');
-  if(!list.length){tb.innerHTML='<tr><td colspan="7" class="empty">No customers yet</td></tr>';return;}
-  tb.innerHTML=list.map(c=>'<tr><td><div class="customer-cell"><div class="avatar">'+initials(c.name)+'</div><div><div class="customer-name">'+(c.name||'—')+'</div><div class="customer-email">'+(c.email||'')+'</div></div></div></td><td>'+cardBadge(c.card_brand,c.card_last4)+'</td><td style="font-size:12px;color:var(--muted);">'+(c.account_name||'—')+'</td><td>'+badge(c.status)+'</td><td style="font-size:12px;color:var(--muted);font-family:var(--mono);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(c.note||'—')+'</td><td class="mono">'+fmt(c.total_paid||0)+'</td><td><div class="actions"><button class="btn btn-sm" onclick="openNoteModal('+c.id+',\''+encodeURIComponent(c.note||'')+'\')">Note</button><button class="btn btn-sm" onclick="openPortal('+c.id+')">Card ↗</button>'+(c.status==='active'?'<button class="btn btn-sm btn-danger" onclick="setCustStatus('+c.id+',\'paused\')">Pause</button>':'')+(c.status==='paused'?'<button class="btn btn-sm" onclick="setCustStatus('+c.id+',\'active\')">Resume</button>':'')+'</div></td></tr>').join('');
-}
-function filterCustomers(){const q=document.getElementById('customer-search').value.toLowerCase();renderCustomers(allCustomers.filter(c=>(c.name||'').toLowerCase().includes(q)||(c.email||'').toLowerCase().includes(q)));}
-
-// Subscriptions
-async function loadSubscriptions(){try{allSubscriptions=await api('/api/subscriptions');renderSubscriptions(allSubscriptions);}catch(e){}}
-function renderSubscriptions(list){
-  var tb=document.getElementById('subscriptions-table');
-  if(!list.length){tb.innerHTML='<tr><td colspan="7" class="empty">No subscriptions yet</td></tr>';return;}
-  var rows=[];
-  list.forEach(function(s){
-    var sel=bulkMode&&selectedSubs.has(s.id);
-    var bg=sel?'background:var(--accent-glow);':'';
-    var cbDisplay=bulkMode?'table-cell':'none';
-    var cbChecked=sel?'checked':'';
-    var resumeBtn=s.status==='paused'?'<button class="btn btn-sm" onclick="resumeSub('+s.id+')">Resume</button>':'';
-    var chargeBtn=s.status==='active'?'<button class="btn btn-sm" onclick="chargeNow('+s.id+')">Charge</button>':'';
-    var pauseBtn=s.status==='active'?'<button class="btn btn-sm" onclick="openPauseModal('+s.id+')">Pause</button>':'';
-    var retryBtn=s.status==='dunning'?'<button class="btn btn-sm btn-success" onclick="chargeNow('+s.id+')">Retry now</button>':'';
-    var cancelBtn='<button class="btn btn-sm btn-danger" onclick="cancelSub('+s.id+')">Cancel</button>';
-    var editSpan='<button class="btn btn-sm" onclick="showEditAmount('+s.id+','+s.amount+')">Edit $</button><span id="edit-'+s.id+'"></span>';
-    var dunningBadge=s.dunning_count>0?'<br><span style="font-size:10px;color:var(--amber);">Retry #'+s.dunning_count+'</span>':'';
-    var resumeDate=s.resume_date?'<br><span style="font-size:10px;color:var(--blue);">Resumes '+fmtDate(s.resume_date)+'</span>':'';
-    rows.push(
-      '<tr id="sub-row-'+s.id+'" style="'+bg+'">'+
-      '<td style="width:36px;display:'+cbDisplay+';"><input type="checkbox" class="sub-checkbox" data-id="'+s.id+'" '+cbChecked+' onchange="toggleSubSelect('+s.id+')" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;"></td>'+
-      '<td><div class="customer-cell"><div class="avatar">'+initials(s.name)+'</div><div><div class="customer-name">'+(s.name||'—')+'</div><div class="customer-email">'+(s.email||'')+'</div></div></div></td>'+
-      '<td class="mono">'+fmt(s.amount,s.currency)+'</td>'+
-      '<td class="mono">'+(s.interval_days||30)+' days</td>'+
-      '<td class="mono">'+fmtDate(s.next_billing_date)+resumeDate+'</td>'+
-      '<td>'+badge(s.status)+dunningBadge+'</td>'+
-      '<td><div class="actions">'+chargeBtn+editSpan+pauseBtn+resumeBtn+retryBtn+cancelBtn+'</div></td>'+
-      '</tr>'
-    );
-  });
-  tb.innerHTML=rows.join('');
-}
-
-function filterSubscriptions(){const q=document.getElementById('sub-search').value.toLowerCase();renderSubscriptions(allSubscriptions.filter(s=>(s.name||'').toLowerCase().includes(q)||(s.email||'').toLowerCase().includes(q)));}
-
-// Bulk actions
-function enterBulkMode(){
-  bulkMode=true;
-  selectedSubs.clear();
-  document.getElementById('sub-default-btn').style.display='none';
-  document.getElementById('sub-bulk-btns').style.display='flex';
-  document.getElementById('bulk-cb-header').style.display='table-cell';
-  renderSubscriptions(allSubscriptions);
-  updateBulkBar();
-}
-function exitBulkMode(){
-  bulkMode=false;
-  selectedSubs.clear();
-  document.getElementById('sub-default-btn').style.display='block';
-  document.getElementById('sub-bulk-btns').style.display='none';
-  document.getElementById('bulk-cb-header').style.display='none';
-  var cb=document.getElementById('select-all-checkbox');
-  if(cb)cb.checked=false;
-  renderSubscriptions(allSubscriptions);
-}
-function toggleSubSelect(id){
-  if(selectedSubs.has(id))selectedSubs.delete(id);
-  else selectedSubs.add(id);
-  var row=document.getElementById('sub-row-'+id);
-  if(row)row.style.background=selectedSubs.has(id)?'var(--accent-glow)':'';
-  updateBulkBar();
-}
-function toggleSelectAll(){
-  var cbs=document.querySelectorAll('.sub-checkbox');
-  var allChecked=selectedSubs.size===cbs.length&&cbs.length>0;
-  selectedSubs.clear();
-  if(!allChecked){cbs.forEach(function(cb){selectedSubs.add(parseInt(cb.dataset.id));});}
-  cbs.forEach(function(cb){
-    cb.checked=!allChecked;
-    var row=document.getElementById('sub-row-'+cb.dataset.id);
-    if(row)row.style.background=(!allChecked)?'var(--accent-glow)':'';
-  });
-  updateBulkBar();
-}
-function updateBulkBar(){
-  var n=selectedSubs.size;
-  var countEl=document.getElementById('bulk-count');
-  if(countEl)countEl.textContent=n>0?n+' selected':'';
-  ['bulk-charge-btn','bulk-pause-btn','bulk-cancel-btn'].forEach(function(id){
-    var el=document.getElementById(id);
-    if(el){el.disabled=n===0;el.style.opacity=n===0?'0.4':'1';}
-  });
-  var cb=document.getElementById('select-all-checkbox');
-  var total=document.querySelectorAll('.sub-checkbox').length;
-  if(cb)cb.checked=n>0&&n===total;
-}
-function clearSelection(){
-  selectedSubs.clear();
-  document.querySelectorAll('.sub-checkbox').forEach(function(cb){cb.checked=false;});
-  document.querySelectorAll('[id^="sub-row-"]').forEach(function(row){row.style.background='';});
-  var cb=document.getElementById('select-all-checkbox');
-  if(cb)cb.checked=false;
-  updateBulkBar();
-}
-
-async function bulkCharge(){if(!selectedSubs.size)return;if(!confirm('Charge '+selectedSubs.size+' subscriptions now?'))return;toast('Charging '+selectedSubs.size+' subscriptions…');let ok=0,fail=0;for(const id of selectedSubs){try{const r=await api('/api/subscriptions/'+id+'/charge',{method:'POST'});if(r.success)ok++;else fail++;}catch(e){fail++;}}toast('✓ '+ok+' charged'+(fail?' — '+fail+' failed':''));exitBulkMode();loadStats();loadSubscriptions();}
-async function bulkPause(){if(!selectedSubs.size)return;if(!confirm('Pause '+selectedSubs.size+' subscriptions?'))return;for(const id of selectedSubs){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'paused'})}).catch(()=>{});}toast('✓ '+selectedSubs.size+' paused');exitBulkMode();loadSubscriptions();}
-async function bulkCancel(){if(!selectedSubs.size)return;if(!confirm('Cancel '+selectedSubs.size+' subscriptions? Cannot be undone.'))return;for(const id of selectedSubs){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'cancelled'})}).catch(()=>{});}toast('✓ '+selectedSubs.size+' cancelled');exitBulkMode();loadSubscriptions();loadStats();}
-
-function showEditAmount(subId,currentAmount){const container=document.getElementById('edit-'+subId);if(!container)return;const dollars=(currentAmount/100).toFixed(2);container.innerHTML='<div style="display:inline-flex;align-items:center;gap:4px;"><input type="number" id="new-amount-'+subId+'" value="'+dollars+'" step="0.01" min="0.50" style="width:75px;padding:3px 6px;font-size:12px;"><button class="btn btn-sm btn-primary" onclick="saveAmount('+subId+')">Save</button><button class="btn btn-sm" onclick="loadSubscriptions()">✕</button></div>';document.getElementById('new-amount-'+subId).focus();}
-async function saveAmount(subId){const input=document.getElementById('new-amount-'+subId);if(!input)return;const newCents=Math.round(parseFloat(input.value)*100);if(isNaN(newCents)||newCents<50){toast('Minimum $0.50','error');return;}const r=await api('/api/subscriptions/'+subId+'/amount',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:newCents})});if(r.success){toast('✓ Amount updated');loadSubscriptions();}else toast('Error','error');}
-
-// Payments
-async function loadPayments(){
-  try{
-    allPayments=await api('/api/payments');
-    renderPaymentSummary(allPayments);
-    filterPayments();
-  }catch(e){}
-}
-
-function renderPaymentSummary(list){
-  var total=list.filter(p=>p.status==='succeeded').reduce((s,p)=>s+(parseInt(p.amount)||0),0);
-  var success=list.filter(p=>p.status==='succeeded').length;
-  var failed=list.filter(p=>p.status==='failed').length;
-  var retryable=list.filter(p=>p.status==='failed').length;
-  var te=document.getElementById('pay-total'); if(te)te.textContent=fmt(total);
-  var se=document.getElementById('pay-success-count'); if(se)se.textContent=success;
-  var fe=document.getElementById('pay-fail-count'); if(fe)fe.textContent=failed;
-  var re=document.getElementById('pay-retry-count'); if(re)re.textContent=retryable;
-}
-
-function filterPayments(){
-  if(!allPayments) return;
-  var q=(document.getElementById('pay-search')?.value||'').toLowerCase();
-  var status=document.getElementById('pay-status-filter')?.value||'';
-  var dateFilter=document.getElementById('pay-date-filter')?.value||'';
-  var now=new Date();
-  var filtered=allPayments.filter(function(p){
-    var matchQ=!q||(p.name||'').toLowerCase().includes(q)||(p.email||'').toLowerCase().includes(q)||(p.stripe_payment_intent||'').toLowerCase().includes(q);
-    var matchS=!status||p.status===status;
-    var matchD=true;
-    if(dateFilter){
-      var d=new Date(p.created_at);
-      if(dateFilter==='today') matchD=d.toDateString()===now.toDateString();
-      else if(dateFilter==='yesterday'){var y=new Date(now);y.setDate(y.getDate()-1);matchD=d.toDateString()===y.toDateString();}
-      else if(dateFilter==='week'){var w=new Date(now);w.setDate(w.getDate()-7);matchD=d>=w;}
-      else if(dateFilter==='month'){matchD=d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();}
-    }
-    return matchQ&&matchS&&matchD;
-  });
-  renderPayments(filtered);
-}
-
-var reasonLabels={'insufficient_funds':'Insufficient funds','card_declined':'Card declined','expired_card':'Card expired','incorrect_cvc':'Wrong CVC','lost_card':'Card reported lost','stolen_card':'Reported stolen','do_not_honor':'Bank declined','processing_error':'Processing error','fraudulent':'Fraud suspected','generic_decline':'Generic decline','no_such_customer':'Customer not found','authentication_required':'Auth required'};
-
-function renderPayments(list){
-  var isViewer=localStorage.getItem('subloop_readonly')==='1';
-  var tb=document.getElementById('payments-table');
-  if(!list.length){tb.innerHTML='<tr><td colspan="7" class="empty">No payments found</td></tr>';return;}
-  tb.innerHTML=list.map(function(p){
-    var shortReason=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'';
-    var reasonHtml=shortReason?'<div style="font-size:12px;color:var(--red);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+p.failure_reason+'">'+shortReason+'</div>':'<span style="color:var(--muted);font-size:12px;">—</span>';
-    var refHtml=buildRefCell(p.stripe_payment_intent);
-
-    var actions='<div style="display:flex;gap:4px;align-items:center;">';
-    if(!isViewer&&p.status==='failed') actions+='<button class="btn btn-sm btn-success" onclick="retryPayment('+p.id+')">Retry</button>';
-    actions+='<button class="btn btn-sm" onclick="openPaymentNote('+p.id+')" title="'+(p.note||'Add note')+'">'+(p.note?'📝 Note':'Note')+'</button>';
-    actions+='</div>';
-    return '<tr style="'+(p.status==='failed'?'background:rgba(248,113,113,0.04);':'')+'">'+
-      '<td><div class="customer-cell"><div class="avatar">'+initials(p.name)+'</div><div><div class="customer-name" style="font-size:12px;">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div></div></div></td>'+
-      '<td class="mono" style="font-size:13px;font-weight:600;">'+fmt(p.amount,p.currency)+'</td>'+
-      '<td>'+badge(p.status)+'</td>'+
-      '<td>'+reasonHtml+'</td>'+
-      '<td class="mono" style="font-size:12px;white-space:nowrap;">'+fmtDate(p.created_at)+'</td>'+
-      '<td>'+refHtml+'</td>'+
-      '<td>'+actions+'</td>'+
-    '</tr>';
-  }).join('');
-}
-
-async function retryPayment(id){toast('Retrying…');try{const r=await api('/api/payments/'+id+'/retry',{method:'POST'});if(r.success){toast('✓ Succeeded');loadPayments();loadStats();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
-
-// Webhooks
-async function loadWebhooks(){
-  try{
-    const list=await api('/api/webhook-logs');
-    const tb=document.getElementById('webhook-table');
-    if(!list.length){tb.innerHTML='<tr><td colspan="4" class="empty">No webhook events yet</td></tr>';return;}
-    tb.innerHTML=list.map(w=>'<tr><td class="mono" style="font-size:12px;">'+w.event_type+'</td><td style="font-size:12px;color:var(--muted);">'+(w.account_name||'—')+'</td><td>'+badge(w.status||'ok')+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+fmtTime(w.created_at)+'</td></tr>').join('');
-  }catch(e){}
-}
-
-// Settings
-async function loadSettings(){
-  try{
-    appSettings=await api('/api/settings');
-    document.getElementById('setting-dunning').checked=appSettings.dunning_enabled==='true';
-    document.getElementById('setting-dunning-days').value=appSettings.dunning_days||'3,7,14';
-    document.getElementById('setting-auto-resume').checked=appSettings.pause_auto_resume==='true';
-    document.getElementById('setting-proration').checked=appSettings.proration_enabled==='true';
-    document.getElementById('setting-webhook-logs').checked=appSettings.webhook_logs_enabled==='true';
-  }catch(e){}
-}
-async function saveSetting(key,value){await api('/api/settings',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({key,value:String(value)})});appSettings[key]=String(value);toast('✓ Setting saved');}
-
-// Security
-async function loadSecurity(){
-  try{
-    const status=await api('/api/security/2fa/status');
-    update2FAView(status.enabled);
-    const s=await api('/api/settings');
-    document.getElementById('setting-max-attempts').value=s.max_login_attempts||'5';
-    document.getElementById('setting-lockout-mins').value=s.lockout_minutes||'15';
-    const history=await api('/api/security/login-history');
-    const tb=document.getElementById('login-history-table');
-    if(!history.length){tb.innerHTML='<tr><td colspan="3" class="empty">No login attempts recorded</td></tr>';return;}
-    tb.innerHTML=history.map(h=>'<tr><td class="mono" style="font-size:12px;">'+(h.ip||'unknown')+'</td><td>'+(h.success?'<span class="badge badge-green">success</span>':'<span class="badge badge-red">failed</span>')+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+fmtTime(h.created_at)+'</td></tr>').join('');
-  }catch(e){}
-}
-function update2FAView(enabled){
-  const badge2fa=document.getElementById('2fa-badge');
-  badge2fa.className='badge '+(enabled?'badge-green':'badge-red');
-  badge2fa.textContent=enabled?'enabled':'disabled';
-  document.getElementById('2fa-disabled-view').style.display=enabled?'none':'block';
-  document.getElementById('2fa-setup-view').style.display='none';
-  document.getElementById('2fa-enabled-view').style.display=enabled?'block':'none';
-}
-async function setup2FA(){try{const r=await api('/api/security/2fa/setup',{method:'POST'});document.getElementById('2fa-qr').src=r.qrCode;document.getElementById('2fa-disabled-view').style.display='none';document.getElementById('2fa-setup-view').style.display='block';}catch(e){toast('Error setting up 2FA','error');}}
-async function confirm2FA(){const token=document.getElementById('2fa-verify-code').value;if(token.length!==6){toast('Enter 6-digit code','error');return;}try{const r=await api('/api/security/2fa/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});if(r.success){toast('✓ 2FA enabled!');update2FAView(true);}else toast('Invalid code','error');}catch(e){toast('Error','error');}}
-function cancel2FASetup(){document.getElementById('2fa-setup-view').style.display='none';document.getElementById('2fa-disabled-view').style.display='block';}
-async function disable2FA(){if(!confirm('Disable 2FA?'))return;await api('/api/security/2fa/disable',{method:'POST'});toast('2FA disabled');update2FAView(false);}
-
-// Actions
-async function chargeNow(subId){toast('Charging…');try{const r=await api('/api/subscriptions/'+subId+'/charge',{method:'POST'});if(r.success){toast('✓ Payment succeeded');loadUpcoming();loadStats();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
-function openPauseModal(subId){document.getElementById('pause-sub-id').value=subId;document.getElementById('pause-resume-date').value='';openModal('pause-modal');}
-async function confirmPause(){const id=document.getElementById('pause-sub-id').value;const resumeDate=document.getElementById('pause-resume-date').value;await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'paused',resume_date:resumeDate||null})});toast('Subscription paused');closeModal('pause-modal');loadUpcoming();loadSubscriptions();}
-function resumeSub(id){setSubStatus(id,'active');}
-function cancelSub(id){setSubStatus(id,'cancelled');}
-async function setSubStatus(id,status){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});toast('Subscription '+status);loadUpcoming();loadSubscriptions();loadStats();}
-async function setCustStatus(id,status){await api('/api/customers/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});toast('Customer '+status);loadCustomers();}
-async function openPortal(customerId){try{const r=await api('/api/customers/'+customerId+'/portal',{method:'POST'});if(r.url)window.open(r.url,'_blank');else toast('Could not open portal','error');}catch(e){toast('Error','error');}}
-async function runRebills(){toast('Running rebill job…');try{const r=await api('/api/run-rebills',{method:'POST'});if(r.success){toast('✓ Done: '+r.succeeded+' charged, '+r.failed+' failed'+(r.resumed>0?', '+r.resumed+' resumed':''));loadStats();loadUpcoming();}}catch(e){toast('Error','error');}}
-
-// Add customer
-async function addCustomer(){
-  const body={name:document.getElementById('mc-name').value.trim(),email:document.getElementById('mc-email').value.trim(),stripe_customer_id:document.getElementById('mc-stripe-id').value.trim(),stripe_payment_method:document.getElementById('mc-pm-id').value.trim()||null,card_brand:document.getElementById('mc-brand').value.trim()||null,card_last4:document.getElementById('mc-last4').value.trim()||null,card_exp_month:document.getElementById('mc-exp-m').value||null,card_exp_year:document.getElementById('mc-exp-y').value||null,stripe_account_id:document.getElementById('mc-account').value||null,note:document.getElementById('mc-note').value.trim()||null};
-  if(!body.email||!body.stripe_customer_id){toast('Email and Stripe ID required','error');return;}
-  try{const r=await api('/api/customers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(r.success){toast('✓ Customer added');closeModal('add-customer-modal');loadCustomers();}else toast('Error: '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}
-}
-
-// Notes
-function openNoteModal(id,note){document.getElementById('note-customer-id').value=id;document.getElementById('note-text').value=decodeURIComponent(note);openModal('note-modal');}
-async function saveNote(){const id=document.getElementById('note-customer-id').value,note=document.getElementById('note-text').value;await api('/api/customers/'+id+'/note',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({note})});toast('✓ Note saved');closeModal('note-modal');loadCustomers();}
-
-// Payment links
-async function createPaymentLink(){
-  const btn=document.getElementById('create-link-btn');btn.textContent='Creating…';btn.disabled=true;
-  try{const r=await api('/api/payment-links',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:document.getElementById('link-name').value,amount:Math.round(parseFloat(document.getElementById('link-amount').value)*100),currency:document.getElementById('link-currency').value,interval_days:parseInt(document.getElementById('link-interval').value),stripe_account_id:document.getElementById('link-account').value||null})});if(r.url){currentLink=r.url;document.getElementById('link-url').textContent=r.url;document.getElementById('link-result').classList.add('visible');toast('✓ Link created');}else toast('Error: '+(r.error||'Unknown'),'error');}catch(e){toast('Server error','error');}
-  btn.textContent='Generate payment link';btn.disabled=false;
-}
-function copyLink(){navigator.clipboard.writeText(currentLink);toast('Copied!');}
-function openLink(){window.open(currentLink,'_blank');}
-
-// Stripe accounts
-async function loadAccounts(){
-  try{
-    const list=await api('/api/stripe-accounts');
-    const tb=document.getElementById('accounts-table');
-    if(tb){if(!list.length)tb.innerHTML='<tr><td colspan="4" class="empty">No accounts yet</td></tr>';else tb.innerHTML=list.map(a=>'<tr><td><strong>'+a.name+'</strong></td><td class="mono" style="font-size:12px;">'+(a.key_preview||'—')+'</td><td>'+(a.is_default?'<span class="badge badge-green">default</span>':'<span class="badge badge-blue">active</span>')+'</td><td><div class="actions">'+(!a.is_default?'<button class="btn btn-sm" onclick="setDefaultAccount('+a.id+')">Set default</button>':'')+'<button class="btn btn-sm btn-danger" onclick="deleteAccount('+a.id+')">Delete</button></div></td></tr>').join('');}
-    const opts=list.map(a=>'<option value="'+a.id+'"'+(a.is_default?' selected':'')+'>'+a.name+'</option>').join('');
-    const ls=document.getElementById('link-account');if(ls)ls.innerHTML=opts||'<option value="">No accounts</option>';
-    const ms=document.getElementById('mc-account');if(ms)ms.innerHTML='<option value="">Default</option>'+opts;
-  }catch(e){}
-}
-async function addAccount(){const name=document.getElementById('acc-name').value.trim(),key=document.getElementById('acc-key').value.trim(),webhook=document.getElementById('acc-webhook').value.trim();if(!name||!key){toast('Name and key required','error');return;}const r=await api('/api/stripe-accounts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,secret_key:key,webhook_secret:webhook})});if(r.success){toast('✓ Account added');closeModal('add-account-modal');document.getElementById('acc-name').value='';document.getElementById('acc-key').value='';document.getElementById('acc-webhook').value='';loadAccounts();}else toast('Error: '+(r.error||'Failed'),'error');}
-async function setDefaultAccount(id){await api('/api/stripe-accounts/'+id+'/default',{method:'PATCH'});toast('✓ Default updated');loadAccounts();}
-async function deleteAccount(id){if(!confirm('Delete this account?'))return;await api('/api/stripe-accounts/'+id,{method:'DELETE'});toast('Account deleted');loadAccounts();}
-
-
-// ── Forecast ──────────────────────────────────────────────────────────────────
-async function loadForecast(){
-  try{
-    const d=await api('/api/forecast');
-    document.getElementById('forecast-30').textContent=fmt(d.forecast30||0);
-    document.getElementById('forecast-60').textContent=fmt(d.forecast60||0);
-    document.getElementById('forecast-90').textContent=fmt(d.forecast90||0);
-  }catch(e){}
-}
-
-// ── Expiring Cards ────────────────────────────────────────────────────────────
-async function loadExpiry(){
-  try{
-    var days=document.getElementById('expiry-days')?document.getElementById('expiry-days').value:30;
-    var list=await api('/api/expiring-cards?days='+days);
-    var tb=document.getElementById('expiry-table');
-    if(!list.length){tb.innerHTML='<tr><td colspan="5" class="empty"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" style="vertical-align:middle;margin-right:6px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>No expiring cards in this period</td></tr>';return;}
-    var now=new Date();
-    var rows=list.map(function(c){
-      var expMonth=String(c.card_exp_month||'?').padStart(2,'0');
-      var expYear=String(c.card_exp_year||'?');
-      var yr=parseInt(c.card_exp_year)||9999;
-      var mo=parseInt(c.card_exp_month)||12;
-      var isExpired=yr<now.getFullYear()||(yr===now.getFullYear()&&mo<=now.getMonth()+1);
-      var color=isExpired?'var(--red)':'var(--amber)';
-      return '<tr>'+
-        '<td><div class="customer-cell"><div class="avatar">'+initials(c.name)+'</div><div><div class="customer-name">'+(c.name||'—')+'</div><div class="customer-email">'+(c.email||'')+'</div></div></div></td>'+
-        '<td>'+cardBadge(c.card_brand,c.card_last4)+'</td>'+
-        '<td><span style="color:'+color+';font-family:var(--mono);font-weight:600;">'+expMonth+'/'+expYear+'</span></td>'+
-        '<td class="mono">'+fmtDate(c.next_billing_date)+'</td>'+
-        '<td><button class="btn btn-sm" onclick="openPortal('+c.id+')">Update card ↗</button></td>'+
-      '</tr>';
-    });
-    tb.innerHTML=rows.join('');
-  }catch(e){console.error(e);}
-}
-
-// ── Daily Summary ─────────────────────────────────────────────────────────────
-async function loadSummary(){
-  try{
-    const d=await api('/api/daily-summary');
-    document.getElementById('sum-rev-today').textContent=fmt(parseInt(d.revenue_today)||0);
-    document.getElementById('sum-pay-today').textContent=(d.payments_today||0)+' payments';
-    document.getElementById('sum-fail-today').textContent=d.failed_today||0;
-    document.getElementById('sum-rev-7d').textContent=fmt(parseInt(d.revenue_7d)||0);
-    document.getElementById('sum-pay-7d').textContent=(d.payments_7d||0)+' payments';
-    document.getElementById('sum-rev-month').textContent=fmt(parseInt(d.revenue_month)||0);
-    document.getElementById('sum-pay-month').textContent=(d.payments_month||0)+' payments';
-    document.getElementById('sum-active').textContent=d.active_total||0;
-    document.getElementById('sum-new-7d').textContent='+'+(d.new_7d||0)+' this week';
-    document.getElementById('sum-cust-today').textContent=d.new_today||0;
-  }catch(e){}
-}
-
-// ── Manual Invoice ────────────────────────────────────────────────────────────
-async function sendManualInvoice(){
-  const custId=document.getElementById('invoice-customer-id').value.trim();
-  const amount=Math.round(parseFloat(document.getElementById('invoice-amount').value)*100);
-  const desc=document.getElementById('invoice-desc').value;
-  const result=document.getElementById('invoice-result');
-  if(!custId||!amount){toast('Fill in all fields','error');return;}
-  try{
-    const r=await api('/api/customers/'+custId+'/charge-once',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount,description:desc})});
-    result.style.display='block';
-    if(r.success){result.style.background='var(--green-bg)';result.style.color='var(--green)';result.style.border='1px solid var(--green)';result.textContent='✓ Payment succeeded!';}
-    else{result.style.background='var(--red-bg)';result.style.color='var(--red)';result.style.border='1px solid var(--red)';result.textContent='✗ '+(r.error||'Failed');}
-  }catch(e){toast('Error','error');}
-}
-
-function openInvoiceModal(customerId){
-  document.getElementById('invoice-modal-customer-id').value=customerId;
-  document.getElementById('invoice-modal-amount').value='';
-  document.getElementById('invoice-modal-desc').value='Manual invoice';
-  document.getElementById('invoice-modal-result').style.display='none';
-  openModal('invoice-modal');
-}
-
-async function sendInvoiceFromModal(){
-  const customerId=document.getElementById('invoice-modal-customer-id').value;
-  const amount=Math.round(parseFloat(document.getElementById('invoice-modal-amount').value)*100);
-  const desc=document.getElementById('invoice-modal-desc').value;
-  const result=document.getElementById('invoice-modal-result');
-  if(!amount||amount<50){toast('Minimum $0.50','error');return;}
-  try{
-    const r=await api('/api/customers/'+customerId+'/charge-once',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount,description:desc})});
-    result.style.display='block';
-    if(r.success){result.style.cssText='background:var(--green-bg);color:var(--green);border:1px solid var(--green);padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);';result.textContent='✓ Charged successfully!';toast('✓ Invoice sent');}
-    else{result.style.cssText='background:var(--red-bg);color:var(--red);border:1px solid var(--red);padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);';result.textContent='✗ '+(r.error||'Failed');toast('Failed','error');}
-  }catch(e){toast('Error','error');}
-}
-
-
-// ── Admin Users ───────────────────────────────────────────────────────────────
-var currentAdminId = null;
-
-async function loadAdmins(){
-  var tb=document.getElementById('admins-table');
-  if(!tb)return;
-  tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:28px;color:var(--muted);font-size:13px;font-family:var(--mono);">Loading...</td></tr>';
-  try{
-    var list=await api('/api/admin-users');
-    if(!list||!list.length){
-      tb.innerHTML=
-        '<tr><td colspan="5" style="text-align:center;padding:40px 20px;">'+
-          '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" style="display:block;margin:0 auto 12px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'+
-          '<div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px;">No admin users yet</div>'+
-          '<div style="font-size:12px;color:var(--muted);font-family:var(--mono);">Add your first admin to manage access.</div>'+
-        '</td></tr>';
-      return;
-    }
-    var rows=list.map(function(a){
-      var roleColors={owner:'badge-green',admin:'badge-blue',viewer:'badge-amber',custom:'badge-purple'};
-      var roleBadge='<span class="badge '+(roleColors[a.role]||'badge-blue')+'">'+a.role+'</span>';
-      var perms=a.permissions&&a.permissions.length?'<div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:3px;">'+a.permissions.join(' · ')+'</div>':'';
-      return '<tr>'+
-        '<td><strong style="font-size:13px;">'+a.username+'</strong></td>'+
-        '<td>'+roleBadge+perms+'</td>'+
-        '<td class="mono" style="font-size:12px;color:var(--muted);">'+(a.last_login?fmtTime(a.last_login):'Never')+'</td>'+
-        '<td class="mono" style="font-size:12px;color:var(--muted);">'+fmtDate(a.created_at)+'</td>'+
-        '<td><div class="actions">'+
-          (a.role!=='owner'?'<button class="btn btn-sm btn-danger" onclick="deleteAdmin('+a.id+')">Remove</button>':'')+
-        '</div></td>'+
-      '</tr>';
-    });
-    tb.innerHTML=rows.join('');
-  }catch(e){
-    console.error('loadAdmins:',e);
-    tb.innerHTML=
-      '<tr><td colspan="5" style="text-align:center;padding:40px 20px;">'+
-        '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="1.5" style="display:block;margin:0 auto 12px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'+
-        '<div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px;">Failed to load admin users</div>'+
-        '<div style="font-size:12px;color:var(--muted);font-family:var(--mono);">Please try again.</div>'+
-        '<button class="btn btn-sm" onclick="loadAdmins()" style="margin-top:12px;">Retry</button>'+
-      '</td></tr>';
   }
-}
 
-var PERM_LIST=[
-  {value:'dashboard',label:'Dashboard',desc:'Overview stats and revenue charts'},
-  {value:'activity',label:'Activity',desc:'Full activity log of all actions'},
-  {value:'customers',label:'Customers',desc:'View and manage customer accounts'},
-  {value:'subscriptions',label:'Subscriptions',desc:'Manage rebilling schedules'},
-  {value:'payments',label:'Payments',desc:'Full payment history and retries'},
-  {value:'links',label:'Payment Links',desc:'Generate Stripe payment links'},
-  {value:'accounts',label:'Stripe Accounts',desc:'Manage connected Stripe accounts'},
-  {value:'forecast',label:'Forecast',desc:'Revenue projection for next 30–90 days'},
-  {value:'expiry',label:'Expiring Cards',desc:'Cards expiring soon that need updating'},
-  {value:'summary',label:'Daily Summary',desc:'Business snapshot and manual invoices'},
-  {value:'settings',label:'Settings',desc:'Dunning, proration and app settings'},
-  {value:'security',label:'Security',desc:'Two-factor auth and login protection'},
-  {value:'webhooks',label:'Webhook Logs',desc:'Incoming Stripe webhook events'},
-];
-
-function buildPermsList(){
-  var container=document.getElementById('perms-list');
-  if(!container)return;
-  container.innerHTML='';
-  PERM_LIST.forEach(function(p){
-    var row=document.createElement('label');
-    row.style.cssText='display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;cursor:pointer;transition:all 0.15s;';
-    var cb=document.createElement('input');
-    cb.type='checkbox';
-    cb.value=p.value;
-    cb.style.cssText='accent-color:var(--accent);width:16px;height:16px;cursor:pointer;flex-shrink:0;';
-    cb.addEventListener('change',function(){
-      row.style.borderColor=cb.checked?'var(--accent)':'var(--border)';
-      row.style.background=cb.checked?'var(--accent-glow)':'var(--surface2)';
-    });
-    row.addEventListener('click',function(e){
-      if(e.target===cb)return;
-      cb.checked=!cb.checked;
-      cb.dispatchEvent(new Event('change'));
-    });
-    var info=document.createElement('div');
-    info.style.flex='1';
-    info.innerHTML='<div style="font-size:13px;font-weight:500;color:var(--text);">'+p.label+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;">'+p.desc+'</div>';
-    row.appendChild(cb);
-    row.appendChild(info);
-    container.appendChild(row);
-  });
-}
-
-
-
-function selectAllPerms(){
-  document.querySelectorAll('#perms-list input[type=checkbox]').forEach(function(cb){
-    cb.checked=true;cb.dispatchEvent(new Event('change'));
-  });
-}
-
-function clearAllPerms(){
-  document.querySelectorAll('#perms-list input[type=checkbox]').forEach(function(cb){
-    cb.checked=false;cb.dispatchEvent(new Event('change'));
-  });
-}
-
-function toggleCustomPerms(){
-  var role=document.getElementById('admin-role').value;
-  var el=document.getElementById('custom-perms');
-  if(role==='custom'){
-    el.style.display='block';
-    buildPermsList();
-  } else {
-    el.style.display='none';
-  }
-}
-
-async function addAdmin(){
-  var username=document.getElementById('admin-username').value.trim();
-  var password=document.getElementById('admin-password').value;
-  var role=document.getElementById('admin-role').value;
-  if(!username||!password){toast('Fill in all fields','error');return;}
-  if(password.length<8){toast('Password must be at least 8 characters','error');return;}
-  var permissions=[];
-  if(role==='custom'){
-    document.querySelectorAll('#perms-list input[type=checkbox]:checked').forEach(function(cb){permissions.push(cb.value);});
-    if(!permissions.length){toast('Select at least one section for custom access','error');return;}
-  }
-  try{
-    var r=await api('/api/admin-users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password,role,permissions})});
-    if(r.success){
-      toast('✓ Admin added');
-      closeModal('add-admin-modal');
-      document.getElementById('admin-username').value='';
-      document.getElementById('admin-password').value='';
-      document.getElementById('admin-role').value='admin';
-      document.getElementById('custom-perms').style.display='none';
-      clearAllPerms();
-      loadAdmins();
-    } else toast('Error: '+(r.error||'Failed'),'error');
-  }catch(e){toast('Error','error');}
-}
-
-async function deleteAdmin(id){
-  if(!confirm('Remove this admin user?'))return;
-  try{
-    var r=await api('/api/admin-users/'+id,{method:'DELETE'});
-    if(r.success){toast('✓ Admin removed');loadAdmins();}
-    else toast('Error: '+(r.error||'Failed'),'error');
-  }catch(e){toast('Error','error');}
-}
-
-async function changeMyPassword(){
-  var np=document.getElementById('change-pass-new').value;
-  var cp=document.getElementById('change-pass-confirm').value;
-  if(!np||np.length<8){toast('Password must be at least 8 characters','error');return;}
-  if(np!==cp){toast('Passwords do not match','error');return;}
-  try{
-    // Get current user's ID
-    var list=await api('/api/admin-users');
-    var me=list.find(function(a){return a.username===localStorage.getItem('subloop_username');});
-    if(!me){toast('Could not find your account','error');return;}
-    var r=await api('/api/admin-users/'+me.id+'/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:np})});
-    if(r.success){toast('✓ Password updated');document.getElementById('change-pass-new').value='';document.getElementById('change-pass-confirm').value='';}
-    else toast('Error: '+(r.error||'Failed'),'error');
-  }catch(e){toast('Error','error');}
-}
-
-
-// ── Global Search ─────────────────────────────────────────────────────────────
-var searchTimer=null;
-function globalSearch(q){
-  clearTimeout(searchTimer);
-  var res=document.getElementById('global-search-results');
-  if(!q||q.length<2){res.style.display='none';return;}
-  searchTimer=setTimeout(async function(){
-    try{
-      var data=await api('/api/search?q='+encodeURIComponent(q));
-      var total=data.customers.length+data.payments.length+data.subscriptions.length;
-      res.innerHTML='';
-      if(!total){
-        var empty=document.createElement('div');
-        empty.style.cssText='padding:16px;text-align:center;font-size:13px;color:var(--muted);font-family:var(--mono);';
-        empty.textContent='No results found';
-        res.appendChild(empty);
-        res.style.display='block';
-        return;
+  // Normal rebills
+  for (const sub of due) {
+    try {
+      const stripe = sub.stripe_secret_key ? new Stripe(sub.stripe_secret_key) : new Stripe(process.env.STRIPE_SECRET_KEY);
+      const pi = await stripe.paymentIntents.create({ amount: sub.amount, currency: sub.currency, customer: sub.stripe_customer_id, payment_method: sub.stripe_payment_method, off_session: true, confirm: true });
+      await payments.insert({ customer_id: sub.customer_id, subscription_id: sub.id, stripe_payment_intent: pi.id, amount: sub.amount, currency: sub.currency, status: 'succeeded', failure_reason: null });
+      await subscriptions.advanceBillingDate(sub.id, sub.interval_days);
+      await activityLog.add('rebill', `Auto-rebill of ${(sub.amount/100).toFixed(2)} for ${sub.email}`, sub.customer_id, sub.amount);
+      succeeded++;
+    } catch(err) {
+      await payments.insert({ customer_id: sub.customer_id, subscription_id: sub.id, stripe_payment_intent: null, amount: sub.amount, currency: sub.currency, status: 'failed', failure_reason: err.message });
+      if (dunningEnabled === 'true') {
+        const retryDate = new Date(); retryDate.setDate(retryDate.getDate()+(dunningDays[0]||3));
+        await subscriptions.markDunning(sub.id, retryDate.toISOString().split('T')[0]);
+        await activityLog.add('dunning_start', `Dunning started for ${sub.email}`, sub.customer_id);
       }
-      function addSection(title,items,renderFn){
-        if(!items.length)return;
-        var hdr=document.createElement('div');
-        hdr.style.cssText='padding:8px 14px 4px;font-size:10px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.5px;border-top:1px solid var(--border);';
-        hdr.textContent=title;
-        res.appendChild(hdr);
-        items.forEach(function(item){
-          var row=renderFn(item);
-          res.appendChild(row);
-        });
-      }
-      function makeRow(content,onclick){
-        var row=document.createElement('div');
-        row.style.cssText='padding:8px 14px;cursor:pointer;';
-        row.innerHTML=content;
-        row.addEventListener('mouseenter',function(){row.style.background='var(--surface2)';});
-        row.addEventListener('mouseleave',function(){row.style.background='';});
-        row.addEventListener('click',function(){
-          onclick();
-          document.getElementById('global-search-input').value='';
-          res.style.display='none';
-        });
-        return row;
-      }
-      addSection('Customers',data.customers,function(c){
-        return makeRow('<div style="display:flex;align-items:center;gap:8px;"><div class="avatar">'+initials(c.name)+'</div><div><div style="font-size:13px;font-weight:500;">'+(c.name||'—')+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+(c.email||'')+'</div></div></div>',function(){
-          var navBtn=document.querySelector('.nav-item[onclick*="customers"]');
-          if(navBtn)showPage('customers',navBtn);
-        });
-      });
-      addSection('Payments',data.payments,function(p){
-        return makeRow('<div style="display:flex;align-items:center;justify-content:space-between;"><div style="font-size:13px;">'+(p.name||'—')+'</div><div style="display:flex;gap:8px;align-items:center;"><span class="mono" style="font-size:12px;">'+fmt(p.amount,p.currency)+'</span>'+badge(p.status)+'</div></div>',function(){
-          var navBtn=document.querySelector('.nav-item[onclick*="payments"]');
-          if(navBtn)showPage('payments',navBtn);
-        });
-      });
-      addSection('Subscriptions',data.subscriptions,function(s){
-        return makeRow('<div style="display:flex;align-items:center;justify-content:space-between;"><div style="font-size:13px;">'+(s.name||'—')+'</div><div style="display:flex;gap:8px;align-items:center;"><span class="mono" style="font-size:12px;">'+fmt(s.amount,s.currency)+'</span>'+badge(s.status)+'</div></div>',function(){
-          var navBtn=document.querySelector('.nav-item[onclick*="subscriptions"]');
-          if(navBtn)showPage('subscriptions',navBtn);
-        });
-      });
-      res.style.display='block';
-    }catch(e){res.style.display='none';}
-  },300);
-}
-document.addEventListener('click',function(e){
-  if(!e.target.closest('#global-search-input')&&!e.target.closest('#global-search-results')){
-    var r=document.getElementById('global-search-results');
-    if(r)r.style.display='none';
+      failed++;
+    }
   }
+
+  res.json({ success: true, succeeded, failed, resumed, total: due.length });
+});
+
+// ── Security & 2FA ───────────────────────────────────────────────────────────
+
+// Get 2FA setup QR code
+app.post('/api/security/2fa/setup', async (req, res) => {
+  if (!speakeasy) return res.status(500).json({ error: '2FA library not installed' });
+  try {
+    const secret = speakeasy.generateSecret({ name: 'Subloop', issuer: 'Subloop' });
+    await settingsDb.set('two_fa_secret_pending', secret.base32);
+    const qrUrl = await QRCode.toDataURL(secret.otpauth_url);
+    res.json({ secret: secret.base32, qrCode: qrUrl });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// Verify and enable 2FA
+app.post('/api/security/2fa/verify', async (req, res) => {
+  if (!speakeasy) return res.status(500).json({ error: '2FA library not installed' });
+  try {
+    const { token } = req.body;
+    const secret = await settingsDb.get('two_fa_secret_pending');
+    if (!secret) return res.status(400).json({ error: 'No pending 2FA setup' });
+    const verified = speakeasy.totp.verify({ secret, encoding: 'base32', token, window: 2 });
+    if (!verified) return res.status(400).json({ error: 'Invalid code' });
+    await settingsDb.set('two_fa_secret', secret);
+    await settingsDb.set('two_fa_enabled', 'true');
+    await settingsDb.set('two_fa_secret_pending', '');
+    await activityLog.add('security', '2FA enabled');
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// Disable 2FA
+app.post('/api/security/2fa/disable', async (req, res) => {
+  await settingsDb.set('two_fa_enabled', 'false');
+  await settingsDb.set('two_fa_secret', '');
+  await activityLog.add('security', '2FA disabled');
+  res.json({ success: true });
+});
+
+// Validate 2FA token (called from login)
+app.post('/api/security/2fa/validate', async (req, res) => {
+  if (!speakeasy) return res.json({ valid: true }); // skip if not installed
+  try {
+    const { token } = req.body;
+    const secret = await settingsDb.get('two_fa_secret');
+    if (!secret) return res.json({ valid: true });
+    const valid = speakeasy.totp.verify({ secret, encoding: 'base32', token, window: 2 });
+    res.json({ valid });
+  } catch(err) { res.json({ valid: false }); }
+});
+
+// Check if 2FA is enabled
+app.get('/api/security/2fa/status', async (req, res) => {
+  const enabled = await settingsDb.get('two_fa_enabled');
+  res.json({ enabled: enabled === 'true' });
+});
+
+// Login attempt tracking
+app.post('/api/security/login-attempt', async (req, res) => {
+  const { success } = req.body;
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+  await security.logAttempt(ip, success);
+  if (success) await security.clearAttempts(ip);
+  res.json({ success: true });
+});
+
+// Check if IP is locked out
+app.get('/api/security/lockout-check', async (req, res) => {
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+  const maxAttempts = parseInt(await settingsDb.get('max_login_attempts') || '5');
+  const lockoutMins = parseInt(await settingsDb.get('lockout_minutes') || '15');
+  const failures = await security.recentFailures(ip, lockoutMins);
+  res.json({ locked: failures >= maxAttempts, failures, maxAttempts, lockoutMins });
+});
+
+// Recent login history
+app.get('/api/security/login-history', async (req, res) => {
+  res.json(await security.recentLogins(30));
 });
 
 
-// ── Churn Alerts ──────────────────────────────────────────────────────────────
-async function loadChurnAlerts(){
-  try{
-    var d=await api('/api/churn-alerts');
-    var section=document.getElementById('churn-alerts-section');
-    var list=document.getElementById('churn-alerts-list');
-    var count=document.getElementById('churn-count');
-    var all=[...d.cancelled,...d.failing];
-    if(!all.length){section.style.display='none';return;}
-    section.style.display='block';
-    count.textContent=all.length;
-    var html='';
-    d.cancelled.forEach(function(c){
-      html+='<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(248,113,113,0.15);">'+
-        '<div class="avatar">'+initials(c.name)+'</div>'+
-        '<div style="flex:1;"><div style="font-size:13px;font-weight:500;">'+(c.name||'—')+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+(c.email||'')+'</div></div>'+
-        '<span class="badge badge-red">cancelled</span>'+
-      '</div>';
+// ── Revenue Forecast ──────────────────────────────────────────────────────────
+app.get('/api/forecast', async (req, res) => {
+  try {
+    const allSubs = await subscriptions.all();
+    const activeSubs = allSubs.filter(s => s.status === 'active');
+    const now = new Date();
+    let forecast30 = 0, forecast60 = 0, forecast90 = 0;
+    activeSubs.forEach(s => {
+      const next = new Date(s.next_billing_date);
+      const diff = (next - now) / (1000*60*60*24);
+      const cycles30 = Math.floor(30 / s.interval_days) + (diff <= 30 ? 1 : 0);
+      const cycles60 = Math.floor(60 / s.interval_days) + (diff <= 60 ? 1 : 0);
+      const cycles90 = Math.floor(90 / s.interval_days) + (diff <= 90 ? 1 : 0);
+      forecast30 += s.amount * cycles30;
+      forecast60 += s.amount * cycles60;
+      forecast90 += s.amount * cycles90;
     });
-    d.failing.forEach(function(c){
-      html+='<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(248,113,113,0.15);">'+
-        '<div class="avatar">'+initials(c.name)+'</div>'+
-        '<div style="flex:1;"><div style="font-size:13px;font-weight:500;">'+(c.name||'—')+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+(c.email||'')+'</div></div>'+
-        '<span class="badge badge-amber">'+c.dunning_count+' failures</span>'+
-      '</div>';
-    });
-    list.innerHTML=html;
-  }catch(e){}
-}
+    res.json({ forecast30, forecast60, forecast90, active_count: activeSubs.length });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
 
-// ── Plan Templates ────────────────────────────────────────────────────────────
-async function loadTemplates(){
-  try{
-    var list=await api('/api/plan-templates');
-    var el=document.getElementById('templates-list');
-    var count=document.getElementById('template-count');
-    if(!el)return;
-    if(count)count.textContent='('+list.length+')';
-    el.innerHTML='';
-    if(!list.length){
-      var empty=document.createElement('span');
-      empty.style.cssText='font-size:12px;color:var(--muted);font-family:var(--mono);';
-      empty.textContent='No templates yet — save one below';
-      el.appendChild(empty);
-      return;
+// ── Card Expiry Scanner ───────────────────────────────────────────────────────
+app.get('/api/expiring-cards', async (req, res) => {
+  try {
+    const days = parseInt(req.query.days) || 30;
+    const now = new Date();
+    const futureMonth = now.getMonth() + 1 + Math.ceil(days / 30);
+    const futureYear = now.getFullYear() + Math.floor((now.getMonth() + Math.ceil(days / 30)) / 12);
+    const r = await pool.query(`
+      SELECT c.*, s.amount, s.interval_days, s.next_billing_date
+      FROM customers c
+      LEFT JOIN subscriptions s ON s.customer_id = c.id AND s.status = 'active'
+      WHERE c.status = 'active'
+        AND c.card_exp_month IS NOT NULL
+        AND c.card_exp_year IS NOT NULL
+        AND (
+          c.card_exp_year < $1
+          OR (c.card_exp_year = $1 AND c.card_exp_month <= $2)
+        )
+      ORDER BY c.card_exp_year ASC, c.card_exp_month ASC
+    `, [futureYear, now.getMonth() + 1 + Math.ceil(days / 30)]);
+    res.json(r.rows);
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Customer Tags ─────────────────────────────────────────────────────────────
+app.patch('/api/customers/:id/tag', async (req, res) => {
+  try {
+    await pool.query('ALTER TABLE customers ADD COLUMN IF NOT EXISTS tag TEXT').catch(()=>{});
+    await pool.query('UPDATE customers SET tag=$1 WHERE id=$2', [req.body.tag, req.params.id]);
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/customers/:id/tag', async (req, res) => {
+  try {
+    await pool.query('ALTER TABLE customers ADD COLUMN IF NOT EXISTS tag TEXT').catch(()=>{});
+    const r = await pool.query('SELECT tag FROM customers WHERE id=$1', [req.params.id]);
+    res.json({ tag: r.rows[0]?.tag || null });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Blacklist ─────────────────────────────────────────────────────────────────
+app.patch('/api/customers/:id/blacklist', async (req, res) => {
+  try {
+    await pool.query('UPDATE customers SET status=$1 WHERE id=$2', ['blacklisted', req.params.id]);
+    await activityLog.add('blacklist', `Customer blacklisted`, req.params.id);
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Manual Invoice (one-time charge) ─────────────────────────────────────────
+app.post('/api/customers/:id/charge-once', async (req, res) => {
+  try {
+    const { amount, currency = 'usd', description = 'Manual invoice' } = req.body;
+    const customer = await customers.byId(req.params.id);
+    if (!customer) return res.status(404).json({ error: 'Not found' });
+    if (!customer.stripe_payment_method) return res.status(400).json({ error: 'No saved card' });
+    const stripe = await getStripe(customer.stripe_account_id);
+    const pi = await stripe.paymentIntents.create({
+      amount: parseInt(amount),
+      currency,
+      customer: customer.stripe_customer_id,
+      payment_method: customer.stripe_payment_method,
+      off_session: true,
+      confirm: true,
+      description,
+    });
+    await payments.insert({ customer_id: customer.id, subscription_id: null, stripe_payment_intent: pi.id, amount: parseInt(amount), currency, status: 'succeeded', failure_reason: null });
+    await activityLog.add('invoice', `Manual invoice of ${(amount/100).toFixed(2)} ${currency.toUpperCase()} charged to ${customer.email}`, customer.id, parseInt(amount));
+    res.json({ success: true, paymentIntentId: pi.id });
+  } catch(err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+// ── Daily Summary ─────────────────────────────────────────────────────────────
+app.get('/api/daily-summary', async (req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT
+        COUNT(CASE WHEN status='succeeded' AND created_at >= CURRENT_DATE THEN 1 END) as payments_today,
+        COALESCE(SUM(CASE WHEN status='succeeded' AND created_at >= CURRENT_DATE THEN amount ELSE 0 END),0) as revenue_today,
+        COUNT(CASE WHEN status='failed' AND created_at >= CURRENT_DATE THEN 1 END) as failed_today,
+        COUNT(CASE WHEN status='succeeded' AND created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as payments_7d,
+        COALESCE(SUM(CASE WHEN status='succeeded' AND created_at >= CURRENT_DATE - INTERVAL '7 days' THEN amount ELSE 0 END),0) as revenue_7d,
+        COUNT(CASE WHEN status='succeeded' AND created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN 1 END) as payments_month,
+        COALESCE(SUM(CASE WHEN status='succeeded' AND created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN amount ELSE 0 END),0) as revenue_month
+      FROM payments
+    `);
+    const custR = await pool.query(`
+      SELECT
+        COUNT(CASE WHEN created_at >= CURRENT_DATE THEN 1 END) as new_today,
+        COUNT(CASE WHEN created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as new_7d,
+        COUNT(CASE WHEN status='active' THEN 1 END) as active_total
+      FROM customers
+    `);
+    res.json({ ...r.rows[0], ...custR.rows[0] });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+
+// ── Admin Users ───────────────────────────────────────────────────────────────
+app.get('/api/admin-users', async (req, res) => {
+  try {
+    // Ensure table exists (safe to run every time)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS admin_users (
+        id SERIAL PRIMARY KEY,
+        username TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        role TEXT DEFAULT 'admin',
+        permissions JSONB DEFAULT '[]'::jsonb,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        last_login TIMESTAMPTZ
+      )
+    `);
+    await pool.query(`ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT '[]'::jsonb`);
+    // Seed owner if empty
+    const count = await pool.query('SELECT COUNT(*) FROM admin_users');
+    if (parseInt(count.rows[0].count) === 0) {
+      const crypto = require('crypto');
+      const hash = crypto.createHash('sha256').update('IssoMoussa544@###').digest('hex');
+      await pool.query("INSERT INTO admin_users (username, password_hash, role) VALUES ($1, $2, 'owner') ON CONFLICT DO NOTHING", ['Tharos333', hash]);
     }
-    list.forEach(function(t){
-      var chip=document.createElement('div');
-      chip.style.cssText='display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:5px 10px;cursor:pointer;';
-      chip.addEventListener('click',function(){applyTemplate(t.amount,t.currency,t.interval_days,t.name);});
-      var name=document.createElement('span');
-      name.style.cssText='font-size:12px;font-weight:500;';
-      name.textContent=t.name;
-      var price=document.createElement('span');
-      price.style.cssText='font-size:11px;color:var(--muted);font-family:var(--mono);';
-      price.textContent=fmt(t.amount,t.currency)+'/'+t.interval_days+'d';
-      var del=document.createElement('button');
-      del.style.cssText='background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:0 2px;line-height:1;';
-      del.textContent='✕';
-      del.addEventListener('click',function(e){e.stopPropagation();deleteTemplate(t.id);});
-      chip.appendChild(name);chip.appendChild(price);chip.appendChild(del);
-      el.appendChild(chip);
-    });
-  }catch(e){console.error(e);}
-}
+    res.json(await adminUsers.all());
+  } catch(err) {
+    console.error('GET /api/admin-users error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 
-function applyTemplate(amount,currency,interval,name){
-  document.getElementById('link-name').value=name;
-  document.getElementById('link-amount').value=(amount/100).toFixed(2);
-  document.getElementById('link-currency').value=currency;
-  document.getElementById('link-interval').value=String(interval);
-  toast('✓ Template applied');
-}
+app.post('/api/admin-users', async (req, res) => {
+  try {
+    const { username, password, role, permissions } = req.body;
+    if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
+    if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    await adminUsers.create(username, password, role || 'admin', permissions || []);
+    await activityLog.add('security', `New admin user created: ${username} (role: ${role||'admin'})`);
+    res.json({ success: true });
+  } catch(err) {
+    if (err.message.includes('unique')) return res.status(400).json({ error: 'Username already exists' });
+    res.status(500).json({ error: err.message });
+  }
+});
 
-async function saveTemplate(){
-  var name=document.getElementById('tmpl-name').value.trim();
-  var amount=Math.round(parseFloat(document.getElementById('tmpl-amount').value)*100);
-  var interval=document.getElementById('tmpl-interval').value;
-  if(!name||!amount){toast('Fill in name and amount','error');return;}
-  await api('/api/plan-templates',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,amount,currency:'usd',interval_days:parseInt(interval)})});
-  toast('✓ Template saved');
-  document.getElementById('tmpl-name').value='';
-  document.getElementById('tmpl-amount').value='';
-  loadTemplates();
-}
+app.patch('/api/admin-users/:id/permissions', async (req, res) => {
+  try {
+    await adminUsers.updatePermissions(req.params.id, req.body.permissions || []);
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
 
-async function deleteTemplate(id){
-  await api('/api/plan-templates/'+id,{method:'DELETE'});
-  toast('Template deleted');
-  loadTemplates();
-}
+app.delete('/api/admin-users/:id', async (req, res) => {
+  try {
+    const all = await adminUsers.all();
+    if (all.length <= 1) return res.status(400).json({ error: 'Cannot delete the last admin user' });
+    await adminUsers.delete(req.params.id);
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
 
-// ── MRR Growth ────────────────────────────────────────────────────────────────
-async function loadMrr(){
-  try{
-    var period=document.getElementById('mrr-period')?.value||'month';
-    var titleEl=document.getElementById('mrr-chart-title');
-    var data=await api('/api/revenue-chart'+(period==='month'?'':period==='3months'?'?period=3months':''));
+app.post('/api/admin-users/:id/change-password', async (req, res) => {
+  try {
+    const { password } = req.body;
+    if (!password || password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    await adminUsers.changePassword(req.params.id, password);
+    await activityLog.add('security', `Admin password changed for user ID ${req.params.id}`);
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
 
-    // For monthly view use daily data, for longer use monthly aggregation
-    var points=[];
-    var now=new Date();
+// Check if current session is still valid and get fresh permissions
+app.post('/api/auth/check', async (req, res) => {
+  try {
+    const { username } = req.body;
+    if (!username) return res.json({ valid: false });
+    const r = await pool.query('SELECT id, username, role, permissions FROM admin_users WHERE username=$1', [username]);
+    if (!r.rows[0]) return res.json({ valid: false });
+    const user = r.rows[0];
+    res.json({ valid: true, role: user.role, permissions: user.permissions || [] });
+  } catch(err) {
+    res.json({ valid: false });
+  }
+});
 
-    if(period==='month'){
-      // Daily for current month
-      if(titleEl) titleEl.textContent='Daily revenue — '+now.toLocaleString('en-US',{month:'long',year:'numeric'});
-      var daysInMonth=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
-      for(var d=1;d<=daysInMonth;d++){
-        var dateStr=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
-        var found=data.find(function(r){return r.day&&r.day.startsWith(dateStr);});
-        points.push({label:String(d),value:parseInt(found?.revenue||0),date:dateStr});
-      }
-    } else if(period==='3months'){
-      if(titleEl) titleEl.textContent='Revenue — last 3 months';
-      var months3=await api('/api/mrr-history');
-      months3.slice(-3).forEach(function(r){points.push({label:r.month,value:parseInt(r.revenue||0),date:r.month});});
+// Verify login against DB (used by frontend)
+app.post('/api/auth/verify', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+    const user = await adminUsers.verify(username, password);
+    if (user) {
+      await adminUsers.updateLastLogin(user.id);
+      await security.logAttempt(ip, true);
+      res.json({ success: true, role: user.role, username: user.username, permissions: user.permissions || [] });
     } else {
-      if(titleEl) titleEl.textContent='Revenue — last 12 months';
-      var months12=await api('/api/mrr-history');
-      months12.forEach(function(r){points.push({label:r.month,value:parseInt(r.revenue||0),date:r.month});});
+      await security.logAttempt(ip, false);
+      res.json({ success: false });
     }
-
-    // Update summary cards
-    var thisMonth=data.reduce(function(s,r){
-      if(r.day&&new Date(r.day).getMonth()===now.getMonth()&&new Date(r.day).getFullYear()===now.getFullYear())
-        return s+(parseInt(r.revenue)||0);
-      return s;
-    },0);
-    var lastMonthDate=new Date(now.getFullYear(),now.getMonth()-1,1);
-    var lastMonth=data.reduce(function(s,r){
-      if(r.day&&new Date(r.day).getMonth()===lastMonthDate.getMonth()&&new Date(r.day).getFullYear()===lastMonthDate.getFullYear())
-        return s+(parseInt(r.revenue)||0);
-      return s;
-    },0);
-    var growth=lastMonth>0?Math.round(((thisMonth-lastMonth)/lastMonth)*100):0;
-    var te=document.getElementById('mrr-this');if(te)te.textContent=fmt(thisMonth);
-    var le=document.getElementById('mrr-last');if(le)le.textContent=fmt(lastMonth);
-    var ge=document.getElementById('mrr-growth');
-    if(ge){ge.textContent=(growth>=0?'+':'')+growth+'%';ge.style.color=growth>=0?'var(--green)':'var(--red)';}
-
-    drawMrrChart(points);
-  }catch(e){console.error('loadMrr:',e);}
-}
-
-function drawMrrChart(points){
-  var canvas=document.getElementById('mrr-canvas');
-  var emptyEl=document.getElementById('mrr-empty');
-  var tooltip=document.getElementById('mrr-tooltip');
-  if(!canvas)return;
-
-  var hasData=points.some(function(p){return p.value>0;});
-  if(!hasData){
-    canvas.style.display='none';
-    if(emptyEl)emptyEl.style.display='block';
-    return;
-  }
-  canvas.style.display='block';
-  if(emptyEl)emptyEl.style.display='none';
-
-  // Set canvas size
-  var rect=canvas.parentElement.getBoundingClientRect();
-  var W=rect.width-36||600;
-  var H=220;
-  canvas.width=W;
-  canvas.height=H;
-  canvas.style.width='100%';
-  canvas.style.height=H+'px';
-
-  var ctx=canvas.getContext('2d');
-  ctx.clearRect(0,0,W,H);
-
-  var isDark=!document.documentElement.classList.contains('light');
-  var gridColor=isDark?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.06)';
-  var textColor=isDark?'rgba(255,255,255,0.4)':'rgba(0,0,0,0.4)';
-  var accentColor='#6c63ff';
-  var accentGlow='rgba(108,99,255,0.15)';
-
-  var PAD={top:20,right:20,bottom:40,left:60};
-  var cW=W-PAD.left-PAD.right;
-  var cH=H-PAD.top-PAD.bottom;
-
-  var maxVal=Math.max(...points.map(function(p){return p.value;}),1);
-  // Round up max to nice number
-  var niceMax=Math.ceil(maxVal/100)*100||100;
-
-  // Grid lines & Y labels
-  ctx.font='11px monospace';
-  ctx.textAlign='right';
-  ctx.fillStyle=textColor;
-  var ySteps=5;
-  for(var i=0;i<=ySteps;i++){
-    var yVal=(niceMax/ySteps)*i;
-    var y=PAD.top+cH-(cH*(yVal/niceMax));
-    ctx.strokeStyle=gridColor;
-    ctx.lineWidth=1;
-    ctx.beginPath();ctx.moveTo(PAD.left,y);ctx.lineTo(W-PAD.right,y);ctx.stroke();
-    ctx.fillStyle=textColor;
-    ctx.fillText(yVal>=100?'$'+(yVal/100).toFixed(0):'$0',PAD.left-6,y+4);
-  }
-
-  // X labels — show every Nth label to avoid overlap
-  var step=Math.ceil(points.length/12);
-  ctx.textAlign='center';
-  ctx.fillStyle=textColor;
-  points.forEach(function(p,i){
-    if(i%step===0||i===points.length-1){
-      var x=PAD.left+(i/(points.length-1||1))*cW;
-      ctx.fillText(p.label,x,H-PAD.bottom+16);
-    }
-  });
-
-  // Fill area under line
-  ctx.beginPath();
-  points.forEach(function(p,i){
-    var x=PAD.left+(i/(points.length-1||1))*cW;
-    var y=PAD.top+cH-(cH*(p.value/niceMax));
-    if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
-  });
-  // Close fill path
-  var lastX=PAD.left+cW;
-  var firstX=PAD.left;
-  ctx.lineTo(lastX,PAD.top+cH);
-  ctx.lineTo(firstX,PAD.top+cH);
-  ctx.closePath();
-  var grad=ctx.createLinearGradient(0,PAD.top,0,PAD.top+cH);
-  grad.addColorStop(0,'rgba(108,99,255,0.25)');
-  grad.addColorStop(1,'rgba(108,99,255,0.02)');
-  ctx.fillStyle=grad;
-  ctx.fill();
-
-  // Draw line
-  ctx.beginPath();
-  ctx.strokeStyle=accentColor;
-  ctx.lineWidth=2.5;
-  ctx.lineJoin='round';
-  ctx.lineCap='round';
-  points.forEach(function(p,i){
-    var x=PAD.left+(i/(points.length-1||1))*cW;
-    var y=PAD.top+cH-(cH*(p.value/niceMax));
-    if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
-  });
-  ctx.stroke();
-
-  // Dots on data points
-  points.forEach(function(p,i){
-    if(p.value>0){
-      var x=PAD.left+(i/(points.length-1||1))*cW;
-      var y=PAD.top+cH-(cH*(p.value/niceMax));
-      ctx.beginPath();
-      ctx.arc(x,y,4,0,Math.PI*2);
-      ctx.fillStyle=accentColor;
-      ctx.fill();
-      ctx.strokeStyle=isDark?'#111118':'#fff';
-      ctx.lineWidth=2;
-      ctx.stroke();
-    }
-  });
-
-  // Tooltip on hover
-  canvas.onmousemove=function(e){
-    var bRect=canvas.getBoundingClientRect();
-    var mx=(e.clientX-bRect.left)*(canvas.width/bRect.width);
-    var idx=Math.round((mx-PAD.left)/cW*(points.length-1));
-    if(idx<0||idx>=points.length){tooltip.style.display='none';return;}
-    var p=points[idx];
-    var x=PAD.left+(idx/(points.length-1||1))*cW;
-    var y=PAD.top+cH-(cH*(p.value/niceMax));
-    // Draw crosshair
-    drawMrrChart(points);
-    ctx.beginPath();ctx.setLineDash([4,4]);ctx.strokeStyle='rgba(108,99,255,0.4)';ctx.lineWidth=1;
-    ctx.moveTo(x,PAD.top);ctx.lineTo(x,PAD.top+cH);ctx.stroke();
-    ctx.setLineDash([]);
-    // Show tooltip
-    tooltip.style.display='block';
-    tooltip.innerHTML='<div style="color:var(--muted);margin-bottom:2px;">'+p.date+'</div><div style="font-weight:600;color:var(--accent);">'+fmt(p.value)+'</div>';
-    var tipX=x>W/2?x-150:x+10;
-    tooltip.style.left=tipX+'px';
-    tooltip.style.top=(y-40)+'px';
-  };
-  canvas.onmouseleave=function(){
-    tooltip.style.display='none';
-    drawMrrChart(points);
-  };
-}
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
 
 
-// ── Best Customers ────────────────────────────────────────────────────────────
-async function loadBest(){
-  try{
-    var list=await api('/api/best-customers');
-    var tb=document.getElementById('best-table');
-    if(!list.length){tb.innerHTML='<tr><td colspan="6" class="empty">No data yet</td></tr>';return;}
-    tb.innerHTML=list.map(function(c,i){
-      var medal;
-      if(i===0) medal='<svg width="20" height="20" viewBox="0 0 24 24" fill="#f59e0b" stroke="#d97706" stroke-width="1.5"><circle cx="12" cy="8" r="6"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12" stroke="#d97706" fill="#fbbf24"/></svg>';
-      else if(i===1) medal='<svg width="20" height="20" viewBox="0 0 24 24" fill="#9ca3af" stroke="#6b7280" stroke-width="1.5"><circle cx="12" cy="8" r="6"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12" stroke="#6b7280" fill="#d1d5db"/></svg>';
-      else if(i===2) medal='<svg width="20" height="20" viewBox="0 0 24 24" fill="#cd7c54" stroke="#b45309" stroke-width="1.5"><circle cx="12" cy="8" r="6"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12" stroke="#b45309" fill="#d97706"/></svg>';
-      else medal='<span style="font-size:13px;font-weight:600;color:var(--muted);font-family:var(--mono);">#'+(i+1)+'</span>';
-      return '<tr>'+
-        '<td style="text-align:center;">'+medal+'</td>'+
-        '<td><div class="customer-cell"><div class="avatar">'+initials(c.name)+'</div><div><div class="customer-name">'+(c.name||'—')+'</div><div class="customer-email">'+(c.email||'')+'</div></div></div></td>'+
-        '<td>'+cardBadge(c.card_brand,c.card_last4)+'</td>'+
-        '<td class="mono" style="font-weight:700;color:var(--green);">'+fmt(parseInt(c.total_paid)||0)+'</td>'+
-        '<td class="mono">'+( c.payment_count||0)+' payments</td>'+
-        '<td class="mono" style="font-size:12px;color:var(--muted);">'+fmtDate(c.last_payment)+'</td>'+
-      '</tr>';
-    }).join('');
-  }catch(e){}
-}
+// ── Payment failure reason (store on payment record) ─────────────────────────
+app.get('/api/payments/:id/reason', async (req, res) => {
+  try {
+    const r = await pool.query('SELECT failure_reason, stripe_payment_intent FROM payments WHERE id=$1', [req.params.id]);
+    if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
+    res.json({ reason: r.rows[0].failure_reason, pi: r.rows[0].stripe_payment_intent });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
 
-// ── Recovery Rate ─────────────────────────────────────────────────────────────
-async function loadRecovery(){
-  try{
-    var d=await api('/api/recovery-rate');
-    var rf=document.getElementById('rec-failed');if(rf)rf.textContent=d.total_failed||0;
-    var rr=document.getElementById('rec-recovered');if(rr)rr.textContent=d.recovered||0;
-    var rt=document.getElementById('rec-rate');
-    if(rt){rt.textContent=(d.rate||0)+'%';rt.style.color=(d.rate||0)>=50?'var(--green)':'var(--red)';}
-  }catch(e){}
-}
+// ── Churn alerts ──────────────────────────────────────────────────────────────
+app.get('/api/churn-alerts', async (req, res) => {
+  try {
+    const cancelled = await pool.query(`
+      SELECT c.id, c.name, c.email, s.updated_at as churned_at, 'cancelled' as reason
+      FROM subscriptions s JOIN customers c ON c.id=s.customer_id
+      WHERE s.status='cancelled' AND s.updated_at >= NOW()-INTERVAL '7 days'
+      ORDER BY s.updated_at DESC LIMIT 20
+    `);
+    const failing = await pool.query(`
+      SELECT c.id, c.name, c.email, s.last_failed_at, s.dunning_count,
+        'dunning' as reason
+      FROM subscriptions s JOIN customers c ON c.id=s.customer_id
+      WHERE s.dunning_count >= 3 AND s.status != 'cancelled'
+      ORDER BY s.dunning_count DESC LIMIT 20
+    `);
+    res.json({ cancelled: cancelled.rows, failing: failing.rows });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
 
-// ── Payment Notes ─────────────────────────────────────────────────────────────
-async function openPaymentNote(id){
-  document.getElementById('payment-note-id').value=id;
-  document.getElementById('payment-note-text').value='Loading...';
-  openModal('payment-note-modal');
-  try{
-    var list=await api('/api/payments');
-    var p=list.find(function(x){return x.id===id;});
-    document.getElementById('payment-note-text').value=p&&p.note?p.note:'';
-  }catch(e){document.getElementById('payment-note-text').value='';}
-}
-async function savePaymentNote(){
-  var id=document.getElementById('payment-note-id').value;
-  var note=document.getElementById('payment-note-text').value;
-  await api('/api/payments/'+id+'/note',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({note})});
-  toast('✓ Note saved');
-  closeModal('payment-note-modal');
-  loadPayments();
-}
+// ── MRR history for growth chart ──────────────────────────────────────────────
+app.get('/api/mrr-history', async (req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT
+        TO_CHAR(DATE_TRUNC('month', created_at), 'Mon YY') as month,
+        DATE_TRUNC('month', created_at) as month_date,
+        SUM(CASE WHEN status='succeeded' THEN amount ELSE 0 END) as revenue,
+        COUNT(CASE WHEN status='succeeded' THEN 1 END) as payments
+      FROM payments
+      WHERE created_at >= NOW() - INTERVAL '12 months'
+      GROUP BY DATE_TRUNC('month', created_at)
+      ORDER BY month_date ASC
+    `);
+    res.json(r.rows);
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
 
-function buildRefCell(pi){
-  if(!pi) return '—';
-  var short=pi.slice(0,8)+'...'+pi.slice(-4);
-  var wrap=document.createElement('div');
-  wrap.style.display='flex';
-  wrap.style.alignItems='center';
-  wrap.style.gap='4px';
-  var span=document.createElement('span');
-  span.className='mono';
-  span.style.cssText='font-size:11px;color:var(--muted);';
-  span.textContent=short;
-  var btn=document.createElement('button');
-  btn.className='btn btn-sm';
-  btn.style.cssText='padding:1px 5px;font-size:10px;';
-  btn.textContent='Copy';
-  btn.addEventListener('click',function(){navigator.clipboard.writeText(pi);toast('Copied!');});
-  wrap.appendChild(span);wrap.appendChild(btn);
-  return wrap.outerHTML;
-}
-function copyRef(btn){var ref=btn.dataset.ref;navigator.clipboard.writeText(ref);toast('Copied!');}
-document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
-</script>
-</body>
-</html>
+// ── Best customers ────────────────────────────────────────────────────────────
+app.get('/api/best-customers', async (req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT c.id, c.name, c.email, c.card_brand, c.card_last4,
+        COALESCE(SUM(CASE WHEN p.status='succeeded' THEN p.amount ELSE 0 END),0) as total_paid,
+        COUNT(CASE WHEN p.status='succeeded' THEN 1 END) as payment_count,
+        MAX(p.created_at) as last_payment
+      FROM customers c
+      LEFT JOIN payments p ON p.customer_id=c.id
+      GROUP BY c.id ORDER BY total_paid DESC LIMIT 10
+    `);
+    res.json(r.rows);
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Failed payment recovery rate ──────────────────────────────────────────────
+app.get('/api/recovery-rate', async (req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT
+        COUNT(CASE WHEN status='failed' THEN 1 END) as total_failed,
+        COUNT(CASE WHEN status='succeeded' AND failure_reason IS NOT NULL THEN 1 END) as recovered,
+        COUNT(CASE WHEN status='succeeded' THEN 1 END) as total_succeeded
+      FROM payments WHERE created_at >= NOW()-INTERVAL '30 days'
+    `);
+    const row = r.rows[0];
+    const totalFailed = parseInt(row.total_failed)||0;
+    const recovered = parseInt(row.recovered)||0;
+    const rate = totalFailed > 0 ? Math.round((recovered/totalFailed)*100) : 0;
+    res.json({ total_failed: totalFailed, recovered, rate, total_succeeded: parseInt(row.total_succeeded)||0 });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Global search ─────────────────────────────────────────────────────────────
+app.get('/api/search', async (req, res) => {
+  try {
+    const q = '%'+(req.query.q||'').trim()+'%';
+    if (!req.query.q || req.query.q.trim().length < 2) return res.json({ customers:[], payments:[], subscriptions:[] });
+    const [cust, pmts, subs] = await Promise.all([
+      pool.query(`SELECT id,name,email,card_brand,card_last4,status FROM customers WHERE name ILIKE $1 OR email ILIKE $1 LIMIT 5`, [q]),
+      pool.query(`SELECT p.id,c.name,c.email,p.amount,p.currency,p.status,p.created_at,p.failure_reason FROM payments p JOIN customers c ON c.id=p.customer_id WHERE c.name ILIKE $1 OR c.email ILIKE $1 ORDER BY p.created_at DESC LIMIT 5`, [q]),
+      pool.query(`SELECT s.id,c.name,c.email,s.amount,s.currency,s.status,s.interval_days FROM subscriptions s JOIN customers c ON c.id=s.customer_id WHERE c.name ILIKE $1 OR c.email ILIKE $1 LIMIT 5`, [q]),
+    ]);
+    res.json({ customers: cust.rows, payments: pmts.rows, subscriptions: subs.rows });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Plan templates ────────────────────────────────────────────────────────────
+app.get('/api/plan-templates', async (req, res) => {
+  try {
+    await pool.query(`CREATE TABLE IF NOT EXISTS plan_templates (id SERIAL PRIMARY KEY, name TEXT, amount INT, currency TEXT DEFAULT 'usd', interval_days INT, created_at TIMESTAMPTZ DEFAULT NOW())`);
+    const r = await pool.query('SELECT * FROM plan_templates ORDER BY created_at ASC');
+    res.json(r.rows);
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/plan-templates', async (req, res) => {
+  try {
+    await pool.query(`CREATE TABLE IF NOT EXISTS plan_templates (id SERIAL PRIMARY KEY, name TEXT, amount INT, currency TEXT DEFAULT 'usd', interval_days INT, created_at TIMESTAMPTZ DEFAULT NOW())`);
+    const { name, amount, currency, interval_days } = req.body;
+    await pool.query('INSERT INTO plan_templates (name,amount,currency,interval_days) VALUES ($1,$2,$3,$4)', [name, amount, currency||'usd', interval_days||30]);
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/plan-templates/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM plan_templates WHERE id=$1', [req.params.id]);
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Payment notes ─────────────────────────────────────────────────────────────
+app.patch('/api/payments/:id/note', async (req, res) => {
+  try {
+    await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS note TEXT');
+    await pool.query('UPDATE payments SET note=$1 WHERE id=$2', [req.body.note, req.params.id]);
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Start ─────────────────────────────────────────────────────────────────────
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, async () => {
+  await init();
+  console.log(`\n🚀 Subloop running on http://localhost:${PORT}\n`);
+  initScheduler();
+});
