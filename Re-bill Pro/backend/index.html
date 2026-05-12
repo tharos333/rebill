@@ -202,13 +202,6 @@ textarea{resize:vertical;min-height:60px}
   <div class="logo sidebar-header">
     <img id="sidebar-logo" src="https://i.ibb.co/MDsPb7Nr/1.png" alt="Subloop" class="sidebar-logo-img">
   </div>
-  <div style="padding:8px 12px;">
-    <div style="position:relative;">
-      <input type="text" id="global-search-input" placeholder="Search customers, payments..." oninput="globalSearch(this.value)" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:7px 10px 7px 30px;font-size:12px;font-family:var(--mono);outline:none;">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" style="position:absolute;left:9px;top:8px;pointer-events:none;"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-    </div>
-    <div id="global-search-results" style="display:none;position:absolute;left:8px;right:8px;background:var(--surface);border:1px solid var(--border2);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.3);z-index:200;max-height:320px;overflow-y:auto;margin-top:4px;"></div>
-  </div>
   <div class="nav-section">Main</div>
   <button class="nav-item active" onclick="showPage('dashboard',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboard</button>
   <button class="nav-item" onclick="showPage('activity',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Activity</button>
@@ -239,7 +232,14 @@ textarea{resize:vertical;min-height:60px}
 <div id="page-dashboard" class="page active">
   <div class="page-header">
     <div><h2>Dashboard</h2><p>Your subscription overview</p></div>
-    <button class="btn" onclick="runRebills()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/></svg>Run rebills now</button>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div style="position:relative;">
+        <input type="text" id="global-search-input" placeholder="Search..." oninput="globalSearch(this.value)" style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:7px 10px 7px 30px;font-size:13px;font-family:var(--mono);outline:none;width:220px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" style="position:absolute;left:9px;top:9px;pointer-events:none;"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <div id="global-search-results" style="display:none;position:absolute;top:calc(100% + 6px);left:0;width:340px;background:var(--surface);border:1px solid var(--border2);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.3);z-index:200;max-height:320px;overflow-y:auto;"></div>
+      </div>
+      <button class="btn" onclick="runRebills()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/></svg>Run rebills now</button>
+    </div>
   </div>
   <div class="stats-grid">
     <div class="stat-card"><div class="stat-label">MRR</div><div class="stat-value" id="stat-mrr">—</div><div class="stat-sub">monthly recurring</div></div>
@@ -519,15 +519,26 @@ textarea{resize:vertical;min-height:60px}
 
 <!-- MRR Growth -->
 <div id="page-mrr" class="page">
-  <div class="page-header"><div><h2>MRR Growth</h2><p>Monthly recurring revenue over the last 12 months</p></div></div>
+  <div class="page-header">
+    <div><h2>MRR Growth</h2><p>Revenue performance over time</p></div>
+    <select id="mrr-period" onchange="loadMrr()" class="btn btn-sm" style="cursor:pointer;">
+      <option value="month">This Month (daily)</option>
+      <option value="3months">Last 3 Months</option>
+      <option value="12months">Last 12 Months</option>
+    </select>
+  </div>
   <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px;">
     <div class="stat-card"><div class="stat-label">This Month</div><div class="stat-value" id="mrr-this">—</div><div class="stat-sub">revenue</div></div>
     <div class="stat-card"><div class="stat-label">Last Month</div><div class="stat-value" id="mrr-last">—</div><div class="stat-sub">revenue</div></div>
     <div class="stat-card"><div class="stat-label">Growth</div><div class="stat-value" id="mrr-growth">—</div><div class="stat-sub">month over month</div></div>
   </div>
   <div class="card">
-    <div class="card-header"><h3>Revenue by month</h3></div>
-    <div id="mrr-chart" style="padding:18px;display:flex;align-items:flex-end;gap:8px;height:200px;"></div>
+    <div class="card-header"><h3 id="mrr-chart-title">Daily revenue — this month</h3></div>
+    <div style="padding:18px 18px 8px;position:relative;">
+      <canvas id="mrr-canvas" style="width:100%;height:220px;display:block;"></canvas>
+      <div id="mrr-tooltip" style="display:none;position:absolute;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:8px 12px;font-size:12px;font-family:var(--mono);pointer-events:none;z-index:10;min-width:120px;"></div>
+      <div id="mrr-empty" style="display:none;text-align:center;padding:48px 20px;color:var(--muted);font-size:13px;font-family:var(--mono);">No revenue data available yet</div>
+    </div>
   </div>
 </div>
 
@@ -720,7 +731,7 @@ textarea{resize:vertical;min-height:60px}
 <div id="toast"></div>
 
 <script>
-let currentLink=null,allCustomers=[],allSubscriptions=[],appSettings={},selectedSubs=new Set(),currentRevPeriod='month',bulkMode=false;
+let currentLink=null,allCustomers=[],allSubscriptions=[],allPayments=[],appSettings={},selectedSubs=new Set(),currentRevPeriod='month',bulkMode=false;
 
 function toggleTheme(){const isLight=document.documentElement.classList.toggle('light');localStorage.setItem('subloop_theme',isLight?'light':'dark');document.getElementById('theme-label').textContent=isLight?'Light mode':'Dark mode';updateLogos(isLight);}
 function updateLogos(isLight){const src=isLight?'https://i.ibb.co/QvV8RKkZ/2.png':'https://i.ibb.co/MDsPb7Nr/1.png';['sidebar-logo','login-logo'].forEach(id=>{const el=document.getElementById(id);if(el)el.src=src;});}
@@ -1211,19 +1222,72 @@ async function saveAmount(subId){const input=document.getElementById('new-amount
 // Payments
 async function loadPayments(){
   try{
-    const list=await api('/api/payments');
-    const tb=document.getElementById('payments-table');
-    if(!list.length){tb.innerHTML='<tr><td colspan="6" class="empty">No payments yet</td></tr>';return;}
-    var isViewer=localStorage.getItem('subloop_readonly')==='1';
-    var reasonLabels={'insufficient_funds':'Insufficient funds','card_declined':'Card declined','expired_card':'Card expired','incorrect_cvc':'Wrong CVC','lost_card':'Card reported lost','stolen_card':'Card stolen','do_not_honor':'Bank declined','processing_error':'Processing error','fraudulent':'Fraud suspected'};
-    tb.innerHTML=list.map(p=>{
-      var reasonText=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'—';
-      var reasonColor=p.status==='failed'?'color:var(--red);':'color:var(--muted);';
-      var noteBtn=!isViewer?'<button class="btn btn-sm" onclick="openPaymentNote('+p.id+')" title="Note">Note</button>':'';
-      return '<tr><td><div class="customer-cell"><div class="avatar">'+initials(p.name)+'</div><div><div class="customer-name">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div></div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+badge(p.status)+'</td><td class="mono" style="font-size:12px;'+reasonColor+'">'+reasonText+'</td><td class="mono">'+fmtDate(p.created_at)+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+(p.stripe_payment_intent?p.stripe_payment_intent.slice(0,22)+'…':'—')+'</td><td><div class="actions">'+(!isViewer&&p.status==='failed'?'<button class="btn btn-sm btn-success" onclick="retryPayment('+p.id+')">Retry</button>':'')+noteBtn+'</div></td></tr>';
-    }).join('');
+    allPayments=await api('/api/payments');
+    renderPaymentSummary(allPayments);
+    filterPayments();
   }catch(e){}
 }
+
+function renderPaymentSummary(list){
+  var total=list.filter(p=>p.status==='succeeded').reduce((s,p)=>s+(parseInt(p.amount)||0),0);
+  var success=list.filter(p=>p.status==='succeeded').length;
+  var failed=list.filter(p=>p.status==='failed').length;
+  var retryable=list.filter(p=>p.status==='failed').length;
+  var te=document.getElementById('pay-total'); if(te)te.textContent=fmt(total);
+  var se=document.getElementById('pay-success-count'); if(se)se.textContent=success;
+  var fe=document.getElementById('pay-fail-count'); if(fe)fe.textContent=failed;
+  var re=document.getElementById('pay-retry-count'); if(re)re.textContent=retryable;
+}
+
+function filterPayments(){
+  if(!allPayments) return;
+  var q=(document.getElementById('pay-search')?.value||'').toLowerCase();
+  var status=document.getElementById('pay-status-filter')?.value||'';
+  var dateFilter=document.getElementById('pay-date-filter')?.value||'';
+  var now=new Date();
+  var filtered=allPayments.filter(function(p){
+    var matchQ=!q||(p.name||'').toLowerCase().includes(q)||(p.email||'').toLowerCase().includes(q)||(p.stripe_payment_intent||'').toLowerCase().includes(q);
+    var matchS=!status||p.status===status;
+    var matchD=true;
+    if(dateFilter){
+      var d=new Date(p.created_at);
+      if(dateFilter==='today') matchD=d.toDateString()===now.toDateString();
+      else if(dateFilter==='yesterday'){var y=new Date(now);y.setDate(y.getDate()-1);matchD=d.toDateString()===y.toDateString();}
+      else if(dateFilter==='week'){var w=new Date(now);w.setDate(w.getDate()-7);matchD=d>=w;}
+      else if(dateFilter==='month'){matchD=d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();}
+    }
+    return matchQ&&matchS&&matchD;
+  });
+  renderPayments(filtered);
+}
+
+var reasonLabels={'insufficient_funds':'Insufficient funds','card_declined':'Card declined','expired_card':'Card expired','incorrect_cvc':'Wrong CVC','lost_card':'Card reported lost','stolen_card':'Reported stolen','do_not_honor':'Bank declined','processing_error':'Processing error','fraudulent':'Fraud suspected','generic_decline':'Generic decline','no_such_customer':'Customer not found','authentication_required':'Auth required'};
+
+function renderPayments(list){
+  var isViewer=localStorage.getItem('subloop_readonly')==='1';
+  var tb=document.getElementById('payments-table');
+  if(!list.length){tb.innerHTML='<tr><td colspan="7" class="empty">No payments found</td></tr>';return;}
+  tb.innerHTML=list.map(function(p){
+    var shortReason=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'';
+    var reasonHtml=shortReason?'<div style="font-size:12px;color:var(--red);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+p.failure_reason+'">'+shortReason+'</div>':'<span style="color:var(--muted);font-size:12px;">—</span>';
+    var refHtml=buildRefCell(p.stripe_payment_intent);
+
+    var actions='<div style="display:flex;gap:4px;align-items:center;">';
+    if(!isViewer&&p.status==='failed') actions+='<button class="btn btn-sm btn-success" onclick="retryPayment('+p.id+')">Retry</button>';
+    actions+='<button class="btn btn-sm" onclick="openPaymentNote('+p.id+')" title="'+(p.note||'Add note')+'">'+(p.note?'📝 Note':'Note')+'</button>';
+    actions+='</div>';
+    return '<tr style="'+(p.status==='failed'?'background:rgba(248,113,113,0.04);':'')+'">'+
+      '<td><div class="customer-cell"><div class="avatar">'+initials(p.name)+'</div><div><div class="customer-name" style="font-size:12px;">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div></div></div></td>'+
+      '<td class="mono" style="font-size:13px;font-weight:600;">'+fmt(p.amount,p.currency)+'</td>'+
+      '<td>'+badge(p.status)+'</td>'+
+      '<td>'+reasonHtml+'</td>'+
+      '<td class="mono" style="font-size:12px;white-space:nowrap;">'+fmtDate(p.created_at)+'</td>'+
+      '<td>'+refHtml+'</td>'+
+      '<td>'+actions+'</td>'+
+    '</tr>';
+  }).join('');
+}
+
 async function retryPayment(id){toast('Retrying…');try{const r=await api('/api/payments/'+id+'/retry',{method:'POST'});if(r.success){toast('✓ Succeeded');loadPayments();loadStats();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
 
 // Webhooks
@@ -1750,31 +1814,196 @@ async function deleteTemplate(id){
 // ── MRR Growth ────────────────────────────────────────────────────────────────
 async function loadMrr(){
   try{
-    var data=await api('/api/mrr-history');
-    var chart=document.getElementById('mrr-chart');
-    if(!data.length){chart.innerHTML='<div class="empty">No data yet</div>';return;}
-    var maxRev=Math.max(...data.map(d=>parseInt(d.revenue)||0));
-    var bars=data.map(function(d){
-      var h=maxRev>0?Math.max(4,Math.round(((parseInt(d.revenue)||0)/maxRev)*160)):4;
-      return '<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;">'+
-        '<div style="font-size:10px;color:var(--muted);font-family:var(--mono);">'+fmt(parseInt(d.revenue)||0)+'</div>'+
-        '<div style="height:'+h+'px;width:100%;background:var(--accent);border-radius:4px 4px 0 0;min-width:20px;"></div>'+
-        '<div style="font-size:10px;color:var(--muted);font-family:var(--mono);">'+d.month+'</div>'+
-      '</div>';
-    }).join('');
-    chart.innerHTML='<div style="display:flex;align-items:flex-end;gap:8px;width:100%;height:100%;">'+bars+'</div>';
-    // Stats
-    if(data.length>=2){
-      var last=parseInt(data[data.length-1].revenue)||0;
-      var prev=parseInt(data[data.length-2].revenue)||0;
-      var growth=prev>0?Math.round(((last-prev)/prev)*100):0;
-      var el=document.getElementById('mrr-this');if(el)el.textContent=fmt(last);
-      var el2=document.getElementById('mrr-last');if(el2)el2.textContent=fmt(prev);
-      var el3=document.getElementById('mrr-growth');
-      if(el3){el3.textContent=(growth>=0?'+':'')+growth+'%';el3.style.color=growth>=0?'var(--green)':'var(--red)';}
+    var period=document.getElementById('mrr-period')?.value||'month';
+    var titleEl=document.getElementById('mrr-chart-title');
+    var data=await api('/api/revenue-chart'+(period==='month'?'':period==='3months'?'?period=3months':''));
+
+    // For monthly view use daily data, for longer use monthly aggregation
+    var points=[];
+    var now=new Date();
+
+    if(period==='month'){
+      // Daily for current month
+      if(titleEl) titleEl.textContent='Daily revenue — '+now.toLocaleString('en-US',{month:'long',year:'numeric'});
+      var daysInMonth=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
+      for(var d=1;d<=daysInMonth;d++){
+        var dateStr=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+        var found=data.find(function(r){return r.day&&r.day.startsWith(dateStr);});
+        points.push({label:String(d),value:parseInt(found?.revenue||0),date:dateStr});
+      }
+    } else if(period==='3months'){
+      if(titleEl) titleEl.textContent='Revenue — last 3 months';
+      var months3=await api('/api/mrr-history');
+      months3.slice(-3).forEach(function(r){points.push({label:r.month,value:parseInt(r.revenue||0),date:r.month});});
+    } else {
+      if(titleEl) titleEl.textContent='Revenue — last 12 months';
+      var months12=await api('/api/mrr-history');
+      months12.forEach(function(r){points.push({label:r.month,value:parseInt(r.revenue||0),date:r.month});});
     }
-  }catch(e){console.error(e);}
+
+    // Update summary cards
+    var thisMonth=data.reduce(function(s,r){
+      if(r.day&&new Date(r.day).getMonth()===now.getMonth()&&new Date(r.day).getFullYear()===now.getFullYear())
+        return s+(parseInt(r.revenue)||0);
+      return s;
+    },0);
+    var lastMonthDate=new Date(now.getFullYear(),now.getMonth()-1,1);
+    var lastMonth=data.reduce(function(s,r){
+      if(r.day&&new Date(r.day).getMonth()===lastMonthDate.getMonth()&&new Date(r.day).getFullYear()===lastMonthDate.getFullYear())
+        return s+(parseInt(r.revenue)||0);
+      return s;
+    },0);
+    var growth=lastMonth>0?Math.round(((thisMonth-lastMonth)/lastMonth)*100):0;
+    var te=document.getElementById('mrr-this');if(te)te.textContent=fmt(thisMonth);
+    var le=document.getElementById('mrr-last');if(le)le.textContent=fmt(lastMonth);
+    var ge=document.getElementById('mrr-growth');
+    if(ge){ge.textContent=(growth>=0?'+':'')+growth+'%';ge.style.color=growth>=0?'var(--green)':'var(--red)';}
+
+    drawMrrChart(points);
+  }catch(e){console.error('loadMrr:',e);}
 }
+
+function drawMrrChart(points){
+  var canvas=document.getElementById('mrr-canvas');
+  var emptyEl=document.getElementById('mrr-empty');
+  var tooltip=document.getElementById('mrr-tooltip');
+  if(!canvas)return;
+
+  var hasData=points.some(function(p){return p.value>0;});
+  if(!hasData){
+    canvas.style.display='none';
+    if(emptyEl)emptyEl.style.display='block';
+    return;
+  }
+  canvas.style.display='block';
+  if(emptyEl)emptyEl.style.display='none';
+
+  // Set canvas size
+  var rect=canvas.parentElement.getBoundingClientRect();
+  var W=rect.width-36||600;
+  var H=220;
+  canvas.width=W;
+  canvas.height=H;
+  canvas.style.width='100%';
+  canvas.style.height=H+'px';
+
+  var ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+
+  var isDark=!document.documentElement.classList.contains('light');
+  var gridColor=isDark?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.06)';
+  var textColor=isDark?'rgba(255,255,255,0.4)':'rgba(0,0,0,0.4)';
+  var accentColor='#6c63ff';
+  var accentGlow='rgba(108,99,255,0.15)';
+
+  var PAD={top:20,right:20,bottom:40,left:60};
+  var cW=W-PAD.left-PAD.right;
+  var cH=H-PAD.top-PAD.bottom;
+
+  var maxVal=Math.max(...points.map(function(p){return p.value;}),1);
+  // Round up max to nice number
+  var niceMax=Math.ceil(maxVal/100)*100||100;
+
+  // Grid lines & Y labels
+  ctx.font='11px monospace';
+  ctx.textAlign='right';
+  ctx.fillStyle=textColor;
+  var ySteps=5;
+  for(var i=0;i<=ySteps;i++){
+    var yVal=(niceMax/ySteps)*i;
+    var y=PAD.top+cH-(cH*(yVal/niceMax));
+    ctx.strokeStyle=gridColor;
+    ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(PAD.left,y);ctx.lineTo(W-PAD.right,y);ctx.stroke();
+    ctx.fillStyle=textColor;
+    ctx.fillText(yVal>=100?'$'+(yVal/100).toFixed(0):'$0',PAD.left-6,y+4);
+  }
+
+  // X labels — show every Nth label to avoid overlap
+  var step=Math.ceil(points.length/12);
+  ctx.textAlign='center';
+  ctx.fillStyle=textColor;
+  points.forEach(function(p,i){
+    if(i%step===0||i===points.length-1){
+      var x=PAD.left+(i/(points.length-1||1))*cW;
+      ctx.fillText(p.label,x,H-PAD.bottom+16);
+    }
+  });
+
+  // Fill area under line
+  ctx.beginPath();
+  points.forEach(function(p,i){
+    var x=PAD.left+(i/(points.length-1||1))*cW;
+    var y=PAD.top+cH-(cH*(p.value/niceMax));
+    if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+  });
+  // Close fill path
+  var lastX=PAD.left+cW;
+  var firstX=PAD.left;
+  ctx.lineTo(lastX,PAD.top+cH);
+  ctx.lineTo(firstX,PAD.top+cH);
+  ctx.closePath();
+  var grad=ctx.createLinearGradient(0,PAD.top,0,PAD.top+cH);
+  grad.addColorStop(0,'rgba(108,99,255,0.25)');
+  grad.addColorStop(1,'rgba(108,99,255,0.02)');
+  ctx.fillStyle=grad;
+  ctx.fill();
+
+  // Draw line
+  ctx.beginPath();
+  ctx.strokeStyle=accentColor;
+  ctx.lineWidth=2.5;
+  ctx.lineJoin='round';
+  ctx.lineCap='round';
+  points.forEach(function(p,i){
+    var x=PAD.left+(i/(points.length-1||1))*cW;
+    var y=PAD.top+cH-(cH*(p.value/niceMax));
+    if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+
+  // Dots on data points
+  points.forEach(function(p,i){
+    if(p.value>0){
+      var x=PAD.left+(i/(points.length-1||1))*cW;
+      var y=PAD.top+cH-(cH*(p.value/niceMax));
+      ctx.beginPath();
+      ctx.arc(x,y,4,0,Math.PI*2);
+      ctx.fillStyle=accentColor;
+      ctx.fill();
+      ctx.strokeStyle=isDark?'#111118':'#fff';
+      ctx.lineWidth=2;
+      ctx.stroke();
+    }
+  });
+
+  // Tooltip on hover
+  canvas.onmousemove=function(e){
+    var bRect=canvas.getBoundingClientRect();
+    var mx=(e.clientX-bRect.left)*(canvas.width/bRect.width);
+    var idx=Math.round((mx-PAD.left)/cW*(points.length-1));
+    if(idx<0||idx>=points.length){tooltip.style.display='none';return;}
+    var p=points[idx];
+    var x=PAD.left+(idx/(points.length-1||1))*cW;
+    var y=PAD.top+cH-(cH*(p.value/niceMax));
+    // Draw crosshair
+    drawMrrChart(points);
+    ctx.beginPath();ctx.setLineDash([4,4]);ctx.strokeStyle='rgba(108,99,255,0.4)';ctx.lineWidth=1;
+    ctx.moveTo(x,PAD.top);ctx.lineTo(x,PAD.top+cH);ctx.stroke();
+    ctx.setLineDash([]);
+    // Show tooltip
+    tooltip.style.display='block';
+    tooltip.innerHTML='<div style="color:var(--muted);margin-bottom:2px;">'+p.date+'</div><div style="font-weight:600;color:var(--accent);">'+fmt(p.value)+'</div>';
+    var tipX=x>W/2?x-150:x+10;
+    tooltip.style.left=tipX+'px';
+    tooltip.style.top=(y-40)+'px';
+  };
+  canvas.onmouseleave=function(){
+    tooltip.style.display='none';
+    drawMrrChart(points);
+  };
+}
+
 
 // ── Best Customers ────────────────────────────────────────────────────────────
 async function loadBest(){
@@ -1783,9 +2012,13 @@ async function loadBest(){
     var tb=document.getElementById('best-table');
     if(!list.length){tb.innerHTML='<tr><td colspan="6" class="empty">No data yet</td></tr>';return;}
     tb.innerHTML=list.map(function(c,i){
-      var medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'#'+(i+1);
+      var medal;
+      if(i===0) medal='<svg width="20" height="20" viewBox="0 0 24 24" fill="#f59e0b" stroke="#d97706" stroke-width="1.5"><circle cx="12" cy="8" r="6"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12" stroke="#d97706" fill="#fbbf24"/></svg>';
+      else if(i===1) medal='<svg width="20" height="20" viewBox="0 0 24 24" fill="#9ca3af" stroke="#6b7280" stroke-width="1.5"><circle cx="12" cy="8" r="6"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12" stroke="#6b7280" fill="#d1d5db"/></svg>';
+      else if(i===2) medal='<svg width="20" height="20" viewBox="0 0 24 24" fill="#cd7c54" stroke="#b45309" stroke-width="1.5"><circle cx="12" cy="8" r="6"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12" stroke="#b45309" fill="#d97706"/></svg>';
+      else medal='<span style="font-size:13px;font-weight:600;color:var(--muted);font-family:var(--mono);">#'+(i+1)+'</span>';
       return '<tr>'+
-        '<td style="font-size:16px;text-align:center;">'+medal+'</td>'+
+        '<td style="text-align:center;">'+medal+'</td>'+
         '<td><div class="customer-cell"><div class="avatar">'+initials(c.name)+'</div><div><div class="customer-name">'+(c.name||'—')+'</div><div class="customer-email">'+(c.email||'')+'</div></div></div></td>'+
         '<td>'+cardBadge(c.card_brand,c.card_last4)+'</td>'+
         '<td class="mono" style="font-weight:700;color:var(--green);">'+fmt(parseInt(c.total_paid)||0)+'</td>'+
@@ -1827,6 +2060,26 @@ async function savePaymentNote(){
   loadPayments();
 }
 
+function buildRefCell(pi){
+  if(!pi) return '—';
+  var short=pi.slice(0,8)+'...'+pi.slice(-4);
+  var wrap=document.createElement('div');
+  wrap.style.display='flex';
+  wrap.style.alignItems='center';
+  wrap.style.gap='4px';
+  var span=document.createElement('span');
+  span.className='mono';
+  span.style.cssText='font-size:11px;color:var(--muted);';
+  span.textContent=short;
+  var btn=document.createElement('button');
+  btn.className='btn btn-sm';
+  btn.style.cssText='padding:1px 5px;font-size:10px;';
+  btn.textContent='Copy';
+  btn.addEventListener('click',function(){navigator.clipboard.writeText(pi);toast('Copied!');});
+  wrap.appendChild(span);wrap.appendChild(btn);
+  return wrap.outerHTML;
+}
+function copyRef(btn){var ref=btn.dataset.ref;navigator.clipboard.writeText(ref);toast('Copied!');}
 document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
 </script>
 </body>
