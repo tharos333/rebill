@@ -226,14 +226,12 @@ textarea{resize:vertical;min-height:60px}
   <div class="nav-section">Insights</div>
   <button class="nav-item" onclick="showPage('forecast',this)">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Forecast</button>
-  <button class="nav-item" onclick="showPage('expiry',this)">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><circle cx="17" cy="15" r="2"/><line x1="17" y1="13" x2="17" y2="13.5"/></svg>Expiring Cards</button>
+
   <button class="nav-item" onclick="showPage('summary',this)">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="12" y2="17"/></svg>Daily Summary</button>
   <button class="nav-item" onclick="showPage('mrr',this)">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>MRR Growth</button>
-  <button class="nav-item" onclick="showPage('best',this)">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Best Customers</button>
+
   <button class="nav-item" onclick="showPage('recovery',this)">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 2v6h6"/><path d="M21.5 22v-6h-6"/><path d="M22 11.5A10 10 0 0 0 3.2 7.2"/><path d="M2 12.5a10 10 0 0 0 18.8 4.2"/></svg>Recovery Rate</button>
 
@@ -565,22 +563,6 @@ textarea{resize:vertical;min-height:60px}
   </div>
 </div>
 
-<!-- Best Customers -->
-<div id="page-best" class="page">
-  <div class="page-header"><div><h2>Best Customers</h2><p>Top 10 customers by total amount paid</p></div></div>
-  <div class="card"><div class="scrollable"><table style="table-layout:fixed;">
-    <thead><tr>
-      <th style="width:50px;text-align:center;">#</th>
-      <th style="width:260px;">Customer</th>
-      <th style="width:160px;">Card</th>
-      <th style="width:140px;">Total Paid</th>
-      <th style="width:120px;">Payments</th>
-      <th style="width:150px;">Last Payment</th>
-    </tr></thead>
-    <tbody id="best-table"><tr><td colspan="6" class="empty">Loading...</td></tr></tbody>
-  </table></div></div>
-</div>
-
 <!-- Recovery Rate -->
 <div id="page-recovery" class="page">
   <div class="page-header"><div><h2>Payment Recovery</h2><p>How well your dunning recovers failed payments</p></div></div>
@@ -589,24 +571,6 @@ textarea{resize:vertical;min-height:60px}
     <div class="stat-card"><div class="stat-label">Recovered</div><div class="stat-value" id="rec-recovered" style="color:var(--green)">—</div><div class="stat-sub">retried successfully</div></div>
     <div class="stat-card"><div class="stat-label">Recovery Rate</div><div class="stat-value" id="rec-rate">—</div><div class="stat-sub">last 30 days</div></div>
   </div>
-</div>
-
-<!-- Expiring Cards -->
-<div id="page-expiry" class="page">
-  <div class="page-header">
-    <div><h2>Expiring Cards</h2><p>Customers whose cards expire soon — contact them before rebill fails</p></div>
-    <div class="page-header-actions">
-      <select id="expiry-days" onchange="loadExpiry()" class="btn btn-sm" style="cursor:pointer;">
-        <option value="30">Expiring in 30 days</option>
-        <option value="60">Expiring in 60 days</option>
-        <option value="90">Expiring in 90 days</option>
-      </select>
-    </div>
-  </div>
-  <div class="card"><div class="scrollable"><table>
-    <thead><tr><th>Customer</th><th>Card</th><th>Expires</th><th>Next Billing</th><th>Actions</th></tr></thead>
-    <tbody id="expiry-table"><tr><td colspan="5" class="empty">Loading...</td></tr></tbody>
-  </table></div></div>
 </div>
 
 <!-- Daily Summary -->
@@ -937,7 +901,7 @@ function showPage(name,el){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   el.classList.add('active');
-  const loaders={dashboard:()=>{loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();},activity:loadActivity,customers:loadCustomers,subscriptions:loadSubscriptions,payments:loadPayments,links:loadAccounts,settings:loadSettings,accounts:loadAccounts,security:loadSecurity,webhooks:loadWebhooks,forecast:loadForecast,expiry:loadExpiry,summary:loadSummary,admins:loadAdmins,mrr:loadMrr,best:loadBest,recovery:loadRecovery,links:()=>{loadAccounts();loadTemplates();}};
+  const loaders={dashboard:()=>{loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();},activity:loadActivity,customers:loadCustomers,subscriptions:loadSubscriptions,payments:loadPayments,links:loadAccounts,settings:loadSettings,accounts:loadAccounts,security:loadSecurity,webhooks:loadWebhooks,forecast:loadForecast,summary:loadSummary,admins:loadAdmins,mrr:loadMrr,recovery:loadRecovery,links:()=>{loadAccounts();loadTemplates();}};
   // Re-verify permissions on each page navigation
   var _username=localStorage.getItem('subloop_username');
   if(_username && (getCurrentRole()==='custom' || getCurrentRole()==='viewer')){
