@@ -101,6 +101,26 @@ app.post('/api/stripe-accounts', async (req, res) => {
     res.json({ success: true, id: acc.id });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
+app.patch('/api/stripe-accounts/:id', async (req, res) => {
+  try {
+    const { name, secret_key, webhook_secret } = req.body;
+    if (!name) return res.status(400).json({ error: 'Name is required' });
+    let query, params;
+    if (secret_key && secret_key.trim()) {
+      // Update name + key + webhook
+      query = 'UPDATE stripe_accounts SET name=$1, secret_key=$2, webhook_secret=$3 WHERE id=$4';
+      params = [name, secret_key.trim(), webhook_secret||null, req.params.id];
+    } else {
+      // Update name + webhook only (keep existing key)
+      query = 'UPDATE stripe_accounts SET name=$1, webhook_secret=$2 WHERE id=$3';
+      params = [name, webhook_secret||null, req.params.id];
+    }
+    await pool.query(query, params);
+    await activityLog.add('security', `Stripe account updated: ${name}`);
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
 app.patch('/api/stripe-accounts/:id/default', async (req, res) => { await stripeAccounts.setDefault(req.params.id); res.json({ success: true }); });
 app.delete('/api/stripe-accounts/:id', async (req, res) => { await stripeAccounts.delete(req.params.id); res.json({ success: true }); });
 
