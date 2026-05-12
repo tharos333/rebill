@@ -506,7 +506,7 @@ textarea{resize:vertical;min-height:60px}
     <button class="btn btn-primary" onclick="openModal('add-account-modal')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add account</button>
   </div>
   <div class="card"><div class="scrollable"><table>
-    <thead><tr><th>Name</th><th>Key</th><th>Status</th><th>Actions</th></tr></thead>
+    <thead><tr><th style="width:48px;"></th><th>Name</th><th>Key</th><th>Status</th><th>Actions</th></tr></thead>
     <tbody id="accounts-table"><tr><td colspan="4" class="empty">Loading...</td></tr></tbody>
   </table></div></div>
 </div>
@@ -722,10 +722,40 @@ textarea{resize:vertical;min-height:60px}
     <div class="modal-footer"><button class="btn" onclick="closeModal('payment-note-modal')">Cancel</button><button class="btn btn-primary" onclick="savePaymentNote()">Save</button></div>
   </div>
 </div>
+<div class="modal-bg" id="edit-account-modal">
+  <div class="modal">
+    <h3>Edit Stripe account</h3>
+    <p>Update the account name or credentials</p>
+    <input type="hidden" id="edit-acc-id">
+    <div class="form-group"><label>Account name</label><input type="text" id="edit-acc-name" placeholder="My Store"></div>
+    <div class="form-group"><label>New secret key (sk_live_...) — leave blank to keep current</label><input type="password" id="edit-acc-key" placeholder="Leave blank to keep existing key"></div>
+    <div class="form-group"><label>Webhook secret (whsec_...) — optional</label><input type="text" id="edit-acc-webhook" placeholder="whsec_..."></div>
+    <div id="edit-acc-error" style="display:none;background:var(--red-bg);border:1px solid var(--red);color:var(--red);border-radius:8px;padding:10px 14px;font-size:12px;font-family:var(--mono);margin-bottom:10px;"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('edit-account-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEditAccount()">Save changes</button>
+    </div>
+  </div>
+</div>
+<div class="modal-bg" id="edit-account-modal">
+  <div class="modal">
+    <h3>Edit Stripe account</h3>
+    <p>Update account name or credentials</p>
+    <input type="hidden" id="edit-acc-id">
+    <div class="form-group"><label>Account name</label><input type="text" id="edit-acc-name" placeholder="My Store"></div>
+    <div class="form-group"><label>New secret key — leave blank to keep current</label><input type="password" id="edit-acc-key" placeholder="sk_live_... (leave blank to keep)"></div>
+    <div class="form-group"><label>Webhook secret — optional</label><input type="text" id="edit-acc-webhook" placeholder="whsec_..."></div>
+    <div id="edit-acc-error" style="display:none;background:var(--red-bg);border:1px solid var(--red);color:var(--red);border-radius:8px;padding:10px 14px;font-size:12px;font-family:var(--mono);margin-bottom:10px;"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('edit-account-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEditAccount()">Save changes</button>
+    </div>
+  </div>
+</div>
 <div id="toast"></div>
 
 <script>
-let currentLink=null,allCustomers=[],allSubscriptions=[],allPayments=[],appSettings={},selectedSubs=new Set(),currentRevPeriod='month',bulkMode=false;
+let currentLink=null,allCustomers=[],allSubscriptions=[],allPayments=[],allStripeAccounts=[],appSettings={},selectedSubs=new Set(),currentRevPeriod='month',bulkMode=false;
 
 function toggleTheme(){const isLight=document.documentElement.classList.toggle('light');localStorage.setItem('subloop_theme',isLight?'light':'dark');document.getElementById('theme-label').textContent=isLight?'Light mode':'Dark mode';updateLogos(isLight);}
 function updateLogos(isLight){const src=isLight?'https://i.ibb.co/6cD50Q6H/2.png':'https://i.ibb.co/xq0HVT9G/1.png';['sidebar-logo','login-logo'].forEach(id=>{const el=document.getElementById(id);if(el)el.src=src;});}
@@ -1370,7 +1400,26 @@ async function loadAccounts(){
   try{
     const list=await api('/api/stripe-accounts');
     const tb=document.getElementById('accounts-table');
-    if(tb){if(!list.length)tb.innerHTML='<tr><td colspan="4" class="empty">No accounts yet</td></tr>';else tb.innerHTML=list.map(a=>'<tr><td><strong>'+a.name+'</strong></td><td class="mono" style="font-size:12px;">'+(a.key_preview||'—')+'</td><td>'+(a.is_default?'<span class="badge badge-green">default</span>':'<span class="badge badge-blue">active</span>')+'</td><td><div class="actions">'+(!a.is_default?'<button class="btn btn-sm" onclick="setDefaultAccount('+a.id+')">Set default</button>':'')+'<button class="btn btn-sm btn-danger" onclick="deleteAccount('+a.id+')">Delete</button></div></td></tr>').join('');}
+    if(tb){
+      if(!list.length){
+        tb.innerHTML='<tr><td colspan="5" class="empty">No accounts yet</td></tr>';
+      } else {
+        var rows=list.map(function(a){
+          var defaultBadge=a.is_default?'<span class="badge badge-green">default</span>':'<span class="badge badge-blue">active</span>';
+          var setDefBtn=!a.is_default?'<button class="btn btn-sm" onclick="setDefaultAccount('+a.id+')">Set default</button>':'';
+          return '<tr>'+
+            '<td style="width:48px;text-align:center;"><img src="https://i.ibb.co/Dgr9zkRx/stripe-svgrepo-com-1.png" style="width:32px;height:auto;display:inline-block;vertical-align:middle;"></td>'+
+            '<td><strong style="font-size:13px;">'+a.name+'</strong></td>'+
+            '<td class="mono" style="font-size:12px;color:var(--muted);">'+(a.key_preview||'—')+'</td>'+
+            '<td>'+defaultBadge+'</td>'+
+            '<td><div class="actions">'+setDefBtn+'<button class="btn btn-sm" onclick="openEditAcc('+a.id+')">Edit</button><button class="btn btn-sm btn-danger" onclick="deleteAccount('+a.id+')">Delete</button></div></td>'+
+          '</tr>';
+        });
+        tb.innerHTML=rows.join('');
+      }
+    }
+
+    allStripeAccounts=list;
     const opts=list.map(a=>'<option value="'+a.id+'"'+(a.is_default?' selected':'')+'>'+a.name+'</option>').join('');
     const ls=document.getElementById('link-account');if(ls)ls.innerHTML=opts||'<option value="">No accounts</option>';
     const ms=document.getElementById('mc-account');if(ms)ms.innerHTML='<option value="">Default</option>'+opts;
@@ -2091,6 +2140,65 @@ function fallbackCopy(text){
   document.body.removeChild(ta);
 }
 function copyRef(btn){var ref=btn.dataset.ref;navigator.clipboard.writeText(ref);toast('Copied!');}
+function openEditAcc(id){
+  var a=(allStripeAccounts||[]).find(function(x){return x.id===id;});
+  var name=a?a.name:'';
+  openEditAccount(id,name);
+}
+function openEditAccount(id, name){
+  document.getElementById('edit-acc-id').value=id;
+  document.getElementById('edit-acc-name').value=name||'';
+  document.getElementById('edit-acc-key').value='';
+  document.getElementById('edit-acc-webhook').value='';
+  document.getElementById('edit-acc-error').style.display='none';
+  openModal('edit-account-modal');
+}
+
+async function saveEditAccount(){
+  var id=document.getElementById('edit-acc-id').value;
+  var name=document.getElementById('edit-acc-name').value.trim();
+  var key=document.getElementById('edit-acc-key').value.trim();
+  var webhook=document.getElementById('edit-acc-webhook').value.trim();
+  var errEl=document.getElementById('edit-acc-error');
+  if(!name){errEl.textContent='Account name is required';errEl.style.display='block';return;}
+  try{
+    var r=await api('/api/stripe-accounts/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,secret_key:key||null,webhook_secret:webhook||null})});
+    if(r.success){
+      toast('✓ Account updated');
+      closeModal('edit-account-modal');
+      loadAccounts();
+    } else {
+      errEl.textContent=r.error||'Update failed';
+      errEl.style.display='block';
+    }
+  }catch(e){errEl.textContent='Server error';errEl.style.display='block';}
+}
+
+function openEditAcc(id){
+  var a=(allStripeAccounts||[]).find(function(x){return x.id===id;});
+  document.getElementById('edit-acc-id').value=id;
+  document.getElementById('edit-acc-name').value=a?a.name:'';
+  document.getElementById('edit-acc-key').value='';
+  document.getElementById('edit-acc-webhook').value='';
+  document.getElementById('edit-acc-error').style.display='none';
+  openModal('edit-account-modal');
+}
+
+async function saveEditAccount(){
+  var id=document.getElementById('edit-acc-id').value;
+  var name=document.getElementById('edit-acc-name').value.trim();
+  var key=document.getElementById('edit-acc-key').value.trim();
+  var webhook=document.getElementById('edit-acc-webhook').value.trim();
+  var errEl=document.getElementById('edit-acc-error');
+  errEl.style.display='none';
+  if(!name){errEl.textContent='Account name is required';errEl.style.display='block';return;}
+  try{
+    var r=await api('/api/stripe-accounts/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,secret_key:key||null,webhook_secret:webhook||null})});
+    if(r.success){toast('✓ Account updated');closeModal('edit-account-modal');loadAccounts();}
+    else{errEl.textContent=r.error||'Update failed';errEl.style.display='block';}
+  }catch(e){errEl.textContent='Server error';errEl.style.display='block';}
+}
+
 document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
 </script>
 </body>
