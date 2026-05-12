@@ -656,6 +656,136 @@ app.post('/api/auth/verify', async (req, res) => {
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
+
+// ── Payment failure reason (store on payment record) ─────────────────────────
+app.get('/api/payments/:id/reason', async (req, res) => {
+  try {
+    const r = await pool.query('SELECT failure_reason, stripe_payment_intent FROM payments WHERE id=$1', [req.params.id]);
+    if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
+    res.json({ reason: r.rows[0].failure_reason, pi: r.rows[0].stripe_payment_intent });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Churn alerts ──────────────────────────────────────────────────────────────
+app.get('/api/churn-alerts', async (req, res) => {
+  try {
+    const cancelled = await pool.query(`
+      SELECT c.id, c.name, c.email, s.updated_at as churned_at, 'cancelled' as reason
+      FROM subscriptions s JOIN customers c ON c.id=s.customer_id
+      WHERE s.status='cancelled' AND s.updated_at >= NOW()-INTERVAL '7 days'
+      ORDER BY s.updated_at DESC LIMIT 20
+    `);
+    const failing = await pool.query(`
+      SELECT c.id, c.name, c.email, s.last_failed_at, s.dunning_count,
+        'dunning' as reason
+      FROM subscriptions s JOIN customers c ON c.id=s.customer_id
+      WHERE s.dunning_count >= 3 AND s.status != 'cancelled'
+      ORDER BY s.dunning_count DESC LIMIT 20
+    `);
+    res.json({ cancelled: cancelled.rows, failing: failing.rows });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── MRR history for growth chart ──────────────────────────────────────────────
+app.get('/api/mrr-history', async (req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT
+        TO_CHAR(DATE_TRUNC('month', created_at), 'Mon YY') as month,
+        DATE_TRUNC('month', created_at) as month_date,
+        SUM(CASE WHEN status='succeeded' THEN amount ELSE 0 END) as revenue,
+        COUNT(CASE WHEN status='succeeded' THEN 1 END) as payments
+      FROM payments
+      WHERE created_at >= NOW() - INTERVAL '12 months'
+      GROUP BY DATE_TRUNC('month', created_at)
+      ORDER BY month_date ASC
+    `);
+    res.json(r.rows);
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Best customers ────────────────────────────────────────────────────────────
+app.get('/api/best-customers', async (req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT c.id, c.name, c.email, c.card_brand, c.card_last4,
+        COALESCE(SUM(CASE WHEN p.status='succeeded' THEN p.amount ELSE 0 END),0) as total_paid,
+        COUNT(CASE WHEN p.status='succeeded' THEN 1 END) as payment_count,
+        MAX(p.created_at) as last_payment
+      FROM customers c
+      LEFT JOIN payments p ON p.customer_id=c.id
+      GROUP BY c.id ORDER BY total_paid DESC LIMIT 10
+    `);
+    res.json(r.rows);
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Failed payment recovery rate ──────────────────────────────────────────────
+app.get('/api/recovery-rate', async (req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT
+        COUNT(CASE WHEN status='failed' THEN 1 END) as total_failed,
+        COUNT(CASE WHEN status='succeeded' AND failure_reason IS NOT NULL THEN 1 END) as recovered,
+        COUNT(CASE WHEN status='succeeded' THEN 1 END) as total_succeeded
+      FROM payments WHERE created_at >= NOW()-INTERVAL '30 days'
+    `);
+    const row = r.rows[0];
+    const totalFailed = parseInt(row.total_failed)||0;
+    const recovered = parseInt(row.recovered)||0;
+    const rate = totalFailed > 0 ? Math.round((recovered/totalFailed)*100) : 0;
+    res.json({ total_failed: totalFailed, recovered, rate, total_succeeded: parseInt(row.total_succeeded)||0 });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Global search ─────────────────────────────────────────────────────────────
+app.get('/api/search', async (req, res) => {
+  try {
+    const q = '%'+(req.query.q||'').trim()+'%';
+    if (!req.query.q || req.query.q.trim().length < 2) return res.json({ customers:[], payments:[], subscriptions:[] });
+    const [cust, pmts, subs] = await Promise.all([
+      pool.query(`SELECT id,name,email,card_brand,card_last4,status FROM customers WHERE name ILIKE $1 OR email ILIKE $1 LIMIT 5`, [q]),
+      pool.query(`SELECT p.id,c.name,c.email,p.amount,p.currency,p.status,p.created_at,p.failure_reason FROM payments p JOIN customers c ON c.id=p.customer_id WHERE c.name ILIKE $1 OR c.email ILIKE $1 ORDER BY p.created_at DESC LIMIT 5`, [q]),
+      pool.query(`SELECT s.id,c.name,c.email,s.amount,s.currency,s.status,s.interval_days FROM subscriptions s JOIN customers c ON c.id=s.customer_id WHERE c.name ILIKE $1 OR c.email ILIKE $1 LIMIT 5`, [q]),
+    ]);
+    res.json({ customers: cust.rows, payments: pmts.rows, subscriptions: subs.rows });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Plan templates ────────────────────────────────────────────────────────────
+app.get('/api/plan-templates', async (req, res) => {
+  try {
+    await pool.query('CREATE TABLE IF NOT EXISTS plan_templates (id SERIAL PRIMARY KEY, name TEXT, amount INT, currency TEXT DEFAULT 'usd', interval_days INT, created_at TIMESTAMPTZ DEFAULT NOW())');
+    const r = await pool.query('SELECT * FROM plan_templates ORDER BY created_at ASC');
+    res.json(r.rows);
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/plan-templates', async (req, res) => {
+  try {
+    await pool.query('CREATE TABLE IF NOT EXISTS plan_templates (id SERIAL PRIMARY KEY, name TEXT, amount INT, currency TEXT DEFAULT 'usd', interval_days INT, created_at TIMESTAMPTZ DEFAULT NOW())');
+    const { name, amount, currency, interval_days } = req.body;
+    await pool.query('INSERT INTO plan_templates (name,amount,currency,interval_days) VALUES ($1,$2,$3,$4)', [name, amount, currency||'usd', interval_days||30]);
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/plan-templates/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM plan_templates WHERE id=$1', [req.params.id]);
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Payment notes ─────────────────────────────────────────────────────────────
+app.patch('/api/payments/:id/note', async (req, res) => {
+  try {
+    await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS note TEXT');
+    await pool.query('UPDATE payments SET note=$1 WHERE id=$2', [req.body.note, req.params.id]);
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, async () => {
