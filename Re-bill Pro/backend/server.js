@@ -755,7 +755,7 @@ app.get('/api/search', async (req, res) => {
 // ── Plan templates ────────────────────────────────────────────────────────────
 app.get('/api/plan-templates', async (req, res) => {
   try {
-    await pool.query('CREATE TABLE IF NOT EXISTS plan_templates (id SERIAL PRIMARY KEY, name TEXT, amount INT, currency TEXT DEFAULT 'usd', interval_days INT, created_at TIMESTAMPTZ DEFAULT NOW())');
+    await pool.query(`CREATE TABLE IF NOT EXISTS plan_templates (id SERIAL PRIMARY KEY, name TEXT, amount INT, currency TEXT DEFAULT 'usd', interval_days INT, created_at TIMESTAMPTZ DEFAULT NOW())`);
     const r = await pool.query('SELECT * FROM plan_templates ORDER BY created_at ASC');
     res.json(r.rows);
   } catch(err) { res.status(500).json({ error: err.message }); }
@@ -763,7 +763,7 @@ app.get('/api/plan-templates', async (req, res) => {
 
 app.post('/api/plan-templates', async (req, res) => {
   try {
-    await pool.query('CREATE TABLE IF NOT EXISTS plan_templates (id SERIAL PRIMARY KEY, name TEXT, amount INT, currency TEXT DEFAULT 'usd', interval_days INT, created_at TIMESTAMPTZ DEFAULT NOW())');
+    await pool.query(`CREATE TABLE IF NOT EXISTS plan_templates (id SERIAL PRIMARY KEY, name TEXT, amount INT, currency TEXT DEFAULT 'usd', interval_days INT, created_at TIMESTAMPTZ DEFAULT NOW())`);
     const { name, amount, currency, interval_days } = req.body;
     await pool.query('INSERT INTO plan_templates (name,amount,currency,interval_days) VALUES ($1,$2,$3,$4)', [name, amount, currency||'usd', interval_days||30]);
     res.json({ success: true });
