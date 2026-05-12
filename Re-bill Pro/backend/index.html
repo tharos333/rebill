@@ -1356,43 +1356,13 @@ async function loadSecurity(){
     const history=await api('/api/security/login-history');
     const tb=document.getElementById('login-history-table');
     if(!history.length){tb.innerHTML='<tr><td colspan="3" class="empty">No login attempts recorded</td></tr>';return;}
-    // Build rows with country flag SVGs via ip-api.com
-    var rows=history.map(function(h){
-      return '<tr id="iprow-'+h.id+'">'+
-        '<td><div style="display:flex;align-items:center;gap:8px;">'+
-          '<span id="flag-'+h.id+'" style="font-size:18px;line-height:1;width:24px;display:inline-block;"></span>'+
-          '<div>'+
-            '<div class="mono" style="font-size:12px;">'+(h.ip||'unknown')+'</div>'+
-            '<div id="country-'+h.id+'" style="font-size:11px;color:var(--muted);font-family:var(--mono);"></div>'+
-          '</div>'+
-        '</div></td>'+
+    tb.innerHTML=history.map(function(h){
+      return '<tr>'+
+        '<td class="mono" style="font-size:12px;">'+(h.ip||'unknown')+'</td>'+
         '<td>'+(h.success?'<span class="badge badge-green">success</span>':'<span class="badge badge-red">failed</span>')+'</td>'+
         '<td class="mono" style="font-size:11px;color:var(--muted);">'+fmtTime(h.created_at)+'</td>'+
       '</tr>';
-    });
-    tb.innerHTML=rows.join('');
-    // Fetch country + flag for each unique IP
-    var seen={};
-    history.forEach(function(h){
-      var ip=h.ip||'';
-      if(!ip||ip==='unknown'||ip==='::1'||ip==='127.0.0.1'||seen[ip])return;
-      seen[ip]=true;
-      fetch('https://ipapi.co/'+ip+'/json/')
-      .then(function(r){return r.json();})
-      .then(function(d){
-        if(!d||!d.countryCode)return;
-        // Build SVG flag using flag-icons CDN approach — use img from flagcdn
-        var flagUrl='https://flagcdn.com/20x15/'+d.countryCode.toLowerCase()+'.png';
-        // Update all rows with this IP
-        history.forEach(function(h2){
-          if(h2.ip===ip){
-            var flagEl=document.getElementById('flag-'+h2.id);
-            if(flagEl){var img=document.createElement('img');img.src=flagUrl;img.width=20;img.height=15;img.style.cssText='border-radius:2px;display:block;';img.alt=d.country_code||'';img.onerror=function(){this.style.display='none';};flagEl.innerHTML='';flagEl.appendChild(img);}
-            if(countryEl) countryEl.textContent=countryName;
-          }
-        });
-      }).catch(function(){});
-    });
+    }).join('');
   }catch(e){}
 }
 function update2FAView(enabled){
