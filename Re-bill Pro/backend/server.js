@@ -598,7 +598,7 @@ app.get('/api/admin-users', async (req, res) => {
       const crypto = require('crypto');
       const hash = crypto.createHash('sha256').update('IssoMoussa544@###').digest('hex');
       await pool.query(
-        "INSERT INTO admin_users (username, password_hash, role, permissions) VALUES ($1, $2, 'owner', '[]') ON CONFLICT DO NOTHING",
+        `INSERT INTO admin_users (username, password_hash, role, permissions) VALUES ($1, $2, 'owner', '[]'::jsonb) ON CONFLICT DO NOTHING`,
         ['Tharos333', hash]
       );
     }
