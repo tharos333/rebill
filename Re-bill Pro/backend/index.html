@@ -1025,15 +1025,7 @@ async function api(path,opts){
   var u=localStorage.getItem('subloop_username');
   if(u) opts.headers['x-username']=u;
   const r=await fetch(path,opts);
-  if(!r.ok){
-    try{
-      var errData=await r.json();
-      throw new Error('HTTP '+r.status+': '+(errData.error||errData.message||'Unknown error'));
-    }catch(e2){
-      if(e2.message.startsWith('HTTP')) throw e2;
-      throw new Error('HTTP '+r.status);
-    }
-  }
+  if(!r.ok)throw new Error('HTTP '+r.status);
   return r.json();
 }
 function toast(msg,type){const t=document.getElementById('toast');t.textContent=msg;t.className='show '+(type||'success');setTimeout(()=>t.className='',2800);}
@@ -2334,7 +2326,7 @@ function openEditAccess(id){
   document.getElementById('edit-access-error').style.display='none';
   buildEditPermsList();
   // Pre-check current permissions
-  var currentPerms=Array.isArray(a.permissions)?a.permissions:(typeof a.permissions==='string'?JSON.parse(a.permissions||'[]'):[]);
+  var currentPerms=a.permissions||[];
   setTimeout(function(){
     document.querySelectorAll('#edit-perms-list input[type=checkbox]').forEach(function(cb){
       var checked=currentPerms.includes(cb.value);
