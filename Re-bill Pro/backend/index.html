@@ -1629,13 +1629,12 @@ async function loadAdmins(){
     tb.innerHTML=rows.join('');
   }catch(e){
     console.error('loadAdmins:',e);
-    var errMsg=e&&e.message?e.message:'Unknown error';
     tb.innerHTML=
       '<tr><td colspan="5" style="text-align:center;padding:40px 20px;">'+
         '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="1.5" style="display:block;margin:0 auto 12px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'+
         '<div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px;">Failed to load admin users</div>'+
-        '<div style="font-size:12px;color:var(--muted);font-family:var(--mono);margin-bottom:8px;">'+errMsg+'</div>'+
-        '<button class="btn btn-sm" onclick="loadAdmins()" style="margin-top:4px;">Retry</button>'+
+        '<div style="font-size:12px;color:var(--muted);font-family:var(--mono);">Please try again.</div>'+
+        '<button class="btn btn-sm" onclick="loadAdmins()" style="margin-top:12px;">Retry</button>'+
       '</td></tr>';
   }
 }
