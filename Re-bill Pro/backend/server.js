@@ -621,7 +621,13 @@ app.post('/api/admin-users', async (req, res) => {
 
 app.patch('/api/admin-users/:id/permissions', async (req, res) => {
   try {
-    await adminUsers.updatePermissions(req.params.id, req.body.permissions || []);
+    const { role, permissions } = req.body;
+    // Don't allow changing owner role
+    const current = await pool.query('SELECT role FROM admin_users WHERE id=$1', [req.params.id]);
+    if (current.rows[0]?.role === 'owner') return res.status(400).json({ error: 'Cannot change owner role' });
+    if (role) await pool.query('UPDATE admin_users SET role=$1 WHERE id=$2', [role, req.params.id]);
+    await adminUsers.updatePermissions(req.params.id, permissions || []);
+    await activityLog.add('security', 'Admin user access updated: ID '+req.params.id+' → role: '+(role||'unchanged'));
     res.json({ success: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
