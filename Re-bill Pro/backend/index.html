@@ -770,6 +770,39 @@ textarea{resize:vertical;min-height:60px}
     </div>
   </div>
 </div>
+<div class="modal-bg" id="edit-access-modal">
+  <div class="modal" style="width:540px;max-width:97vw;">
+    <h3>Edit access</h3>
+    <p id="edit-access-subtitle">Update role and permissions for this admin</p>
+    <input type="hidden" id="edit-access-id">
+    <div class="form-group">
+      <label>Access level</label>
+      <select id="edit-access-role" onchange="toggleEditCustomPerms()">
+        <option value="admin">Admin — full access to everything</option>
+        <option value="viewer">Viewer — read only, no actions</option>
+        <option value="custom">Custom — choose sections manually</option>
+      </select>
+    </div>
+    <div id="edit-custom-perms" style="display:none;margin-top:4px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div>
+          <div style="font-size:13px;font-weight:600;">Access permissions</div>
+          <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;">Choose which sections this admin can access</div>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-sm" onclick="selectAllEditPerms()" type="button">Select all</button>
+          <button class="btn btn-sm" onclick="clearAllEditPerms()" type="button">Clear</button>
+        </div>
+      </div>
+      <div id="edit-perms-list" style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:5px;padding-right:4px;"></div>
+    </div>
+    <div id="edit-access-error" style="display:none;background:var(--red-bg);border:1px solid var(--red);color:var(--red);border-radius:8px;padding:10px 14px;font-size:12px;font-family:var(--mono);margin-top:12px;"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('edit-access-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEditAccess()">Save access</button>
+    </div>
+  </div>
+</div>
 <div id="toast"></div>
 
 <script>
@@ -820,14 +853,15 @@ function completeLogin(){
 // Access control constants
 var ALL_SECTIONS = ['dashboard','activity','customers','subscriptions','payments','links','accounts','forecast','expiry','summary','admins','settings','security','webhooks'];
 
-function getCurrentRole(){ return localStorage.getItem('subloop_role')||'owner'; }
+function getCurrentRole(){ return localStorage.getItem('subloop_role')||''; }
 function getCurrentPermissions(){
   try{ return JSON.parse(localStorage.getItem('subloop_permissions')||'[]'); }catch(e){ return []; }
 }
 
 function canAccess(section){
   var role=getCurrentRole();
-  if(!role||role==='owner'||role==='admin') return true;
+  if(!role) return false; // not logged in
+  if(role==='owner'||role==='admin') return true;
   if(role==='viewer') return ['dashboard','activity','payments','forecast','expiry','summary'].includes(section);
   if(role==='custom'){
     var perms=getCurrentPermissions();
@@ -953,7 +987,19 @@ function showPage(name,el){
   document.getElementById('page-'+name).classList.add('active');
   el.classList.add('active');
   const loaders={dashboard:()=>{loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();},activity:loadActivity,customers:loadCustomers,subscriptions:loadSubscriptions,payments:loadPayments,links:loadAccounts,settings:loadSettings,accounts:loadAccounts,security:loadSecurity,webhooks:loadWebhooks,forecast:loadForecast,summary:loadSummary,admins:loadAdmins,mrr:loadMrr,recovery:loadRecovery,links:()=>{loadAccounts();loadTemplates();}};
-
+  // Re-verify permissions on each page navigation
+  var _username=localStorage.getItem('subloop_username');
+  if(_username && (getCurrentRole()==='custom' || getCurrentRole()==='viewer')){
+    api('/api/auth/check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:_username})})
+    .then(function(r){
+      if(!r.valid){forceLogout();return;}
+      localStorage.setItem('subloop_role',r.role||'admin');
+      localStorage.setItem('subloop_permissions',JSON.stringify(r.permissions||[]));
+      if(r.role==='viewer') localStorage.setItem('subloop_readonly','1');
+      else localStorage.removeItem('subloop_readonly');
+      applyAccessControl();
+    }).catch(function(){});
+  }
   expandSettingsIfNeeded(name);
   if(!canAccess(name)){
     // Show all pages but with restricted screen
@@ -1020,9 +1066,36 @@ function cardBadge(brand,last4){
 }
 
 function initApp(){
-  applyAccessControl();
-  loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();
-  api('/api/settings').then(s=>{appSettings=s;}).catch(()=>{});
+  // Always verify session is still valid + get fresh permissions from server
+  var username=localStorage.getItem('subloop_username');
+  if(username){
+    api('/api/auth/check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:username})})
+    .then(function(r){
+      if(!r.valid){
+        // Account deleted or revoked — force logout
+        forceLogout();
+        return;
+      }
+      // Refresh permissions from server (in case they changed)
+      localStorage.setItem('subloop_role', r.role||'admin');
+      localStorage.setItem('subloop_permissions', JSON.stringify(r.permissions||[]));
+      localStorage.removeItem('subloop_readonly');
+      if(r.role==='viewer') localStorage.setItem('subloop_readonly','1');
+      applyAccessControl();
+      loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();
+      api('/api/settings').then(s=>{appSettings=s;}).catch(()=>{});
+    })
+    .catch(function(){
+      // Network error - still apply cached permissions
+      applyAccessControl();
+      loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();
+      api('/api/settings').then(s=>{appSettings=s;}).catch(()=>{});
+    });
+  } else {
+    applyAccessControl();
+    loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();
+    api('/api/settings').then(s=>{appSettings=s;}).catch(()=>{});
+  }
 }
 
 function forceLogout(){
@@ -1421,9 +1494,53 @@ async function loadAccounts(){
         tb.innerHTML=rows.join('');
       }
     }
+
+    allStripeAccounts=list;
     const opts=list.map(a=>'<option value="'+a.id+'"'+(a.is_default?' selected':'')+'>'+a.name+'</option>').join('');
-    document.querySelectorAll('.account-select').forEach(s=>{const cur=s.value;s.innerHTML=opts;if(cur)s.value=cur;});
-  }catch(e){console.error('loadAccounts:',e);}
+    const ls=document.getElementById('link-account');if(ls)ls.innerHTML=opts||'<option value="">No accounts</option>';
+    const ms=document.getElementById('mc-account');if(ms)ms.innerHTML='<option value="">Default</option>'+opts;
+  }catch(e){}
+}
+async function addAccount(){const name=document.getElementById('acc-name').value.trim(),key=document.getElementById('acc-key').value.trim(),webhook=document.getElementById('acc-webhook').value.trim();if(!name||!key){toast('Name and key required','error');return;}const r=await api('/api/stripe-accounts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,secret_key:key,webhook_secret:webhook})});if(r.success){toast('✓ Account added');closeModal('add-account-modal');document.getElementById('acc-name').value='';document.getElementById('acc-key').value='';document.getElementById('acc-webhook').value='';loadAccounts();}else toast('Error: '+(r.error||'Failed'),'error');}
+async function setDefaultAccount(id){await api('/api/stripe-accounts/'+id+'/default',{method:'PATCH'});toast('✓ Default updated');loadAccounts();}
+async function deleteAccount(id){if(!confirm('Delete this account?'))return;await api('/api/stripe-accounts/'+id,{method:'DELETE'});toast('Account deleted');loadAccounts();}
+
+
+// ── Forecast ──────────────────────────────────────────────────────────────────
+async function loadForecast(){
+  try{
+    const d=await api('/api/forecast');
+    document.getElementById('forecast-30').textContent=fmt(d.forecast30||0);
+    document.getElementById('forecast-60').textContent=fmt(d.forecast60||0);
+    document.getElementById('forecast-90').textContent=fmt(d.forecast90||0);
+  }catch(e){}
+}
+
+// ── Expiring Cards ────────────────────────────────────────────────────────────
+async function loadExpiry(){
+  try{
+    var days=document.getElementById('expiry-days')?document.getElementById('expiry-days').value:30;
+    var list=await api('/api/expiring-cards?days='+days);
+    var tb=document.getElementById('expiry-table');
+    if(!list.length){tb.innerHTML='<tr><td colspan="5" class="empty"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" style="vertical-align:middle;margin-right:6px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>No expiring cards in this period</td></tr>';return;}
+    var now=new Date();
+    var rows=list.map(function(c){
+      var expMonth=String(c.card_exp_month||'?').padStart(2,'0');
+      var expYear=String(c.card_exp_year||'?');
+      var yr=parseInt(c.card_exp_year)||9999;
+      var mo=parseInt(c.card_exp_month)||12;
+      var isExpired=yr<now.getFullYear()||(yr===now.getFullYear()&&mo<=now.getMonth()+1);
+      var color=isExpired?'var(--red)':'var(--amber)';
+      return '<tr>'+
+        '<td><div class="customer-cell"><div class="avatar">'+initials(c.name)+'</div><div><div class="customer-name">'+(c.name||'—')+'</div><div class="customer-email">'+(c.email||'')+'</div></div></div></td>'+
+        '<td>'+cardBadge(c.card_brand,c.card_last4)+'</td>'+
+        '<td><span style="color:'+color+';font-family:var(--mono);font-weight:600;">'+expMonth+'/'+expYear+'</span></td>'+
+        '<td class="mono">'+fmtDate(c.next_billing_date)+'</td>'+
+        '<td><button class="btn btn-sm" onclick="openPortal('+c.id+')">Update card ↗</button></td>'+
+      '</tr>';
+    });
+    tb.innerHTML=rows.join('');
+  }catch(e){console.error(e);}
 }
 
 // ── Daily Summary ─────────────────────────────────────────────────────────────
@@ -1492,31 +1609,140 @@ async function loadAdmins(){
     var list=await api('/api/admin-users');
     allAdminUsers=list||[];
     if(!list||!list.length){
-      tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:40px 20px;"><div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px;">No admin users yet</div><div style="font-size:12px;color:var(--muted);font-family:var(--mono);">Add your first admin to manage access.</div></td></tr>';
+      tb.innerHTML=
+        '<tr><td colspan="5" style="text-align:center;padding:40px 20px;">'+
+          '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" style="display:block;margin:0 auto 12px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'+
+          '<div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px;">No admin users yet</div>'+
+          '<div style="font-size:12px;color:var(--muted);font-family:var(--mono);">Add your first admin to manage access.</div>'+
+        '</td></tr>';
       return;
     }
     var rows=list.map(function(a){
       var roleColors={owner:'badge-green',admin:'badge-blue',viewer:'badge-amber',custom:'badge-purple'};
       var roleBadge='<span class="badge '+(roleColors[a.role]||'badge-blue')+'">'+a.role+'</span>';
-      var _p=Array.isArray(a.permissions)?a.permissions:(typeof a.permissions==='string'?JSON.parse(a.permissions||'[]'):[]);
-      var perms=_p.length?'<div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:3px;">'+_p.join(' · ')+'</div>':'';
-      return '<tr style="vertical-align:middle;">'+
-        '<td><strong style="font-size:13px;">'+a.username+'</strong></td>'+
-        '<td>'+roleBadge+perms+'</td>'+
-        '<td class="mono" style="font-size:12px;color:var(--muted);white-space:nowrap;">'+(a.last_login?fmtTime(a.last_login):'Never')+'</td>'+
-        '<td class="mono" style="font-size:12px;color:var(--muted);white-space:nowrap;">'+fmtDate(a.created_at)+'</td>'+
-        '<td><div class="actions">'+
-          (a.role!=='owner'?'<button class="btn btn-sm btn-danger" onclick="deleteAdmin('+a.id+')">Remove</button>':'')+
-        '</div></td>'+
+       return '<tr style="vertical-align:middle;">'+
+         '<td><strong style="font-size:13px;">'+a.username+'</strong></td>'+
+         '<td>'+roleBadge+perms+'</td>'+
+         '<td class="mono" style="font-size:12px;color:var(--muted);white-space:nowrap;">'+(a.last_login?fmtTime(a.last_login):'Never')+'</td>'+
+         '<td class="mono" style="font-size:12px;color:var(--muted);white-space:nowrap;">'+fmtDate(a.created_at)+'</td>'+
+         '<td><div class="actions" style="flex-wrap:nowrap;">'+
+           (a.role!=='owner'?
+             '<button class="btn btn-sm" onclick="openEditAccess('+a.id+')">Edit access</button>'+
+             '<button class="btn btn-sm btn-danger" onclick="deleteAdmin('+a.id+')">Remove</button>'
+           :'<span style="font-size:11px;color:var(--muted);font-family:var(--mono);">owner</span>')+
+         '</div></td>'+
+       '</tr>';
       '</tr>';
     });
     tb.innerHTML=rows.join('');
   }catch(e){
     console.error('loadAdmins:',e);
-    tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--red);font-size:13px;font-family:var(--mono);">Error: '+e.message+'</td></tr>';
+    var errMsg=e&&e.message?e.message:'Unknown error';
+    tb.innerHTML=
+      '<tr><td colspan="5" style="text-align:center;padding:40px 20px;">'+
+        '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="1.5" style="display:block;margin:0 auto 12px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'+
+        '<div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px;">Failed to load admin users</div>'+
+        '<div style="font-size:12px;color:var(--muted);font-family:var(--mono);margin-bottom:8px;">'+errMsg+'</div>'+
+        '<button class="btn btn-sm" onclick="loadAdmins()" style="margin-top:4px;">Retry</button>'+
+      '</td></tr>';
   }
 }
 
+var PERM_LIST=[
+  {value:'dashboard',label:'Dashboard',desc:'Overview stats and revenue charts'},
+  {value:'activity',label:'Activity',desc:'Full activity log of all actions'},
+  {value:'customers',label:'Customers',desc:'View and manage customer accounts'},
+  {value:'subscriptions',label:'Subscriptions',desc:'Manage rebilling schedules'},
+  {value:'payments',label:'Payments',desc:'Full payment history and retries'},
+  {value:'links',label:'Payment Links',desc:'Generate Stripe payment links'},
+  {value:'accounts',label:'Stripe Accounts',desc:'Manage connected Stripe accounts'},
+  {value:'forecast',label:'Forecast',desc:'Revenue projection for next 30–90 days'},
+  {value:'expiry',label:'Expiring Cards',desc:'Cards expiring soon that need updating'},
+  {value:'summary',label:'Daily Summary',desc:'Business snapshot and manual invoices'},
+  {value:'settings',label:'Settings',desc:'Dunning, proration and app settings'},
+  {value:'security',label:'Security',desc:'Two-factor auth and login protection'},
+  {value:'webhooks',label:'Webhook Logs',desc:'Incoming Stripe webhook events'},
+];
+
+function buildPermsList(){
+  var container=document.getElementById('perms-list');
+  if(!container)return;
+  container.innerHTML='';
+  PERM_LIST.forEach(function(p){
+    var row=document.createElement('label');
+    row.style.cssText='display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;cursor:pointer;transition:all 0.15s;';
+    var cb=document.createElement('input');
+    cb.type='checkbox';
+    cb.value=p.value;
+    cb.style.cssText='accent-color:var(--accent);width:16px;height:16px;cursor:pointer;flex-shrink:0;';
+    cb.addEventListener('change',function(){
+      row.style.borderColor=cb.checked?'var(--accent)':'var(--border)';
+      row.style.background=cb.checked?'var(--accent-glow)':'var(--surface2)';
+    });
+    row.addEventListener('click',function(e){
+      if(e.target===cb)return;
+      cb.checked=!cb.checked;
+      cb.dispatchEvent(new Event('change'));
+    });
+    var info=document.createElement('div');
+    info.style.flex='1';
+    info.innerHTML='<div style="font-size:13px;font-weight:500;color:var(--text);">'+p.label+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;">'+p.desc+'</div>';
+    row.appendChild(cb);
+    row.appendChild(info);
+    container.appendChild(row);
+  });
+}
+
+
+
+function selectAllPerms(){
+  document.querySelectorAll('#perms-list input[type=checkbox]').forEach(function(cb){
+    cb.checked=true;cb.dispatchEvent(new Event('change'));
+  });
+}
+
+function clearAllPerms(){
+  document.querySelectorAll('#perms-list input[type=checkbox]').forEach(function(cb){
+    cb.checked=false;cb.dispatchEvent(new Event('change'));
+  });
+}
+
+function toggleCustomPerms(){
+  var role=document.getElementById('admin-role').value;
+  var el=document.getElementById('custom-perms');
+  if(role==='custom'){
+    el.style.display='block';
+    buildPermsList();
+  } else {
+    el.style.display='none';
+  }
+}
+
+async function addAdmin(){
+  var username=document.getElementById('admin-username').value.trim();
+  var password=document.getElementById('admin-password').value;
+  var role=document.getElementById('admin-role').value;
+  if(!username||!password){toast('Fill in all fields','error');return;}
+  if(password.length<8){toast('Password must be at least 8 characters','error');return;}
+  var permissions=[];
+  if(role==='custom'){
+    document.querySelectorAll('#perms-list input[type=checkbox]:checked').forEach(function(cb){permissions.push(cb.value);});
+    if(!permissions.length){toast('Select at least one section for custom access','error');return;}
+  }
+  try{
+    var r=await api('/api/admin-users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password,role,permissions})});
+    if(r.success){
+      toast('✓ Admin added');
+      closeModal('add-admin-modal');
+      document.getElementById('admin-username').value='';
+      document.getElementById('admin-password').value='';
+      document.getElementById('admin-role').value='admin';
+      document.getElementById('custom-perms').style.display='none';
+      clearAllPerms();
+      loadAdmins();
+    } else toast('Error: '+(r.error||'Failed'),'error');
+  }catch(e){toast('Error','error');}
+}
 
 async function deleteAdmin(id){
   if(!confirm('Remove this admin user?'))return;
@@ -2029,6 +2255,31 @@ async function saveEditAccount(){
   }catch(e){errEl.textContent='Server error';errEl.style.display='block';}
 }
 
+function openEditAcc(id){
+  var a=(allStripeAccounts||[]).find(function(x){return x.id===id;});
+  document.getElementById('edit-acc-id').value=id;
+  document.getElementById('edit-acc-name').value=a?a.name:'';
+  document.getElementById('edit-acc-key').value='';
+  document.getElementById('edit-acc-webhook').value='';
+  document.getElementById('edit-acc-error').style.display='none';
+  openModal('edit-account-modal');
+}
+
+async function saveEditAccount(){
+  var id=document.getElementById('edit-acc-id').value;
+  var name=document.getElementById('edit-acc-name').value.trim();
+  var key=document.getElementById('edit-acc-key').value.trim();
+  var webhook=document.getElementById('edit-acc-webhook').value.trim();
+  var errEl=document.getElementById('edit-acc-error');
+  errEl.style.display='none';
+  if(!name){errEl.textContent='Account name is required';errEl.style.display='block';return;}
+  try{
+    var r=await api('/api/stripe-accounts/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,secret_key:key||null,webhook_secret:webhook||null})});
+    if(r.success){toast('✓ Account updated');closeModal('edit-account-modal');loadAccounts();}
+    else{errEl.textContent=r.error||'Update failed';errEl.style.display='block';}
+  }catch(e){errEl.textContent='Server error';errEl.style.display='block';}
+}
+
 function toggleSettingsNav(){
   var sub=document.getElementById('settings-subnav');
   var chev=document.getElementById('settings-chevron');
@@ -2074,12 +2325,101 @@ function showRestrictedPage(name){
   pg.classList.add('active');
 }
 
+function openEditAccess(id){
+  var a=(allAdminUsers||[]).find(function(x){return x.id===id;});
+  if(!a)return;
+  document.getElementById('edit-access-id').value=id;
+  document.getElementById('edit-access-subtitle').textContent='Editing access for: '+a.username;
+  document.getElementById('edit-access-role').value=a.role||'admin';
+  document.getElementById('edit-access-error').style.display='none';
+  buildEditPermsList();
+  // Pre-check current permissions
+  var currentPerms=Array.isArray(a.permissions)?a.permissions:(typeof a.permissions==='string'?JSON.parse(a.permissions||'[]'):[]);
+  setTimeout(function(){
+    document.querySelectorAll('#edit-perms-list input[type=checkbox]').forEach(function(cb){
+      var checked=currentPerms.includes(cb.value);
+      cb.checked=checked;
+      cb.dispatchEvent(new Event('change'));
+    });
+  },50);
+  toggleEditCustomPerms();
+  openModal('edit-access-modal');
+}
 
+function buildEditPermsList(){
+  var container=document.getElementById('edit-perms-list');
+  if(!container)return;
+  container.innerHTML='';
+  PERM_LIST.forEach(function(p){
+    var row=document.createElement('label');
+    row.style.cssText='display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;cursor:pointer;transition:all 0.15s;';
+    var cb=document.createElement('input');
+    cb.type='checkbox';
+    cb.value=p.value;
+    cb.style.cssText='accent-color:var(--accent);width:16px;height:16px;cursor:pointer;flex-shrink:0;';
+    cb.addEventListener('change',function(){
+      row.style.borderColor=cb.checked?'var(--accent)':'var(--border)';
+      row.style.background=cb.checked?'var(--accent-glow)':'var(--surface2)';
+    });
+    row.addEventListener('click',function(e){
+      if(e.target===cb)return;
+      cb.checked=!cb.checked;
+      cb.dispatchEvent(new Event('change'));
+    });
+    var info=document.createElement('div');
+    info.style.flex='1';
+    info.innerHTML='<div style="font-size:13px;font-weight:500;color:var(--text);">'+p.label+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;">'+p.desc+'</div>';
+    row.appendChild(cb);
+    row.appendChild(info);
+    container.appendChild(row);
+  });
+}
 
+function toggleEditCustomPerms(){
+  var role=document.getElementById('edit-access-role').value;
+  var el=document.getElementById('edit-custom-perms');
+  if(role==='custom'){
+    el.style.display='block';
+    if(!document.getElementById('edit-perms-list').children.length) buildEditPermsList();
+  } else {
+    el.style.display='none';
+  }
+}
 
+function selectAllEditPerms(){
+  document.querySelectorAll('#edit-perms-list input[type=checkbox]').forEach(function(cb){
+    cb.checked=true;cb.dispatchEvent(new Event('change'));
+  });
+}
 
+function clearAllEditPerms(){
+  document.querySelectorAll('#edit-perms-list input[type=checkbox]').forEach(function(cb){
+    cb.checked=false;cb.dispatchEvent(new Event('change'));
+  });
+}
 
-
+async function saveEditAccess(){
+  var id=document.getElementById('edit-access-id').value;
+  var role=document.getElementById('edit-access-role').value;
+  var errEl=document.getElementById('edit-access-error');
+  errEl.style.display='none';
+  var permissions=[];
+  if(role==='custom'){
+    document.querySelectorAll('#edit-perms-list input[type=checkbox]:checked').forEach(function(cb){permissions.push(cb.value);});
+    if(!permissions.length){errEl.textContent='Select at least one section for custom access';errEl.style.display='block';return;}
+  }
+  try{
+    var r=await api('/api/admin-users/'+id+'/permissions',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({role,permissions})});
+    if(r.success){
+      toast('✓ Access updated');
+      closeModal('edit-access-modal');
+      loadAdmins();
+    } else {
+      errEl.textContent=r.error||'Failed to update';
+      errEl.style.display='block';
+    }
+  }catch(e){errEl.textContent='Server error';errEl.style.display='block';}
+}
 
 document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
 </script>
