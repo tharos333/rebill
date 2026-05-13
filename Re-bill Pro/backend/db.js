@@ -358,9 +358,7 @@ const security = {
 
 const adminUsers = {
   all: async () => {
-    try { await pool.query(`ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT '[]'`); } catch(e) {}
-    try { await pool.query(`ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ`); } catch(e) {}
-    const r = await pool.query(`SELECT id, username, role, COALESCE(permissions, '[]'::jsonb) as permissions, created_at, last_login FROM admin_users ORDER BY created_at ASC`);
+    const r = await pool.query('SELECT id, username, role, permissions, created_at, last_login FROM admin_users ORDER BY created_at ASC');
     return r.rows;
   },
   byUsername: async (username) => {
