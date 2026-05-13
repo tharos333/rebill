@@ -578,20 +578,10 @@ app.get('/api/daily-summary', async (req, res) => {
 // ── Admin Users ───────────────────────────────────────────────────────────────
 app.get('/api/admin-users', async (req, res) => {
   try {
-    // Create table
-    await pool.query(`CREATE TABLE IF NOT EXISTS admin_users (id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, role TEXT DEFAULT 'admin', created_at TIMESTAMPTZ DEFAULT NOW())`);
-    // Add missing columns one by one
-    try { await pool.query(`ALTER TABLE admin_users ADD COLUMN permissions JSONB DEFAULT '[]'`); } catch(e) {}
-    try { await pool.query(`ALTER TABLE admin_users ADD COLUMN last_login TIMESTAMPTZ`); } catch(e) {}
-    // Seed owner
-    const crypto = require('crypto');
-    const hash = crypto.createHash('sha256').update('IssoMoussa544@###').digest('hex');
-    try { await pool.query(`INSERT INTO admin_users (username, password_hash, role) VALUES ('Tharos333', $1, 'owner')`, [hash]); } catch(e) {}
-    // Fetch
-    const r = await pool.query(`SELECT id, username, role, created_at, last_login, COALESCE(permissions::text, '[]') as permissions FROM admin_users ORDER BY created_at ASC`);
-    res.json(r.rows);
+    const list = await adminUsers.all();
+    res.json(list);
   } catch(err) {
-    console.error('admin-users error:', err.message);
+    console.error('GET /api/admin-users:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
