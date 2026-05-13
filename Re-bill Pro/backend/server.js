@@ -578,35 +578,27 @@ app.get('/api/daily-summary', async (req, res) => {
 // ── Admin Users ───────────────────────────────────────────────────────────────
 app.get('/api/admin-users', async (req, res) => {
   try {
-    // Step 1: ensure table exists
+    // Ensure table exists (safe to run every time)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS admin_users (
         id SERIAL PRIMARY KEY,
         username TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
         role TEXT DEFAULT 'admin',
+        permissions JSONB DEFAULT '[]'::jsonb,
         created_at TIMESTAMPTZ DEFAULT NOW(),
         last_login TIMESTAMPTZ
       )
     `);
-    // Step 2: add columns if missing (safe migrations)
     await pool.query(`ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT '[]'::jsonb`);
-    await pool.query(`ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ`);
-    // Step 3: seed owner if table is empty
+    // Seed owner if empty
     const count = await pool.query('SELECT COUNT(*) FROM admin_users');
     if (parseInt(count.rows[0].count) === 0) {
       const crypto = require('crypto');
       const hash = crypto.createHash('sha256').update('IssoMoussa544@###').digest('hex');
-      await pool.query(
-        "INSERT INTO admin_users (username, password_hash, role, permissions) VALUES ($1, $2, 'owner', '[]') ON CONFLICT DO NOTHING",
-        ['Tharos333', hash]
-      );
+      await pool.query("INSERT INTO admin_users (username, password_hash, role) VALUES ($1, $2, 'owner') ON CONFLICT DO NOTHING", ['Tharos333', hash]);
     }
-    // Step 4: fetch all with safe column selection
-    const r = await pool.query(
-      `SELECT id, username, role, COALESCE(permissions, '[]'::jsonb) as permissions, created_at, last_login FROM admin_users ORDER BY created_at ASC`
-    );
-    res.json(r.rows);
+    res.json(await adminUsers.all());
   } catch(err) {
     console.error('GET /api/admin-users error:', err.message);
     res.status(500).json({ error: err.message });
