@@ -168,7 +168,10 @@ app.post('/api/payment-links', async (req, res) => {
     const price = await stripe.prices.create({ product: product.id, unit_amount: amount, currency: currency||'usd', recurring: { interval: intervalMap[interval_days]||'month' } });
     const link = await stripe.paymentLinks.create({ line_items: [{ price: price.id, quantity: 1 }], payment_intent_data: { setup_future_usage: 'off_session' }, customer_creation: 'always' });
     res.json({ success: true, url: link.url });
-  } catch(err) { res.status(500).json({ error: err.message }); }
+  } catch(err) {
+    console.error('[payment-links] ERROR:', err.message, err.stack);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ── Plan Templates ────────────────────────────────────────────────────────────
