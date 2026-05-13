@@ -1618,7 +1618,7 @@ async function loadAdmins(){
         '<td>'+roleBadge+perms+'</td>'+
         '<td class="mono" style="font-size:12px;color:var(--muted);">'+(a.last_login?fmtTime(a.last_login):'Never')+'</td>'+
         '<td class="mono" style="font-size:12px;color:var(--muted);">'+fmtDate(a.created_at)+'</td>'+
-           (a.role!=='owner'?'<button class="btn btn-sm" onclick="openEditAccess('+a.id+')" >Edit access</button><button class="btn btn-sm btn-danger" onclick="deleteAdmin('+a.id+')">Remove</button>':'')+
+        '<td><div class="actions">'+
           (a.role!=='owner'?'<button class="btn btn-sm btn-danger" onclick="deleteAdmin('+a.id+')">Remove</button>':'')+
         '</div></td>'+
       '</tr>';
