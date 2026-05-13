@@ -2334,7 +2334,7 @@ function openEditAccess(id){
   document.getElementById('edit-access-error').style.display='none';
   buildEditPermsList();
   // Pre-check current permissions
-  var currentPerms=a.permissions||[];
+  var currentPerms=Array.isArray(a.permissions)?a.permissions:(typeof a.permissions==='string'?JSON.parse(a.permissions||'[]'):[]);
   setTimeout(function(){
     document.querySelectorAll('#edit-perms-list input[type=checkbox]').forEach(function(cb){
       var checked=currentPerms.includes(cb.value);
