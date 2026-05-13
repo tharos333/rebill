@@ -166,7 +166,7 @@ app.post('/api/payment-links', async (req, res) => {
     const product = await stripe.products.create({ name: name||'Subscription' });
     const intervalMap = { 7: 'week', 14: 'week', 30: 'month', 90: 'month', 365: 'year' };
     const price = await stripe.prices.create({ product: product.id, unit_amount: amount, currency: currency||'usd', recurring: { interval: intervalMap[interval_days]||'month' } });
-    const link = await stripe.paymentLinks.create({ line_items: [{ price: price.id, quantity: 1 }], payment_intent_data: { setup_future_usage: 'off_session' }, customer_creation: 'always' });
+    const link = await stripe.paymentLinks.create({ line_items: [{ price: price.id, quantity: 1 }], subscription_data: { metadata: { source: 'subloop' } } });
     res.json({ success: true, url: link.url });
   } catch(err) {
     console.error('[payment-links] ERROR:', err.message, err.stack);
