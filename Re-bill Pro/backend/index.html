@@ -987,19 +987,7 @@ function showPage(name,el){
   document.getElementById('page-'+name).classList.add('active');
   el.classList.add('active');
   const loaders={dashboard:()=>{loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();},activity:loadActivity,customers:loadCustomers,subscriptions:loadSubscriptions,payments:loadPayments,links:loadAccounts,settings:loadSettings,accounts:loadAccounts,security:loadSecurity,webhooks:loadWebhooks,forecast:loadForecast,summary:loadSummary,admins:loadAdmins,mrr:loadMrr,recovery:loadRecovery,links:()=>{loadAccounts();loadTemplates();}};
-  // Re-verify permissions on each page navigation
-  var _username=localStorage.getItem('subloop_username');
-  if(_username && (getCurrentRole()==='custom' || getCurrentRole()==='viewer')){
-    api('/api/auth/check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:_username})})
-    .then(function(r){
-      if(!r.valid){forceLogout();return;}
-      localStorage.setItem('subloop_role',r.role||'admin');
-      localStorage.setItem('subloop_permissions',JSON.stringify(r.permissions||[]));
-      if(r.role==='viewer') localStorage.setItem('subloop_readonly','1');
-      else localStorage.removeItem('subloop_readonly');
-      applyAccessControl();
-    }).catch(function(){});
-  }
+
   expandSettingsIfNeeded(name);
   if(!canAccess(name)){
     // Show all pages but with restricted screen
@@ -1066,36 +1054,9 @@ function cardBadge(brand,last4){
 }
 
 function initApp(){
-  // Always verify session is still valid + get fresh permissions from server
-  var username=localStorage.getItem('subloop_username');
-  if(username){
-    api('/api/auth/check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:username})})
-    .then(function(r){
-      if(!r.valid){
-        // Account deleted or revoked — force logout
-        forceLogout();
-        return;
-      }
-      // Refresh permissions from server (in case they changed)
-      localStorage.setItem('subloop_role', r.role||'admin');
-      localStorage.setItem('subloop_permissions', JSON.stringify(r.permissions||[]));
-      localStorage.removeItem('subloop_readonly');
-      if(r.role==='viewer') localStorage.setItem('subloop_readonly','1');
-      applyAccessControl();
-      loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();
-      api('/api/settings').then(s=>{appSettings=s;}).catch(()=>{});
-    })
-    .catch(function(){
-      // Network error - still apply cached permissions
-      applyAccessControl();
-      loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();
-      api('/api/settings').then(s=>{appSettings=s;}).catch(()=>{});
-    });
-  } else {
-    applyAccessControl();
-    loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();
-    api('/api/settings').then(s=>{appSettings=s;}).catch(()=>{});
-  }
+  applyAccessControl();
+  loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();
+  api('/api/settings').then(s=>{appSettings=s;}).catch(()=>{});
 }
 
 function forceLogout(){
