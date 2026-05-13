@@ -770,10 +770,43 @@ textarea{resize:vertical;min-height:60px}
     </div>
   </div>
 </div>
+<div class="modal-bg" id="edit-access-modal">
+  <div class="modal" style="width:540px;max-width:97vw;">
+    <h3>Edit access</h3>
+    <p id="edit-access-subtitle">Update role and permissions for this admin</p>
+    <input type="hidden" id="edit-access-id">
+    <div class="form-group">
+      <label>Access level</label>
+      <select id="edit-access-role" onchange="toggleEditCustomPerms()">
+        <option value="admin">Admin — full access to everything</option>
+        <option value="viewer">Viewer — read only, no actions</option>
+        <option value="custom">Custom — choose sections manually</option>
+      </select>
+    </div>
+    <div id="edit-custom-perms" style="display:none;margin-top:4px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div>
+          <div style="font-size:13px;font-weight:600;">Access permissions</div>
+          <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;">Choose which sections this admin can access</div>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-sm" onclick="selectAllEditPerms()" type="button">Select all</button>
+          <button class="btn btn-sm" onclick="clearAllEditPerms()" type="button">Clear</button>
+        </div>
+      </div>
+      <div id="edit-perms-list" style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:5px;padding-right:4px;"></div>
+    </div>
+    <div id="edit-access-error" style="display:none;background:var(--red-bg);border:1px solid var(--red);color:var(--red);border-radius:8px;padding:10px 14px;font-size:12px;font-family:var(--mono);margin-top:12px;"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('edit-access-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEditAccess()">Save access</button>
+    </div>
+  </div>
+</div>
 <div id="toast"></div>
 
 <script>
-let currentLink=null,allCustomers=[],allSubscriptions=[],allPayments=[],allStripeAccounts=[],appSettings={},selectedSubs=new Set(),currentRevPeriod='month',bulkMode=false;
+let currentLink=null,allCustomers=[],allSubscriptions=[],allPayments=[],allStripeAccounts=[],allAdminUsers=[],appSettings={},selectedSubs=new Set(),currentRevPeriod='month',bulkMode=false;
 
 function toggleTheme(){const isLight=document.documentElement.classList.toggle('light');localStorage.setItem('subloop_theme',isLight?'light':'dark');document.getElementById('theme-label').textContent=isLight?'Light mode':'Dark mode';updateLogos(isLight);}
 function updateLogos(isLight){const src=isLight?'https://i.ibb.co/6cD50Q6H/2.png':'https://i.ibb.co/xq0HVT9G/1.png';['sidebar-logo','login-logo'].forEach(id=>{const el=document.getElementById(id);if(el)el.src=src;});}
@@ -1566,6 +1599,7 @@ async function loadAdmins(){
   tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:28px;color:var(--muted);font-size:13px;font-family:var(--mono);">Loading...</td></tr>';
   try{
     var list=await api('/api/admin-users');
+    allAdminUsers=list||[];
     if(!list||!list.length){
       tb.innerHTML=
         '<tr><td colspan="5" style="text-align:center;padding:40px 20px;">'+
@@ -2277,6 +2311,102 @@ function showRestrictedPage(name){
     +'</div>'
     +'</div>';
   pg.classList.add('active');
+}
+
+function openEditAccess(id){
+  var a=(allAdminUsers||[]).find(function(x){return x.id===id;});
+  if(!a)return;
+  document.getElementById('edit-access-id').value=id;
+  document.getElementById('edit-access-subtitle').textContent='Editing access for: '+a.username;
+  document.getElementById('edit-access-role').value=a.role||'admin';
+  document.getElementById('edit-access-error').style.display='none';
+  buildEditPermsList();
+  // Pre-check current permissions
+  var currentPerms=a.permissions||[];
+  setTimeout(function(){
+    document.querySelectorAll('#edit-perms-list input[type=checkbox]').forEach(function(cb){
+      var checked=currentPerms.includes(cb.value);
+      cb.checked=checked;
+      cb.dispatchEvent(new Event('change'));
+    });
+  },50);
+  toggleEditCustomPerms();
+  openModal('edit-access-modal');
+}
+
+function buildEditPermsList(){
+  var container=document.getElementById('edit-perms-list');
+  if(!container)return;
+  container.innerHTML='';
+  PERM_LIST.forEach(function(p){
+    var row=document.createElement('label');
+    row.style.cssText='display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;cursor:pointer;transition:all 0.15s;';
+    var cb=document.createElement('input');
+    cb.type='checkbox';
+    cb.value=p.value;
+    cb.style.cssText='accent-color:var(--accent);width:16px;height:16px;cursor:pointer;flex-shrink:0;';
+    cb.addEventListener('change',function(){
+      row.style.borderColor=cb.checked?'var(--accent)':'var(--border)';
+      row.style.background=cb.checked?'var(--accent-glow)':'var(--surface2)';
+    });
+    row.addEventListener('click',function(e){
+      if(e.target===cb)return;
+      cb.checked=!cb.checked;
+      cb.dispatchEvent(new Event('change'));
+    });
+    var info=document.createElement('div');
+    info.style.flex='1';
+    info.innerHTML='<div style="font-size:13px;font-weight:500;color:var(--text);">'+p.label+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;">'+p.desc+'</div>';
+    row.appendChild(cb);
+    row.appendChild(info);
+    container.appendChild(row);
+  });
+}
+
+function toggleEditCustomPerms(){
+  var role=document.getElementById('edit-access-role').value;
+  var el=document.getElementById('edit-custom-perms');
+  if(role==='custom'){
+    el.style.display='block';
+    if(!document.getElementById('edit-perms-list').children.length) buildEditPermsList();
+  } else {
+    el.style.display='none';
+  }
+}
+
+function selectAllEditPerms(){
+  document.querySelectorAll('#edit-perms-list input[type=checkbox]').forEach(function(cb){
+    cb.checked=true;cb.dispatchEvent(new Event('change'));
+  });
+}
+
+function clearAllEditPerms(){
+  document.querySelectorAll('#edit-perms-list input[type=checkbox]').forEach(function(cb){
+    cb.checked=false;cb.dispatchEvent(new Event('change'));
+  });
+}
+
+async function saveEditAccess(){
+  var id=document.getElementById('edit-access-id').value;
+  var role=document.getElementById('edit-access-role').value;
+  var errEl=document.getElementById('edit-access-error');
+  errEl.style.display='none';
+  var permissions=[];
+  if(role==='custom'){
+    document.querySelectorAll('#edit-perms-list input[type=checkbox]:checked').forEach(function(cb){permissions.push(cb.value);});
+    if(!permissions.length){errEl.textContent='Select at least one section for custom access';errEl.style.display='block';return;}
+  }
+  try{
+    var r=await api('/api/admin-users/'+id+'/permissions',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({role,permissions})});
+    if(r.success){
+      toast('✓ Access updated');
+      closeModal('edit-access-modal');
+      loadAdmins();
+    } else {
+      errEl.textContent=r.error||'Failed to update';
+      errEl.style.display='block';
+    }
+  }catch(e){errEl.textContent='Server error';errEl.style.display='block';}
 }
 
 document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
