@@ -808,6 +808,33 @@ app.get('/api/ip-geo', async (req, res) => {
   }
 });
 
+// ── Debug endpoint ───────────────────────────────────────────────────────────
+app.get('/api/debug/admins', async (req, res) => {
+  const results = {};
+  try {
+    const t1 = await pool.query('SELECT NOW() as time');
+    results.db_connected = true;
+    results.db_time = t1.rows[0].time;
+  } catch(e) { results.db_connected = false; results.db_error = e.message; }
+
+  try {
+    const t2 = await pool.query("SELECT table_name FROM information_schema.tables WHERE table_name='admin_users'");
+    results.table_exists = t2.rows.length > 0;
+  } catch(e) { results.table_check_error = e.message; }
+
+  try {
+    const t3 = await pool.query("SELECT column_name FROM information_schema.columns WHERE table_name='admin_users'");
+    results.columns = t3.rows.map(r => r.column_name);
+  } catch(e) { results.columns_error = e.message; }
+
+  try {
+    const t4 = await pool.query('SELECT COUNT(*) FROM admin_users');
+    results.row_count = t4.rows[0].count;
+  } catch(e) { results.count_error = e.message; }
+
+  res.json(results);
+});
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, async () => {
