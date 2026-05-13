@@ -1612,15 +1612,18 @@ async function loadAdmins(){
     var rows=list.map(function(a){
       var roleColors={owner:'badge-green',admin:'badge-blue',viewer:'badge-amber',custom:'badge-purple'};
       var roleBadge='<span class="badge '+(roleColors[a.role]||'badge-blue')+'">'+a.role+'</span>';
-      var perms=a.permissions&&a.permissions.length?'<div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:3px;">'+a.permissions.join(' · ')+'</div>':'';
-      return '<tr>'+
-        '<td><strong style="font-size:13px;">'+a.username+'</strong></td>'+
-        '<td>'+roleBadge+perms+'</td>'+
-        '<td class="mono" style="font-size:12px;color:var(--muted);">'+(a.last_login?fmtTime(a.last_login):'Never')+'</td>'+
-        '<td class="mono" style="font-size:12px;color:var(--muted);">'+fmtDate(a.created_at)+'</td>'+
-           (a.role!=='owner'?'<button class="btn btn-sm" onclick="openEditAccess('+a.id+')" >Edit access</button><button class="btn btn-sm btn-danger" onclick="deleteAdmin('+a.id+')">Remove</button>':'')+
-          (a.role!=='owner'?'<button class="btn btn-sm btn-danger" onclick="deleteAdmin('+a.id+')">Remove</button>':'')+
-        '</div></td>'+
+       return '<tr style="vertical-align:middle;">'+
+         '<td><strong style="font-size:13px;">'+a.username+'</strong></td>'+
+         '<td>'+roleBadge+perms+'</td>'+
+         '<td class="mono" style="font-size:12px;color:var(--muted);white-space:nowrap;">'+(a.last_login?fmtTime(a.last_login):'Never')+'</td>'+
+         '<td class="mono" style="font-size:12px;color:var(--muted);white-space:nowrap;">'+fmtDate(a.created_at)+'</td>'+
+         '<td><div class="actions" style="flex-wrap:nowrap;">'+
+           (a.role!=='owner'?
+             '<button class="btn btn-sm" onclick="openEditAccess('+a.id+')">Edit access</button>'+
+             '<button class="btn btn-sm btn-danger" onclick="deleteAdmin('+a.id+')">Remove</button>'
+           :'<span style="font-size:11px;color:var(--muted);font-family:var(--mono);">owner</span>')+
+         '</div></td>'+
+       '</tr>';
       '</tr>';
     });
     tb.innerHTML=rows.join('');
