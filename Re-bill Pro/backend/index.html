@@ -755,21 +755,7 @@ textarea{resize:vertical;min-height:60px}
     </div>
   </div>
 </div>
-<div class="modal-bg" id="edit-account-modal">
-  <div class="modal">
-    <h3>Edit Stripe account</h3>
-    <p>Update account name or credentials</p>
-    <input type="hidden" id="edit-acc-id">
-    <div class="form-group"><label>Account name</label><input type="text" id="edit-acc-name" placeholder="My Store"></div>
-    <div class="form-group"><label>New secret key — leave blank to keep current</label><input type="password" id="edit-acc-key" placeholder="sk_live_... (leave blank to keep)"></div>
-    <div class="form-group"><label>Webhook secret — optional</label><input type="text" id="edit-acc-webhook" placeholder="whsec_..."></div>
-    <div id="edit-acc-error" style="display:none;background:var(--red-bg);border:1px solid var(--red);color:var(--red);border-radius:8px;padding:10px 14px;font-size:12px;font-family:var(--mono);margin-bottom:10px;"></div>
-    <div class="modal-footer">
-      <button class="btn" onclick="closeModal('edit-account-modal')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveEditAccount()">Save changes</button>
-    </div>
-  </div>
-</div>
+
 <div class="modal-bg" id="edit-access-modal">
   <div class="modal" style="width:540px;max-width:97vw;">
     <h3>Edit access</h3>
@@ -804,16 +790,12 @@ textarea{resize:vertical;min-height:60px}
   </div>
 </div>
 <div id="toast"></div>
-
 <script>
 let currentLink=null,allCustomers=[],allSubscriptions=[],allPayments=[],allStripeAccounts=[],allAdminUsers=[],appSettings={},selectedSubs=new Set(),currentRevPeriod='month',bulkMode=false;
-
 function toggleTheme(){const isLight=document.documentElement.classList.toggle('light');localStorage.setItem('subloop_theme',isLight?'light':'dark');document.getElementById('theme-label').textContent=isLight?'Light mode':'Dark mode';updateLogos(isLight);}
 function updateLogos(isLight){const src=isLight?'https://i.ibb.co/6cD50Q6H/2.png':'https://i.ibb.co/xq0HVT9G/1.png';['sidebar-logo','login-logo'].forEach(id=>{const el=document.getElementById(id);if(el)el.src=src;});}
 function initTheme(){const isLight=localStorage.getItem('subloop_theme')==='light';if(isLight){document.documentElement.classList.add('light');const l=document.getElementById('theme-label');if(l)l.textContent='Light mode';}updateLogos(isLight);}
 initTheme();
-
-// Auth
 function doLogin(){
   var user=document.getElementById('login-user').value.trim();
   var pass=document.getElementById('login-pass').value;
@@ -822,9 +804,9 @@ function doLogin(){
   api('/api/auth/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:user,password:pass})})
   .then(function(r){
     if(r.success){
-      localStorage.setItem('subloop_username', user);
-      localStorage.setItem('subloop_role', r.role||'admin');
-      localStorage.setItem('subloop_permissions', JSON.stringify(r.permissions||[]));
+      localStorage.setItem('subloop_username',user);
+      localStorage.setItem('subloop_role',r.role||'admin');
+      localStorage.setItem('subloop_permissions',JSON.stringify(r.permissions||[]));
       api('/api/security/2fa/status').then(function(s){
         if(s&&s.enabled){
           document.getElementById('login-step-1').style.display='none';
@@ -837,10 +819,7 @@ function doLogin(){
       document.getElementById('login-pass').value='';
       document.getElementById('login-pass').focus();
     }
-  }).catch(function(){
-    err.classList.add('visible');
-    document.getElementById('login-pass').value='';
-  });
+  }).catch(function(){err.classList.add('visible');document.getElementById('login-pass').value='';});
 }
 function completeLogin(){
   localStorage.setItem('subloop_auth','1');
@@ -849,108 +828,48 @@ function completeLogin(){
   applyAccessControl();
   initApp();
 }
-
-// Access control constants
-var ALL_SECTIONS = ['dashboard','activity','customers','subscriptions','payments','links','accounts','forecast','expiry','summary','admins','settings','security','webhooks'];
-
-function getCurrentRole(){ return localStorage.getItem('subloop_role')||''; }
-function getCurrentPermissions(){
-  try{ return JSON.parse(localStorage.getItem('subloop_permissions')||'[]'); }catch(e){ return []; }
-}
-
+var ALL_SECTIONS=['dashboard','activity','customers','subscriptions','payments','links','accounts','forecast','expiry','summary','admins','settings','security','webhooks'];
+function getCurrentRole(){ return localStorage.getItem('subloop_role')||'owner'; }
+function getCurrentPermissions(){ try{ return JSON.parse(localStorage.getItem('subloop_permissions')||'[]'); }catch(e){ return []; } }
 function canAccess(section){
   var role=getCurrentRole();
-  if(!role) return false; // not logged in
-  if(role==='owner'||role==='admin') return true;
+  if(!role||role==='owner'||role==='admin') return true;
   if(role==='viewer') return ['dashboard','activity','payments','forecast','expiry','summary'].includes(section);
-  if(role==='custom'){
-    var perms=getCurrentPermissions();
-    return perms.includes(section);
-  }
+  if(role==='custom'){ var perms=getCurrentPermissions(); return perms.includes(section); }
   return false;
 }
-
 function applyAccessControl(){
   var role=getCurrentRole();
-  if(role==='owner'||role==='admin') return; // full access
-  // Mark nav items as restricted (don't hide them)
+  if(!role||role==='owner'||role==='admin') return;
   document.querySelectorAll('.nav-item').forEach(function(btn){
     var onclick=btn.getAttribute('onclick')||'';
     var match=onclick.match(/showPage\('([^']+)'/);
     if(match){
       var section=match[1];
-      if(!canAccess(section)){
-        btn.style.opacity='0.45';
-        btn.style.cursor='pointer';
-        btn.title='Access restricted';
-      } else {
-        btn.style.opacity='';
-        btn.title='';
-      }
+      if(!canAccess(section)){btn.style.opacity='0.45';btn.title='Access restricted';}
+      else{btn.style.opacity='';btn.title='';}
     }
   });
-  // Set readonly flag for viewer
-  if(role==='viewer'){
-    localStorage.setItem('subloop_readonly','1');
-  }
+  if(role==='viewer') localStorage.setItem('subloop_readonly','1');
 }
-
 function enforceReadonly(){
   if(localStorage.getItem('subloop_readonly')!=='1') return;
-
-  // 1. Hide all action buttons (charge, pause, cancel, add, retry etc)
-  document.querySelectorAll('.btn-primary,.btn-danger,.btn-success').forEach(function(btn){
-    if(!btn.closest('.login-screen')&&!btn.closest('.login-box')){
-      btn.style.display='none';
-    }
-  });
-
-  // 2. Replace action columns with "view only"
-  document.querySelectorAll('.actions').forEach(function(d){
-    d.innerHTML='<span style="font-size:11px;color:var(--muted);font-family:var(--mono);">view only</span>';
-  });
-
-  // 3. Hide "Retry" button in payments table specifically
-  document.querySelectorAll('#payments-table .btn').forEach(function(btn){
-    btn.style.display='none';
-  });
-
-  // 4. Hide the Manual Invoice section in Daily Summary
+  document.querySelectorAll('.btn-primary,.btn-danger,.btn-success').forEach(function(btn){if(!btn.closest('.login-screen')&&!btn.closest('.login-box'))btn.style.display='none';});
+  document.querySelectorAll('.actions').forEach(function(d){d.innerHTML='<span style="font-size:11px;color:var(--muted);font-family:var(--mono);">view only</span>';});
+  document.querySelectorAll('#payments-table .btn').forEach(function(btn){btn.style.display='none';});
   var summaryCard=document.querySelector('#page-summary .card:last-of-type');
-  if(summaryCard){
-    var h3=summaryCard.querySelector('h3');
-    if(h3&&h3.textContent.includes('Manual Invoice')) summaryCard.style.display='none';
-  }
-
-  // 5. Hide invoice button on customers table
-  document.querySelectorAll('[onclick*="openInvoiceModal"]').forEach(function(btn){
-    btn.style.display='none';
-  });
-
-  // 6. Hide Run Rebills button on dashboard
-  document.querySelectorAll('[onclick*="runRebills"]').forEach(function(btn){
-    btn.style.display='none';
-  });
-
-  // 7. Hide Select button (bulk actions) on subscriptions
-  var selectBtn=document.getElementById('sub-default-btn');
-  if(selectBtn) selectBtn.style.display='none';
-
-  // 8. Hide export CSV buttons
-  document.querySelectorAll('[onclick*="export"]').forEach(function(btn){
-    btn.style.display='none';
-  });
-
-  // 9. Show viewer notice bar at top if not already shown
+  if(summaryCard){var h3=summaryCard.querySelector('h3');if(h3&&h3.textContent.includes('Manual Invoice'))summaryCard.style.display='none';}
+  document.querySelectorAll('[onclick*="openInvoiceModal"]').forEach(function(btn){btn.style.display='none';});
+  document.querySelectorAll('[onclick*="runRebills"]').forEach(function(btn){btn.style.display='none';});
+  var selectBtn=document.getElementById('sub-default-btn');if(selectBtn)selectBtn.style.display='none';
+  document.querySelectorAll('[onclick*="export"]').forEach(function(btn){btn.style.display='none';});
   if(!document.getElementById('viewer-notice')){
     var bar=document.createElement('div');
     bar.id='viewer-notice';
     bar.style.cssText='position:fixed;top:0;left:220px;right:0;background:#854d0e;border-bottom:1px solid #facc15;color:#fefce8;font-size:12px;font-family:var(--mono);padding:7px 20px;z-index:999;display:flex;align-items:center;gap:8px;';
     bar.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> View only access — you can see data but cannot make changes.';
     document.body.appendChild(bar);
-    // Push main content down
-    var main=document.querySelector('.main');
-    if(main) main.style.paddingTop='52px';
+    var main=document.querySelector('.main');if(main)main.style.paddingTop='52px';
   }
 }
 if(localStorage.getItem('subloop_auth')==='1'){
@@ -958,51 +877,29 @@ if(localStorage.getItem('subloop_auth')==='1'){
   document.getElementById('app-screen').classList.remove('hidden');
   initApp();
 }
-
-// OTP
 function otpInput(el,idx){el.value=el.value.replace(/\D/g,'').slice(0,1);if(el.value&&idx<5)document.getElementById('otp-'+(idx+1)).focus();if(getOtpCode().length===6)verify2FA();}
 function otpKey(e,idx){if(e.key==='Backspace'&&!e.target.value&&idx>0)document.getElementById('otp-'+(idx-1)).focus();if(e.key==='Enter')verify2FA();}
 function getOtpCode(){return[0,1,2,3,4,5].map(i=>document.getElementById('otp-'+i).value).join('');}
 function clearOtp(){[0,1,2,3,4,5].forEach(i=>{document.getElementById('otp-'+i).value='';});document.getElementById('otp-0').focus();}
 async function verify2FA(){
-  const token=getOtpCode();
-  if(token.length!==6)return;
-  try{
-    const r=await api('/api/security/2fa/validate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});
-    if(r.valid){completeLogin();}
-    else{document.getElementById('twofa-error').style.display='block';clearOtp();}
-  }catch(e){toast('Error verifying code','error');}
+  const token=getOtpCode();if(token.length!==6)return;
+  try{const r=await api('/api/security/2fa/validate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});if(r.valid){completeLogin();}else{document.getElementById('twofa-error').style.display='block';clearOtp();}}
+  catch(e){toast('Error verifying code','error');}
 }
-function backToLogin(){
-  document.getElementById('login-step-2').style.display='none';
-  document.getElementById('login-step-1').style.display='block';
-  clearOtp();
-  document.getElementById('twofa-error').style.display='none';
-}
-
-// Nav
+function backToLogin(){document.getElementById('login-step-2').style.display='none';document.getElementById('login-step-1').style.display='block';clearOtp();document.getElementById('twofa-error').style.display='none';}
 function showPage(name,el){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   el.classList.add('active');
-  const loaders={dashboard:()=>{loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();},activity:loadActivity,customers:loadCustomers,subscriptions:loadSubscriptions,payments:loadPayments,links:loadAccounts,settings:loadSettings,accounts:loadAccounts,security:loadSecurity,webhooks:loadWebhooks,forecast:loadForecast,summary:loadSummary,admins:loadAdmins,mrr:loadMrr,recovery:loadRecovery,links:()=>{loadAccounts();loadTemplates();}};
-  // Re-verify permissions on each page navigation
+  const loaders={dashboard:()=>{loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();},activity:loadActivity,customers:loadCustomers,subscriptions:loadSubscriptions,payments:loadPayments,settings:loadSettings,accounts:loadAccounts,security:loadSecurity,webhooks:loadWebhooks,forecast:loadForecast,summary:loadSummary,admins:loadAdmins,mrr:loadMrr,recovery:loadRecovery,links:()=>{loadAccounts();loadTemplates();}};
   var _username=localStorage.getItem('subloop_username');
-  if(_username && (getCurrentRole()==='custom' || getCurrentRole()==='viewer')){
+  if(_username&&(getCurrentRole()==='custom'||getCurrentRole()==='viewer')){
     api('/api/auth/check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:_username})})
-    .then(function(r){
-      if(!r.valid){forceLogout();return;}
-      localStorage.setItem('subloop_role',r.role||'admin');
-      localStorage.setItem('subloop_permissions',JSON.stringify(r.permissions||[]));
-      if(r.role==='viewer') localStorage.setItem('subloop_readonly','1');
-      else localStorage.removeItem('subloop_readonly');
-      applyAccessControl();
-    }).catch(function(){});
+    .then(function(r){if(!r.valid){forceLogout();return;}localStorage.setItem('subloop_role',r.role||'admin');localStorage.setItem('subloop_permissions',JSON.stringify(r.permissions||[]));if(r.role==='viewer')localStorage.setItem('subloop_readonly','1');else localStorage.removeItem('subloop_readonly');applyAccessControl();}).catch(function(){});
   }
   expandSettingsIfNeeded(name);
   if(!canAccess(name)){
-    // Show all pages but with restricted screen
     document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
     document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});
     el.classList.add('active');
@@ -1010,20 +907,16 @@ function showPage(name,el){
     return;
   }
   if(loaders[name])loaders[name]();
-  setTimeout(enforceReadonly, 200);
+  setTimeout(enforceReadonly,200);
 }
-
-// Helpers
 function fmt(c,cur){return new Intl.NumberFormat('en-US',{style:'currency',currency:(cur||'usd').toUpperCase()}).format((c||0)/100);}
 function fmtDate(d){return d?new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';}
 function fmtTime(d){return d?new Date(d).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'—';}
 function initials(n){return(n||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();}
 function badge(s){const m={active:'green',succeeded:'green',failed:'red',paused:'amber',cancelled:'red',pending:'blue',dunning:'amber',ok:'green'};return '<span class="badge badge-'+(m[s]||'blue')+'">'+s+'</span>';}
 async function api(path,opts){
-  opts=opts||{};
-  opts.headers=opts.headers||{};
-  var u=localStorage.getItem('subloop_username');
-  if(u) opts.headers['x-username']=u;
+  opts=opts||{};opts.headers=opts.headers||{};
+  var u=localStorage.getItem('subloop_username');if(u)opts.headers['x-username']=u;
   const r=await fetch(path,opts);
   if(!r.ok)throw new Error('HTTP '+r.status);
   return r.json();
@@ -1031,54 +924,31 @@ async function api(path,opts){
 function toast(msg,type){const t=document.getElementById('toast');t.textContent=msg;t.className='show '+(type||'success');setTimeout(()=>t.className='',2800);}
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
-
 function cardBadge(brand,last4){
   if(!brand&&!last4)return '<span class="no-card">—</span>';
   var b=(brand||'').toLowerCase().replace(/ /g,'_');
-  var icons={
-  'visa':'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiB2aWV3Qm94PSIwIDAgMTIwIDgwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cmVjdCB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiByeD0iNCIgZmlsbD0id2hpdGUiLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik04Ni42NjY2IDQ0LjkzNzVMOTAuMzIzOSAzNS4wNjI1TDkyLjM4MDkgNDQuOTM3NUg4Ni42NjY2Wk0xMDAuOTUyIDUyLjgzNzVMOTUuODA4NiAyNy4xNjI1SDg4LjczODNDODYuMzUyNSAyNy4xNjI1IDg1Ljc3MjMgMjkuMDc1OSA4NS43NzIzIDI5LjA3NTlMNzYuMTkwNCA1Mi44Mzc1SDgyLjg4NjhMODQuMjI2OSA0OS4wMjQ0SDkyLjM5NDdMOTMuMTQ3OSA1Mi44Mzc1SDEwMC45NTJaIiBmaWxsPSIjMTQzNENCIi8+CjxwYXRoIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1ydWxlPSJldmVub2RkIiBkPSJNNzcuMTg2NiAzMy41NzExTDc4LjA5NTIgMjguMjQ0Qzc4LjA5NTIgMjguMjQ0IDc1LjI4OTYgMjcuMTYyNSA3Mi4zNjQ4IDI3LjE2MjVDNjkuMjAzMSAyNy4xNjI1IDYxLjY5NTUgMjguNTYzOCA2MS42OTU1IDM1LjM3MzhDNjEuNjk1NSA0MS43ODI1IDcwLjUwNzEgNDEuODYyMSA3MC41MDcxIDQ1LjIyNjZDNzAuNTA3MSA0OC41OTEyIDYyLjYwMzQgNDcuOTkwMSA1OS45OTU1IDQ1Ljg2NzZMNTkuMDQ3NiA1MS40MzYyQzU5LjA0NzYgNTEuNDM2MiA2MS44OTE5IDUyLjgzNzUgNjYuMjM5NyA1Mi44Mzc1QzcwLjU4NjkgNTIuODM3NSA3Ny4xNDY3IDUwLjU1NDQgNzcuMTQ2NyA0NC4zNDU1Qzc3LjE0NjcgMzcuODk2NCA2OC4yNTUyIDM3LjI5NiA2OC4yNTUyIDM0LjQ5MjFDNjguMjU1MiAzMS42ODgyIDc0LjQ2MDIgMzIuMDQ4NCA3Ny4xODY2IDMzLjU3MTFaIiBmaWxsPSIjMTQzNENCIi8+CjxwYXRoIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1ydWxlPSJldmVub2RkIiBkPSJNNTQuNjUxNyA1Mi44Mzc1SDQ3LjYxOTFMNTIuMDE0NCAyNy4xNjI1SDU5LjA0NzdMNTQuNjUxNyA1Mi44Mzc1WiIgZmlsbD0iIzE0MzRDQiIvPgo8cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTQyLjMxMTMgMjcuMTYyNUwzNS45MjE3IDQ0LjgyMTNMMzUuMTY2MyA0MS4wMTg1TDM1LjE2NyA0MS4wMTk5TDMyLjkxMTQgMjkuNDc0OUMzMi45MTE0IDI5LjQ3NDkgMzIuNjM5NCAyNy4xNjI1IDI5LjczMjQgMjcuMTYyNUgxOS4xNzA5TDE5LjA0NzYgMjcuNTk2NkMxOS4wNDc2IDI3LjU5NjYgMjIuMjc4MiAyOC4yNjY5IDI2LjA1NyAzMC41MzI2TDMxLjg3OTMgNTIuODM3NUgzOC44NjE3TDQ5LjUyMzggMjcuMTYyNUg0Mi4zMTEzWiIgZmlsbD0iIzE0MzRDQiIvPgo8L3N2Zz4K',
-  'mastercard':'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiB2aWV3Qm94PSIwIDAgMTIwIDgwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cmVjdCB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiByeD0iNCIgZmlsbD0id2hpdGUiLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik05Ny41Mjg4IDU0LjY1NjJWNTMuNzM4NEg5Ny4yODlMOTcuMDEzNyA1NC4zNjk4TDk2LjczNzggNTMuNzM4NEg5Ni40OThWNTQuNjU2Mkg5Ni42Njc1VjUzLjk2MzdMOTYuOTI1NyA1NC41NjA5SDk3LjEwMTFMOTcuMzYgNTMuOTYyNFY1NC42NTYySDk3LjUyODhaTTk2LjAxMTEgNTQuNjU2MlY1My44OTQ3SDk2LjMxOFY1My43Mzk3SDk1LjUzNjFWNTMuODk0N0g5NS44NDNWNTQuNjU2Mkg5Ni4wMTExWiIgZmlsbD0iI0Y3OUUxQiIvPgo8cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTQ5LjY1MjEgNTguNTk1SDcwLjM0NzlWMjEuNDA0NEg0OS42NTIxVjU4LjU5NVoiIGZpbGw9IiNGRjVGMDAiLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik05OC4yNjc1IDQwLjAwMDNDOTguMjY3NSA1My4wNjMgODcuNjc5MSA2My42NTIgNzQuNjE3MSA2My42NTJDNjkuMDk5NiA2My42NTIgNjQuMDIyOSA2MS43NjI0IDYwIDU4LjU5NTZDNjUuNTAxMSA1NC4yNjQ2IDY5LjAzMzkgNDcuNTQ0OCA2OS4wMzM5IDQwLjAwMDNDNjkuMDMzOSAzMi40NTUyIDY1LjUwMTEgMjUuNzM1NCA2MCAyMS40MDQ0QzY0LjAyMjkgMTguMjM3NiA2OS4wOTk2IDE2LjM0OCA3NC42MTcxIDE2LjM0OEM4Ny42NzkxIDE2LjM0OCA5OC4yNjc1IDI2LjkzNyA5OC4yNjc1IDQwLjAwMDNaIiBmaWxsPSIjRjc5RTFCIi8+CjxwYXRoIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1ydWxlPSJldmVub2RkIiBkPSJNNTAuOTY2IDQwLjAwMDNDNTAuOTY2IDMyLjQ1NTIgNTQuNDk4OCAyNS43MzU0IDU5Ljk5OTkgMjEuNDA0NEM1NS45NzcgMTguMjM3NiA1MC45MDAzIDE2LjM0OCA0NS4zODI4IDE2LjM0OEMzMi4zMjA4IDE2LjM0OCAyMS43MzI0IDI2LjkzNyAyMS43MzI0IDQwLjAwMDNDMjEuNzMyNCA1My4wNjMgMzIuMzIwOCA2My42NTIgNDUuMzgyOCA2My42NTJDNTAuOTAwMyA2My42NTIgNTUuOTc3IDYxLjc2MjQgNTkuOTk5OSA1OC41OTU2QzU0LjQ5ODggNTQuMjY0NiA1MC45NjYgNDcuNTQ0OCA1MC45NjYgNDAuMDAwM1oiIGZpbGw9IiNFQjAwMUIiLz4KPC9zdmc+Cg==',
-  'amex':'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiB2ZXJzaW9uPSIxLjEiIHZpZXdCb3g9IjAgMCAxMjAgODAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHg9IjQwIiB3aWR0aD0iODAiIGhlaWdodD0iODAiIHJ4PSI0IiBmaWxsPSIjZmZmIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIC8+CjxwYXRoIGQ9Im0xMjAgNzZ2LTguNjc2M2gtOS42NTFsLTQuOTY5LTUuNDk0NC00Ljk5NCA1LjQ5NDRoLTMxLjgyMnYtMjUuNjA3aC0xMC4yN2wxMi43NC0yOC44MzFoMTIuMjg2bDQuMzg1NyA5Ljg3N3YtOS44NzdoMTUuMjA4bDIuNjQgNy40NDI5IDIuNjU4LTcuNDQyOWgxMS43ODl2LTguODg1NGMwLTIuMjA5MS0xLjc5MDktNC00LTRoLTExMmMtMi4yMDkxIDQuNDQwOWUtMTYgLTQgMS43OTA5LTQgNHY3MmM0LjQ0MDllLTE2IDIuMjA5MSAxLjc5MDkgNCA0IDRoMTEyYzIuMjA5MSAwIDQtMS43OTA5IDQtNHptLTguMDI2LTExLjg4Mmg4LjAyNmwtMTAuNjE2LTExLjI1OCAxMC42MTYtMTEuMTNoLTcuODk4bC02LjU1NiA3LjE2NDUtNi40OTM1LTcuMTY0NWgtOC4wMjc1bDEwLjU1NCAxMS4xOTQtMTAuNTU0IDExLjE5NGg3LjgwNDFsNi41ODg5LTcuMjI4MyA2LjU1NiA3LjIyODN6bTEuODc4LTExLjI0OSA2LjE0OCA2LjU0MDZ2LTEzLjAyN2wtNi4xNDggNi40ODYxem0tMzUuNzggNi4wNjc1di0zLjQ4NjRoMTIuNjMzdi01LjA1MzRoLTEyLjYzM3YtMy40ODU5aDEyLjk1M2w1ZS00IC01LjE4MTVoLTE5LjA2MnYyMi4zODhoMTkuMDYybC01ZS00IC01LjE4MTNoLTEyLjk1M3ptMzUuODgzLTIwLjQ1Nmg2LjA0NXYtMjIuMzg4aC05LjQwM2wtNS4wMjIgMTMuOTQ0LTQuOTg5LTEzLjk0NGgtOS41NjMxdjIyLjM4OGg2LjA0NDZ2LTE1LjY3Mmw1Ljc1NzUgMTUuNjcyaDUuMzczbDUuNzU3LTE1LjcwNHYxNS43MDR6bS0yOS44MDkgMGg2Ljg3NjVsLTkuODgyNC0yMi4zODhoLTcuODY4MmwtOS44ODMzIDIyLjM4OGg2LjcxNjZsMS44NTU0LTQuNDc3NmgxMC4yOThsMS44ODcgNC40Nzc2em0tMy45OTc2LTkuNDk5MmgtNi4wNzczbDMuMDM4Ny03LjMyNDIgMy4wMzg2IDcuMzI0MnoiIGZpbGw9IiMwNjkwRkYiLz4KPC9zdmc+Cg==',
-  'american_express':'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiB2ZXJzaW9uPSIxLjEiIHZpZXdCb3g9IjAgMCAxMjAgODAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHg9IjQwIiB3aWR0aD0iODAiIGhlaWdodD0iODAiIHJ4PSI0IiBmaWxsPSIjZmZmIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIC8+CjxwYXRoIGQ9Im0xMjAgNzZ2LTguNjc2M2gtOS42NTFsLTQuOTY5LTUuNDk0NC00Ljk5NCA1LjQ5NDRoLTMxLjgyMnYtMjUuNjA3aC0xMC4yN2wxMi43NC0yOC44MzFoMTIuMjg2bDQuMzg1NyA5Ljg3N3YtOS44NzdoMTUuMjA4bDIuNjQgNy40NDI5IDIuNjU4LTcuNDQyOWgxMS43ODl2LTguODg1NGMwLTIuMjA5MS0xLjc5MDktNC00LTRoLTExMmMtMi4yMDkxIDQuNDQwOWUtMTYgLTQgMS43OTA5LTQgNHY3MmM0LjQ0MDllLTE2IDIuMjA5MSAxLjc5MDkgNCA0IDRoMTEyYzIuMjA5MSAwIDQtMS43OTA5IDQtNHptLTguMDI2LTExLjg4Mmg4LjAyNmwtMTAuNjE2LTExLjI1OCAxMC42MTYtMTEuMTNoLTcuODk4bC02LjU1NiA3LjE2NDUtNi40OTM1LTcuMTY0NWgtOC4wMjc1bDEwLjU1NCAxMS4xOTQtMTAuNTU0IDExLjE5NGg3LjgwNDFsNi41ODg5LTcuMjI4MyA2LjU1NiA3LjIyODN6bTEuODc4LTExLjI0OSA2LjE0OCA2LjU0MDZ2LTEzLjAyN2wtNi4xNDggNi40ODYxem0tMzUuNzggNi4wNjc1di0zLjQ4NjRoMTIuNjMzdi01LjA1MzRoLTEyLjYzM3YtMy40ODU5aDEyLjk1M2w1ZS00IC01LjE4MTVoLTE5LjA2MnYyMi4zODhoMTkuMDYybC01ZS00IC01LjE4MTNoLTEyLjk1M3ptMzUuODgzLTIwLjQ1Nmg2LjA0NXYtMjIuMzg4aC05LjQwM2wtNS4wMjIgMTMuOTQ0LTQuOTg5LTEzLjk0NGgtOS41NjMxdjIyLjM4OGg2LjA0NDZ2LTE1LjY3Mmw1Ljc1NzUgMTUuNjcyaDUuMzczbDUuNzU3LTE1LjcwNHYxNS43MDR6bS0yOS44MDkgMGg2Ljg3NjVsLTkuODgyNC0yMi4zODhoLTcuODY4MmwtOS44ODMzIDIyLjM4OGg2LjcxNjZsMS44NTU0LTQuNDc3NmgxMC4yOThsMS44ODcgNC40Nzc2em0tMy45OTc2LTkuNDk5MmgtNi4wNzczbDMuMDM4Ny03LjMyNDIgMy4wMzg2IDcuMzI0MnoiIGZpbGw9IiMwNjkwRkYiLz4KPC9zdmc+Cg==',
-  'discover':'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiB2aWV3Qm94PSIwIDAgMTIwIDgwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cmVjdCB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiByeD0iNCIgZmlsbD0id2hpdGUiLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0yOSA4MEgxMTYuMDAyQzExOC4yMSA4MCAxMjAgNzguMjExIDEyMCA3NS45OTU3VjQ4QzEyMCA0OCA4Ny44NjE2IDcwLjEwNjMgMjkgODBaIiBmaWxsPSIjRTc3OTJCIi8+CjxwYXRoIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1ydWxlPSJldmVub2RkIiBkPSJNMTEzLjA4OCAzMy44NjI0QzExMy4wODggMzAuNzEyNSAxMTAuODg4IDI4Ljg5NTEgMTA3LjA1MyAyOC44OTUxSDEwMi4xMlY0NS43MTk3SDEwNS40NDNWMzguOTYwOUgxMDUuODc3TDExMC40ODEgNDUuNzE5N0gxMTQuNTcxTDEwOS4yMDIgMzguNjMxNEMxMTEuNzA4IDM4LjEyOSAxMTMuMDg4IDM2LjQzODMgMTEzLjA4OCAzMy44NjI0Wk0xMDYuNDE0IDM2LjY0MTFIMTA1LjQ0M1YzMS41NDUxSDEwNi40NjdDMTA4LjUzOCAzMS41NDUxIDEwOS42NjUgMzIuNDAxOCAxMDkuNjY1IDM0LjAzODVDMTA5LjY2NSAzNS43MzA1IDEwOC41MzggMzYuNjQxMSAxMDYuNDE0IDM2LjY0MTFaIiBmaWxsPSIjMUExOTE4Ii8+CjxwYXRoIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1ydWxlPSJldmVub2RkIiBkPSJNOTAuNDgzOSA0NS43MTk3SDk5LjkxNzZWNDIuODcxM0g5My44MDc3VjM4LjMyOThIOTkuNjkyM1YzNS40ODAySDkzLjgwNzdWMzEuNzQ2SDk5LjkxNzZWMjguODk1MUg5MC40ODM5VjQ1LjcxOTdaIiBmaWxsPSIjMUExOTE4Ii8+CjxwYXRoIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1ydWxlPSJldmVub2RkIiBkPSJNODAuNzY3NyA0MC4xOTU5TDc2LjIyMDUgMjguODk1MUg3Mi41ODY0TDc5LjgyMzYgNDYuMTUxMkg4MS42MTNMODguOTc5OSAyOC44OTUxSDg1LjM3NDJMODAuNzY3NyA0MC4xOTU5WiIgZmlsbD0iIzFBMTkxOCIvPgo8cGF0aCBkPSJNNjQuNjE3OCA0Ni43MTk3QzY5LjcxMTggNDYuNzE5NyA3My44NDE0IDQyLjY0NTQgNzMuODQxNCAzNy42MTk3QzczLjg0MTQgMzIuNTkzOSA2OS43MTE4IDI4LjUxOTcgNjQuNjE3OCAyOC41MTk3QzU5LjUyMzggMjguNTE5NyA1NS4zOTQzIDMyLjU5MzkgNTUuMzk0MyAzNy42MTk3QzU1LjM5NDMgNDIuNjQ1NCA1OS41MjM4IDQ2LjcxOTcgNjQuNjE3OCA0Ni43MTk3WiIgZmlsbD0idXJsKCNwYWludDBfcmFkaWFsXzgyM18zNDEpIi8+CjxwYXRoIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1ydWxlPSJldmVub2RkIiBkPSJNNDEuMjIzMSAzNy4zMTkxQzQxLjIyMzEgNDIuMjY0MyA0NS4xNTkgNDYuMDk4NiA1MC4yMjQgNDYuMDk4NkM1MS42NTU2IDQ2LjA5ODYgNTIuODgxNyA0NS44MjExIDU0LjM5NDMgNDUuMTE4NFY0MS4yNTU1QzUzLjA2NDIgNDIuNTY4NSA1MS44ODY5IDQzLjA5ODIgNTAuMzc4OCA0My4wOTgyQzQ3LjAyODcgNDMuMDk4MiA0NC42NTEgNDAuNzAxNyA0NC42NTEgMzcuMjk0NEM0NC42NTEgMzQuMDY0NSA0Ny4xMDM4IDMxLjUxNjUgNTAuMjI0IDMxLjUxNjVDNTEuODEwNCAzMS41MTY1IDUzLjAxMTUgMzIuMDc0OSA1NC4zOTQzIDMzLjQwOTNWMjkuNTQ4M0M1Mi45MzQ0IDI4LjgxNzcgNTEuNzMzNCAyOC41MTQ4IDUwLjMwMjQgMjguNTE0OEM0NS4yNjMxIDI4LjUxNDggNDEuMjIzMSAzMi40MjcyIDQxLjIyMzEgMzcuMzE5MVoiIGZpbGw9IiMxQTE5MTgiLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0zNS4yNjg3IDM1LjM1MTVDMzMuMjcyNSAzNC42MjI5IDMyLjY4NjggMzQuMTQxOSAzMi42ODY4IDMzLjIzMzJDMzIuNjg2OCAzMi4xNzMgMzMuNzMxIDMxLjM2ODMgMzUuMTY0NiAzMS4zNjgzQzM2LjE2MTQgMzEuMzY4MyAzNi45ODAzIDMxLjc3MiAzNy44NDY3IDMyLjczMDdMMzkuNTg3MyAzMC40ODI0QzM4LjE1NyAyOS4yNDggMzYuNDQ2IDI4LjYxNjkgMzQuNTc2MyAyOC42MTY5QzMxLjU1ODkgMjguNjE2OSAyOS4yNTc2IDMwLjY4MzkgMjkuMjU3NiAzMy40Mzc5QzI5LjI1NzYgMzUuNzU1OCAzMC4zMjk1IDM2Ljk0MjEgMzMuNDUzIDM4LjA1MTZDMzQuNzU1NSAzOC41MDQ3IDM1LjQxODIgMzguODA2MyAzNS43NTI5IDM5LjAwOTdDMzYuNDE3IDM5LjQzODEgMzYuNzQ5NyA0MC4wNDM5IDM2Ljc0OTcgNDAuNzUwNEMzNi43NDk3IDQyLjExMzUgMzUuNjUxNSA0My4xMjM2IDM0LjE2NzEgNDMuMTIzNkMzMi41ODA3IDQzLjEyMzYgMzEuMzAzMiA0Mi4zNDEgMzAuNTM3IDQwLjg3OThMMjguMzg3OSA0Mi45MjE0QzI5LjkyMDQgNDUuMTQwNSAzMS43NjExIDQ2LjEyNCAzNC4yOTIzIDQ2LjEyNEMzNy43NDg1IDQ2LjEyNCA0MC4xNzM2IDQzLjg1NjggNDAuMTczNiA0MC41OTk2QzQwLjE3MzYgMzcuOTI2OCAzOS4wNTIzIDM2LjcxNjUgMzUuMjY4NyAzNS4zNTE1WiIgZmlsbD0iIzFBMTkxOCIvPgo8cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTIzLjgwOTEgMjguODk1MUgyNy4xMzU1VjQ1LjcxOTdIMjMuODA5MVYyOC44OTUxWiIgZmlsbD0iIzFBMTkxOCIvPgo8cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTEzLjEyNDIgMjguODk1MUg4LjI0MTdWNDUuNzE5N0gxMy4wOTg1QzE1LjY4MTEgNDUuNzE5NyAxNy41NDU2IDQ1LjExODQgMTkuMTgyOCA0My43Nzc1QzIxLjEyODMgNDIuMTg4OSAyMi4yNzg2IDM5Ljc5NDkgMjIuMjc4NiAzNy4zMTlDMjIuMjc4NiAzMi4zNTM3IDE4LjUxODcgMjguODk1MSAxMy4xMjQyIDI4Ljg5NTFaTTE3LjAxIDQxLjUzMzZDMTUuOTY0NCA0Mi40NjUxIDE0LjYwNzMgNDIuODcxMyAxMi40NTgyIDQyLjg3MTNIMTEuNTY1NVYzMS43NDZIMTIuNDU4MkMxNC42MDczIDMxLjc0NiAxNS45MTExIDMyLjEyNDkgMTcuMDEgMzMuMTA2NEMxOC4xNjAzIDM0LjExNzEgMTguODUyMSAzNS42ODMgMTguODUyMSAzNy4yOTQzQzE4Ljg1MjEgMzguOTA5NiAxOC4xNjAzIDQwLjUyMzUgMTcuMDEgNDEuNTMzNloiIGZpbGw9IiMxQTE5MTgiLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0xMTUuMjEgMjkuNTI3NUMxMTUuMjEgMjkuMjMzIDExNS4wMDUgMjkuMDcxMiAxMTQuNjQzIDI5LjA3MTJIMTE0LjE2MlYzMC41NDk5SDExNC41MlYyOS45NzY2TDExNC45MzkgMzAuNTQ5OUgxMTUuMzc2TDExNC44ODMgMjkuOTQwMkMxMTUuMDk0IDI5Ljg4NDMgMTE1LjIxIDI5LjczMjkgMTE1LjIxIDI5LjUyNzVaTTExNC41OCAyOS43Mjk2SDExNC41MlYyOS4zNDI5SDExNC41ODRDMTE0Ljc2MSAyOS4zNDI5IDExNC44NTMgMjkuNDA1OSAxMTQuODUzIDI5LjUzMjdDMTE0Ljg1MyAyOS42NjQgMTE0Ljc2IDI5LjcyOTYgMTE0LjU4IDI5LjcyOTZaIiBmaWxsPSIjMUExOTE4Ii8+CjxwYXRoIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1ydWxlPSJldmVub2RkIiBkPSJNMTE0LjcxNSAyOC41MTg3QzExMy45ODcgMjguNTE4NyAxMTMuNDEgMjkuMDkyIDExMy40MSAyOS44MDc3QzExMy40MSAzMC41MjMzIDExMy45OTQgMzEuMDk3MyAxMTQuNzE1IDMxLjA5NzNDMTE1LjQyNCAzMS4wOTczIDExNi4wMDUgMzAuNTE3NSAxMTYuMDA1IDI5LjgwNzdDMTE2LjAwNSAyOS4xMDE4IDExNS40MjQgMjguNTE4NyAxMTQuNzE1IDI4LjUxODdaTTExNC43MSAzMC44NjcyQzExNC4xMzggMzAuODY3MiAxMTMuNjY5IDMwLjM5NjYgMTEzLjY2OSAyOS44MDk2QzExMy42NjkgMjkuMjIwNyAxMTQuMTMyIDI4Ljc1MDggMTE0LjcxIDI4Ljc1MDhDMTE1LjI4IDI4Ljc1MDggMTE1Ljc0NSAyOS4yMzE4IDExNS43NDUgMjkuODA5NkMxMTUuNzQ1IDMwLjM5MTQgMTE1LjI4IDMwLjg2NzIgMTE0LjcxIDMwLjg2NzJaIiBmaWxsPSIjMUExOTE4Ii8+CjxkZWZzPgo8cmFkaWFsR3JhZGllbnQgaWQ9InBhaW50MF9yYWRpYWxfODIzXzM0MSIgY3g9IjAiIGN5PSIwIiByPSIxIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgZ3JhZGllbnRUcmFuc2Zvcm09InRyYW5zbGF0ZSg3MS41IDQ0KSByb3RhdGUoLTE0Mi40MzEpIHNjYWxlKDE2LjQwMTIgMTYuMTgxNikiPgo8c3RvcCBzdG9wLWNvbG9yPSIjRjU5OTAwIi8+CjxzdG9wIG9mZnNldD0iMC4yMTAwODIiIHN0b3AtY29sb3I9IiNGMzk1MDEiLz4KPHN0b3Agb2Zmc2V0PSIwLjkwODE2MyIgc3RvcC1jb2xvcj0iI0NFM0MwQiIvPgo8c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiNBNDQyMEEiLz4KPC9yYWRpYWxHcmFkaWVudD4KPC9kZWZzPgo8L3N2Zz4K',
-  'jcb':'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiB2aWV3Qm94PSIwIDAgMTIwIDgwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cmVjdCB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiByeD0iNCIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTEwMC45IDU4LjhDMTAwLjkgNjUuOCA5NS4xOTk2IDcxLjUgODguMTk5NiA3MS41SDE5LjA5OTZWMjEuMkMxOS4wOTk2IDE0LjIgMjQuNzk5NiA4LjUgMzEuNzk5NiA4LjVIMTAwLjlWNTguOFoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik03OC4zOTk0IDQ1LjlIODMuNjQ5NEM4My43OTk0IDQ1LjkgODQuMTQ5NCA0NS44NSA4NC4yOTk0IDQ1Ljg1Qzg1LjI5OTQgNDUuNjUgODYuMTQ5NCA0NC43NSA4Ni4xNDk0IDQzLjVDODYuMTQ5NCA0Mi4zIDg1LjI5OTQgNDEuNCA4NC4yOTk0IDQxLjE1Qzg0LjE0OTQgNDEuMSA4My44NDk0IDQxLjEgODMuNjQ5NCA0MS4xSDc4LjM5OTRWNDUuOVoiIGZpbGw9InVybCgjcGFpbnQwX2xpbmVhcl84MzNfNjE0OSkiLz4KPHBhdGggZD0iTTgzLjA0OTQgMTIuNzVDNzguMDQ5NCAxMi43NSA3My45NDk0IDE2LjggNzMuOTQ5NCAyMS44NVYzMS4zSDg2Ljc5OTRDODcuMDk5NCAzMS4zIDg3LjQ0OTQgMzEuMyA4Ny42OTk0IDMxLjM1QzkwLjU5OTQgMzEuNSA5Mi43NDk0IDMzIDkyLjc0OTQgMzUuNkM5Mi43NDk0IDM3LjY1IDkxLjI5OTQgMzkuNCA4OC41OTk0IDM5Ljc1VjM5Ljg1QzkxLjU0OTQgNDAuMDUgOTMuNzk5NCA0MS43IDkzLjc5OTQgNDQuMjVDOTMuNzk5NCA0NyA5MS4yOTk0IDQ4LjggODcuOTk5NCA0OC44SDczLjg5OTRWNjcuM0g4Ny4yNDk0QzkyLjI0OTQgNjcuMyA5Ni4zNDk0IDYzLjI1IDk2LjM0OTQgNTguMlYxMi43NUg4My4wNDk0WiIgZmlsbD0idXJsKCNwYWludDFfbGluZWFyXzgzM182MTQ5KSIvPgo8cGF0aCBkPSJNODUuNDk5NCAzNi4yQzg1LjQ5OTQgMzUgODQuNjQ5NCAzNC4yIDgzLjY0OTQgMzQuMDVDODMuNTQ5NCAzNC4wNSA4My4yOTk0IDM0IDgzLjE0OTQgMzRINzguMzk5NFYzOC40SDgzLjE0OTRDODMuMjk5NCAzOC40IDgzLjU5OTQgMzguNCA4My42NDk0IDM4LjM1Qzg0LjY0OTQgMzguMiA4NS40OTk0IDM3LjQgODUuNDk5NCAzNi4yWiIgZmlsbD0idXJsKCNwYWludDJfbGluZWFyXzgzM182MTQ5KSIvPgo8cGF0aCBkPSJNNTcuODk4OCAxMi43NUM1Mi44OTg4IDEyLjc1IDQ4Ljc5ODggMTYuOCA0OC43OTg4IDIxLjg1VjMzLjc1QzUxLjA5ODggMzEuOCA1NS4wOTg4IDMwLjU1IDYxLjU0ODggMzAuODVDNjQuOTk4OCAzMSA2OC42OTg4IDMxLjk1IDY4LjY5ODggMzEuOTVWMzUuOEM2Ni44NDg4IDM0Ljg1IDY0LjY0ODggMzQgNjEuNzk4OCAzMy44QzU2Ljg5ODggMzMuNDUgNTMuOTQ4OCAzNS44NSA1My45NDg4IDQwLjA1QzUzLjk0ODggNDQuMyA1Ni44OTg4IDQ2LjcgNjEuNzk4OCA0Ni4zQzY0LjY0ODggNDYuMSA2Ni44NDg4IDQ1LjIgNjguNjk4OCA0NC4zVjQ4LjE1QzY4LjY5ODggNDguMTUgNjUuMDQ4OCA0OS4xIDYxLjU0ODggNDkuMjVDNTUuMDk4OCA0OS41NSA1MS4wOTg4IDQ4LjMgNDguNzk4OCA0Ni4zNVY2Ny4zNUg2Mi4xNDg4QzY3LjE0ODggNjcuMzUgNzEuMjQ4OCA2My4zIDcxLjI0ODggNTguMjVWMTIuNzVINTcuODk4OFoiIGZpbGw9InVybCgjcGFpbnQzX2xpbmVhcl84MzNfNjE0OSkiLz4KPHBhdGggZD0iTTMyLjc0OTYgMTIuNzVDMjcuNzQ5NiAxMi43NSAyMy42NDk2IDE2LjggMjMuNjQ5NiAyMS44NVY0NC4zQzI2LjE5OTYgNDUuNTUgMjguODQ5NiA0Ni4zNSAzMS40OTk2IDQ2LjM1QzM0LjY0OTYgNDYuMzUgMzYuMzQ5NiA0NC40NSAzNi4zNDk2IDQxLjg1VjMxLjI1SDQ0LjE0OTZWNDEuOEM0NC4xNDk2IDQ1LjkgNDEuNTk5NiA0OS4yNSAzMi45NDk2IDQ5LjI1QzI3LjY5OTYgNDkuMjUgMjMuNTk5NiA0OC4xIDIzLjU5OTYgNDguMVY2Ny4yNUgzNi45NDk2QzQxLjk0OTYgNjcuMjUgNDYuMDQ5NiA2My4yIDQ2LjA0OTYgNTguMTVWMTIuNzVIMzIuNzQ5NloiIGZpbGw9InVybCgjcGFpbnQ0X2xpbmVhcl84MzNfNjE0OSkiLz4KPGRlZnM+CjxsaW5lYXJHcmFkaWVudCBpZD0icGFpbnQwX2xpbmVhcl84MzNfNjE0OSIgeDE9IjYwLjk4MDQiIHkxPSI0MC4wODIxIiB4Mj0iMTI2LjA3NSIgeTI9IjQwLjA4MjEiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj4KPHN0b3Agc3RvcC1jb2xvcj0iIzAwNzk0MCIvPgo8c3RvcCBvZmZzZXQ9IjAuMjI4NSIgc3RvcC1jb2xvcj0iIzAwODczRiIvPgo8c3RvcCBvZmZzZXQ9IjAuNzQzMyIgc3RvcC1jb2xvcj0iIzQwQTczNyIvPgo8c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiM1Q0I1MzEiLz4KPC9saW5lYXJHcmFkaWVudD4KPGxpbmVhckdyYWRpZW50IGlkPSJwYWludDFfbGluZWFyXzgzM182MTQ5IiB4MT0iNzMuOTQwNCIgeTE9IjQwLjAwMjMiIHgyPSI5Ni40MTA4IiB5Mj0iNDAuMDAyMyIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPgo8c3RvcCBzdG9wLWNvbG9yPSIjMDA3OTQwIi8+CjxzdG9wIG9mZnNldD0iMC4yMjg1IiBzdG9wLWNvbG9yPSIjMDA4NzNGIi8+CjxzdG9wIG9mZnNldD0iMC43NDMzIiBzdG9wLWNvbG9yPSIjNDBBNzM3Ii8+CjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzVDQjUzMSIvPgo8L2xpbmVhckdyYWRpZW50Pgo8bGluZWFyR3JhZGllbnQgaWQ9InBhaW50Ml9saW5lYXJfODMzXzYxNDkiIHgxPSI3My45Mzk2IiB5MT0iMzYuMTkyNSIgeDI9Ijk2LjQwOSIgeTI9IjM2LjE5MjUiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj4KPHN0b3Agc3RvcC1jb2xvcj0iIzAwNzk0MCIvPgo8c3RvcCBvZmZzZXQ9IjAuMjI4NSIgc3RvcC1jb2xvcj0iIzAwODczRiIvPgo8c3RvcCBvZmZzZXQ9IjAuNzQzMyIgc3RvcC1jb2xvcj0iIzQwQTczNyIvPgo8c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiM1Q0I1MzEiLz4KPC9saW5lYXJHcmFkaWVudD4KPGxpbmVhckdyYWRpZW50IGlkPSJwYWludDNfbGluZWFyXzgzM182MTQ5IiB4MT0iNDguNjY4OSIgeTE9IjQwLjAwMjMiIHgyPSI3MC44Mjg3IiB5Mj0iNDAuMDAyMyIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPgo8c3RvcCBzdG9wLWNvbG9yPSIjNkMyQzJGIi8+CjxzdG9wIG9mZnNldD0iMC4xNzM1IiBzdG9wLWNvbG9yPSIjODgyNzMwIi8+CjxzdG9wIG9mZnNldD0iMC41NzMxIiBzdG9wLWNvbG9yPSIjQkUxODMzIi8+CjxzdG9wIG9mZnNldD0iMC44NTg1IiBzdG9wLWNvbG9yPSIjREMwNDM2Ii8+CjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iI0U2MDAzOSIvPgo8L2xpbmVhckdyYWRpZW50Pgo8bGluZWFyR3JhZGllbnQgaWQ9InBhaW50NF9saW5lYXJfODMzXzYxNDkiIHgxPSIyMy42MzgyIiB5MT0iNDAuMDAyMyIgeDI9IjQ2LjQ1NTMiIHkyPSI0MC4wMDIzIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CjxzdG9wIHN0b3AtY29sb3I9IiMxRjI4NkYiLz4KPHN0b3Agb2Zmc2V0PSIwLjQ3NTEiIHN0b3AtY29sb3I9IiMwMDRFOTQiLz4KPHN0b3Agb2Zmc2V0PSIwLjgyNjEiIHN0b3AtY29sb3I9IiMwMDY2QjEiLz4KPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjMDA2RkJDIi8+CjwvbGluZWFyR3JhZGllbnQ+CjwvZGVmcz4KPC9zdmc+Cg==',
-  'diners':'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiB2aWV3Qm94PSIwIDAgMTIwIDgwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cmVjdCB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiByeD0iNCIgZmlsbD0idXJsKCNwYWludDBfbGluZWFyXzgwNF8yKSIvPgo8cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTY1LjM5OTcgNjQuODM0M0M3OS4wMjEzIDY0Ljg5OTIgOTEuNDU0MiA1My43NjMxIDkxLjQ1NDIgNDAuMjE1N0M5MS40NTQyIDI1LjQwMDcgNzkuMDIxMyAxNS4xNjA1IDY1LjM5OTcgMTUuMTY1NEg1My42NzY4QzM5Ljg5MjEgMTUuMTYwNSAyOC41NDU5IDI1LjQwMzggMjguNTQ1OSA0MC4yMTU3QzI4LjU0NTkgNTMuNzY2MSAzOS44OTIxIDY0Ljg5OTMgNTMuNjc2OCA2NC44MzQzSDY1LjM5OTdaIiBmaWxsPSIjMzQ3N0I5Ii8+CjxwYXRoIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1ydWxlPSJldmVub2RkIiBkPSJNNTMuNjg1MiAxNy4xNTIyQzQxLjA4OTEgMTcuMTU2MSAzMC44ODIxIDI3LjMzMTMgMzAuODc5MiAzOS44ODk2QzMwLjg4MjEgNTIuNDQ1NiA0MS4wODkgNjIuNjE5OSA1My42ODUyIDYyLjYyMzhDNjYuMjg0MyA2Mi42MTk5IDc2LjQ5MzQgNTIuNDQ1NiA3Ni40OTUyIDM5Ljg4OTZDNzYuNDkzMyAyNy4zMzEzIDY2LjI4NDMgMTcuMTU2MSA1My42ODUyIDE3LjE1MjJaTTM5LjIyOTEgMzkuODg5NkMzOS4yNDEgMzMuNzUyOSA0My4wODY2IDI4LjUxOTkgNDguNTA5NSAyNi40NDA0VjUzLjMzNTVDNDMuMDg2NiA1MS4yNTcyIDM5LjI0MDkgNDYuMDI3MSAzOS4yMjkxIDM5Ljg4OTZaTTU4Ljg1OSA1My4zNDE1VjI2LjQzOTZDNjQuMjgzOCAyOC41MTQgNjguMTM1NSAzMy43NDk5IDY4LjE0NTMgMzkuODg5NkM2OC4xMzU1IDQ2LjAzMTEgNjQuMjgzOCA1MS4yNjMgNTguODU5IDUzLjM0MTVaIiBmaWxsPSJ3aGl0ZSIvPgo8ZGVmcz4KPGxpbmVhckdyYWRpZW50IGlkPSJwYWludDBfbGluZWFyXzgwNF8yIiB4MT0iMS42ODE0MWUtMDYiIHkxPSIyMSIgeDI9IjEyMCIgeTI9IjU0IiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CjxzdG9wIHN0b3AtY29sb3I9IiMzNDc5QzAiLz4KPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjMTMzMzYyIi8+CjwvbGluZWFyR3JhZGllbnQ+CjwvZGVmcz4KPC9zdmc+Cg==',
-  'unionpay':'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiB2aWV3Qm94PSIwIDAgMTIwIDgwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cmVjdCB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiByeD0iNCIgZmlsbD0id2hpdGUiLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik03Ni41MjgyIDE0LjE3ODhDNzMuNzQyMSAxNC4yNjU0IDcwLjMzNTEgMTYuNDU5NiA2OS43MTQ2IDE5LjE2NTNMNjAuMjk4MSA2MC44MzcxQzU5LjY3NzYgNjMuNTY4IDYxLjM2NTYgNjUuNzkwMyA2NC4wODEzIDY1LjgzMTJIODQuOTk5NkM4Ny42NzM5IDY1LjY5ODkgOTAuMjcyNSA2My41Mjk4IDkwLjg4MjQgNjAuODU0OUwxMDAuMjk5IDE5LjE4MjhDMTAwLjkzIDE2LjQyNCA5OS4yMDEgMTQuMTgzOSA5Ni40NDAyIDE0LjE4MzlMNzYuNTI4MiAxNC4xNzg4WiIgZmlsbD0iIzAxNzk4QSIvPgo8cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTYwLjI5ODIgNjAuODM3MUw2OS43MTQ4IDE5LjE2NTNDNzAuMzM1MyAxNi40NTk2IDczLjc0MjIgMTQuMjY1NCA3Ni40Nzc2IDE0LjE4MTVMNjguNTYwNyAxNC4xNzY0TDU0LjI5NjcgMTQuMTczN0M1MS41NTM2IDE0LjIyOTggNDguMTAyMyAxNi40Mzk0IDQ3LjQ4MiAxOS4xNjUzTDM4LjA2MjcgNjAuODM3MUMzNy40Mzk5IDYzLjU2OCAzOS4xMzA0IDY1Ljc5MDMgNDEuODQ0MyA2NS44MzEySDY0LjA4MTRDNjEuMzY1NyA2NS43OTAzIDU5LjY3NzcgNjMuNTY4IDYwLjI5ODIgNjAuODM3MVoiIGZpbGw9IiMwMjQzODEiLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0zOC4wNjI3IDYwLjgzNzFMNDcuNDgyIDE5LjE2NTNDNDguMTAyMyAxNi40Mzk0IDUxLjU1MzYgMTQuMjI5OCA1NC4yOTY3IDE0LjE3MzdMMzYuMDIzNyAxNC4xNjg5QzMzLjI2NTMgMTQuMTY4OSAyOS43Mjg3IDE2LjQwMzkgMjkuMDk4MyAxOS4xNjUzTDE5LjY3ODkgNjAuODM3MUMxOS42MjE2IDYxLjA5MTQgMTkuNTg5OCA2MS4zNDA2IDE5LjU3MDggNjEuNTg0NVY2Mi4zNTc2QzE5Ljc1NTIgNjQuMzQ4MyAyMS4yNzU0IDY1Ljc5OCAyMy40NjA1IDY1LjgzMTJINDEuODQ0M0MzOS4xMzA0IDY1Ljc5MDMgMzcuNDM5OSA2My41NjggMzguMDYyNyA2MC44MzcxWiIgZmlsbD0iI0REMDIyOCIvPgo8cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTU0LjY4MTggNDQuNTM4NEg1NS4wMjc2QzU1LjM0NTQgNDQuNTM4NCA1NS41NTkyIDQ0LjQzMTggNTUuNjU5NCA0NC4yMjA2TDU2LjU1OCA0Mi44NzU2SDU4Ljk2NDRMNTguNDYyNiA0My43NjAzSDYxLjM0NzlMNjAuOTgxOSA0NS4xMTU3SDU3LjU0ODZDNTcuMTUzMiA0NS43MTA3IDU2LjY2NjUgNDUuOTkwNCA1Ni4wODEyIDQ1Ljk1NzJINTQuMjkyOUw1NC42ODE4IDQ0LjUzODRaTTU0LjI4NjcgNDYuNDgxMUg2MC42MDhMNjAuMjA1MSA0Ny45NTM1SDU3LjY2MjlMNTcuMjc1IDQ5LjM3NDdINTkuNzQ4OEw1OS4zNDU4IDUwLjg0NjlINTYuODcyTDU2LjI5NzQgNTIuOTQ3QzU2LjE1NTEgNTMuMjk4IDU2LjM0MjIgNTMuNDU1OSA1Ni44NTU2IDUzLjQyMDFINTguODcxN0w1OC40OTgyIDU0Ljc4ODJINTQuNjI3NEM1My44OTM3IDU0Ljc4ODIgNTMuNjQyIDU0LjM2ODUgNTMuODcyMiA1My41MjdMNTQuNjA2OSA1MC44NDY5SDUzLjAyNTZMNTMuNDI3MyA0OS4zNzQ3SDU1LjAwODhMNTUuMzk2NCA0Ny45NTM1SDUzLjg4NDhMNTQuMjg2NyA0Ni40ODExWk02NC4zNzYyIDQyLjg2NTZMNjQuMjc2NiA0My43Mjc1QzY0LjI3NjYgNDMuNzI3NSA2NS40NjkxIDQyLjgzMjIgNjYuNTUyIDQyLjgzMjJINzAuNTUzOEw2OS4wMjM0IDQ4LjM3MjdDNjguODk2NSA0OS4wMDYxIDY4LjM1MjMgNDkuMzIxMSA2Ny4zOTExIDQ5LjMyMTFINjIuODU1NEw2MS43OTI5IDUzLjIxMTZDNjEuNzMxNyA1My40MjAxIDYxLjgxODIgNTMuNTI3IDYyLjA0NzEgNTMuNTI3SDYyLjkzOTVMNjIuNjExNSA1NC43MzQ2SDYwLjM0MjZDNTkuNDcxNyA1NC43MzQ2IDU5LjEwOTUgNTQuNDcyNyA1OS4yNTMxIDUzLjk0NjZMNjIuMjU1NCA0Mi44NjU2SDY0LjM3NjJaTTY3Ljc2NSA0NC40MzE4SDY0LjE5MzJMNjMuNzY1OSA0NS45MjY4QzYzLjc2NTkgNDUuOTI2OCA2NC4zNjA4IDQ1LjQ5NzMgNjUuMzU0OCA0NS40ODE5QzY2LjM0NjEgNDUuNDY2NCA2Ny40Nzc2IDQ1LjQ4MTkgNjcuNDc3NiA0NS40ODE5TDY3Ljc2NSA0NC40MzE4Wk02Ni40NzEgNDcuODk5OUM2Ni43MzUgNDcuOTM1NyA2Ni44ODI4IDQ3LjgzMTIgNjYuOTAwNiA0Ny41ODQ1TDY3LjExOTIgNDYuNzk2NEg2My41NDE5TDYzLjI0MTkgNDcuODk5OUg2Ni40NzFaTTY0LjA1ODEgNDkuNjg5OUg2Ni4xMkw2Ni4wODE3IDUwLjU4MjNINjYuNjMwN0M2Ni45MDgxIDUwLjU4MjMgNjcuMDQ1NiA1MC40OTM1IDY3LjA0NTYgNTAuMzE4MUw2Ny4yMDgxIDQ5Ljc0MDhINjguOTIxOEw2OC42OTMgNTAuNTgyM0M2OC40OTk0IDUxLjI4NDIgNjcuOTg2MyA1MS42NTAzIDY3LjE1MjMgNTEuNjg2MUg2Ni4wNTRMNjYuMDQ4OCA1My4yMTE2QzY2LjAyODcgNTMuNDU1OSA2Ni4yNDk2IDUzLjU4MDQgNjYuNzA0NiA1My41ODA0SDY3LjczNjlMNjcuNDAzNyA1NC43ODgySDY0LjkyNzZDNjQuMjMzNSA1NC44MjEyIDYzLjg5MzIgNTQuNDkwNSA2My45MDA0IDUzLjc4ODlMNjQuMDU4MSA0OS42ODk5WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik03Mi44MjE4IDQ0LjU5OTVMNzMuMyA0Mi45MTY0SDc1LjcxNzdMNzUuNjEzMyA0My41MzRDNzUuNjEzMyA0My41MzQgNzYuODQ4OCA0Mi45MTY0IDc3LjczODUgNDIuOTE2NEg4MC43MjgyTDgwLjI1MyA0NC41OTk1SDc5Ljc4MjdMNzcuNTI3NSA1Mi41Mzc4SDc3Ljk5NzhMNzcuNTUwNCA1NC4xMTQzSDc3LjA4MDFMNzYuODg0NCA1NC43OTgzSDc0LjU0M0w3NC43MzgzIDU0LjExNDNINzAuMTE5MUw3MC41NjkzIDUyLjUzNzhINzEuMDMyMUw3My4yODk0IDQ0LjU5OTVINzIuODIxOFpNNzUuNDMwMyA0NC41OTk1TDc0LjgxNSA0Ni43NDc5Qzc0LjgxNSA0Ni43NDc5IDc1Ljg2NzggNDYuMzQzOSA3Ni43NzUzIDQ2LjIyOTVDNzYuOTc1OCA0NS40NzkyIDc3LjIzNzggNDQuNTk5NSA3Ny4yMzc4IDQ0LjU5OTVINzUuNDMwM1pNNzQuNTMgNDcuNzU1TDczLjkxMjYgNTAuMDA1M0M3My45MTI2IDUwLjAwNTMgNzUuMDc5NCA0OS40MzA3IDc1Ljg4MDEgNDkuMzgyM0M3Ni4xMTE0IDQ4LjUxMjYgNzYuMzQyOSA0Ny43NTUgNzYuMzQyOSA0Ny43NTVINzQuNTNaTTc0Ljk4MjYgNTIuNTM3OEw3NS40NDU0IDUwLjkwNTVINzMuNjQwN0w3My4xNzU1IDUyLjUzNzhINzQuOTgyNlpNODAuODMwMSA0Mi44MTIySDgzLjEwMzFMODMuMTk5NSA0My42NTFDODMuMTg0NSA0My44NjQ1IDgzLjMxMTQgNDMuOTY2NSA4My41ODA5IDQzLjk2NjVIODMuOTgyNUw4My41NzYyIDQ1LjM4NzdIODEuOTA1NUM4MS4yNjc2IDQ1LjQyMDcgODAuOTM5NSA0NS4xNzY4IDgwLjkwOTEgNDQuNjUwM0w4MC44MzAxIDQyLjgxMjJaTTg3LjUyNjYgNDUuODYwOEw4Ny4wOTQ2IDQ3LjM4NjVIODQuNzUwNEw4NC4zNDg1IDQ4LjgwNUg4Ni42OTAzTDg2LjI1NTUgNTAuMzI4Mkg4My42NDczTDgzLjA1NzIgNTEuMjIwOUg4NC4zMzM4TDg0LjYyODcgNTMuMDA4MkM4NC42NjM5IDUzLjE4NjIgODQuODIxNiA1My4yNzI3IDg1LjA5MTEgNTMuMjcyN0g4NS40ODc2TDg1LjA3MSA1NC43NDQ3SDgzLjY2NzVDODIuOTQwMyA1NC43ODA1IDgyLjU2NDMgNTQuNTM2MyA4Mi41MzM2IDU0LjAxMDFMODIuMTk1MyA1Mi4zNzc3TDgxLjAzMzYgNTQuMTE0M0M4MC43NTg5IDU0LjYwNSA4MC4zMzY4IDU0LjgzNCA3OS43Njc3IDU0Ljc5ODNINzcuNjI0M0w3OC4wNDEzIDUzLjMyNTlINzguNzFDNzguOTg0NyA1My4zMjU5IDc5LjIxMzIgNTMuMjAzOSA3OS40MTkxIDUyLjk1NzNMODEuMjM3MSA1MC4zMjgySDc4Ljg5M0w3OS4zMjc0IDQ4LjgwNUg4MS44N0w4Mi4yNzQzIDQ3LjM4NjVINzkuNzI5M0w4MC4xNjQxIDQ1Ljg2MDhIODcuNTI2NloiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1ydWxlPSJldmVub2RkIiBkPSJNODkuODU1NCA0MC45MTc5Qzg5LjA5MjYgNDIuNTM5OSA4OC4zNjU3IDQzLjQ4NTcgODcuOTM4OCA0My45MjU2Qzg3LjUxMTMgNDQuMzYwNiA4Ni42NjUgNDUuMzcyNiA4NC42MjYgNDUuMjk2Mkw4NC44MDE1IDQ0LjA1OEM4Ni41MTcyIDQzLjUyOTEgODcuNDQ1MiA0MS4xNDY0IDg3Ljk3NDEgNDAuMDkxM0w4Ny4zNDM3IDMyLjMyMDlMODguNjcwOCAzMi4zMDMxSDg5Ljc4NDNMODkuOTA0IDM3LjE3NzVMOTEuOTkwOSAzMi4zMDMxSDk0LjEwMzhMODkuODU1NCA0MC45MTc5WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik04My45NDcyIDMyLjg5MDRMODMuMTA3OCAzMy40Njc3QzgyLjIzMDggMzIuNzgxMyA4MS40MyAzMi4zNTY2IDc5Ljg4NDYgMzMuMDczNUM3Ny43NzkyIDM0LjA0OTkgNzYuMDIgNDEuNTM4MiA4MS44MTY1IDM5LjA3MTdMODIuMTQ3IDM5LjQ2MzNMODQuNDI3NSAzOS41MjE4TDg1LjkyNSAzMi43MTc1TDgzLjk0NzIgMzIuODkwNFpNODIuNjUwNSAzNi42MTA0QzgyLjI4NDEgMzcuNjkxMSA4MS40NjU5IDM4LjQwNTUgODAuODI1MiAzOC4yMDIyQzgwLjE4NDYgMzguMDAzOCA3OS45NTU3IDM2Ljk2MTIgODAuMzI2OSAzNS44NzgxQzgwLjY5MjkgMzQuNzk0OSA4MS41MTY1IDM0LjA4MyA4Mi4xNTIxIDM0LjI4NjRDODIuNzkyOCAzNC40ODQ3IDgzLjAyNCAzNS41MjcyIDgyLjY1MDUgMzYuNjEwNFoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1ydWxlPSJldmVub2RkIiBkPSJNNzAuNzYyNSAyNy44MjU0SDc1Ljk1OTFDNzYuOTU4MyAyNy44MjU0IDc3LjczMSAyOC4wNTE5IDc4LjI2MjIgMjguNDk2NkM3OC43OTExIDI4Ljk0NjggNzkuMDU1OCAyOS41OTI3IDc5LjA1NTggMzAuNDM0M1YzMC40NTk2Qzc5LjA1NTggMzAuNjE5NyA3OS4wNDUyIDMwLjgwMDMgNzkuMDMwMiAzMC45OTZDNzkuMDA0NSAzMS4xODkzIDc4Ljk3MTMgMzEuMzg1IDc4LjkyODYgMzEuNTg4NUM3OC42OTk3IDMyLjcwMjMgNzguMTY4MiAzMy41OTczIDc3LjM0NzIgMzQuMjc2MkM3Ni41MjMyIDM0Ljk1MjUgNzUuNTQ3MyAzNS4yOTMzIDc0LjQyMzYgMzUuMjkzM0g3MS42MzY5TDcwLjc3NTIgMzkuNTIxOEg2OC4zNjIzTDcwLjc2MjUgMjcuODI1NFpNNzIuMDYxMyAzMy4yNTkySDc0LjM3MjdDNzQuOTc1IDMzLjI1OTIgNzUuNDUyOSAzMy4xMTkyIDc1LjgwMTQgMzIuODQyMkM3Ni4xNDczIDMyLjU2MjUgNzYuMzc2MSAzMi4xMzU0IDc2LjUwMyAzMS41NTU3Qzc2LjUyMzIgMzEuNDQ4NiA3Ni41MzU4IDMxLjM1MjEgNzYuNTUxMiAzMS4yNjMyQzc2LjU1OTEgMzEuMTc5NCA3Ni41NjkgMzEuMDk1MiA3Ni41NjkgMzEuMDE0MUM3Ni41NjkgMzAuNTk5NSA3Ni40MjE5IDMwLjI5OTUgNzYuMTI2NyAzMC4xMTEzQzc1LjgzMTkgMjkuOTIwNCA3NS4zNjk0IDI5LjgyOTEgNzQuNzI4NCAyOS44MjkxSDcyLjc2NTdMNzIuMDYxMyAzMy4yNTkyWiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik02MS45MTQ2IDMyLjMwMDZINjMuNzA0Nkw2My41MDE1IDMzLjM0MzFMNjMuNzU1MyAzMy4wNDU2QzY0LjMzNTQgMzIuNDI1MyA2NS4wNDIxIDMyLjExNzUgNjUuODcwOSAzMi4xMTc1QzY2LjYyMzUgMzIuMTE3NSA2Ny4xNjczIDMyLjMzNjMgNjcuNTA1MyAzMi43NzZDNjcuODM4OCAzMy4yMTYgNjcuOTM1MyAzMy44MjM3IDY3Ljc3MjQgMzQuNjA0M0w2Ni43OTExIDM5LjUyMThINjQuOTUwNEw2NS44NDA1IDM1LjA2NDZDNjUuOTMxOCAzNC42MDQzIDY1LjkwNjUgMzQuMjYxIDY1Ljc2NjYgMzQuMDM5N0M2NS42MjE2IDMzLjgxODUgNjUuMzU5NSAzMy43MDkzIDY0Ljk3NjEgMzMuNzA5M0M2NC41MDMgMzMuNzA5MyA2NC4xMDY2IDMzLjg1NjYgNjMuNzc4NSAzNC4xNDkyQzYzLjQ1MjkgMzQuNDQ0MSA2My4yMzcgMzQuODUzNSA2My4xMzU1IDM1LjM3NDdMNjIuMzExOCAzOS41MjE4SDYwLjQ3MjJMNjEuOTE0NiAzMi4zMDA2WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik01My40NDUyIDM4Ljk3QzUyLjkyNjUgMzguNDc0MiA1Mi42NjQ2IDM3LjgwNTUgNTIuNjYyMSAzNi45NTYzQzUyLjY2MjEgMzYuODExMiA1Mi42NzA5IDM2LjY0NjEgNTIuNjkwMiAzNi40NjU0QzUyLjcwOTMgMzYuMjgyMyA1Mi43MzM1IDM2LjEwNDMgNTIuNzY3NyAzNS45MzkyQzUzLjAwMjggMzQuNzY3IDUzLjUwMzggMzMuODM2NCA1NC4yNzUzIDMzLjE0OThDNTUuMDQ1NiAzMi40NjA4IDU1Ljk3NSAzMi4xMTQ5IDU3LjA2MzEgMzIuMTE0OUM1Ny45NTQxIDMyLjExNDkgNTguNjYwOCAzMi4zNjQyIDU5LjE3ODQgMzIuODYyNUM1OS42OTU2IDMzLjM2MzUgNTkuOTU0OCAzNC4wMzk3IDU5Ljk1NDggMzQuODk5NEM1OS45NTQ4IDM1LjA0NjYgNTkuOTQzNiAzNS4yMTcgNTkuOTI0NCAzNS40MDAxQzU5LjkwMTUgMzUuNTg1NyA1OS44NzM4IDM1Ljc2MzcgNTkuODQxNiAzNS45MzkyQzU5LjYxMTggMzcuMDkzNSA1OS4xMTI0IDM4LjAxNCA1OC4zNDA3IDM4LjY4NzlDNTcuNTY5IDM5LjM2NjggNTYuNjQyMyAzOS43MDQ3IDU1LjU2MTggMzkuNzA0N0M1NC42NjY5IDM5LjcwNDcgNTMuOTYyNiAzOS40NjA3IDUzLjQ0NTIgMzguOTdaTTU3LjIyNDUgMzcuNTQxQzU3LjU3NDEgMzcuMTYyMiA1Ny44MjQ1IDM2LjU4NzQgNTcuOTc3MSAzNS44MjIyQzU4IDM1LjcwMjggNTguMDIwMiAzNS41NzgxIDU4LjAzMjggMzUuNDUzNUM1OC4wNDU1IDM1LjMzMTQgNTguMDUwNiAzNS4yMTcgNTguMDUwNiAzNS4xMTI4QzU4LjA1MDYgMzQuNjY3OCA1Ny45Mzc0IDM0LjMyMjEgNTcuNzA5OSAzNC4wNzc5QzU3LjQ4MzggMzMuODMxMiA1Ny4xNjIzIDMzLjcwOTMgNTYuNzQ2NyAzMy43MDkzQzU2LjE5NzMgMzMuNzA5MyA1NS43NDk5IDMzLjkwMjMgNTUuMzk5MyAzNC4yODg5QzU1LjA0NTYgMzQuNjc1NSA1NC43OTUyIDM1LjI2MDMgNTQuNjM3NSAzNi4wMzgzQzU0LjYxNiAzNi4xNTc4IDU0LjU5ODIgMzYuMjc3NCA1NC41ODE4IDM2LjM5NDNDNTQuNTY5MSAzNi41MTM4IDU0LjU2NTMgMzYuNjI1NyA1NC41Njc3IDM2LjcyNzNDNTQuNTY3NyAzNy4xNjk4IDU0LjY4MSAzNy41MTA2IDU0LjkwODQgMzcuNzUyQzU1LjEzNDUgMzcuOTkzNyA1NS40NTQ3IDM4LjExMzEgNTUuODc1OCAzOC4xMTMxQzU2LjQyNzUgMzguMTEzMSA1Ni44NzQ5IDM3LjkyMjQgNTcuMjI0NSAzNy41NDFaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTQ5LjcwNjUgMzIuMzAzMUg1MS42ODk3TDUwLjEzNjIgMzkuNTE5M0g0OC4xNTdMNDkuNzA2NSAzMi4zMDMxWk01MC4zMzA4IDI5LjY3NDFINTIuMzMxNkw1MS45NTc5IDMxLjQyNTdINDkuOTU3Mkw1MC4zMzA4IDI5LjY3NDFaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTQxLjQwNDQgMzIuMzAwNkg0My4xOTI5TDQyLjk4ODQgMzMuMzQzMUw0My4yNDUgMzMuMDQ1NkM0My44MjQ4IDMyLjQyNTMgNDQuNTI5IDMyLjExNzUgNDUuMzYwMyAzMi4xMTc1QzQ2LjExMjkgMzIuMTE3NSA0Ni42NTU2IDMyLjMzNjMgNDYuOTk2NCAzMi43NzZDNDcuMzMxOCAzMy4yMTYgNDcuNDIzNCAzMy44MjM3IDQ3LjI2NDcgMzQuNjA0M0w0Ni4yNzk0IDM5LjUyMThINDQuNDQxM0w0NS4zMzExIDM1LjA2NDZDNDUuNDIyNyAzNC42MDQzIDQ1LjM5NzQgMzQuMjYxIDQ1LjI1NiAzNC4wMzk3QzQ1LjExNjQgMzMuODE4NSA0NC44NDkyIDMzLjcwOTMgNDQuNDY0MSAzMy43MDkzQzQzLjk5MTMgMzMuNzA5MyA0My41OTM0IDMzLjg1NjYgNDMuMjY5MiAzNC4xNDkyQzQyLjk0MzcgMzQuNDQ0MSA0Mi43MjkgMzQuODUzNSA0Mi42MjM1IDM1LjM3NDdMNDEuODAzNiAzOS41MjE4SDM5Ljk2MTdMNDEuNDA0NCAzMi4zMDA2WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0zOS4wNzIxIDM1LjQ4NEMzOC43OTI0IDM2Ljg1NDYgMzguMTQ0MSAzNy45MDcyIDM3LjEzODUgMzguNjU0OEMzNi4xNDIgMzkuMzg5NiAzNC44NTY3IDM5Ljc1ODIgMzMuMjgzMSAzOS43NTgyQzMxLjgwMjIgMzkuNzU4MiAzMC43MTY1IDM5LjM4MTkgMzAuMDIzNyAzOC42MjY3QzI5LjU0MzIgMzguMDkwMiAyOS4zMDQyIDM3LjQwODcgMjkuMzA0MiAzNi41ODQ5QzI5LjMwNDIgMzYuMjQ0MyAyOS4zNDUgMzUuODc4MSAyOS40MjYzIDM1LjQ4NEwzMS4xMDMgMjcuMzk4NEgzMy42MzUyTDMxLjk4MTQgMzUuMzkyNUMzMS45MzA1IDM1LjYxMzggMzEuOTEwMiAzNS44MTk3IDMxLjkxMjggMzYuMDA1M0MzMS45MTAyIDM2LjQxNDggMzIuMDExOCAzNi43NTAzIDMyLjIxNzcgMzcuMDEyMUMzMi41MTc3IDM3LjQwMTMgMzMuMDA0NiAzNy41OTQ0IDMzLjY4MjIgMzcuNTk0NEMzNC40NjEzIDM3LjU5NDQgMzUuMTAzMyAzNy40MDM4IDM1LjYwMTYgMzcuMDE5N0MzNi4xIDM2LjYzODQgMzYuNDI1NCAzNi4wOTY5IDM2LjU3MTUgMzUuMzkyNUwzOC4yMzA1IDI3LjM5ODRINDAuNzQ5OUwzOS4wNzIxIDM1LjQ4NFoiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo=',
-  'maestro':'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiB2aWV3Qm94PSIwIDAgMTIwIDgwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cmVjdCB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiByeD0iNCIgZmlsbD0id2hpdGUiLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik05Ny41Mjg4IDU0LjY1NjJWNTMuNzM4NEg5Ny4yODlMOTcuMDEzNyA1NC4zNjk4TDk2LjczNzggNTMuNzM4NEg5Ni40OThWNTQuNjU2Mkg5Ni42Njc1VjUzLjk2MzdMOTYuOTI1NyA1NC41NjA5SDk3LjEwMTFMOTcuMzYgNTMuOTYyNFY1NC42NTYySDk3LjUyODhaTTk2LjAxMTEgNTQuNjU2MlY1My44OTQ3SDk2LjMxOFY1My43Mzk3SDk1LjUzNjFWNTMuODk0N0g5NS44NDNWNTQuNjU2Mkg5Ni4wMTExWiIgZmlsbD0iIzAwQTJFNSIvPgo8cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTQ5LjY1MjEgNTguNTk1SDcwLjM0NzlWMjEuNDA0NEg0OS42NTIxVjU4LjU5NVoiIGZpbGw9IiM3Mzc1Q0YiLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik05OC4yNjc1IDQwLjAwMDNDOTguMjY3NSA1My4wNjMgODcuNjc5MSA2My42NTIgNzQuNjE3MSA2My42NTJDNjkuMDk5NiA2My42NTIgNjQuMDIyOSA2MS43NjI0IDYwIDU4LjU5NTZDNjUuNTAxMSA1NC4yNjQ2IDY5LjAzMzkgNDcuNTQ0OCA2OS4wMzM5IDQwLjAwMDNDNjkuMDMzOSAzMi40NTUyIDY1LjUwMTEgMjUuNzM1NCA2MCAyMS40MDQ0QzY0LjAyMjkgMTguMjM3NiA2OS4wOTk2IDE2LjM0OCA3NC42MTcxIDE2LjM0OEM4Ny42NzkxIDE2LjM0OCA5OC4yNjc1IDI2LjkzNyA5OC4yNjc1IDQwLjAwMDNaIiBmaWxsPSIjMDBBMkU1Ii8+CjxwYXRoIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1ydWxlPSJldmVub2RkIiBkPSJNNTAuOTY2IDQwLjAwMDNDNTAuOTY2IDMyLjQ1NTIgNTQuNDk4OCAyNS43MzU0IDU5Ljk5OTkgMjEuNDA0NEM1NS45NzcgMTguMjM3NiA1MC45MDAzIDE2LjM0OCA0NS4zODI4IDE2LjM0OEMzMi4zMjA4IDE2LjM0OCAyMS43MzI0IDI2LjkzNyAyMS43MzI0IDQwLjAwMDNDMjEuNzMyNCA1My4wNjMgMzIuMzIwOCA2My42NTIgNDUuMzgyOCA2My42NTJDNTAuOTAwMyA2My42NTIgNTUuOTc3IDYxLjc2MjQgNTkuOTk5OSA1OC41OTU2QzU0LjQ5ODggNTQuMjY0NiA1MC45NjYgNDcuNTQ0OCA1MC45NjYgNDAuMDAwM1oiIGZpbGw9IiNFQjAwMUIiLz4KPC9zdmc+Cg==',
-  'elo':'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiB2aWV3Qm94PSIwIDAgMTIwIDgwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cmVjdCB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiByeD0iNCIgZmlsbD0iYmxhY2siLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0yNy43MDggMzAuNUMyOC42OTUgMzAuMTY2NyAyOS43NTA4IDI5Ljk4NTcgMzAuODQ5NSAyOS45ODU3QzM1LjY0NDEgMjkuOTg1NyAzOS42NDM1IDMzLjQyNzQgNDAuNTYxIDM3Ljk5OTZMNDcuMzU1NCAzNi41OTk2QzQ1Ljc5NjQgMjguODI4OSAzOC45OTk2IDIyLjk3OTYgMzAuODQ5NSAyMi45Nzk2QzI4Ljk4MzUgMjIuOTc5NiAyNy4xODc0IDIzLjI4NjggMjUuNTEwNyAyMy44NTI3TDI3LjcwOCAzMC41WiIgZmlsbD0iI0ZGRjIwMCIvPgo8cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTE5LjY5MDkgNTIuNzQ4OUwyNC4yODQ2IDQ3LjUwMDVDMjIuMjM0MSA0NS42NjUzIDIwLjkzOTkgNDIuOTg2MSAyMC45Mzk5IDM5Ljk5OTZDMjAuOTM5OSAzNy4wMTU0IDIyLjIzMjkgMzQuMzM2MSAyNC4yODI4IDMyLjUwMjNMMTkuNjg2NyAyNy4yNTQ1QzE2LjIwMjUgMzAuMzcyNSAxNC4wMDY4IDM0LjkyNjkgMTQuMDA2OCAzOS45OTk2QzE0LjAwNjggNDUuMDc0OSAxNi4yMDU3IDQ5LjYzMSAxOS42OTA5IDUyLjc0ODlaIiBmaWxsPSIjMDBBNEUwIi8+CjxwYXRoIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1ydWxlPSJldmVub2RkIiBkPSJNNDAuNTU4MiA0Mi4wMDk5QzM5LjYzNzUgNDYuNTc4NCAzNS42NDAxIDUwLjAxMzcgMzAuODQ5MSA1MC4wMTM3QzI5Ljc0OTggNTAuMDEzNyAyOC42OTE4IDQ5LjgzMjMgMjcuNzA0NiA0OS40OTgxTDI1LjUwMzkgNTYuMTQ0N0MyNy4xODM0IDU2LjcxMyAyOC45ODAzIDU3LjAyMDQgMzAuODQ5MSA1Ny4wMjA0QzM4Ljk5MjggNTcuMDIwNCA0NS43ODU5IDUxLjE3ODcgNDcuMzUxMyA0My40MTZMNDAuNTU4MiA0Mi4wMDk5WiIgZmlsbD0iI0VGNDEyMyIvPgo8cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTY5Ljk3MDYgNDYuNzA2QzY4Ljg0ODYgNDcuODA4OSA2Ny4zMjcyIDQ4LjQ4MDkgNjUuNjQ3MyA0OC40NTY4QzY0LjQ5NTkgNDguNDM3MyA2My40MjkgNDguMDg4OSA2Mi41MjE5IDQ3LjUwODRMNjAuMjczMSA1MS4xMjk3QzYxLjgxMzIgNTIuMTEzNiA2My42MjkyIDUyLjY5NTcgNjUuNTg2OSA1Mi43MjY0QzY4LjQzNjcgNTIuNzY5MiA3MS4wMzQxIDUxLjYzNzggNzIuOTIyNyA0OS43Njk3TDY5Ljk3MDYgNDYuNzA2Wk01OS43Mjg0IDQyLjk4MjRDNTkuNzAyOSA0Mi43NDE4IDU5LjY4NDkgNDIuNDk1MSA1OS42OTE3IDQyLjI0NjFDNTkuNzQ1MSAzOC44NjcgNjIuNDk2NSAzNi4xNzA3IDY1LjgzNzUgMzYuMjI2N0M2Ny42NTYxIDM2LjI1MTMgNjkuMjcwOSAzNy4wOTI5IDcwLjM2MjUgMzguMzk1NUw1OS43Mjg0IDQyLjk4MjRaTTY1Ljg5ODggMzEuOTUyN0M2MC4yMjggMzEuODY0OCA1NS41NTQ2IDM2LjQ0MyA1NS40NjkgNDIuMTc4NEM1NS40MzU5IDQ0LjMyNzkgNTYuMDUwNSA0Ni4zMzc4IDU3LjEzMTggNDguMDA4NEw3NS43NDcyIDM5Ljk2NzZDNzQuNjk5OCAzNS40MzYgNzAuNzExOSAzMi4wMjkgNjUuODk4OCAzMS45NTI3Wk04MS41ODY3IDI3LjI3MjRWNDcuMzI4MUw4NS4wMzA0IDQ4Ljc3MDdMODMuNDAxMyA1Mi43MjY0TDc5Ljk5NTggNTEuMjk1OEM3OS4yMzAxIDUwLjk2MDIgNzguNzExOSA1MC40NDg5IDc4LjMxODEgNDkuODcxNEM3Ny45NDAxIDQ5LjI4MDYgNzcuNjU5OCA0OC40NzMgNzcuNjU5OCA0Ny4zODMzVjI3LjI3MjRIODEuNTg2N1pNOTQuMDAxMSAzNi41NDA1Qzk0LjYwMzQgMzYuMzM2MiA5NS4yNDgxIDM2LjIyNjYgOTUuOTE4OCAzNi4yMjY2Qzk4Ljg0NTMgMzYuMjI2NiAxMDEuMjg2IDM4LjMyNjggMTAxLjg0NSA0MS4xMTgzTDEwNS45OTMgNDAuMjYzN0MxMDUuMDQyIDM1LjUyMDUgMTAwLjg5MyAzMS45NDk5IDk1LjkxODggMzEuOTQ5OUM5NC43NzkxIDMxLjk0OTkgOTMuNjgzOCAzMi4xMzc0IDkyLjY2MTEgMzIuNDgyNUw5NC4wMDExIDM2LjU0MDVaTTg5LjEwODQgNTAuMTJMOTEuOTExMiA0Ni45MTY4QzkwLjY1OTQgNDUuNzk2OCA4OS44NzEyIDQ0LjE2MSA4OS44NzEyIDQyLjMzNzhDODkuODcxMiA0MC41MTY0IDkwLjY1OTQgMzguODgxNCA5MS45MSAzNy43NjIyTDg5LjEwNTIgMzQuNTU5MUM4Ni45Nzg4IDM2LjQ2MjMgODUuNjM5MSAzOS4yNDMyIDg1LjYzOTEgNDIuMzM3OEM4NS42MzkxIDQ1LjQzNjMgODYuOTc5OCA0OC4yMTYyIDg5LjEwODQgNTAuMTJaTTEwMS44NDUgNDMuNTY1NEMxMDEuMjgzIDQ2LjM1MjggOTguODQyNiA0OC40NTEyIDk1LjkxODcgNDguNDUxMkM5NS4yNDc1IDQ4LjQ1MTIgOTQuNjAyNCA0OC4zMzk4IDkzLjk5OTEgNDguMTM2MUw5Mi42NTYgNTIuMTkyNkM5My42ODE1IDUyLjUzOTQgOTQuNzc4MSA1Mi43Mjc1IDk1LjkxODcgNTIuNzI3NUMxMDAuODg4IDUyLjcyNzUgMTA1LjAzNiA0OS4xNjE3IDEwNS45OTIgNDQuNDIzNkwxMDEuODQ1IDQzLjU2NTRaIiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K',
-  'hipercard':'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiB2aWV3Qm94PSIwIDAgMTIwIDgwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cmVjdCB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiByeD0iNCIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTkwLjIxNjUgNjAuNTUyNEM5NC45NzAzIDYwLjU1MjQgOTkuMTIxMiA1OS4wOTAzIDEwMC4wNzYgNTQuMzg4OUMxMDEuMDMgNDkuNjg3NSAxMDcuMjQyIDE5LjQ1MDEgMTA3LjI0MiAxOS40NTAxSDI5Ljc2NzJDMjUuMDA5NSAxOS40NTAxIDIwLjg0MzMgMjEuMTQzOSAxOS45MDYxIDI1LjYxMUMxOC45Njc2IDMwLjA3NjggMTIuNzU5MyA2MC41NDYgMTIuNzU5MyA2MC41NDZMOTAuMjE2NSA2MC41NTI0WiIgZmlsbD0iI0IzMTMxQiIvPgo8cGF0aCBkPSJNOTAuMjE2MyA2MC44OTMxVjYwLjU1MjVWNjAuMjA5NEM5NC45MjkyIDYwLjE4ODkgOTguODI3OCA1OC43OTg0IDk5LjczOTQgNTQuMzE4NkMxMDAuNjI5IDQ5Ljk0MTIgMTA2LjA3NiAyMy40MjMxIDEwNi44MjMgMTkuNzkyMUgyOS43NjdDMjUuMDY1NiAxOS44MDYxIDIxLjEzMTIgMjEuNDM3MyAyMC4yNDAxIDI1LjY4MDNDMTkuNzcxNSAyNy45MTE5IDE3Ljk4NDEgMzYuNjQ1IDE2LjMxMzMgNDQuODIxMUMxNC44NzI5IDUxLjg4MDkgMTMuNTIwOSA1OC41MTU1IDEzLjE3NjUgNjAuMjAzTDkwLjIxNjMgNjAuMjA5NFY2MC41NTI1TDkwLjIxNSA2MC44OTMxTDEyLjMzNzkgNjAuODg1NEwxMi40MjI0IDYwLjQ3NTdDMTIuNDIyNCA2MC40NzU3IDE4LjYyOTQgMzAuMDA3OCAxOS41NjkyIDI1LjUzOTRDMjAuNTU1IDIwLjg1MjIgMjQuOTUzIDE5LjA5MDQgMjkuNzY3IDE5LjEwNThIMTA3LjY2MkwxMDcuNTc4IDE5LjUxODFDMTA3LjU3OCAxOS41MzM0IDEwNi4wMjYgMjcuMDc1OCAxMDQuMzUyIDM1LjIyNTFDMTAyLjY3OSA0My4zNzE4IDEwMC44ODggNTIuMTA2MiAxMDAuNDEzIDU0LjQ1NTZDOTkuNDIxOCA1OS4zNTAzIDk1LjA2NzQgNjAuODk0NCA5MC4zMDg1IDYwLjg5NDRDOTAuMjc5IDYwLjg5NDQgOTAuMjQ3IDYwLjg5NDQgOTAuMjE2MyA2MC44OTMxWiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTIxLjEwNjIgNDUuNjk4NkwyMS43NTAyIDQyLjQxMzNMMjIuNDAzMiAzOC45NDYyTDIzLjQ4NjMgMzIuMTczMkwyMy41MzI0IDMxLjk2MzNIMjUuODUyNEMyNS44MjggMzIuMDY4MyAyNS44MjggMzIuMTMyMyAyNS44MDc2IDMyLjE3MzJDMjUuNzI0MyAzMi41NzAxIDI1LjU1NzkgMzMuNDQ4NCAyNS4zMjc0IDM0LjgwNDNDMjUuMjAyIDM1LjUzNjcgMjUuMDMzIDM2LjM3MjcgMjQuODQ2IDM3LjMxNUwyNC44MDUxIDM3LjYwOTVIMjQuOTkzM0wyOC4wMjEyIDM3LjY0NzlMMzAuOTY5OCAzNy42MDk1SDMxLjIwMjlMMzEuMjQyNSAzNy4zMTVDMzEuMzY4IDM2LjQ5OTUgMzEuNDkzNSAzNS42NDE2IDMxLjY1OTkgMzQuNzIxMUMzMS45OTY3IDMyLjg4MjUgMzIuMDE3MSAzMi43NTU4IDMyLjEyMjEgMzEuOTY0NkgzNC40ODA1QzM0LjQ0MzQgMzIuMTExOCAzNC40NDM0IDMyLjExMTggMzQuNDE5IDMyLjE3NDVDMzQuMzc2OCAzMi4zODMyIDM0LjE3MDcgMzMuNDcwMiAzMy44MTM0IDM1LjQ1NDdMMzMuMTY2OSAzOC45NDYyTDMyLjU4MDUgNDIuNDE0NkMzMi4yNDc2IDQ0LjM4MTIgMzIuMDc4NiA0NS40NjgyIDMyLjA0MTUgNDUuNjk4NkMzMi4wNDE1IDQ1Ljc3OCAzMi4wNDE1IDQ1Ljc3OCAzMi4wMTcxIDQ1LjkwNDdIMjkuNjU0OUwyOS42OTk4IDQ1LjY5ODZDMjkuNzU3NCA0NS40NDY0IDI5Ljg2MzYgNDQuODQwOCAzMC4wMjg4IDQzLjg3OTNDMzAuMDkxNSA0My41MTk1IDMwLjIxODMgNDIuOTE3NyAzMC4zODQ3IDQxLjk5NTlMMzAuNzIwMiA0MC4xNTYxQzMwLjgyNTIgMzkuNTk0IDMwLjg4NzkgMzkuMjU2IDMwLjkwNzEgMzkuMTcyOEMzMC45MDcxIDM5LjEzMDUgMzAuOTI4OSAzOS4wNzE2IDMwLjk0ODEgMzguOTY1NEgzMC42Nzc5QzMwLjI4MjMgMzguOTQ2MiAyOC44NTk5IDM4Ljk0NjIgMjcuNTAxNCAzOC45NDYyQzI2LjE0MyAzOC45NDYyIDI1LjI0MDQgMzguOTQ2MiAyNC44MjMgMzguOTY0MUgyNC41NTQxQzI0LjUxMTkgMzkuMzY0OCAyNC40OTE0IDM5LjQ0NDIgMjQuMzY1OSA0MC4xNTYxQzI0LjI2MDkgNDAuNjk4OSAyNC4xNTk4IDQxLjMyNjMgMjQuMDUzNSA0MS45OTQ2QzIzLjg4NzEgNDIuOTgwNSAyMy43Nzk1IDQzLjYwNTMgMjMuNzM4NiA0My44NzhDMjMuNTcyMSA0NC44ODE4IDIzLjQ2NTggNDUuNDg0OCAyMy40MjQ5IDQ1LjY5ODZDMjMuNDI0OSA0NS43MzU3IDIzLjQyNDkgNDUuODIxNSAyMy40MDU3IDQ1LjkwMzVIMjEuMDY0TDIxLjEwNjIgNDUuNjk4NloiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0zNC4xMjY4IDQ1LjcwNzRMMzQuNTY2IDQzLjQ2ODFMMzUuMDQ2MSA0MC45NTIzTDM1LjQ0NTYgMzguNTE0NUMzNS42NDY2IDM3LjI3MzkgMzUuNzY1NiAzNi40OTY4IDM1LjgwNCAzNi4xNzY3QzM1LjgwNCAzNi4xMzU3IDM1LjgwNCAzNi4wNzU1IDM1LjgyNDUgMzUuOTc2OUgzNy44Nzk1QzM3Ljg2MjggMzYuMDc1NSAzNy44NDEgMzYuMTM1NyAzNy44MjQ0IDM2LjE3NjdDMzcuNzQzNyAzNi40OTY4IDM3LjYwNDIgMzcuMjczOSAzNy4zNjA5IDM4LjUxNDVMMzYuOTAyNiA0MC45NTIzTDM2LjQ4NjUgNDMuNDY4MUMzNi4zMDIxIDQ0LjY0NiAzNi4xODE3IDQ1LjQwNTMgMzYuMTQwOCA0NS43MDc0QzM2LjE0MDggNDUuNzQ1OCAzNi4xNDA4IDQ1LjgyNjUgMzYuMTI1NCA0NS45MDQ2SDM0LjA2NTRMMzQuMTI2OCA0NS43MDc0Wk0zNi4yMjY2IDMzLjM5NzFDMzYuMjI2NiAzMi4zODA1IDM2LjcyNDYgMzEuNzc4NyAzNy42MDQyIDMxLjc3ODdDMzguMjAzNCAzMS43Nzg3IDM4LjUwMyAzMi4wNjA0IDM4LjUwMyAzMi42MzkxQzM4LjUwMyAzMy42MzkxIDM3Ljk4MTkgMzQuMjU3NSAzNy4xMjI4IDM0LjI1NzVDMzYuNjIzNSAzNC4yNTc1IDM2LjMyMzkgMzQuMDU1MiAzNi4yNDE5IDMzLjY3ODhDMzYuMjI2NiAzMy41NzYzIDM2LjIyNjYgMzMuNDk2OSAzNi4yMjY2IDMzLjM5NzFaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMzcuMjI0MSA1MC4xMTkxQzM3LjMyMTQgNDkuNjgxMyAzNy41NjIxIDQ4LjQ0MzIgMzcuOTQyNCA0Ni4zNjY1TDM4LjYwMDUgNDIuNzg4TDM5LjE4MDQgMzkuMzUyOUMzOS40NjA4IDM3LjY3NDQgMzkuNjIyMiAzNi42MTU1IDM5LjY4MjMgMzYuMTc2NEMzOS42ODIzIDM2LjA5NTcgMzkuNjgyMyAzNi4wOTU3IDM5LjcwMDMgMzUuOTc1NEg0MS40ODEyTDQxLjQzNzcgMzYuMTc2NEw0MS4zNDE2IDM2LjczMkw0MS4zMDE5IDM2Ljk1MzVDNDIuMjYwOSAzNi4xMTQ5IDQzLjIzOTEgMzUuNzU3NyA0NC41NTY1IDM1Ljc1NzdDNDYuNzkzMyAzNS43NTc3IDQ3Ljk5MjkgMzYuOTc0IDQ3Ljk5MjkgMzkuMjUzQzQ3Ljk5MjkgNDAuNTExNiA0Ny42NTM2IDQxLjkzMDIgNDcuMDcyNCA0My4xOUM0Ni4xMzAxIDQ1LjE2NjggNDQuNTc1NyA0Ni4xNjY4IDQyLjQ3ODYgNDYuMTY2OEM0MS4xNTczIDQ2LjE2NjggNDAuNTU4MSA0NS44MDU3IDQwLjA4MDUgNDQuNzY4Nkw0MC4wNDA4IDQ1LjAwNTVMMzkuNTgxMiA0Ny45NjMxQzM5LjQyMTEgNDguOTYzIDM5LjI5NjkgNDkuNjgxMyAzOS4yNTk4IDUwLjEwMTJDMzkuMjU5OCA1MC4xMTkxIDM5LjI1OTggNTAuMTk5OCAzOS4yNDMyIDUwLjM0MDZIMzcuMTYyNkMzNy4yMDExIDUwLjE5OTggMzcuMjAxMSA1MC4xOTk4IDM3LjIyNDEgNTAuMTE5MVpNNDEuMjE2MiAzOC40MTA1TDQwLjU1ODEgNDIuMTI4NkM0MC41MTcxIDQyLjM4ODUgNDAuNDggNDIuNjI2NyA0MC40OCA0Mi44OTA0QzQwLjQ4IDQ0LjE4NzQgNDEuMTQwNiA0NC44MzAxIDQyLjQzNjMgNDQuODMwMUM0My4yOTY3IDQ0LjgzMDEgNDMuOTk1NyA0NC41MjU0IDQ0LjUxNTYgNDMuOTQ2N0M0NS4zMzUgNDMuMDA5NSA0NS44OTQ1IDQxLjE3MjIgNDUuODk0NSAzOS40OTM3QzQ1Ljg5NDUgMzcuODc0MSA0NS4xNzYyIDM3LjA3MjYgNDMuNjE2OCAzNy4wNzI2QzQyLjY3NyAzNy4wNzI2IDQxLjg5NzMgMzcuNDM0OSA0MS4yNzYzIDM4LjExMjJMNDEuMjE2MiAzOC40MTA1WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTUyLjU0NTIgNDYuMTI0MkM0OS44NTI3IDQ2LjEyNDIgNDguNTI4OCA0NC45Njk0IDQ4LjUyODggNDIuNTY4OEM0OC41Mjg4IDQxLjI0ODcgNDguODcwNiAzOS43NzEyIDQ5LjQ1MDYgMzguNTM0NUM1MC4zMjg5IDM2LjY3NTQgNTEuOTcwMyAzNS43NTc0IDU0LjM4NSAzNS43NTc0QzU2LjY4MTkgMzUuNzU3NCA1Ny44MjUzIDM2LjYzMzIgNTcuODI1MyAzOC4zNzMxQzU3LjgyNTMgMzguODcxMiA1Ny43MDIzIDM5LjY1MzUgNTcuNTAzOSA0MC41NDk3TDU3LjI4MzcgNDAuNTI5MkM1Ni45MjUyIDQwLjUxMTMgNTUuODAzNiA0MC41MTEzIDUzLjkyNTQgNDAuNTExM0M1Mi4zMjc1IDQwLjUxMTMgNTEuMzUwNiA0MC41MTEzIDUwLjk3MTcgNDAuNTI5Mkw1MC43NjY4IDQwLjU0OTdDNTAuNTg4OCA0MS40NDg1IDUwLjU3MjIgNDEuNjcxMiA1MC41NzIyIDQyLjMxMDFDNTAuNTcyMiA0My45MTA1IDUxLjQ4NzYgNDQuNzY4NCA1My4yMDcxIDQ0Ljc2ODRDNTQuMzI4NyA0NC43Njg0IDU1LjQwNDIgNDQuNTQ5NCA1Ni42MDY0IDQ0LjAyODNMNTYuMzA0MiA0NS42MjYyQzU1LjE0NTUgNDUuOTQ2MyA1My43ODQ1IDQ2LjEyNDIgNTIuNTQ1MiA0Ni4xMjQyWk01MS4yNDgyIDM5LjM5MUM1MS40Njg0IDM5LjQxMjggNTIuMjA4NSAzOS40MTI4IDUzLjQ0NzggMzkuNDEyOEg1My43NjY2QzU0LjY2NTQgMzkuNDEyOCA1NS4yODUxIDM5LjQxMjggNTUuNjQzNiAzOS4zOTFINTUuODI1NEw1NS44NjM4IDM5LjEzMTFDNTUuOTAzNSAzOC44OTI5IDU1LjkyNTIgMzguNjcxNCA1NS45MjUyIDM4LjQ3NDNDNTUuOTI1MiAzNy40OTM1IDU1LjI2MzMgMzcuMDE2IDUzLjk4NTYgMzcuMDE2QzUyLjM2NTkgMzcuMDE2IDUxLjQ0NjcgMzcuNzMzIDUxLjAyOCAzOS4zOTFINTEuMjQ4MloiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik01OC4xMjA0IDQ1LjcwNzRMNTguNTYyMSA0My40NjgxTDU5LjA0MDkgNDAuOTUyM0w1OS40NDA0IDM4LjUxNDVDNTkuNjQwMSAzNy4yNzM5IDU5Ljc1OTIgMzYuNDk2OCA1OS44MDAyIDM2LjE3NjdDNTkuODAwMiAzNi4xMzU3IDU5LjgyMDYgMzYuMDc1NSA1OS44MjA2IDM1Ljk3NjlINjEuNjE2OUw2MS41Nzg1IDM2LjE3NjdMNjEuMzQzIDM3LjQzNTJMNjEuMjc4OSAzNy43MTMxQzYxLjYxNjkgMzcuMTc2NiA2MS43Mzg2IDM3LjAzMzIgNjEuOTk1OSAzNi43MzIzQzYyLjU2MDUgMzYuMDk2IDYzLjI5OCAzNS43NTU0IDY0LjA3NjUgMzUuNzU1NEM2NC40Nzg1IDM1Ljc1NTQgNjQuODE3OCAzNS44MzYxIDY1LjE5NDIgMzYuMDE1M0w2NC45MzY4IDM3LjQ1NDRDNjQuNDk2NCAzNy4zMTQ5IDY0LjEzNjYgMzcuMjU3MyA2My43NTc2IDM3LjI1NzNDNjIuNTYwNSAzNy4yNTczIDYxLjQ5OTIgMzguMzM1MyA2MS4wNzc5IDM5Ljk5MDhDNjAuOTIxNyA0MC42MTE3IDYwLjc3NyA0MS4zMzEzIDYwLjY0MjYgNDIuMTcxMkM2MC4yNDE5IDQ0LjY2NzggNjAuMTk4MyA0NC44NjYyIDYwLjEyMDIgNDUuOTA0Nkg1OC4wODJMNTguMTIwNCA0NS43MDc0WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTcyLjM4MjggMzcuNTMzM0M3MS41NDI5IDM3LjIzNSA3MC42NDQxIDM3LjA3MjQgNjkuODIyMiAzNy4wNzI0QzY4Ljg0NTMgMzcuMDcyNCA2OC4xMDE0IDM3LjMxNDQgNjcuNjA1OSAzNy43OTMyQzY2Ljc4NjUgMzguNTcyOSA2Ni4xNDc2IDQwLjUxMTMgNjYuMTQ3NiA0Mi4yNDg3QzY2LjE0NzYgNDMuOTQ5IDY2Ljg4ODkgNDQuNzY4NCA2OC40MDc0IDQ0Ljc2ODRDNjkuMzA2MiA0NC43Njg0IDcwLjQ2NDkgNDQuNDg4IDcxLjI2MTIgNDQuMDg4Nkw3MC45ODA5IDQ1LjYwNDVDNjkuOTYzIDQ1Ljk0NjMgNjguODg2MiA0Ni4xMjQzIDY3Ljc4NzcgNDYuMTI0M0M2Ni4yMjU3IDQ2LjEyNDMgNjUuMzY3OSA0NS43NjMyIDY0LjcwNzMgNDQuODY3QzY0LjI2ODEgNDQuMjI4MSA2NC4wODg5IDQzLjU2ODcgNjQuMDg4OSA0Mi41MDk5QzY0LjA4ODkgNDEuMTMxIDY0LjQyODEgMzkuNjkzMiA2NS4wNjgzIDM4LjQzMjFDNjUuMzUgMzcuODUyMSA2NS43NDY5IDM3LjMzMzYgNjYuMjQ3NSAzNi44OTMxQzY3LjEyNzEgMzYuMDk1NSA2OC4yNDYxIDM1Ljc1NDkgNzAuMDY0MSAzNS43NTQ5QzcwLjcwMyAzNS43NTQ5IDcxLjM4MDMgMzUuNzk1OSA3Mi40NjA5IDM1Ljg5NDVMNzIuNjYwNiAzNS45MTM3TDcyLjM4MjggMzcuNTMzM1oiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik03NS4zNzg3IDQ2LjEyNDJDNzMuMzU5NyA0Ni4xMjQyIDcyLjQwMzMgNDUuMjg0MyA3Mi40MDMzIDQzLjUyOUM3Mi40MDMzIDQwLjkyOTkgNzQuMjM5MyAzOS40MzQ1IDc3LjQxNyAzOS40MzQ1Qzc3LjkxNTEgMzkuNDM0NSA3OC44OTU4IDM5LjQ3MTYgNzkuNTUyNiAzOS41MTI2TDc5LjU5NjEgMzkuMjkzN0M3OS43MzQ0IDM4LjU3MjkgNzkuNzM0NCAzOC41MTQgNzkuNzM0NCAzOC4yNzMzQzc5LjczNDQgMzcuNDc0MyA3OS4wNzUgMzcuMDcyMyA3Ny43MTUzIDM3LjA3MjNDNzYuNjc5NiAzNy4wNzIzIDc1LjY4MDkgMzcuMjM0OSA3NC4zNzg4IDM3LjU5Nkw3NC43ODA4IDM1Ljk1NDZDNzQuODU4OSAzNS45NzUxIDc0LjkxOTEgMzUuOTc1MSA3NC45NTg4IDM1Ljk3NTFDNzUuMjc2MyAzNS45NzUxIDc1Ljc3OTUgMzUuOTM1NCA3Ni40NzczIDM1Ljg1NDdDNzcuMDc2NSAzNS43OTU4IDc3LjY3NTcgMzUuNzU3NCA3OC4yMzM5IDM1Ljc1NzRDODAuNjExNCAzNS43NTc0IDgxLjY3MjggMzYuMzc3MSA4MS42NzI4IDM3Ljc1NDdDODEuNjcyOCAzOC4xMTE5IDgxLjYxMzkgMzguNTE0IDgxLjQ1MjYgMzkuMzkxTDgxLjEzMjUgNDEuMjEwM0M4MC43NzY2IDQzLjE1IDgwLjU3NTYgNDQuNjg5IDgwLjU3NTYgNDUuNTg2NUM4MC41NzU2IDQ1LjY2NTkgODAuNTc1NiA0NS43ODQ5IDgwLjU5MjIgNDUuOTA0SDc4Ljc5NDdWNDUuNzQ2NUM3OC43OTQ3IDQ1LjQ2MzYgNzguODc2NiA0NC44NDUyIDc4Ljk1NDcgNDQuMjY1MkM3OC4wNTU5IDQ1LjU4NjUgNzYuOTk4NCA0Ni4xMjQyIDc1LjM3ODcgNDYuMTI0MlpNNzkuMTM1MiA0MC42NTIxQzc4LjUzMzUgNDAuNTkzMiA3OC4yMzM5IDQwLjU5MzIgNzcuODE2NSA0MC41OTMyQzc2LjU5NjMgNDAuNTkzMiA3NS44NzgxIDQwLjc0OTQgNzUuMzE5OSA0MS4xOTExQzc0LjcyMTkgNDEuNjUwOCA3NC4zNTk2IDQyLjQwNzQgNzQuMzU5NiA0My4yNDczQzc0LjM1OTYgNDQuMjQ5OCA3NC45NTg4IDQ0Ljc4NSA3Ni4wNTQ4IDQ0Ljc4NUM3Ny4xNTcxIDQ0Ljc4NSA3OC4xMzUzIDQ0LjE4NzEgNzguNjE4IDQzLjIxMDJDNzguOTE2MyA0Mi41Njg4IDc5LjEzNTIgNDEuNzg5IDc5LjMzMzcgNDAuNjdMNzkuMTM1MiA0MC42NTIxWiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTgyLjMxMyA0NS43MDc0TDgyLjc0ODMgNDMuNDY4MUw4My4yMzM2IDQwLjk1MjNMODMuNjMzIDM4LjUxNDVDODMuODMwMiAzNy4yNzM5IDgzLjk1MDYgMzYuNDk2OCA4My45ODc3IDM2LjE3NjdDODMuOTg3NyAzNi4xMzU3IDg0LjAwOTQgMzYuMDc1NSA4NC4wMDk0IDM1Ljk3NjlIODUuODA5Nkw4NS43NjQ4IDM2LjE3NjdMODUuNTI2NiAzNy40MzUyTDg1LjQ2NzcgMzcuNzEzMUM4NS44MDk2IDM3LjE3NjYgODUuOTI3NCAzNy4wMzMyIDg2LjE4NzMgMzYuNzMyM0M4Ni43NDkzIDM2LjA5NiA4Ny40ODU1IDM1Ljc1NTQgODguMjY2NSAzNS43NTU0Qzg4LjY2NDcgMzUuNzU1NCA4OS4wMDQgMzUuODM2MSA4OS4zODQzIDM2LjAxNTNMODkuMTI0MyAzNy40NTQ0Qzg4LjY4MzkgMzcuMzE0OSA4OC4zMjY3IDM3LjI1NzMgODcuOTQyNiAzNy4yNTczQzg2Ljc0OTMgMzcuMjU3MyA4NS42ODkyIDM4LjMzNTMgODUuMjcwNiAzOS45OTA4Qzg1LjExMDUgNDAuNjExNyA4NC45Njk3IDQxLjMzMTMgODQuODMwMSA0Mi4xNzEyQzg0LjQzMDcgNDQuNjY3OCA4NC4zODk3IDQ0Ljg2NjIgODQuMzA3OCA0NS45MDQ2SDgyLjI3Mkw4Mi4zMTMgNDUuNzA3NFoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik05MS43MTU3IDQ2LjEyNDFDODkuMzc3OCA0Ni4xMjQxIDg4LjI3OTMgNDUuMDQ2MSA4OC4yNzkzIDQyLjcxMDhDODguMjc5MyA0MS4zNTExIDg4LjYxODUgMzkuOTEwNyA4OS4yNTc0IDM4LjY3MTNDOTAuMjE2NCAzNi43NTYgOTEuODc3IDM1Ljc1NzMgOTQuMDcxNSAzNS43NTczQzk0LjY5MzcgMzUuNzU3MyA5NS4zMTIxIDM1LjgxNDkgOTUuODEwMSAzNS45MzUzQzk1Ljk3MjcgMzUuOTk0MiA5Ni4wNzM5IDM2LjAxNDcgOTYuMzcyMiAzNi4xMTQ1TDk2LjQxMDYgMzUuODczOEM5Ni40OTEzIDM1LjQ3NDQgOTYuNTkxMSAzNC44MzggOTYuNzI5NCAzMy45NTcyQzk2Ljg4ODIgMzIuOTk4MiA5Ni45OTA2IDMyLjI5OTIgOTcuMDQ5NSAzMS44NTYyTDk3LjA3MTMgMzEuNjk3NEg5OS4xMDgzTDk5LjA2OTkgMzEuODM4MkM5OC45MDcyIDMyLjYzOTcgOTguNjcxNyAzMy44MzgxIDk4LjM3MDggMzUuNDc0NEM5Ny44Mjc5IDM4LjM5NDggOTcuNjMwOCAzOS40OTMzIDk3LjMyOTkgNDEuMzA4OEM5Ni45Njg4IDQzLjUyODkgOTYuODEwMSA0NC44ODYgOTYuODEwMSA0NS43NjMxVjQ1LjkwMzlIOTQuOTUyM0M5NC45NzAyIDQ1LjU4NjQgOTQuOTcwMiA0NS40ODUyIDk1LjAzMyA0NS4wNjY2Qzk1LjA5MzIgNDQuNzQzOSA5NS4xMTQ5IDQ0LjYyODcgOTUuMTUzMyA0NC4yODY5Qzk0LjM1NyA0NS42NDY2IDkzLjQzNjQgNDYuMTI0MSA5MS43MTU3IDQ2LjEyNDFaTTk0LjE3MjYgMzcuMDU1NkM5My4yOTQzIDM3LjA1NTYgOTIuNTc4NiAzNy4yOTM3IDkyLjA1NDkgMzcuNzU0NkM5MS4wNTc2IDM4LjYzMjkgOTAuMzc3NyA0MC41MjkxIDkwLjM3NzcgNDIuNDg5M0M5MC4zNzc3IDQ0LjA2NzkgOTEuMDE3OSA0NC43ODQ5IDkyLjQxMzQgNDQuNzg0OUM5My40NTQzIDQ0Ljc4NDkgOTQuNDMzOCA0NC4xODcgOTQuODcwNCA0My4yNjUyQzk1LjA3NCA0Mi44Mjk4IDk1LjIzMTQgNDIuMjg4MyA5NS4zNzIzIDQxLjY3MTFDOTUuNjEzIDQwLjQ1MSA5NS45MzMxIDM4LjcxMjMgOTYuMTEyMyAzNy42NTIyTDk2LjEzMjggMzcuNDM0NkM5NS40MTQ1IDM3LjE3NTkgOTQuODQ5OSAzNy4wNTU2IDk0LjE3MjYgMzcuMDU1NloiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo='
-};
-  var src=icons[b]||icons[b.replace('_','')];
-  var img=src
-    ?'<img src="'+src+'" class="payment-img" alt="'+b+'" style="width:32px;height:20px;border-radius:4px;object-fit:contain;display:block;box-shadow:0 1px 3px rgba(0,0,0,0.2);">'
-    :'<div style="width:38px;height:24px;border-radius:5px;background:#1f1f2a;border:1px solid #343442;display:inline-flex;align-items:center;justify-content:center;color:#9ca3af;font-size:9px;font-weight:700;">CARD</div>';
+  var icons={'visa':'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiB2aWV3Qm94PSIwIDAgMTIwIDgwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cmVjdCB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiByeD0iNCIgZmlsbD0id2hpdGUiLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik04Ni42NjY2IDQ0LjkzNzVMOTAuMzIzOSAzNS4wNjI1TDkyLjM4MDkgNDQuOTM3NUg4Ni42NjY2Wk0xMDAuOTUyIDUyLjgzNzVMOTUuODA4NiAyNy4xNjI1SDg4LjczODNDODYuMzUyNSAyNy4xNjI1IDg1Ljc3MjMgMjkuMDc1OSA4NS43NzIzIDI5LjA3NTlMNzYuMTkwNCA1Mi44Mzc1SDgyLjg4NjhMODQuMjI2OSA0OS4wMjQ0SDkyLjM5NDdMOTMuMTQ3OSA1Mi44Mzc1SDEwMC45NTJaIiBmaWxsPSIjMTQzNENCIi8+PHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik01NC42NTE3IDUyLjgzNzVINDcuNjE5MUw1Mi4wMTQ0IDI3LjE2MjVINTkuMDQ3N0w1NC42NTE3IDUyLjgzNzVaIiBmaWxsPSIjMTQzNENCIi8+PC9zdmc+','mastercard':'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiB2aWV3Qm94PSIwIDAgMTIwIDgwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxyZWN0IHdpZHRoPSIxMjAiIGhlaWdodD0iODAiIHJ4PSI0IiBmaWxsPSJ3aGl0ZSIvPjxwYXRoIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1ydWxlPSJldmVub2RkIiBkPSJNNDkuNjUyMSA1OC41OTVINzAuMzQ3OVYyMS40MDQ0SDQ5LjY1MjFWNTguNTk1WiIgZmlsbD0iI0ZGNUYwMCIvPjxwYXRoIGZpbGwtcnVsZT0iZXZlbm9kZCIgY2xpcC1ydWxlPSJldmVub2RkIiBkPSJNNTAuOTY2IDQwLjAwMDNDNTAuOTY2IDMyLjQ1NTIgNTQuNDk4OCAyNS43MzU0IDU5Ljk5OTkgMjEuNDA0NEM1NS45NzcgMTguMjM3NiA1MC45MDAzIDE2LjM0OCA0NS4zODI4IDE2LjM0OEMzMi4zMjA4IDE2LjM0OCAyMS43MzI0IDI2LjkzNyAyMS43MzI0IDQwLjAwMDNDMjEuNzMyNCA1My4wNjMgMzIuMzIwOCA2My42NTIgNDUuMzgyOCA2My42NTJDNTAuOTAwMyA2My42NTIgNTUuOTc3IDYxLjc2MjQgNTkuOTk5OSA1OC41OTU2QzU0LjQ5ODggNTQuMjY0NiA1MC45NjYgNDcuNTQ0OCA1MC45NjYgNDAuMDAwM1oiIGZpbGw9IiNFQjAwMUIiLz48cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTk4LjI2NzUgNDAuMDAwM0M5OC4yNjc1IDUzLjA2MyA4Ny42NzkxIDYzLjY1MiA3NC42MTcxIDYzLjY1MkM2OS4wOTk2IDYzLjY1MiA2NC4wMjI5IDYxLjc2MjQgNjAgNTguNTk1NkM2NS41MDExIDU0LjI2NDYgNjkuMDMzOSA0Ny41NDQ4IDY5LjAzMzkgNDAuMDAwM0M2OS4wMzM5IDMyLjQ1NTIgNjUuNTAxMSAyNS43MzU0IDYwIDIxLjQwNDRDNjQuMDIyOSAxOC4yMzc2IDY5LjA5OTYgMTYuMzQ4IDc0LjYxNzEgMTYuMzQ4Qzg3LjY3OTEgMTYuMzQ4IDk4LjI2NzUgMjYuOTM3IDk4LjI2NzUgNDAuMDAwM1oiIGZpbGw9IiNGNzlFMUIiLz48L3N2Zz4='};
+  var src=icons[b];
+  var img=src?'<img src="'+src+'" class="payment-img" alt="'+b+'" style="width:32px;height:20px;border-radius:4px;object-fit:contain;display:block;box-shadow:0 1px 3px rgba(0,0,0,0.2);">'
+    :'<div style="width:38px;height:24px;border-radius:5px;background:#1f1f2a;border:1px solid #343442;display:inline-flex;align-items:center;justify-content:center;color:#9ca3af;font-size:9px;font-weight:700;">'+(b.slice(0,4).toUpperCase()||'CARD')+'</div>';
   var dots=last4?'<span style="color:#8b8b98;letter-spacing:2px;font-weight:700;font-size:12px;font-family:var(--mono);">••••</span>':'';
   var num=last4?'<span style="color:#a1a1aa;font-weight:700;font-size:12px;font-family:var(--mono);">'+last4+'</span>':'';
   return '<div style="display:inline-flex;align-items:center;gap:8px;white-space:nowrap;vertical-align:middle;">'+img+dots+num+'</div>';
 }
-
 function initApp(){
-  // Always verify session is still valid + get fresh permissions from server
   var username=localStorage.getItem('subloop_username');
   if(username){
     api('/api/auth/check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:username})})
     .then(function(r){
-      if(!r.valid){
-        // Account deleted or revoked — force logout
-        forceLogout();
-        return;
-      }
-      // Refresh permissions from server (in case they changed)
-      localStorage.setItem('subloop_role', r.role||'admin');
-      localStorage.setItem('subloop_permissions', JSON.stringify(r.permissions||[]));
+      if(!r.valid){forceLogout();return;}
+      localStorage.setItem('subloop_role',r.role||'admin');
+      localStorage.setItem('subloop_permissions',JSON.stringify(r.permissions||[]));
       localStorage.removeItem('subloop_readonly');
-      if(r.role==='viewer') localStorage.setItem('subloop_readonly','1');
+      if(r.role==='viewer')localStorage.setItem('subloop_readonly','1');
       applyAccessControl();
       loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();
       api('/api/settings').then(s=>{appSettings=s;}).catch(()=>{});
-    })
-    .catch(function(){
-      // Network error - still apply cached permissions
+    }).catch(function(){
       applyAccessControl();
       loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();
       api('/api/settings').then(s=>{appSettings=s;}).catch(()=>{});
@@ -1089,13 +959,8 @@ function initApp(){
     api('/api/settings').then(s=>{appSettings=s;}).catch(()=>{});
   }
 }
-
 function forceLogout(){
-  localStorage.removeItem('subloop_auth');
-  localStorage.removeItem('subloop_role');
-  localStorage.removeItem('subloop_permissions');
-  localStorage.removeItem('subloop_username');
-  localStorage.removeItem('subloop_readonly');
+  localStorage.removeItem('subloop_auth');localStorage.removeItem('subloop_role');localStorage.removeItem('subloop_permissions');localStorage.removeItem('subloop_username');localStorage.removeItem('subloop_readonly');
   document.getElementById('app-screen').classList.add('hidden');
   document.getElementById('login-screen').classList.remove('hidden');
   document.getElementById('login-step-1').style.display='block';
@@ -1103,8 +968,6 @@ function forceLogout(){
   document.getElementById('login-error').classList.remove('visible');
   toast('Your access has been revoked. Please log in again.','error');
 }
-
-// Stats
 async function loadStats(){
   try{
     const s=await api('/api/stats');
@@ -1121,18 +984,12 @@ async function loadStats(){
     document.getElementById('stat-ltv').textContent=fmt(s.avg_ltv||0);
     document.getElementById('server-status').textContent='● connected';
     document.getElementById('server-status').style.color='var(--green)';
-
   }catch(e){document.getElementById('server-status').textContent='● offline';document.getElementById('server-status').style.color='var(--red)';}
 }
-
-// Revenue
 function setRevPeriod(period){currentRevPeriod=period;document.querySelectorAll('.rev-tab').forEach(t=>t.classList.remove('active'));document.getElementById('rev-tab-'+period).classList.add('active');loadChart();}
 async function loadChart(){
   try{
-    const data=await api('/api/revenue-chart');
-    const wrap=document.getElementById('revenue-summary');
-    const now=new Date();
-    let filtered;
+    const data=await api('/api/revenue-chart');const wrap=document.getElementById('revenue-summary');const now=new Date();let filtered;
     if(currentRevPeriod==='today'){const t=now.toISOString().split('T')[0];filtered=data.filter(d=>d.day&&d.day.startsWith(t));}
     else if(currentRevPeriod==='yesterday'){const y=new Date(now);y.setDate(y.getDate()-1);const ys=y.toISOString().split('T')[0];filtered=data.filter(d=>d.day&&d.day.startsWith(ys));}
     else if(currentRevPeriod==='week'){const w=new Date(now);w.setDate(w.getDate()-7);filtered=data.filter(d=>d.day&&new Date(d.day)>=w);}
@@ -1146,55 +1003,33 @@ async function loadChart(){
     const cards=[{label:'Total Revenue',value:fmt(total),sub:'period total'},{label:'Payments',value:totalCount,sub:'successful'},{label:'Avg Payment',value:fmt(avg),sub:'per transaction'},{label:'Best Day',value:fmt(parseInt(best?.revenue)||0),sub:bestDay}];
     let html='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">';
     cards.forEach(c=>{html+='<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;"><div style="font-size:10px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">'+c.label+'</div><div style="font-size:18px;font-weight:700;letter-spacing:-0.5px;margin-bottom:3px;">'+c.value+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+c.sub+'</div></div>';});
-    html+='</div>';
-    wrap.innerHTML=html;
-  }catch(e){console.error(e);}
+    html+='</div>';wrap.innerHTML=html;
+  }catch(e){}
 }
-
-// Upcoming
 async function loadUpcoming(){
   try{
-    const subs=await api('/api/subscriptions');
-    const tb=document.getElementById('upcoming-table');
+    const subs=await api('/api/subscriptions');const tb=document.getElementById('upcoming-table');
     if(!subs.length){tb.innerHTML='<tr><td colspan="5" class="empty">No subscriptions yet.</td></tr>';return;}
     tb.innerHTML=subs.slice(0,10).map(s=>'<tr><td><div class="customer-cell"><div class="avatar">'+initials(s.name)+'</div><div><div class="customer-name">'+(s.name||'—')+'</div><div class="customer-email">'+(s.email||'')+'</div></div></div></td><td class="mono">'+fmt(s.amount,s.currency)+'</td><td class="mono">'+fmtDate(s.next_billing_date)+'</td><td>'+badge(s.status)+'</td><td><div class="actions">'+(s.status==='active'?'<button class="btn btn-sm" onclick="chargeNow('+s.id+')">Charge</button>':'')+(s.status==='active'?'<button class="btn btn-sm" onclick="openPauseModal('+s.id+')">Pause</button>':'')+(s.status==='paused'?'<button class="btn btn-sm" onclick="setSubStatus('+s.id+',\'active\')">Resume</button>':'')+'</div></td></tr>').join('');
   }catch(e){}
 }
-
-// Recent Payments
 async function loadRecentPayments(){
   try{
-    const pmts=await api('/api/payments');
-    const tb=document.getElementById('recent-payments-table');
+    const pmts=await api('/api/payments');const tb=document.getElementById('recent-payments-table');
     if(!pmts.length){tb.innerHTML='<tr><td colspan="4" class="empty">No payments yet</td></tr>';return;}
     tb.innerHTML=pmts.slice(0,8).map(p=>'<tr><td><div class="customer-cell"><div class="avatar">'+initials(p.name)+'</div><div><div class="customer-name">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div></div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+badge(p.status)+'</td><td class="mono">'+fmtDate(p.created_at)+'</td></tr>').join('');
   }catch(e){}
 }
-
-// Activity
 async function loadActivity(){
   try{
-    var list=await api('/api/activity');
-    var wrap=document.getElementById('activity-list');
+    var list=await api('/api/activity');var wrap=document.getElementById('activity-list');
     var isViewer=localStorage.getItem('subloop_readonly')==='1';
-    // Viewers only see payment-related events
-    if(isViewer){
-      list=list.filter(function(a){
-        return ['payment','failed','retry','charge','dunning','proration','resume'].includes(a.type);
-      });
-    }
-    if(!list.length){
-      wrap.innerHTML='<div class="empty">'+(isViewer?'No payment activity yet':'No activity yet')+'</div>';
-      return;
-    }
+    if(isViewer)list=list.filter(function(a){return['payment','failed','retry','charge','dunning','proration','resume'].includes(a.type);});
+    if(!list.length){wrap.innerHTML='<div class="empty">'+(isViewer?'No payment activity yet':'No activity yet')+'</div>';return;}
     var colors={payment:'var(--green)',failed:'var(--red)',charge:'var(--accent)',dunning:'var(--amber)',resume:'var(--blue)',retry:'var(--green)',proration:'var(--accent)'};
-    wrap.innerHTML=list.map(function(a){
-      return '<div class="activity-item"><div class="activity-dot" style="background:'+(colors[a.type]||'var(--muted)')+'"></div><div style="flex:1;"><div style="font-size:13px;">'+a.description+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;">'+fmtTime(a.created_at)+'</div></div></div>';
-    }).join('');
+    wrap.innerHTML=list.map(function(a){return '<div class="activity-item"><div class="activity-dot" style="background:'+(colors[a.type]||'var(--muted)')+'"></div><div style="flex:1;"><div style="font-size:13px;">'+a.description+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;">'+fmtTime(a.created_at)+'</div></div></div>';}).join('');
   }catch(e){}
 }
-
-// Customers
 async function loadCustomers(){try{allCustomers=await api('/api/customers');renderCustomers(allCustomers);}catch(e){}}
 function renderCustomers(list){
   const tb=document.getElementById('customers-table');
@@ -1202,18 +1037,14 @@ function renderCustomers(list){
   tb.innerHTML=list.map(c=>'<tr><td><div class="customer-cell"><div class="avatar">'+initials(c.name)+'</div><div><div class="customer-name">'+(c.name||'—')+'</div><div class="customer-email">'+(c.email||'')+'</div></div></div></td><td>'+cardBadge(c.card_brand,c.card_last4)+'</td><td style="font-size:12px;color:var(--muted);">'+(c.account_name||'—')+'</td><td>'+badge(c.status)+'</td><td style="font-size:12px;color:var(--muted);font-family:var(--mono);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(c.note||'—')+'</td><td class="mono">'+fmt(c.total_paid||0)+'</td><td><div class="actions"><button class="btn btn-sm" onclick="openNoteModal('+c.id+',\''+encodeURIComponent(c.note||'')+'\')">Note</button><button class="btn btn-sm" onclick="openPortal('+c.id+')">Card ↗</button>'+(c.status==='active'?'<button class="btn btn-sm btn-danger" onclick="setCustStatus('+c.id+',\'paused\')">Pause</button>':'')+(c.status==='paused'?'<button class="btn btn-sm" onclick="setCustStatus('+c.id+',\'active\')">Resume</button>':'')+'</div></td></tr>').join('');
 }
 function filterCustomers(){const q=document.getElementById('customer-search').value.toLowerCase();renderCustomers(allCustomers.filter(c=>(c.name||'').toLowerCase().includes(q)||(c.email||'').toLowerCase().includes(q)));}
-
-// Subscriptions
 async function loadSubscriptions(){try{allSubscriptions=await api('/api/subscriptions');renderSubscriptions(allSubscriptions);}catch(e){}}
 function renderSubscriptions(list){
   var tb=document.getElementById('subscriptions-table');
   if(!list.length){tb.innerHTML='<tr><td colspan="7" class="empty">No subscriptions yet</td></tr>';return;}
   var rows=[];
   list.forEach(function(s){
-    var sel=bulkMode&&selectedSubs.has(s.id);
-    var bg=sel?'background:var(--accent-glow);':'';
-    var cbDisplay=bulkMode?'table-cell':'none';
-    var cbChecked=sel?'checked':'';
+    var sel=bulkMode&&selectedSubs.has(s.id);var bg=sel?'background:var(--accent-glow);':'';
+    var cbDisplay=bulkMode?'table-cell':'none';var cbChecked=sel?'checked':'';
     var resumeBtn=s.status==='paused'?'<button class="btn btn-sm" onclick="resumeSub('+s.id+')">Resume</button>':'';
     var chargeBtn=s.status==='active'?'<button class="btn btn-sm" onclick="chargeNow('+s.id+')">Charge</button>':'';
     var pauseBtn=s.status==='active'?'<button class="btn btn-sm" onclick="openPauseModal('+s.id+')">Pause</button>':'';
@@ -1222,112 +1053,26 @@ function renderSubscriptions(list){
     var editSpan='<button class="btn btn-sm" onclick="showEditAmount('+s.id+','+s.amount+')">Edit $</button><span id="edit-'+s.id+'"></span>';
     var dunningBadge=s.dunning_count>0?'<br><span style="font-size:10px;color:var(--amber);">Retry #'+s.dunning_count+'</span>':'';
     var resumeDate=s.resume_date?'<br><span style="font-size:10px;color:var(--blue);">Resumes '+fmtDate(s.resume_date)+'</span>':'';
-    rows.push(
-      '<tr id="sub-row-'+s.id+'" style="'+bg+'">'+
-      '<td style="width:36px;display:'+cbDisplay+';"><input type="checkbox" class="sub-checkbox" data-id="'+s.id+'" '+cbChecked+' onchange="toggleSubSelect('+s.id+')" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;"></td>'+
-      '<td><div class="customer-cell"><div class="avatar">'+initials(s.name)+'</div><div><div class="customer-name">'+(s.name||'—')+'</div><div class="customer-email">'+(s.email||'')+'</div></div></div></td>'+
-      '<td class="mono">'+fmt(s.amount,s.currency)+'</td>'+
-      '<td class="mono">'+(s.interval_days||30)+' days</td>'+
-      '<td class="mono">'+fmtDate(s.next_billing_date)+resumeDate+'</td>'+
-      '<td>'+badge(s.status)+dunningBadge+'</td>'+
-      '<td><div class="actions">'+chargeBtn+editSpan+pauseBtn+resumeBtn+retryBtn+cancelBtn+'</div></td>'+
-      '</tr>'
-    );
+    rows.push('<tr id="sub-row-'+s.id+'" style="'+bg+'"><td style="width:36px;display:'+cbDisplay+';"><input type="checkbox" class="sub-checkbox" data-id="'+s.id+'" '+cbChecked+' onchange="toggleSubSelect('+s.id+')" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;"></td><td><div class="customer-cell"><div class="avatar">'+initials(s.name)+'</div><div><div class="customer-name">'+(s.name||'—')+'</div><div class="customer-email">'+(s.email||'')+'</div></div></div></td><td class="mono">'+fmt(s.amount,s.currency)+'</td><td class="mono">'+(s.interval_days||30)+' days</td><td class="mono">'+fmtDate(s.next_billing_date)+resumeDate+'</td><td>'+badge(s.status)+dunningBadge+'</td><td><div class="actions">'+chargeBtn+editSpan+pauseBtn+resumeBtn+retryBtn+cancelBtn+'</div></td></tr>');
   });
   tb.innerHTML=rows.join('');
 }
-
 function filterSubscriptions(){const q=document.getElementById('sub-search').value.toLowerCase();renderSubscriptions(allSubscriptions.filter(s=>(s.name||'').toLowerCase().includes(q)||(s.email||'').toLowerCase().includes(q)));}
-
-// Bulk actions
-function enterBulkMode(){
-  bulkMode=true;
-  selectedSubs.clear();
-  document.getElementById('sub-default-btn').style.display='none';
-  document.getElementById('sub-bulk-btns').style.display='flex';
-  document.getElementById('bulk-cb-header').style.display='table-cell';
-  renderSubscriptions(allSubscriptions);
-  updateBulkBar();
-}
-function exitBulkMode(){
-  bulkMode=false;
-  selectedSubs.clear();
-  document.getElementById('sub-default-btn').style.display='block';
-  document.getElementById('sub-bulk-btns').style.display='none';
-  document.getElementById('bulk-cb-header').style.display='none';
-  var cb=document.getElementById('select-all-checkbox');
-  if(cb)cb.checked=false;
-  renderSubscriptions(allSubscriptions);
-}
-function toggleSubSelect(id){
-  if(selectedSubs.has(id))selectedSubs.delete(id);
-  else selectedSubs.add(id);
-  var row=document.getElementById('sub-row-'+id);
-  if(row)row.style.background=selectedSubs.has(id)?'var(--accent-glow)':'';
-  updateBulkBar();
-}
-function toggleSelectAll(){
-  var cbs=document.querySelectorAll('.sub-checkbox');
-  var allChecked=selectedSubs.size===cbs.length&&cbs.length>0;
-  selectedSubs.clear();
-  if(!allChecked){cbs.forEach(function(cb){selectedSubs.add(parseInt(cb.dataset.id));});}
-  cbs.forEach(function(cb){
-    cb.checked=!allChecked;
-    var row=document.getElementById('sub-row-'+cb.dataset.id);
-    if(row)row.style.background=(!allChecked)?'var(--accent-glow)':'';
-  });
-  updateBulkBar();
-}
-function updateBulkBar(){
-  var n=selectedSubs.size;
-  var countEl=document.getElementById('bulk-count');
-  if(countEl)countEl.textContent=n>0?n+' selected':'';
-  ['bulk-charge-btn','bulk-pause-btn','bulk-cancel-btn'].forEach(function(id){
-    var el=document.getElementById(id);
-    if(el){el.disabled=n===0;el.style.opacity=n===0?'0.4':'1';}
-  });
-  var cb=document.getElementById('select-all-checkbox');
-  var total=document.querySelectorAll('.sub-checkbox').length;
-  if(cb)cb.checked=n>0&&n===total;
-}
-function clearSelection(){
-  selectedSubs.clear();
-  document.querySelectorAll('.sub-checkbox').forEach(function(cb){cb.checked=false;});
-  document.querySelectorAll('[id^="sub-row-"]').forEach(function(row){row.style.background='';});
-  var cb=document.getElementById('select-all-checkbox');
-  if(cb)cb.checked=false;
-  updateBulkBar();
-}
-
+function enterBulkMode(){bulkMode=true;selectedSubs.clear();document.getElementById('sub-default-btn').style.display='none';document.getElementById('sub-bulk-btns').style.display='flex';document.getElementById('bulk-cb-header').style.display='table-cell';renderSubscriptions(allSubscriptions);updateBulkBar();}
+function exitBulkMode(){bulkMode=false;selectedSubs.clear();document.getElementById('sub-default-btn').style.display='block';document.getElementById('sub-bulk-btns').style.display='none';document.getElementById('bulk-cb-header').style.display='none';var cb=document.getElementById('select-all-checkbox');if(cb)cb.checked=false;renderSubscriptions(allSubscriptions);}
+function toggleSubSelect(id){if(selectedSubs.has(id))selectedSubs.delete(id);else selectedSubs.add(id);var row=document.getElementById('sub-row-'+id);if(row)row.style.background=selectedSubs.has(id)?'var(--accent-glow)':'';updateBulkBar();}
+function toggleSelectAll(){var cbs=document.querySelectorAll('.sub-checkbox');var allChecked=selectedSubs.size===cbs.length&&cbs.length>0;selectedSubs.clear();if(!allChecked){cbs.forEach(function(cb){selectedSubs.add(parseInt(cb.dataset.id));});}cbs.forEach(function(cb){cb.checked=!allChecked;var row=document.getElementById('sub-row-'+cb.dataset.id);if(row)row.style.background=(!allChecked)?'var(--accent-glow)':'';});updateBulkBar();}
+function updateBulkBar(){var n=selectedSubs.size;var countEl=document.getElementById('bulk-count');if(countEl)countEl.textContent=n>0?n+' selected':'';['bulk-charge-btn','bulk-pause-btn','bulk-cancel-btn'].forEach(function(id){var el=document.getElementById(id);if(el){el.disabled=n===0;el.style.opacity=n===0?'0.4':'1';}});var cb=document.getElementById('select-all-checkbox');var total=document.querySelectorAll('.sub-checkbox').length;if(cb)cb.checked=n>0&&n===total;}
+function clearSelection(){selectedSubs.clear();document.querySelectorAll('.sub-checkbox').forEach(function(cb){cb.checked=false;});document.querySelectorAll('[id^="sub-row-"]').forEach(function(row){row.style.background='';});var cb=document.getElementById('select-all-checkbox');if(cb)cb.checked=false;updateBulkBar();}
 async function bulkCharge(){if(!selectedSubs.size)return;if(!confirm('Charge '+selectedSubs.size+' subscriptions now?'))return;toast('Charging '+selectedSubs.size+' subscriptions…');let ok=0,fail=0;for(const id of selectedSubs){try{const r=await api('/api/subscriptions/'+id+'/charge',{method:'POST'});if(r.success)ok++;else fail++;}catch(e){fail++;}}toast('✓ '+ok+' charged'+(fail?' — '+fail+' failed':''));exitBulkMode();loadStats();loadSubscriptions();}
 async function bulkPause(){if(!selectedSubs.size)return;if(!confirm('Pause '+selectedSubs.size+' subscriptions?'))return;for(const id of selectedSubs){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'paused'})}).catch(()=>{});}toast('✓ '+selectedSubs.size+' paused');exitBulkMode();loadSubscriptions();}
 async function bulkCancel(){if(!selectedSubs.size)return;if(!confirm('Cancel '+selectedSubs.size+' subscriptions? Cannot be undone.'))return;for(const id of selectedSubs){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'cancelled'})}).catch(()=>{});}toast('✓ '+selectedSubs.size+' cancelled');exitBulkMode();loadSubscriptions();loadStats();}
-
 function showEditAmount(subId,currentAmount){const container=document.getElementById('edit-'+subId);if(!container)return;const dollars=(currentAmount/100).toFixed(2);container.innerHTML='<div style="display:inline-flex;align-items:center;gap:4px;"><input type="number" id="new-amount-'+subId+'" value="'+dollars+'" step="0.01" min="0.50" style="width:75px;padding:3px 6px;font-size:12px;"><button class="btn btn-sm btn-primary" onclick="saveAmount('+subId+')">Save</button><button class="btn btn-sm" onclick="loadSubscriptions()">✕</button></div>';document.getElementById('new-amount-'+subId).focus();}
 async function saveAmount(subId){const input=document.getElementById('new-amount-'+subId);if(!input)return;const newCents=Math.round(parseFloat(input.value)*100);if(isNaN(newCents)||newCents<50){toast('Minimum $0.50','error');return;}const r=await api('/api/subscriptions/'+subId+'/amount',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:newCents})});if(r.success){toast('✓ Amount updated');loadSubscriptions();}else toast('Error','error');}
-
-// Payments
-async function loadPayments(){
-  try{
-    allPayments=await api('/api/payments');
-    renderPaymentSummary(allPayments);
-    filterPayments();
-  }catch(e){}
-}
-
-function renderPaymentSummary(list){
-  var total=list.filter(p=>p.status==='succeeded').reduce((s,p)=>s+(parseInt(p.amount)||0),0);
-  var success=list.filter(p=>p.status==='succeeded').length;
-  var failed=list.filter(p=>p.status==='failed').length;
-  var retryable=list.filter(p=>p.status==='failed').length;
-  var te=document.getElementById('pay-total'); if(te)te.textContent=fmt(total);
-  var se=document.getElementById('pay-success-count'); if(se)se.textContent=success;
-  var fe=document.getElementById('pay-fail-count'); if(fe)fe.textContent=failed;
-  var re=document.getElementById('pay-retry-count'); if(re)re.textContent=retryable;
-}
-
+async function loadPayments(){try{allPayments=await api('/api/payments');renderPaymentSummary(allPayments);filterPayments();}catch(e){}}
+function renderPaymentSummary(list){var total=list.filter(p=>p.status==='succeeded').reduce((s,p)=>s+(parseInt(p.amount)||0),0);var success=list.filter(p=>p.status==='succeeded').length;var failed=list.filter(p=>p.status==='failed').length;var te=document.getElementById('pay-total');if(te)te.textContent=fmt(total);var se=document.getElementById('pay-success-count');if(se)se.textContent=success;var fe=document.getElementById('pay-fail-count');if(fe)fe.textContent=failed;var re=document.getElementById('pay-retry-count');if(re)re.textContent=failed;}
 function filterPayments(){
-  if(!allPayments) return;
+  if(!allPayments)return;
   var q=(document.getElementById('pay-search')?.value||'').toLowerCase();
   var status=document.getElementById('pay-status-filter')?.value||'';
   var dateFilter=document.getElementById('pay-date-filter')?.value||'';
@@ -1336,20 +1081,12 @@ function filterPayments(){
     var matchQ=!q||(p.name||'').toLowerCase().includes(q)||(p.email||'').toLowerCase().includes(q)||(p.stripe_payment_intent||'').toLowerCase().includes(q);
     var matchS=!status||p.status===status;
     var matchD=true;
-    if(dateFilter){
-      var d=new Date(p.created_at);
-      if(dateFilter==='today') matchD=d.toDateString()===now.toDateString();
-      else if(dateFilter==='yesterday'){var y=new Date(now);y.setDate(y.getDate()-1);matchD=d.toDateString()===y.toDateString();}
-      else if(dateFilter==='week'){var w=new Date(now);w.setDate(w.getDate()-7);matchD=d>=w;}
-      else if(dateFilter==='month'){matchD=d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();}
-    }
+    if(dateFilter){var d=new Date(p.created_at);if(dateFilter==='today')matchD=d.toDateString()===now.toDateString();else if(dateFilter==='yesterday'){var y=new Date(now);y.setDate(y.getDate()-1);matchD=d.toDateString()===y.toDateString();}else if(dateFilter==='week'){var w=new Date(now);w.setDate(w.getDate()-7);matchD=d>=w;}else if(dateFilter==='month'){matchD=d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();}}
     return matchQ&&matchS&&matchD;
   });
   renderPayments(filtered);
 }
-
 var reasonLabels={'insufficient_funds':'Insufficient funds','card_declined':'Card declined','expired_card':'Card expired','incorrect_cvc':'Wrong CVC','lost_card':'Card reported lost','stolen_card':'Reported stolen','do_not_honor':'Bank declined','processing_error':'Processing error','fraudulent':'Fraud suspected','generic_decline':'Generic decline','no_such_customer':'Customer not found','authentication_required':'Auth required'};
-
 function renderPayments(list){
   var isViewer=localStorage.getItem('subloop_readonly')==='1';
   var tb=document.getElementById('payments-table');
@@ -1358,82 +1095,33 @@ function renderPayments(list){
     var shortReason=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'';
     var reasonHtml=shortReason?'<div style="font-size:12px;color:var(--red);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+p.failure_reason+'">'+shortReason+'</div>':'<span style="color:var(--muted);font-size:12px;">—</span>';
     var refHtml=buildRefCell(p.stripe_payment_intent);
-
     var actions='<div style="display:flex;gap:4px;align-items:center;">';
-    if(!isViewer&&p.status==='failed') actions+='<button class="btn btn-sm btn-success" onclick="retryPayment('+p.id+')">Retry</button>';
+    if(!isViewer&&p.status==='failed')actions+='<button class="btn btn-sm btn-success" onclick="retryPayment('+p.id+')">Retry</button>';
     actions+='<button class="btn btn-sm" onclick="openPaymentNote('+p.id+')" title="'+(p.note||'Add note')+'">'+(p.note?'📝 Note':'Note')+'</button>';
     actions+='</div>';
-    return '<tr style="'+(p.status==='failed'?'background:rgba(248,113,113,0.04);':'')+'">'+
-      '<td><div class="customer-cell"><div class="avatar">'+initials(p.name)+'</div><div><div class="customer-name" style="font-size:12px;">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div></div></div></td>'+
-      '<td class="mono">'+fmt(p.amount,p.currency)+'</td>'+
-      '<td>'+badge(p.status)+'</td>'+
-      '<td>'+reasonHtml+'</td>'+
-      '<td class="mono" style="font-size:12px;white-space:nowrap;">'+fmtDate(p.created_at)+'</td>'+
-      '<td>'+refHtml+'</td>'+
-      '<td>'+actions+'</td>'+
-    '</tr>';
+    return '<tr style="'+(p.status==='failed'?'background:rgba(248,113,113,0.04);':'')+'"><td><div class="customer-cell"><div class="avatar">'+initials(p.name)+'</div><div><div class="customer-name" style="font-size:12px;">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div></div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+badge(p.status)+'</td><td>'+reasonHtml+'</td><td class="mono" style="font-size:12px;white-space:nowrap;">'+fmtDate(p.created_at)+'</td><td>'+refHtml+'</td><td>'+actions+'</td></tr>';
   }).join('');
 }
-
 async function retryPayment(id){toast('Retrying…');try{const r=await api('/api/payments/'+id+'/retry',{method:'POST'});if(r.success){toast('✓ Succeeded');loadPayments();loadStats();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
-
-// Webhooks
-async function loadWebhooks(){
-  try{
-    const list=await api('/api/webhook-logs');
-    const tb=document.getElementById('webhook-table');
-    if(!list.length){tb.innerHTML='<tr><td colspan="4" class="empty">No webhook events yet</td></tr>';return;}
-    tb.innerHTML=list.map(w=>'<tr><td class="mono" style="font-size:12px;">'+w.event_type+'</td><td style="font-size:12px;color:var(--muted);">'+(w.account_name||'—')+'</td><td>'+badge(w.status||'ok')+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+fmtTime(w.created_at)+'</td></tr>').join('');
-  }catch(e){}
-}
-
-// Settings
-async function loadSettings(){
-  try{
-    appSettings=await api('/api/settings');
-    document.getElementById('setting-dunning').checked=appSettings.dunning_enabled==='true';
-    document.getElementById('setting-dunning-days').value=appSettings.dunning_days||'3,7,14';
-    document.getElementById('setting-auto-resume').checked=appSettings.pause_auto_resume==='true';
-    document.getElementById('setting-proration').checked=appSettings.proration_enabled==='true';
-    document.getElementById('setting-webhook-logs').checked=appSettings.webhook_logs_enabled==='true';
-  }catch(e){}
-}
+async function loadWebhooks(){try{const list=await api('/api/webhook-logs');const tb=document.getElementById('webhook-table');if(!list.length){tb.innerHTML='<tr><td colspan="4" class="empty">No webhook events yet</td></tr>';return;}tb.innerHTML=list.map(w=>'<tr><td class="mono" style="font-size:12px;">'+w.event_type+'</td><td style="font-size:12px;color:var(--muted);">'+(w.account_name||'—')+'</td><td>'+badge(w.status||'ok')+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+fmtTime(w.created_at)+'</td></tr>').join('');}catch(e){}}
+async function loadSettings(){try{appSettings=await api('/api/settings');document.getElementById('setting-dunning').checked=appSettings.dunning_enabled==='true';document.getElementById('setting-dunning-days').value=appSettings.dunning_days||'3,7,14';document.getElementById('setting-auto-resume').checked=appSettings.pause_auto_resume==='true';document.getElementById('setting-proration').checked=appSettings.proration_enabled==='true';document.getElementById('setting-webhook-logs').checked=appSettings.webhook_logs_enabled==='true';}catch(e){}}
 async function saveSetting(key,value){await api('/api/settings',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({key,value:String(value)})});appSettings[key]=String(value);toast('✓ Setting saved');}
-
-// Security
 async function loadSecurity(){
   try{
-    const status=await api('/api/security/2fa/status');
-    update2FAView(status.enabled);
+    const status=await api('/api/security/2fa/status');update2FAView(status.enabled);
     const s=await api('/api/settings');
     document.getElementById('setting-max-attempts').value=s.max_login_attempts||'5';
     document.getElementById('setting-lockout-mins').value=s.lockout_minutes||'15';
-    const history=await api('/api/security/login-history');
-    const tb=document.getElementById('login-history-table');
+    const history=await api('/api/security/login-history');const tb=document.getElementById('login-history-table');
     if(!history.length){tb.innerHTML='<tr><td colspan="3" class="empty">No login attempts recorded</td></tr>';return;}
-    tb.innerHTML=history.map(function(h){
-      return '<tr>'+
-        '<td class="mono" style="font-size:12px;">'+(h.ip||'unknown')+'</td>'+
-        '<td>'+(h.success?'<span class="badge badge-green">success</span>':'<span class="badge badge-red">failed</span>')+'</td>'+
-        '<td class="mono" style="font-size:11px;color:var(--muted);">'+fmtTime(h.created_at)+'</td>'+
-      '</tr>';
-    }).join('');
+    tb.innerHTML=history.map(function(h){return '<tr><td class="mono" style="font-size:12px;">'+(h.ip||'unknown')+'</td><td>'+(h.success?'<span class="badge badge-green">success</span>':'<span class="badge badge-red">failed</span>')+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+fmtTime(h.created_at)+'</td></tr>';}).join('');
   }catch(e){}
 }
-function update2FAView(enabled){
-  const badge2fa=document.getElementById('2fa-badge');
-  badge2fa.className='badge '+(enabled?'badge-green':'badge-red');
-  badge2fa.textContent=enabled?'enabled':'disabled';
-  document.getElementById('2fa-disabled-view').style.display=enabled?'none':'block';
-  document.getElementById('2fa-setup-view').style.display='none';
-  document.getElementById('2fa-enabled-view').style.display=enabled?'block':'none';
-}
+function update2FAView(enabled){const badge2fa=document.getElementById('2fa-badge');badge2fa.className='badge '+(enabled?'badge-green':'badge-red');badge2fa.textContent=enabled?'enabled':'disabled';document.getElementById('2fa-disabled-view').style.display=enabled?'none':'block';document.getElementById('2fa-setup-view').style.display='none';document.getElementById('2fa-enabled-view').style.display=enabled?'block':'none';}
 async function setup2FA(){try{const r=await api('/api/security/2fa/setup',{method:'POST'});document.getElementById('2fa-qr').src=r.qrCode;document.getElementById('2fa-disabled-view').style.display='none';document.getElementById('2fa-setup-view').style.display='block';}catch(e){toast('Error setting up 2FA','error');}}
 async function confirm2FA(){const token=document.getElementById('2fa-verify-code').value;if(token.length!==6){toast('Enter 6-digit code','error');return;}try{const r=await api('/api/security/2fa/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});if(r.success){toast('✓ 2FA enabled!');update2FAView(true);}else toast('Invalid code','error');}catch(e){toast('Error','error');}}
 function cancel2FASetup(){document.getElementById('2fa-setup-view').style.display='none';document.getElementById('2fa-disabled-view').style.display='block';}
 async function disable2FA(){if(!confirm('Disable 2FA?'))return;await api('/api/security/2fa/disable',{method:'POST'});toast('2FA disabled');update2FAView(false);}
-
-// Actions
 async function chargeNow(subId){toast('Charging…');try{const r=await api('/api/subscriptions/'+subId+'/charge',{method:'POST'});if(r.success){toast('✓ Payment succeeded');loadUpcoming();loadStats();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
 function openPauseModal(subId){document.getElementById('pause-sub-id').value=subId;document.getElementById('pause-resume-date').value='';openModal('pause-modal');}
 async function confirmPause(){const id=document.getElementById('pause-sub-id').value;const resumeDate=document.getElementById('pause-resume-date').value;await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'paused',resume_date:resumeDate||null})});toast('Subscription paused');closeModal('pause-modal');loadUpcoming();loadSubscriptions();}
@@ -1443,19 +1131,13 @@ async function setSubStatus(id,status){await api('/api/subscriptions/'+id+'/stat
 async function setCustStatus(id,status){await api('/api/customers/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});toast('Customer '+status);loadCustomers();}
 async function openPortal(customerId){try{const r=await api('/api/customers/'+customerId+'/portal',{method:'POST'});if(r.url)window.open(r.url,'_blank');else toast('Could not open portal','error');}catch(e){toast('Error','error');}}
 async function runRebills(){toast('Running rebill job…');try{const r=await api('/api/run-rebills',{method:'POST'});if(r.success){toast('✓ Done: '+r.succeeded+' charged, '+r.failed+' failed'+(r.resumed>0?', '+r.resumed+' resumed':''));loadStats();loadUpcoming();}}catch(e){toast('Error','error');}}
-
-// Add customer
 async function addCustomer(){
   const body={name:document.getElementById('mc-name').value.trim(),email:document.getElementById('mc-email').value.trim(),stripe_customer_id:document.getElementById('mc-stripe-id').value.trim(),stripe_payment_method:document.getElementById('mc-pm-id').value.trim()||null,card_brand:document.getElementById('mc-brand').value.trim()||null,card_last4:document.getElementById('mc-last4').value.trim()||null,card_exp_month:document.getElementById('mc-exp-m').value||null,card_exp_year:document.getElementById('mc-exp-y').value||null,stripe_account_id:document.getElementById('mc-account').value||null,note:document.getElementById('mc-note').value.trim()||null};
   if(!body.email||!body.stripe_customer_id){toast('Email and Stripe ID required','error');return;}
   try{const r=await api('/api/customers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(r.success){toast('✓ Customer added');closeModal('add-customer-modal');loadCustomers();}else toast('Error: '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}
 }
-
-// Notes
 function openNoteModal(id,note){document.getElementById('note-customer-id').value=id;document.getElementById('note-text').value=decodeURIComponent(note);openModal('note-modal');}
 async function saveNote(){const id=document.getElementById('note-customer-id').value,note=document.getElementById('note-text').value;await api('/api/customers/'+id+'/note',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({note})});toast('✓ Note saved');closeModal('note-modal');loadCustomers();}
-
-// Payment links
 async function createPaymentLink(){
   const btn=document.getElementById('create-link-btn');btn.textContent='Creating…';btn.disabled=true;
   try{const r=await api('/api/payment-links',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:document.getElementById('link-name').value,amount:Math.round(parseFloat(document.getElementById('link-amount').value)*100),currency:document.getElementById('link-currency').value,interval_days:parseInt(document.getElementById('link-interval').value),stripe_account_id:document.getElementById('link-account').value||null})});if(r.url){currentLink=r.url;document.getElementById('link-url').textContent=r.url;document.getElementById('link-result').classList.add('visible');toast('✓ Link created');}else toast('Error: '+(r.error||'Unknown'),'error');}catch(e){toast('Server error','error');}
@@ -1463,30 +1145,14 @@ async function createPaymentLink(){
 }
 function copyLink(){navigator.clipboard.writeText(currentLink);toast('Copied!');}
 function openLink(){window.open(currentLink,'_blank');}
-
-// Stripe accounts
 async function loadAccounts(){
   try{
     const list=await api('/api/stripe-accounts');
     const tb=document.getElementById('accounts-table');
     if(tb){
-      if(!list.length){
-        tb.innerHTML='<tr><td colspan="5" class="empty">No accounts yet</td></tr>';
-      } else {
-        var rows=list.map(function(a){
-          var defaultBadge=a.is_default?'<span class="badge badge-green">default</span>':'<span class="badge badge-blue">active</span>';
-          var setDefBtn=!a.is_default?'<button class="btn btn-sm" onclick="setDefaultAccount('+a.id+')">Set default</button>':'';
-          return '<tr>'+
-            '<td><strong style="font-size:13px;">'+a.name+'</strong></td>'+
-            '<td class="mono" style="font-size:12px;color:var(--muted);">'+(a.key_preview||'—')+'</td>'+
-            '<td>'+defaultBadge+'</td>'+
-            '<td><div class="actions">'+setDefBtn+'<button class="btn btn-sm" onclick="openEditAcc('+a.id+')">Edit</button><button class="btn btn-sm btn-danger" onclick="deleteAccount('+a.id+')">Delete</button></div></td>'+
-          '</tr>';
-        });
-        tb.innerHTML=rows.join('');
-      }
+      if(!list.length){tb.innerHTML='<tr><td colspan="4" class="empty">No accounts yet</td></tr>';}
+      else{tb.innerHTML=list.map(function(a){var defaultBadge=a.is_default?'<span class="badge badge-green">default</span>':'<span class="badge badge-blue">active</span>';var setDefBtn=!a.is_default?'<button class="btn btn-sm" onclick="setDefaultAccount('+a.id+')">Set default</button>':'';return '<tr><td><strong style="font-size:13px;">'+a.name+'</strong></td><td class="mono" style="font-size:12px;color:var(--muted);">'+(a.key_preview||'—')+'</td><td>'+defaultBadge+'</td><td><div class="actions">'+setDefBtn+'<button class="btn btn-sm" onclick="openEditAcc('+a.id+')">Edit</button><button class="btn btn-sm btn-danger" onclick="deleteAccount('+a.id+')">Delete</button></div></td></tr>';}).join('');}
     }
-
     allStripeAccounts=list;
     const opts=list.map(a=>'<option value="'+a.id+'"'+(a.is_default?' selected':'')+'>'+a.name+'</option>').join('');
     const ls=document.getElementById('link-account');if(ls)ls.innerHTML=opts||'<option value="">No accounts</option>';
@@ -1496,753 +1162,106 @@ async function loadAccounts(){
 async function addAccount(){const name=document.getElementById('acc-name').value.trim(),key=document.getElementById('acc-key').value.trim(),webhook=document.getElementById('acc-webhook').value.trim();if(!name||!key){toast('Name and key required','error');return;}const r=await api('/api/stripe-accounts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,secret_key:key,webhook_secret:webhook})});if(r.success){toast('✓ Account added');closeModal('add-account-modal');document.getElementById('acc-name').value='';document.getElementById('acc-key').value='';document.getElementById('acc-webhook').value='';loadAccounts();}else toast('Error: '+(r.error||'Failed'),'error');}
 async function setDefaultAccount(id){await api('/api/stripe-accounts/'+id+'/default',{method:'PATCH'});toast('✓ Default updated');loadAccounts();}
 async function deleteAccount(id){if(!confirm('Delete this account?'))return;await api('/api/stripe-accounts/'+id,{method:'DELETE'});toast('Account deleted');loadAccounts();}
-
-
-// ── Forecast ──────────────────────────────────────────────────────────────────
-async function loadForecast(){
-  try{
-    const d=await api('/api/forecast');
-    document.getElementById('forecast-30').textContent=fmt(d.forecast30||0);
-    document.getElementById('forecast-60').textContent=fmt(d.forecast60||0);
-    document.getElementById('forecast-90').textContent=fmt(d.forecast90||0);
-  }catch(e){}
-}
-
-// ── Expiring Cards ────────────────────────────────────────────────────────────
-async function loadExpiry(){
-  try{
-    var days=document.getElementById('expiry-days')?document.getElementById('expiry-days').value:30;
-    var list=await api('/api/expiring-cards?days='+days);
-    var tb=document.getElementById('expiry-table');
-    if(!list.length){tb.innerHTML='<tr><td colspan="5" class="empty"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" style="vertical-align:middle;margin-right:6px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>No expiring cards in this period</td></tr>';return;}
-    var now=new Date();
-    var rows=list.map(function(c){
-      var expMonth=String(c.card_exp_month||'?').padStart(2,'0');
-      var expYear=String(c.card_exp_year||'?');
-      var yr=parseInt(c.card_exp_year)||9999;
-      var mo=parseInt(c.card_exp_month)||12;
-      var isExpired=yr<now.getFullYear()||(yr===now.getFullYear()&&mo<=now.getMonth()+1);
-      var color=isExpired?'var(--red)':'var(--amber)';
-      return '<tr>'+
-        '<td><div class="customer-cell"><div class="avatar">'+initials(c.name)+'</div><div><div class="customer-name">'+(c.name||'—')+'</div><div class="customer-email">'+(c.email||'')+'</div></div></div></td>'+
-        '<td>'+cardBadge(c.card_brand,c.card_last4)+'</td>'+
-        '<td><span style="color:'+color+';font-family:var(--mono);font-weight:600;">'+expMonth+'/'+expYear+'</span></td>'+
-        '<td class="mono">'+fmtDate(c.next_billing_date)+'</td>'+
-        '<td><button class="btn btn-sm" onclick="openPortal('+c.id+')">Update card ↗</button></td>'+
-      '</tr>';
-    });
-    tb.innerHTML=rows.join('');
-  }catch(e){console.error(e);}
-}
-
-// ── Daily Summary ─────────────────────────────────────────────────────────────
-async function loadSummary(){
-  try{
-    const d=await api('/api/daily-summary');
-    document.getElementById('sum-rev-today').textContent=fmt(parseInt(d.revenue_today)||0);
-    document.getElementById('sum-pay-today').textContent=(d.payments_today||0)+' payments';
-    document.getElementById('sum-fail-today').textContent=d.failed_today||0;
-    document.getElementById('sum-rev-7d').textContent=fmt(parseInt(d.revenue_7d)||0);
-    document.getElementById('sum-pay-7d').textContent=(d.payments_7d||0)+' payments';
-    document.getElementById('sum-rev-month').textContent=fmt(parseInt(d.revenue_month)||0);
-    document.getElementById('sum-pay-month').textContent=(d.payments_month||0)+' payments';
-    document.getElementById('sum-active').textContent=d.active_total||0;
-    document.getElementById('sum-new-7d').textContent='+'+(d.new_7d||0)+' this week';
-    document.getElementById('sum-cust-today').textContent=d.new_today||0;
-  }catch(e){}
-}
-
-// ── Manual Invoice ────────────────────────────────────────────────────────────
-async function sendManualInvoice(){
-  const custId=document.getElementById('invoice-customer-id').value.trim();
-  const amount=Math.round(parseFloat(document.getElementById('invoice-amount').value)*100);
-  const desc=document.getElementById('invoice-desc').value;
-  const result=document.getElementById('invoice-result');
-  if(!custId||!amount){toast('Fill in all fields','error');return;}
-  try{
-    const r=await api('/api/customers/'+custId+'/charge-once',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount,description:desc})});
-    result.style.display='block';
-    if(r.success){result.style.background='var(--green-bg)';result.style.color='var(--green)';result.style.border='1px solid var(--green)';result.textContent='✓ Payment succeeded!';}
-    else{result.style.background='var(--red-bg)';result.style.color='var(--red)';result.style.border='1px solid var(--red)';result.textContent='✗ '+(r.error||'Failed');}
-  }catch(e){toast('Error','error');}
-}
-
-function openInvoiceModal(customerId){
-  document.getElementById('invoice-modal-customer-id').value=customerId;
-  document.getElementById('invoice-modal-amount').value='';
-  document.getElementById('invoice-modal-desc').value='Manual invoice';
-  document.getElementById('invoice-modal-result').style.display='none';
-  openModal('invoice-modal');
-}
-
-async function sendInvoiceFromModal(){
-  const customerId=document.getElementById('invoice-modal-customer-id').value;
-  const amount=Math.round(parseFloat(document.getElementById('invoice-modal-amount').value)*100);
-  const desc=document.getElementById('invoice-modal-desc').value;
-  const result=document.getElementById('invoice-modal-result');
-  if(!amount||amount<50){toast('Minimum $0.50','error');return;}
-  try{
-    const r=await api('/api/customers/'+customerId+'/charge-once',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount,description:desc})});
-    result.style.display='block';
-    if(r.success){result.style.cssText='background:var(--green-bg);color:var(--green);border:1px solid var(--green);padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);';result.textContent='✓ Charged successfully!';toast('✓ Invoice sent');}
-    else{result.style.cssText='background:var(--red-bg);color:var(--red);border:1px solid var(--red);padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);';result.textContent='✗ '+(r.error||'Failed');toast('Failed','error');}
-  }catch(e){toast('Error','error');}
-}
-
-
-// ── Admin Users ───────────────────────────────────────────────────────────────
-var currentAdminId = null;
-
+async function loadForecast(){try{const d=await api('/api/forecast');document.getElementById('forecast-30').textContent=fmt(d.forecast30||0);document.getElementById('forecast-60').textContent=fmt(d.forecast60||0);document.getElementById('forecast-90').textContent=fmt(d.forecast90||0);}catch(e){}}
+async function loadExpiry(){try{var days=document.getElementById('expiry-days')?document.getElementById('expiry-days').value:30;var list=await api('/api/expiring-cards?days='+days);var tb=document.getElementById('expiry-table');if(!list.length){tb.innerHTML='<tr><td colspan="5" class="empty">No expiring cards in this period</td></tr>';return;}var now=new Date();tb.innerHTML=list.map(function(c){var expMonth=String(c.card_exp_month||'?').padStart(2,'0');var expYear=String(c.card_exp_year||'?');var yr=parseInt(c.card_exp_year)||9999;var mo=parseInt(c.card_exp_month)||12;var isExpired=yr<now.getFullYear()||(yr===now.getFullYear()&&mo<=now.getMonth()+1);var color=isExpired?'var(--red)':'var(--amber)';return '<tr><td><div class="customer-cell"><div class="avatar">'+initials(c.name)+'</div><div><div class="customer-name">'+(c.name||'—')+'</div><div class="customer-email">'+(c.email||'')+'</div></div></div></td><td>'+cardBadge(c.card_brand,c.card_last4)+'</td><td><span style="color:'+color+';font-family:var(--mono);font-weight:600;">'+expMonth+'/'+expYear+'</span></td><td class="mono">'+fmtDate(c.next_billing_date)+'</td><td><button class="btn btn-sm" onclick="openPortal('+c.id+')">Update card ↗</button></td></tr>';}).join('');}catch(e){}}
+async function loadSummary(){try{const d=await api('/api/daily-summary');document.getElementById('sum-rev-today').textContent=fmt(parseInt(d.revenue_today)||0);document.getElementById('sum-pay-today').textContent=(d.payments_today||0)+' payments';document.getElementById('sum-fail-today').textContent=d.failed_today||0;document.getElementById('sum-rev-7d').textContent=fmt(parseInt(d.revenue_7d)||0);document.getElementById('sum-pay-7d').textContent=(d.payments_7d||0)+' payments';document.getElementById('sum-rev-month').textContent=fmt(parseInt(d.revenue_month)||0);document.getElementById('sum-pay-month').textContent=(d.payments_month||0)+' payments';document.getElementById('sum-active').textContent=d.active_total||0;document.getElementById('sum-new-7d').textContent='+'+(d.new_7d||0)+' this week';document.getElementById('sum-cust-today').textContent=d.new_today||0;}catch(e){}}
+async function sendManualInvoice(){const custId=document.getElementById('invoice-customer-id').value.trim();const amount=Math.round(parseFloat(document.getElementById('invoice-amount').value)*100);const desc=document.getElementById('invoice-desc').value;const result=document.getElementById('invoice-result');if(!custId||!amount){toast('Fill in all fields','error');return;}try{const r=await api('/api/customers/'+custId+'/charge-once',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount,description:desc})});result.style.display='block';if(r.success){result.style.background='var(--green-bg)';result.style.color='var(--green)';result.style.border='1px solid var(--green)';result.textContent='✓ Payment succeeded!';}else{result.style.background='var(--red-bg)';result.style.color='var(--red)';result.style.border='1px solid var(--red)';result.textContent='✗ '+(r.error||'Failed');}}catch(e){toast('Error','error');}}
+function openInvoiceModal(customerId){document.getElementById('invoice-modal-customer-id').value=customerId;document.getElementById('invoice-modal-amount').value='';document.getElementById('invoice-modal-desc').value='Manual invoice';document.getElementById('invoice-modal-result').style.display='none';openModal('invoice-modal');}
+async function sendInvoiceFromModal(){const customerId=document.getElementById('invoice-modal-customer-id').value;const amount=Math.round(parseFloat(document.getElementById('invoice-modal-amount').value)*100);const desc=document.getElementById('invoice-modal-desc').value;const result=document.getElementById('invoice-modal-result');if(!amount||amount<50){toast('Minimum $0.50','error');return;}try{const r=await api('/api/customers/'+customerId+'/charge-once',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount,description:desc})});result.style.display='block';if(r.success){result.style.cssText='background:var(--green-bg);color:var(--green);border:1px solid var(--green);padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);';result.textContent='✓ Charged successfully!';toast('✓ Invoice sent');}else{result.style.cssText='background:var(--red-bg);color:var(--red);border:1px solid var(--red);padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);';result.textContent='✗ '+(r.error||'Failed');toast('Failed','error');}}catch(e){toast('Error','error');}}
 async function loadAdmins(){
-  var tb=document.getElementById('admins-table');
-  if(!tb)return;
+  var tb=document.getElementById('admins-table');if(!tb)return;
   tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:28px;color:var(--muted);font-size:13px;font-family:var(--mono);">Loading...</td></tr>';
   try{
-    var list=await api('/api/admin-users');
-    allAdminUsers=list||[];
-    if(!list||!list.length){
-      tb.innerHTML=
-        '<tr><td colspan="5" style="text-align:center;padding:40px 20px;">'+
-          '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" style="display:block;margin:0 auto 12px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'+
-          '<div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px;">No admin users yet</div>'+
-          '<div style="font-size:12px;color:var(--muted);font-family:var(--mono);">Add your first admin to manage access.</div>'+
-        '</td></tr>';
-      return;
-    }
+    var list=await api('/api/admin-users');allAdminUsers=list||[];
+    if(!list||!list.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:40px 20px;"><div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px;">No admin users yet</div></td></tr>';return;}
     var rows=list.map(function(a){
       var roleColors={owner:'badge-green',admin:'badge-blue',viewer:'badge-amber',custom:'badge-purple'};
       var roleBadge='<span class="badge '+(roleColors[a.role]||'badge-blue')+'">'+a.role+'</span>';
       var perms=a.permissions&&a.permissions.length?'<div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:3px;">'+a.permissions.join(' · ')+'</div>':'';
-      return '<tr>'+
-        '<td><strong style="font-size:13px;">'+a.username+'</strong></td>'+
-        '<td>'+roleBadge+perms+'</td>'+
-        '<td class="mono" style="font-size:12px;color:var(--muted);">'+(a.last_login?fmtTime(a.last_login):'Never')+'</td>'+
-        '<td class="mono" style="font-size:12px;color:var(--muted);">'+fmtDate(a.created_at)+'</td>'+
-        '<td><div class="actions">'+
-          (a.role!=='owner'?'<button class="btn btn-sm btn-danger" onclick="deleteAdmin('+a.id+')">Remove</button>':'')+
-        '</div></td>'+
-      '</tr>';
+      return '<tr><td><strong style="font-size:13px;">'+a.username+'</strong></td><td>'+roleBadge+perms+'</td><td class="mono" style="font-size:12px;color:var(--muted);">'+(a.last_login?fmtTime(a.last_login):'Never')+'</td><td class="mono" style="font-size:12px;color:var(--muted);">'+fmtDate(a.created_at)+'</td><td><div class="actions">'+(a.role!=='owner'?'<button class="btn btn-sm btn-danger" onclick="deleteAdmin('+a.id+')">Remove</button>':'')+'</div></td></tr>';
     });
     tb.innerHTML=rows.join('');
-  }catch(e){
-    console.error('loadAdmins:',e);
-    tb.innerHTML=
-      '<tr><td colspan="5" style="text-align:center;padding:40px 20px;">'+
-        '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="1.5" style="display:block;margin:0 auto 12px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'+
-        '<div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px;">Failed to load admin users</div>'+
-        '<div style="font-size:12px;color:var(--muted);font-family:var(--mono);">Please try again.</div>'+
-        '<button class="btn btn-sm" onclick="loadAdmins()" style="margin-top:12px;">Retry</button>'+
-      '</td></tr>';
-  }
+  }catch(e){tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--red);font-size:13px;">Failed to load. <button class="btn btn-sm" onclick="loadAdmins()" style="margin-left:8px;">Retry</button></td></tr>';}
 }
-
-var PERM_LIST=[
-  {value:'dashboard',label:'Dashboard',desc:'Overview stats and revenue charts'},
-  {value:'activity',label:'Activity',desc:'Full activity log of all actions'},
-  {value:'customers',label:'Customers',desc:'View and manage customer accounts'},
-  {value:'subscriptions',label:'Subscriptions',desc:'Manage rebilling schedules'},
-  {value:'payments',label:'Payments',desc:'Full payment history and retries'},
-  {value:'links',label:'Payment Links',desc:'Generate Stripe payment links'},
-  {value:'accounts',label:'Stripe Accounts',desc:'Manage connected Stripe accounts'},
-  {value:'forecast',label:'Forecast',desc:'Revenue projection for next 30–90 days'},
-  {value:'expiry',label:'Expiring Cards',desc:'Cards expiring soon that need updating'},
-  {value:'summary',label:'Daily Summary',desc:'Business snapshot and manual invoices'},
-  {value:'settings',label:'Settings',desc:'Dunning, proration and app settings'},
-  {value:'security',label:'Security',desc:'Two-factor auth and login protection'},
-  {value:'webhooks',label:'Webhook Logs',desc:'Incoming Stripe webhook events'},
-];
-
-function buildPermsList(){
-  var container=document.getElementById('perms-list');
-  if(!container)return;
-  container.innerHTML='';
-  PERM_LIST.forEach(function(p){
-    var row=document.createElement('label');
-    row.style.cssText='display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;cursor:pointer;transition:all 0.15s;';
-    var cb=document.createElement('input');
-    cb.type='checkbox';
-    cb.value=p.value;
-    cb.style.cssText='accent-color:var(--accent);width:16px;height:16px;cursor:pointer;flex-shrink:0;';
-    cb.addEventListener('change',function(){
-      row.style.borderColor=cb.checked?'var(--accent)':'var(--border)';
-      row.style.background=cb.checked?'var(--accent-glow)':'var(--surface2)';
-    });
-    row.addEventListener('click',function(e){
-      if(e.target===cb)return;
-      cb.checked=!cb.checked;
-      cb.dispatchEvent(new Event('change'));
-    });
-    var info=document.createElement('div');
-    info.style.flex='1';
-    info.innerHTML='<div style="font-size:13px;font-weight:500;color:var(--text);">'+p.label+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;">'+p.desc+'</div>';
-    row.appendChild(cb);
-    row.appendChild(info);
-    container.appendChild(row);
-  });
-}
-
-
-
-function selectAllPerms(){
-  document.querySelectorAll('#perms-list input[type=checkbox]').forEach(function(cb){
-    cb.checked=true;cb.dispatchEvent(new Event('change'));
-  });
-}
-
-function clearAllPerms(){
-  document.querySelectorAll('#perms-list input[type=checkbox]').forEach(function(cb){
-    cb.checked=false;cb.dispatchEvent(new Event('change'));
-  });
-}
-
-function toggleCustomPerms(){
-  var role=document.getElementById('admin-role').value;
-  var el=document.getElementById('custom-perms');
-  if(role==='custom'){
-    el.style.display='block';
-    buildPermsList();
-  } else {
-    el.style.display='none';
-  }
-}
-
+var PERM_LIST=[{value:'dashboard',label:'Dashboard',desc:'Overview stats and revenue charts'},{value:'activity',label:'Activity',desc:'Full activity log of all actions'},{value:'customers',label:'Customers',desc:'View and manage customer accounts'},{value:'subscriptions',label:'Subscriptions',desc:'Manage rebilling schedules'},{value:'payments',label:'Payments',desc:'Full payment history and retries'},{value:'links',label:'Payment Links',desc:'Generate Stripe payment links'},{value:'accounts',label:'Stripe Accounts',desc:'Manage connected Stripe accounts'},{value:'forecast',label:'Forecast',desc:'Revenue projection for next 30–90 days'},{value:'expiry',label:'Expiring Cards',desc:'Cards expiring soon that need updating'},{value:'summary',label:'Daily Summary',desc:'Business snapshot and manual invoices'},{value:'settings',label:'Settings',desc:'Dunning, proration and app settings'},{value:'security',label:'Security',desc:'Two-factor auth and login protection'},{value:'webhooks',label:'Webhook Logs',desc:'Incoming Stripe webhook events'}];
+function buildPermsList(){var container=document.getElementById('perms-list');if(!container)return;container.innerHTML='';PERM_LIST.forEach(function(p){var row=document.createElement('label');row.style.cssText='display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;cursor:pointer;transition:all 0.15s;';var cb=document.createElement('input');cb.type='checkbox';cb.value=p.value;cb.style.cssText='accent-color:var(--accent);width:16px;height:16px;cursor:pointer;flex-shrink:0;';cb.addEventListener('change',function(){row.style.borderColor=cb.checked?'var(--accent)':'var(--border)';row.style.background=cb.checked?'var(--accent-glow)':'var(--surface2)';});row.addEventListener('click',function(e){if(e.target===cb)return;cb.checked=!cb.checked;cb.dispatchEvent(new Event('change'));});var info=document.createElement('div');info.style.flex='1';info.innerHTML='<div style="font-size:13px;font-weight:500;color:var(--text);">'+p.label+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;">'+p.desc+'</div>';row.appendChild(cb);row.appendChild(info);container.appendChild(row);});}
+function selectAllPerms(){document.querySelectorAll('#perms-list input[type=checkbox]').forEach(function(cb){cb.checked=true;cb.dispatchEvent(new Event('change'));});}
+function clearAllPerms(){document.querySelectorAll('#perms-list input[type=checkbox]').forEach(function(cb){cb.checked=false;cb.dispatchEvent(new Event('change'));});}
+function toggleCustomPerms(){var role=document.getElementById('admin-role').value;var el=document.getElementById('custom-perms');if(role==='custom'){el.style.display='block';buildPermsList();}else{el.style.display='none';}}
 async function addAdmin(){
-  var username=document.getElementById('admin-username').value.trim();
-  var password=document.getElementById('admin-password').value;
-  var role=document.getElementById('admin-role').value;
-  if(!username||!password){toast('Fill in all fields','error');return;}
-  if(password.length<8){toast('Password must be at least 8 characters','error');return;}
-  var permissions=[];
-  if(role==='custom'){
-    document.querySelectorAll('#perms-list input[type=checkbox]:checked').forEach(function(cb){permissions.push(cb.value);});
-    if(!permissions.length){toast('Select at least one section for custom access','error');return;}
-  }
-  try{
-    var r=await api('/api/admin-users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password,role,permissions})});
-    if(r.success){
-      toast('✓ Admin added');
-      closeModal('add-admin-modal');
-      document.getElementById('admin-username').value='';
-      document.getElementById('admin-password').value='';
-      document.getElementById('admin-role').value='admin';
-      document.getElementById('custom-perms').style.display='none';
-      clearAllPerms();
-      loadAdmins();
-    } else toast('Error: '+(r.error||'Failed'),'error');
-  }catch(e){toast('Error','error');}
+  var username=document.getElementById('admin-username').value.trim();var password=document.getElementById('admin-password').value;var role=document.getElementById('admin-role').value;
+  if(!username||!password){toast('Fill in all fields','error');return;}if(password.length<8){toast('Password must be at least 8 characters','error');return;}
+  var permissions=[];if(role==='custom'){document.querySelectorAll('#perms-list input[type=checkbox]:checked').forEach(function(cb){permissions.push(cb.value);});if(!permissions.length){toast('Select at least one section for custom access','error');return;}}
+  try{var r=await api('/api/admin-users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password,role,permissions})});if(r.success){toast('✓ Admin added');closeModal('add-admin-modal');document.getElementById('admin-username').value='';document.getElementById('admin-password').value='';document.getElementById('admin-role').value='admin';document.getElementById('custom-perms').style.display='none';clearAllPerms();loadAdmins();}else toast('Error: '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}
 }
-
-async function deleteAdmin(id){
-  if(!confirm('Remove this admin user?'))return;
-  try{
-    var r=await api('/api/admin-users/'+id,{method:'DELETE'});
-    if(r.success){toast('✓ Admin removed');loadAdmins();}
-    else toast('Error: '+(r.error||'Failed'),'error');
-  }catch(e){toast('Error','error');}
-}
-
-async function changeMyPassword(){
-  var np=document.getElementById('change-pass-new').value;
-  var cp=document.getElementById('change-pass-confirm').value;
-  if(!np||np.length<8){toast('Password must be at least 8 characters','error');return;}
-  if(np!==cp){toast('Passwords do not match','error');return;}
-  try{
-    // Get current user's ID
-    var list=await api('/api/admin-users');
-    var me=list.find(function(a){return a.username===localStorage.getItem('subloop_username');});
-    if(!me){toast('Could not find your account','error');return;}
-    var r=await api('/api/admin-users/'+me.id+'/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:np})});
-    if(r.success){toast('✓ Password updated');document.getElementById('change-pass-new').value='';document.getElementById('change-pass-confirm').value='';}
-    else toast('Error: '+(r.error||'Failed'),'error');
-  }catch(e){toast('Error','error');}
-}
-
-
-// ── Global Search ─────────────────────────────────────────────────────────────
+async function deleteAdmin(id){if(!confirm('Remove this admin user?'))return;try{var r=await api('/api/admin-users/'+id,{method:'DELETE'});if(r.success){toast('✓ Admin removed');loadAdmins();}else toast('Error: '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
+async function changeMyPassword(){var np=document.getElementById('change-pass-new').value;var cp=document.getElementById('change-pass-confirm').value;if(!np||np.length<8){toast('Password must be at least 8 characters','error');return;}if(np!==cp){toast('Passwords do not match','error');return;}try{var list=await api('/api/admin-users');var me=list.find(function(a){return a.username===localStorage.getItem('subloop_username');});if(!me){toast('Could not find your account','error');return;}var r=await api('/api/admin-users/'+me.id+'/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:np})});if(r.success){toast('✓ Password updated');document.getElementById('change-pass-new').value='';document.getElementById('change-pass-confirm').value='';}else toast('Error: '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
 var searchTimer=null;
 function globalSearch(q){
-  clearTimeout(searchTimer);
-  var res=document.getElementById('global-search-results');
+  clearTimeout(searchTimer);var res=document.getElementById('global-search-results');
   if(!q||q.length<2){res.style.display='none';return;}
   searchTimer=setTimeout(async function(){
     try{
-      var data=await api('/api/search?q='+encodeURIComponent(q));
-      var total=data.customers.length+data.payments.length+data.subscriptions.length;
-      res.innerHTML='';
-      if(!total){
-        var empty=document.createElement('div');
-        empty.style.cssText='padding:16px;text-align:center;font-size:13px;color:var(--muted);font-family:var(--mono);';
-        empty.textContent='No results found';
-        res.appendChild(empty);
-        res.style.display='block';
-        return;
-      }
-      function addSection(title,items,renderFn){
-        if(!items.length)return;
-        var hdr=document.createElement('div');
-        hdr.style.cssText='padding:8px 14px 4px;font-size:10px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.5px;border-top:1px solid var(--border);';
-        hdr.textContent=title;
-        res.appendChild(hdr);
-        items.forEach(function(item){
-          var row=renderFn(item);
-          res.appendChild(row);
-        });
-      }
-      function makeRow(content,onclick){
-        var row=document.createElement('div');
-        row.style.cssText='padding:8px 14px;cursor:pointer;';
-        row.innerHTML=content;
-        row.addEventListener('mouseenter',function(){row.style.background='var(--surface2)';});
-        row.addEventListener('mouseleave',function(){row.style.background='';});
-        row.addEventListener('click',function(){
-          onclick();
-          document.getElementById('global-search-input').value='';
-          res.style.display='none';
-        });
-        return row;
-      }
-      addSection('Customers',data.customers,function(c){
-        return makeRow('<div style="display:flex;align-items:center;gap:8px;"><div class="avatar">'+initials(c.name)+'</div><div><div style="font-size:13px;font-weight:500;">'+(c.name||'—')+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+(c.email||'')+'</div></div></div>',function(){
-          var navBtn=document.querySelector('.nav-item[onclick*="customers"]');
-          if(navBtn)showPage('customers',navBtn);
-        });
-      });
-      addSection('Payments',data.payments,function(p){
-        return makeRow('<div style="display:flex;align-items:center;justify-content:space-between;"><div style="font-size:13px;">'+(p.name||'—')+'</div><div style="display:flex;gap:8px;align-items:center;"><span class="mono" style="font-size:12px;">'+fmt(p.amount,p.currency)+'</span>'+badge(p.status)+'</div></div>',function(){
-          var navBtn=document.querySelector('.nav-item[onclick*="payments"]');
-          if(navBtn)showPage('payments',navBtn);
-        });
-      });
-      addSection('Subscriptions',data.subscriptions,function(s){
-        return makeRow('<div style="display:flex;align-items:center;justify-content:space-between;"><div style="font-size:13px;">'+(s.name||'—')+'</div><div style="display:flex;gap:8px;align-items:center;"><span class="mono" style="font-size:12px;">'+fmt(s.amount,s.currency)+'</span>'+badge(s.status)+'</div></div>',function(){
-          var navBtn=document.querySelector('.nav-item[onclick*="subscriptions"]');
-          if(navBtn)showPage('subscriptions',navBtn);
-        });
-      });
+      var data=await api('/api/search?q='+encodeURIComponent(q));var total=data.customers.length+data.payments.length+data.subscriptions.length;res.innerHTML='';
+      if(!total){var empty=document.createElement('div');empty.style.cssText='padding:16px;text-align:center;font-size:13px;color:var(--muted);font-family:var(--mono);';empty.textContent='No results found';res.appendChild(empty);res.style.display='block';return;}
+      function addSection(title,items,renderFn){if(!items.length)return;var hdr=document.createElement('div');hdr.style.cssText='padding:8px 14px 4px;font-size:10px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.5px;border-top:1px solid var(--border);';hdr.textContent=title;res.appendChild(hdr);items.forEach(function(item){res.appendChild(renderFn(item));});}
+      function makeRow(content,onclick){var row=document.createElement('div');row.style.cssText='padding:8px 14px;cursor:pointer;';row.innerHTML=content;row.addEventListener('mouseenter',function(){row.style.background='var(--surface2)';});row.addEventListener('mouseleave',function(){row.style.background='';});row.addEventListener('click',function(){onclick();document.getElementById('global-search-input').value='';res.style.display='none';});return row;}
+      addSection('Customers',data.customers,function(c){return makeRow('<div style="display:flex;align-items:center;gap:8px;"><div class="avatar">'+initials(c.name)+'</div><div><div style="font-size:13px;font-weight:500;">'+(c.name||'—')+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+(c.email||'')+'</div></div></div>',function(){var navBtn=document.querySelector('.nav-item[onclick*="customers"]');if(navBtn)showPage('customers',navBtn);});});
+      addSection('Payments',data.payments,function(p){return makeRow('<div style="display:flex;align-items:center;justify-content:space-between;"><div style="font-size:13px;">'+(p.name||'—')+'</div><div style="display:flex;gap:8px;align-items:center;"><span class="mono" style="font-size:12px;">'+fmt(p.amount,p.currency)+'</span>'+badge(p.status)+'</div></div>',function(){var navBtn=document.querySelector('.nav-item[onclick*="payments"]');if(navBtn)showPage('payments',navBtn);});});
+      addSection('Subscriptions',data.subscriptions,function(s){return makeRow('<div style="display:flex;align-items:center;justify-content:space-between;"><div style="font-size:13px;">'+(s.name||'—')+'</div><div style="display:flex;gap:8px;align-items:center;"><span class="mono" style="font-size:12px;">'+fmt(s.amount,s.currency)+'</span>'+badge(s.status)+'</div></div>',function(){var navBtn=document.querySelector('.nav-item[onclick*="subscriptions"]');if(navBtn)showPage('subscriptions',navBtn);});});
       res.style.display='block';
     }catch(e){res.style.display='none';}
   },300);
 }
-document.addEventListener('click',function(e){
-  if(!e.target.closest('#global-search-input')&&!e.target.closest('#global-search-results')){
-    var r=document.getElementById('global-search-results');
-    if(r)r.style.display='none';
-  }
-});
-
-
-// ── Churn Alerts ──────────────────────────────────────────────────────────────
-async function loadChurnAlerts(){
-  try{
-    var d=await api('/api/churn-alerts');
-    var section=document.getElementById('churn-alerts-section');
-    var list=document.getElementById('churn-alerts-list');
-    var count=document.getElementById('churn-count');
-    var all=[...d.cancelled,...d.failing];
-    if(!all.length){section.style.display='none';return;}
-    section.style.display='block';
-    count.textContent=all.length;
-    var html='';
-    d.cancelled.forEach(function(c){
-      html+='<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(248,113,113,0.15);">'+
-        '<div class="avatar">'+initials(c.name)+'</div>'+
-        '<div style="flex:1;"><div style="font-size:13px;font-weight:500;">'+(c.name||'—')+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+(c.email||'')+'</div></div>'+
-        '<span class="badge badge-red">cancelled</span>'+
-      '</div>';
-    });
-    d.failing.forEach(function(c){
-      html+='<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(248,113,113,0.15);">'+
-        '<div class="avatar">'+initials(c.name)+'</div>'+
-        '<div style="flex:1;"><div style="font-size:13px;font-weight:500;">'+(c.name||'—')+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+(c.email||'')+'</div></div>'+
-        '<span class="badge badge-amber">'+c.dunning_count+' failures</span>'+
-      '</div>';
-    });
-    list.innerHTML=html;
-  }catch(e){}
-}
-
-// ── Plan Templates ────────────────────────────────────────────────────────────
-async function loadTemplates(){
-  try{
-    var list=await api('/api/plan-templates');
-    var el=document.getElementById('templates-list');
-    var count=document.getElementById('template-count');
-    if(!el)return;
-    if(count)count.textContent='('+list.length+')';
-    el.innerHTML='';
-    if(!list.length){
-      var empty=document.createElement('span');
-      empty.style.cssText='font-size:12px;color:var(--muted);font-family:var(--mono);';
-      empty.textContent='No templates yet — save one below';
-      el.appendChild(empty);
-      return;
-    }
-    list.forEach(function(t){
-      var chip=document.createElement('div');
-      chip.style.cssText='display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:5px 10px;cursor:pointer;';
-      chip.addEventListener('click',function(){applyTemplate(t.amount,t.currency,t.interval_days,t.name);});
-      var name=document.createElement('span');
-      name.style.cssText='font-size:12px;font-weight:500;';
-      name.textContent=t.name;
-      var price=document.createElement('span');
-      price.style.cssText='font-size:11px;color:var(--muted);font-family:var(--mono);';
-      price.textContent=fmt(t.amount,t.currency)+'/'+t.interval_days+'d';
-      var del=document.createElement('button');
-      del.style.cssText='background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:0 2px;line-height:1;';
-      del.textContent='✕';
-      del.addEventListener('click',function(e){e.stopPropagation();deleteTemplate(t.id);});
-      chip.appendChild(name);chip.appendChild(price);chip.appendChild(del);
-      el.appendChild(chip);
-    });
-  }catch(e){console.error(e);}
-}
-
-function applyTemplate(amount,currency,interval,name){
-  document.getElementById('link-name').value=name;
-  document.getElementById('link-amount').value=(amount/100).toFixed(2);
-  document.getElementById('link-currency').value=currency;
-  document.getElementById('link-interval').value=String(interval);
-  toast('✓ Template applied');
-}
-
-async function saveTemplate(){
-  var name=document.getElementById('tmpl-name').value.trim();
-  var amount=Math.round(parseFloat(document.getElementById('tmpl-amount').value)*100);
-  var interval=document.getElementById('tmpl-interval').value;
-  if(!name||!amount){toast('Fill in name and amount','error');return;}
-  await api('/api/plan-templates',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,amount,currency:'usd',interval_days:parseInt(interval)})});
-  toast('✓ Template saved');
-  document.getElementById('tmpl-name').value='';
-  document.getElementById('tmpl-amount').value='';
-  loadTemplates();
-}
-
-async function deleteTemplate(id){
-  await api('/api/plan-templates/'+id,{method:'DELETE'});
-  toast('Template deleted');
-  loadTemplates();
-}
-
-// ── MRR Growth ────────────────────────────────────────────────────────────────
+document.addEventListener('click',function(e){if(!e.target.closest('#global-search-input')&&!e.target.closest('#global-search-results')){var r=document.getElementById('global-search-results');if(r)r.style.display='none';}});
+async function loadChurnAlerts(){try{var d=await api('/api/churn-alerts');var section=document.getElementById('churn-alerts-section');var list=document.getElementById('churn-alerts-list');var count=document.getElementById('churn-count');var all=[...d.cancelled,...d.failing];if(!all.length){section.style.display='none';return;}section.style.display='block';count.textContent=all.length;var html='';d.cancelled.forEach(function(c){html+='<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(248,113,113,0.15);"><div class="avatar">'+initials(c.name)+'</div><div style="flex:1;"><div style="font-size:13px;font-weight:500;">'+(c.name||'—')+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+(c.email||'')+'</div></div><span class="badge badge-red">cancelled</span></div>';});d.failing.forEach(function(c){html+='<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(248,113,113,0.15);"><div class="avatar">'+initials(c.name)+'</div><div style="flex:1;"><div style="font-size:13px;font-weight:500;">'+(c.name||'—')+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+(c.email||'')+'</div></div><span class="badge badge-amber">'+c.dunning_count+' failures</span></div>';});list.innerHTML=html;}catch(e){}}
+async function loadTemplates(){try{var list=await api('/api/plan-templates');var el=document.getElementById('templates-list');var count=document.getElementById('template-count');if(!el)return;if(count)count.textContent='('+list.length+')';el.innerHTML='';if(!list.length){var empty=document.createElement('span');empty.style.cssText='font-size:12px;color:var(--muted);font-family:var(--mono);';empty.textContent='No templates yet — save one below';el.appendChild(empty);return;}list.forEach(function(t){var chip=document.createElement('div');chip.style.cssText='display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:5px 10px;cursor:pointer;';chip.addEventListener('click',function(){applyTemplate(t.amount,t.currency,t.interval_days,t.name);});var name=document.createElement('span');name.style.cssText='font-size:12px;font-weight:500;';name.textContent=t.name;var price=document.createElement('span');price.style.cssText='font-size:11px;color:var(--muted);font-family:var(--mono);';price.textContent=fmt(t.amount,t.currency)+'/'+t.interval_days+'d';var del=document.createElement('button');del.style.cssText='background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:0 2px;line-height:1;';del.textContent='✕';del.addEventListener('click',function(e){e.stopPropagation();deleteTemplate(t.id);});chip.appendChild(name);chip.appendChild(price);chip.appendChild(del);el.appendChild(chip);});}catch(e){}}
+function applyTemplate(amount,currency,interval,name){document.getElementById('link-name').value=name;document.getElementById('link-amount').value=(amount/100).toFixed(2);document.getElementById('link-currency').value=currency;document.getElementById('link-interval').value=String(interval);toast('✓ Template applied');}
+async function saveTemplate(){var name=document.getElementById('tmpl-name').value.trim();var amount=Math.round(parseFloat(document.getElementById('tmpl-amount').value)*100);var interval=document.getElementById('tmpl-interval').value;if(!name||!amount){toast('Fill in name and amount','error');return;}await api('/api/plan-templates',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,amount,currency:'usd',interval_days:parseInt(interval)})});toast('✓ Template saved');document.getElementById('tmpl-name').value='';document.getElementById('tmpl-amount').value='';loadTemplates();}
+async function deleteTemplate(id){await api('/api/plan-templates/'+id,{method:'DELETE'});toast('Template deleted');loadTemplates();}
 async function loadMrr(){
   try{
-    var period=document.getElementById('mrr-period')?.value||'month';
-    var titleEl=document.getElementById('mrr-chart-title');
-    var data=await api('/api/revenue-chart'+(period==='month'?'':period==='3months'?'?period=3months':''));
-
-    // For monthly view use daily data, for longer use monthly aggregation
-    var points=[];
-    var now=new Date();
-
-    if(period==='month'){
-      // Daily for current month
-      if(titleEl) titleEl.textContent='Daily revenue — '+now.toLocaleString('en-US',{month:'long',year:'numeric'});
-      var daysInMonth=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
-      for(var d=1;d<=daysInMonth;d++){
-        var dateStr=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
-        var found=data.find(function(r){return r.day&&r.day.startsWith(dateStr);});
-        points.push({label:String(d),value:parseInt(found?.revenue||0),date:dateStr});
-      }
-    } else if(period==='3months'){
-      if(titleEl) titleEl.textContent='Revenue — last 3 months';
-      var months3=await api('/api/mrr-history');
-      months3.slice(-3).forEach(function(r){points.push({label:r.month,value:parseInt(r.revenue||0),date:r.month});});
-    } else {
-      if(titleEl) titleEl.textContent='Revenue — last 12 months';
-      var months12=await api('/api/mrr-history');
-      months12.forEach(function(r){points.push({label:r.month,value:parseInt(r.revenue||0),date:r.month});});
-    }
-
-    // Update summary cards
-    var thisMonth=data.reduce(function(s,r){
-      if(r.day&&new Date(r.day).getMonth()===now.getMonth()&&new Date(r.day).getFullYear()===now.getFullYear())
-        return s+(parseInt(r.revenue)||0);
-      return s;
-    },0);
-    var lastMonthDate=new Date(now.getFullYear(),now.getMonth()-1,1);
-    var lastMonth=data.reduce(function(s,r){
-      if(r.day&&new Date(r.day).getMonth()===lastMonthDate.getMonth()&&new Date(r.day).getFullYear()===lastMonthDate.getFullYear())
-        return s+(parseInt(r.revenue)||0);
-      return s;
-    },0);
+    var period=document.getElementById('mrr-period')?.value||'month';var titleEl=document.getElementById('mrr-chart-title');
+    var data=await api('/api/revenue-chart');var points=[];var now=new Date();
+    if(period==='month'){if(titleEl)titleEl.textContent='Daily revenue — '+now.toLocaleString('en-US',{month:'long',year:'numeric'});var daysInMonth=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();for(var d=1;d<=daysInMonth;d++){var dateStr=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');var found=data.find(function(r){return r.day&&r.day.startsWith(dateStr);});points.push({label:String(d),value:parseInt(found?.revenue||0),date:dateStr});}}
+    else if(period==='3months'){if(titleEl)titleEl.textContent='Revenue — last 3 months';var months3=await api('/api/mrr-history');months3.slice(-3).forEach(function(r){points.push({label:r.month,value:parseInt(r.revenue||0),date:r.month});});}
+    else{if(titleEl)titleEl.textContent='Revenue — last 12 months';var months12=await api('/api/mrr-history');months12.forEach(function(r){points.push({label:r.month,value:parseInt(r.revenue||0),date:r.month});});}
+    var thisMonth=data.reduce(function(s,r){if(r.day&&new Date(r.day).getMonth()===now.getMonth()&&new Date(r.day).getFullYear()===now.getFullYear())return s+(parseInt(r.revenue)||0);return s;},0);
+    var lastMonthDate=new Date(now.getFullYear(),now.getMonth()-1,1);var lastMonth=data.reduce(function(s,r){if(r.day&&new Date(r.day).getMonth()===lastMonthDate.getMonth()&&new Date(r.day).getFullYear()===lastMonthDate.getFullYear())return s+(parseInt(r.revenue)||0);return s;},0);
     var growth=lastMonth>0?Math.round(((thisMonth-lastMonth)/lastMonth)*100):0;
-    var te=document.getElementById('mrr-this');if(te)te.textContent=fmt(thisMonth);
-    var le=document.getElementById('mrr-last');if(le)le.textContent=fmt(lastMonth);
-    var ge=document.getElementById('mrr-growth');
-    if(ge){ge.textContent=(growth>=0?'+':'')+growth+'%';ge.style.color=growth>=0?'var(--green)':'var(--red)';}
-
+    var te=document.getElementById('mrr-this');if(te)te.textContent=fmt(thisMonth);var le=document.getElementById('mrr-last');if(le)le.textContent=fmt(lastMonth);var ge=document.getElementById('mrr-growth');if(ge){ge.textContent=(growth>=0?'+':'')+growth+'%';ge.style.color=growth>=0?'var(--green)':'var(--red)';}
     drawMrrChart(points);
-  }catch(e){console.error('loadMrr:',e);}
+  }catch(e){}
 }
-
 function drawMrrChart(points){
-  var canvas=document.getElementById('mrr-canvas');
-  var emptyEl=document.getElementById('mrr-empty');
-  var tooltip=document.getElementById('mrr-tooltip');
-  if(!canvas)return;
-
+  var canvas=document.getElementById('mrr-canvas');var emptyEl=document.getElementById('mrr-empty');var tooltip=document.getElementById('mrr-tooltip');if(!canvas)return;
   var hasData=points.some(function(p){return p.value>0;});
-  if(!hasData){
-    canvas.style.display='none';
-    if(emptyEl)emptyEl.style.display='block';
-    return;
-  }
-  canvas.style.display='block';
-  if(emptyEl)emptyEl.style.display='none';
-
-  // Set canvas size
-  var rect=canvas.parentElement.getBoundingClientRect();
-  var W=rect.width-36||600;
-  var H=220;
-  canvas.width=W;
-  canvas.height=H;
-  canvas.style.width='100%';
-  canvas.style.height=H+'px';
-
-  var ctx=canvas.getContext('2d');
-  ctx.clearRect(0,0,W,H);
-
-  var isDark=!document.documentElement.classList.contains('light');
-  var gridColor=isDark?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.06)';
-  var textColor=isDark?'rgba(255,255,255,0.4)':'rgba(0,0,0,0.4)';
-  var accentColor='#6c63ff';
-  var accentGlow='rgba(108,99,255,0.15)';
-
-  var PAD={top:20,right:20,bottom:40,left:60};
-  var cW=W-PAD.left-PAD.right;
-  var cH=H-PAD.top-PAD.bottom;
-
-  var maxVal=Math.max(...points.map(function(p){return p.value;}),1);
-  // Round up max to nice number
-  var niceMax=Math.ceil(maxVal/100)*100||100;
-
-  // Grid lines & Y labels
-  ctx.font='11px monospace';
-  ctx.textAlign='right';
-  ctx.fillStyle=textColor;
-  var ySteps=5;
-  for(var i=0;i<=ySteps;i++){
-    var yVal=(niceMax/ySteps)*i;
-    var y=PAD.top+cH-(cH*(yVal/niceMax));
-    ctx.strokeStyle=gridColor;
-    ctx.lineWidth=1;
-    ctx.beginPath();ctx.moveTo(PAD.left,y);ctx.lineTo(W-PAD.right,y);ctx.stroke();
-    ctx.fillStyle=textColor;
-    ctx.fillText(yVal>=100?'$'+(yVal/100).toFixed(0):'$0',PAD.left-6,y+4);
-  }
-
-  // X labels — show every Nth label to avoid overlap
-  var step=Math.ceil(points.length/12);
-  ctx.textAlign='center';
-  ctx.fillStyle=textColor;
-  points.forEach(function(p,i){
-    if(i%step===0||i===points.length-1){
-      var x=PAD.left+(i/(points.length-1||1))*cW;
-      ctx.fillText(p.label,x,H-PAD.bottom+16);
-    }
-  });
-
-  // Fill area under line
-  ctx.beginPath();
-  points.forEach(function(p,i){
-    var x=PAD.left+(i/(points.length-1||1))*cW;
-    var y=PAD.top+cH-(cH*(p.value/niceMax));
-    if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
-  });
-  // Close fill path
-  var lastX=PAD.left+cW;
-  var firstX=PAD.left;
-  ctx.lineTo(lastX,PAD.top+cH);
-  ctx.lineTo(firstX,PAD.top+cH);
-  ctx.closePath();
-  var grad=ctx.createLinearGradient(0,PAD.top,0,PAD.top+cH);
-  grad.addColorStop(0,'rgba(108,99,255,0.25)');
-  grad.addColorStop(1,'rgba(108,99,255,0.02)');
-  ctx.fillStyle=grad;
-  ctx.fill();
-
-  // Draw line
-  ctx.beginPath();
-  ctx.strokeStyle=accentColor;
-  ctx.lineWidth=2.5;
-  ctx.lineJoin='round';
-  ctx.lineCap='round';
-  points.forEach(function(p,i){
-    var x=PAD.left+(i/(points.length-1||1))*cW;
-    var y=PAD.top+cH-(cH*(p.value/niceMax));
-    if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
-  });
-  ctx.stroke();
-
-  // Dots on data points
-  points.forEach(function(p,i){
-    if(p.value>0){
-      var x=PAD.left+(i/(points.length-1||1))*cW;
-      var y=PAD.top+cH-(cH*(p.value/niceMax));
-      ctx.beginPath();
-      ctx.arc(x,y,4,0,Math.PI*2);
-      ctx.fillStyle=accentColor;
-      ctx.fill();
-      ctx.strokeStyle=isDark?'#111118':'#fff';
-      ctx.lineWidth=2;
-      ctx.stroke();
-    }
-  });
-
-  // Tooltip on hover
-  canvas.onmousemove=function(e){
-    var bRect=canvas.getBoundingClientRect();
-    var mx=(e.clientX-bRect.left)*(canvas.width/bRect.width);
-    var idx=Math.round((mx-PAD.left)/cW*(points.length-1));
-    if(idx<0||idx>=points.length){tooltip.style.display='none';return;}
-    var p=points[idx];
-    var x=PAD.left+(idx/(points.length-1||1))*cW;
-    var y=PAD.top+cH-(cH*(p.value/niceMax));
-    // Draw crosshair
-    drawMrrChart(points);
-    ctx.beginPath();ctx.setLineDash([4,4]);ctx.strokeStyle='rgba(108,99,255,0.4)';ctx.lineWidth=1;
-    ctx.moveTo(x,PAD.top);ctx.lineTo(x,PAD.top+cH);ctx.stroke();
-    ctx.setLineDash([]);
-    // Show tooltip
-    tooltip.style.display='block';
-    tooltip.innerHTML='<div style="color:var(--muted);margin-bottom:2px;">'+p.date+'</div><div style="font-weight:600;color:var(--accent);">'+fmt(p.value)+'</div>';
-    var tipX=x>W/2?x-150:x+10;
-    tooltip.style.left=tipX+'px';
-    tooltip.style.top=(y-40)+'px';
-  };
-  canvas.onmouseleave=function(){
-    tooltip.style.display='none';
-    drawMrrChart(points);
-  };
+  if(!hasData){canvas.style.display='none';if(emptyEl)emptyEl.style.display='block';return;}
+  canvas.style.display='block';if(emptyEl)emptyEl.style.display='none';
+  var rect=canvas.parentElement.getBoundingClientRect();var W=rect.width-36||600;var H=220;canvas.width=W;canvas.height=H;canvas.style.width='100%';canvas.style.height=H+'px';
+  var ctx=canvas.getContext('2d');ctx.clearRect(0,0,W,H);
+  var isDark=!document.documentElement.classList.contains('light');var gridColor=isDark?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.06)';var textColor=isDark?'rgba(255,255,255,0.4)':'rgba(0,0,0,0.4)';var accentColor='#6c63ff';
+  var PAD={top:20,right:20,bottom:40,left:60};var cW=W-PAD.left-PAD.right;var cH=H-PAD.top-PAD.bottom;
+  var maxVal=Math.max(...points.map(function(p){return p.value;}),1);var niceMax=Math.ceil(maxVal/100)*100||100;
+  ctx.font='11px monospace';var ySteps=5;
+  for(var i=0;i<=ySteps;i++){var yVal=(niceMax/ySteps)*i;var y=PAD.top+cH-(cH*(yVal/niceMax));ctx.strokeStyle=gridColor;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(PAD.left,y);ctx.lineTo(W-PAD.right,y);ctx.stroke();ctx.fillStyle=textColor;ctx.textAlign='right';ctx.fillText(yVal>=100?'$'+(yVal/100).toFixed(0):'$0',PAD.left-6,y+4);}
+  var step=Math.ceil(points.length/12);ctx.textAlign='center';ctx.fillStyle=textColor;
+  points.forEach(function(p,i){if(i%step===0||i===points.length-1){var x=PAD.left+(i/(points.length-1||1))*cW;ctx.fillText(p.label,x,H-PAD.bottom+16);}});
+  ctx.beginPath();points.forEach(function(p,i){var x=PAD.left+(i/(points.length-1||1))*cW;var y=PAD.top+cH-(cH*(p.value/niceMax));if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);});
+  ctx.lineTo(PAD.left+cW,PAD.top+cH);ctx.lineTo(PAD.left,PAD.top+cH);ctx.closePath();
+  var grad=ctx.createLinearGradient(0,PAD.top,0,PAD.top+cH);grad.addColorStop(0,'rgba(108,99,255,0.25)');grad.addColorStop(1,'rgba(108,99,255,0.02)');ctx.fillStyle=grad;ctx.fill();
+  ctx.beginPath();ctx.strokeStyle=accentColor;ctx.lineWidth=2.5;ctx.lineJoin='round';ctx.lineCap='round';points.forEach(function(p,i){var x=PAD.left+(i/(points.length-1||1))*cW;var y=PAD.top+cH-(cH*(p.value/niceMax));if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);});ctx.stroke();
+  points.forEach(function(p,i){if(p.value>0){var x=PAD.left+(i/(points.length-1||1))*cW;var y=PAD.top+cH-(cH*(p.value/niceMax));ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fillStyle=accentColor;ctx.fill();ctx.strokeStyle=isDark?'#111118':'#fff';ctx.lineWidth=2;ctx.stroke();}});
+  canvas.onmousemove=function(e){var bRect=canvas.getBoundingClientRect();var mx=(e.clientX-bRect.left)*(canvas.width/bRect.width);var idx=Math.round((mx-PAD.left)/cW*(points.length-1));if(idx<0||idx>=points.length){tooltip.style.display='none';return;}var p=points[idx];var x=PAD.left+(idx/(points.length-1||1))*cW;var y=PAD.top+cH-(cH*(p.value/niceMax));drawMrrChart(points);ctx.beginPath();ctx.setLineDash([4,4]);ctx.strokeStyle='rgba(108,99,255,0.4)';ctx.lineWidth=1;ctx.moveTo(x,PAD.top);ctx.lineTo(x,PAD.top+cH);ctx.stroke();ctx.setLineDash([]);tooltip.style.display='block';tooltip.innerHTML='<div style="color:var(--muted);margin-bottom:2px;">'+p.date+'</div><div style="font-weight:600;color:var(--accent);">'+fmt(p.value)+'</div>';var tipX=x>W/2?x-150:x+10;tooltip.style.left=tipX+'px';tooltip.style.top=(y-40)+'px';};
+  canvas.onmouseleave=function(){tooltip.style.display='none';drawMrrChart(points);};
 }
-
-
-// ── Best Customers ────────────────────────────────────────────────────────────
-async function loadBest(){
-  try{
-    var list=await api('/api/best-customers');
-    var tb=document.getElementById('best-table');
-    if(!list.length){tb.innerHTML='<tr><td colspan="6" class="empty">No data yet</td></tr>';return;}
-    tb.innerHTML=list.map(function(c,i){
-      var medal;
-      if(i===0) medal='<svg width="20" height="20" viewBox="0 0 24 24" fill="#f59e0b" stroke="#d97706" stroke-width="1.5"><circle cx="12" cy="8" r="6"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12" stroke="#d97706" fill="#fbbf24"/></svg>';
-      else if(i===1) medal='<svg width="20" height="20" viewBox="0 0 24 24" fill="#9ca3af" stroke="#6b7280" stroke-width="1.5"><circle cx="12" cy="8" r="6"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12" stroke="#6b7280" fill="#d1d5db"/></svg>';
-      else if(i===2) medal='<svg width="20" height="20" viewBox="0 0 24 24" fill="#cd7c54" stroke="#b45309" stroke-width="1.5"><circle cx="12" cy="8" r="6"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12" stroke="#b45309" fill="#d97706"/></svg>';
-      else medal='<span style="font-size:13px;font-weight:600;color:var(--muted);font-family:var(--mono);">#'+(i+1)+'</span>';
-      return '<tr>'+
-        '<td style="text-align:center;">'+medal+'</td>'+
-        '<td><div class="customer-cell"><div class="avatar">'+initials(c.name)+'</div><div><div class="customer-name">'+(c.name||'—')+'</div><div class="customer-email">'+(c.email||'')+'</div></div></div></td>'+
-        '<td>'+cardBadge(c.card_brand,c.card_last4)+'</td>'+
-        '<td class="mono" style="font-weight:700;color:var(--green);">'+fmt(parseInt(c.total_paid)||0)+'</td>'+
-        '<td class="mono">'+( c.payment_count||0)+' payments</td>'+
-        '<td class="mono" style="font-size:12px;color:var(--muted);">'+fmtDate(c.last_payment)+'</td>'+
-      '</tr>';
-    }).join('');
-  }catch(e){}
-}
-
-// ── Recovery Rate ─────────────────────────────────────────────────────────────
-async function loadRecovery(){
-  try{
-    var d=await api('/api/recovery-rate');
-    var rf=document.getElementById('rec-failed');if(rf)rf.textContent=d.total_failed||0;
-    var rr=document.getElementById('rec-recovered');if(rr)rr.textContent=d.recovered||0;
-    var rt=document.getElementById('rec-rate');
-    if(rt){rt.textContent=(d.rate||0)+'%';rt.style.color=(d.rate||0)>=50?'var(--green)':'var(--red)';}
-  }catch(e){}
-}
-
-// ── Payment Notes ─────────────────────────────────────────────────────────────
-async function openPaymentNote(id){
-  document.getElementById('payment-note-id').value=id;
-  document.getElementById('payment-note-text').value='Loading...';
-  openModal('payment-note-modal');
-  try{
-    var list=await api('/api/payments');
-    var p=list.find(function(x){return x.id===id;});
-    document.getElementById('payment-note-text').value=p&&p.note?p.note:'';
-  }catch(e){document.getElementById('payment-note-text').value='';}
-}
-async function savePaymentNote(){
-  var id=document.getElementById('payment-note-id').value;
-  var note=document.getElementById('payment-note-text').value;
-  await api('/api/payments/'+id+'/note',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({note})});
-  toast('✓ Note saved');
-  closeModal('payment-note-modal');
-  loadPayments();
-}
-
-// Store refs for copy buttons
-var _refStore={};
-var _refIdx=0;
-
-function buildRefCell(pi){
-  if(!pi) return '—';
-  var short=pi.slice(0,8)+'...'+pi.slice(-4);
-  var key='ref_'+(++_refIdx);
-  _refStore[key]=pi;
-  var btn='<button class="btn btn-sm" style="padding:1px 5px;font-size:10px;" ';
-  btn+='onclick="copyStoredRef(this.dataset.k)" data-k="'+key+'">Copy</button>';
-  return '<div style="display:flex;align-items:center;gap:4px;">'
-    +'<span class="mono" style="font-size:11px;color:var(--muted);">'+short+'</span>'
-    +btn
-    +'</div>';
-}
-
-
-function copyStoredRef(keyOrEl){
-  var key=typeof keyOrEl==='string'?keyOrEl:keyOrEl.dataset.k;
-  var val=_refStore[key];
-  if(!val)return;
-  if(navigator.clipboard&&navigator.clipboard.writeText){
-    navigator.clipboard.writeText(val).then(function(){toast('Copied!');}).catch(function(){fallbackCopy(val);});
-  } else { fallbackCopy(val); }
-}
-
-function fallbackCopy(text){
-  var ta=document.createElement('textarea');
-  ta.value=text;
-  ta.style.cssText='position:fixed;left:-9999px;top:-9999px;';
-  document.body.appendChild(ta);
-  ta.select();
-  try{document.execCommand('copy');toast('Copied!');}catch(e){toast('Copy failed','error');}
-  document.body.removeChild(ta);
-}
-function copyRef(btn){var ref=btn.dataset.ref;navigator.clipboard.writeText(ref);toast('Copied!');}
-function openEditAcc(id){
-  var a=(allStripeAccounts||[]).find(function(x){return x.id===id;});
-  var name=a?a.name:'';
-  openEditAccount(id,name);
-}
-function openEditAccount(id, name){
-  document.getElementById('edit-acc-id').value=id;
-  document.getElementById('edit-acc-name').value=name||'';
-  document.getElementById('edit-acc-key').value='';
-  document.getElementById('edit-acc-webhook').value='';
-  document.getElementById('edit-acc-error').style.display='none';
-  openModal('edit-account-modal');
-}
-
-async function saveEditAccount(){
-  var id=document.getElementById('edit-acc-id').value;
-  var name=document.getElementById('edit-acc-name').value.trim();
-  var key=document.getElementById('edit-acc-key').value.trim();
-  var webhook=document.getElementById('edit-acc-webhook').value.trim();
-  var errEl=document.getElementById('edit-acc-error');
-  if(!name){errEl.textContent='Account name is required';errEl.style.display='block';return;}
-  try{
-    var r=await api('/api/stripe-accounts/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,secret_key:key||null,webhook_secret:webhook||null})});
-    if(r.success){
-      toast('✓ Account updated');
-      closeModal('edit-account-modal');
-      loadAccounts();
-    } else {
-      errEl.textContent=r.error||'Update failed';
-      errEl.style.display='block';
-    }
-  }catch(e){errEl.textContent='Server error';errEl.style.display='block';}
-}
-
+async function loadRecovery(){try{var d=await api('/api/recovery-rate');var rf=document.getElementById('rec-failed');if(rf)rf.textContent=d.total_failed||0;var rr=document.getElementById('rec-recovered');if(rr)rr.textContent=d.recovered||0;var rt=document.getElementById('rec-rate');if(rt){rt.textContent=(d.rate||0)+'%';rt.style.color=(d.rate||0)>=50?'var(--green)':'var(--red)';}}catch(e){}}
+async function openPaymentNote(id){document.getElementById('payment-note-id').value=id;document.getElementById('payment-note-text').value='Loading...';openModal('payment-note-modal');try{var list=await api('/api/payments');var p=list.find(function(x){return x.id===id;});document.getElementById('payment-note-text').value=p&&p.note?p.note:'';}catch(e){document.getElementById('payment-note-text').value='';}}
+async function savePaymentNote(){var id=document.getElementById('payment-note-id').value;var note=document.getElementById('payment-note-text').value;await api('/api/payments/'+id+'/note',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({note})});toast('✓ Note saved');closeModal('payment-note-modal');loadPayments();}
+var _refStore={};var _refIdx=0;
+function buildRefCell(pi){if(!pi)return '—';var short=pi.slice(0,8)+'...'+pi.slice(-4);var key='ref_'+(++_refIdx);_refStore[key]=pi;return '<div style="display:flex;align-items:center;gap:4px;"><span class="mono" style="font-size:11px;color:var(--muted);">'+short+'</span><button class="btn btn-sm" style="padding:1px 5px;font-size:10px;" onclick="copyStoredRef(this.dataset.k)" data-k="'+key+'">Copy</button></div>';}
+function copyStoredRef(keyOrEl){var key=typeof keyOrEl==='string'?keyOrEl:keyOrEl.dataset.k;var val=_refStore[key];if(!val)return;if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(val).then(function(){toast('Copied!');}).catch(function(){fallbackCopy(val);});}else{fallbackCopy(val);}}
+function fallbackCopy(text){var ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;left:-9999px;top:-9999px;';document.body.appendChild(ta);ta.select();try{document.execCommand('copy');toast('Copied!');}catch(e){toast('Copy failed','error');}document.body.removeChild(ta);}
 function openEditAcc(id){
   var a=(allStripeAccounts||[]).find(function(x){return x.id===id;});
   document.getElementById('edit-acc-id').value=id;
@@ -2252,7 +1271,6 @@ function openEditAcc(id){
   document.getElementById('edit-acc-error').style.display='none';
   openModal('edit-account-modal');
 }
-
 async function saveEditAccount(){
   var id=document.getElementById('edit-acc-id').value;
   var name=document.getElementById('edit-acc-name').value.trim();
@@ -2261,154 +1279,17 @@ async function saveEditAccount(){
   var errEl=document.getElementById('edit-acc-error');
   errEl.style.display='none';
   if(!name){errEl.textContent='Account name is required';errEl.style.display='block';return;}
-  try{
-    var r=await api('/api/stripe-accounts/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,secret_key:key||null,webhook_secret:webhook||null})});
-    if(r.success){toast('✓ Account updated');closeModal('edit-account-modal');loadAccounts();}
-    else{errEl.textContent=r.error||'Update failed';errEl.style.display='block';}
-  }catch(e){errEl.textContent='Server error';errEl.style.display='block';}
+  try{var r=await api('/api/stripe-accounts/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,secret_key:key||null,webhook_secret:webhook||null})});if(r.success){toast('✓ Account updated');closeModal('edit-account-modal');loadAccounts();}else{errEl.textContent=r.error||'Update failed';errEl.style.display='block';}}catch(e){errEl.textContent='Server error';errEl.style.display='block';}
 }
-
-function toggleSettingsNav(){
-  var sub=document.getElementById('settings-subnav');
-  var chev=document.getElementById('settings-chevron');
-  var open=sub.style.display==='none';
-  sub.style.display=open?'block':'none';
-  if(chev) chev.style.transform=open?'rotate(180deg)':'rotate(0deg)';
-}
-
-// Auto-expand settings nav if a settings page is active
-function expandSettingsIfNeeded(name){
-  var settingsPages=['admins','settings','security','webhooks'];
-  if(settingsPages.includes(name)){
-    var sub=document.getElementById('settings-subnav');
-    var chev=document.getElementById('settings-chevron');
-    if(sub&&sub.style.display==='none'){
-      sub.style.display='block';
-      if(chev)chev.style.transform='rotate(180deg)';
-    }
-  }
-}
-
-function showRestrictedPage(name){
-  var existing=document.getElementById('page-restricted');
-  if(!existing){
-    var div=document.createElement('div');
-    div.id='page-restricted';
-    div.className='page';
-    document.querySelector('.main').appendChild(div);
-  }
-  var pg=document.getElementById('page-restricted');
-  var username=localStorage.getItem('subloop_username')||'User';
-  var role=getCurrentRole()||'viewer';
-  pg.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;padding:40px 20px;">'
-    +'<div style="width:72px;height:72px;border-radius:18px;background:var(--surface2);border:1.5px solid var(--border2);display:flex;align-items:center;justify-content:center;margin-bottom:24px;">'
-    +'<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>'
-    +'</div>'
-    +'<div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:8px;letter-spacing:-0.3px;">Access Restricted</div>'
-    +'<div style="font-size:13px;color:var(--muted);font-family:var(--mono);max-width:320px;line-height:1.6;margin-bottom:24px;">You do not have permission to view this page. Contact your administrator to request access.</div>'
-    +'<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:12px 20px;font-size:12px;color:var(--muted);font-family:var(--mono);">'
-    +'Logged in as: <strong style="color:var(--text);">'+username+'</strong> &nbsp;·&nbsp; Role: <strong style="color:var(--accent);">'+role+'</strong>'
-    +'</div>'
-    +'</div>';
-  pg.classList.add('active');
-}
-
-function openEditAccess(id){
-  var a=(allAdminUsers||[]).find(function(x){return x.id===id;});
-  if(!a)return;
-  document.getElementById('edit-access-id').value=id;
-  document.getElementById('edit-access-subtitle').textContent='Editing access for: '+a.username;
-  document.getElementById('edit-access-role').value=a.role||'admin';
-  document.getElementById('edit-access-error').style.display='none';
-  buildEditPermsList();
-  // Pre-check current permissions
-  var currentPerms=a.permissions||[];
-  setTimeout(function(){
-    document.querySelectorAll('#edit-perms-list input[type=checkbox]').forEach(function(cb){
-      var checked=currentPerms.includes(cb.value);
-      cb.checked=checked;
-      cb.dispatchEvent(new Event('change'));
-    });
-  },50);
-  toggleEditCustomPerms();
-  openModal('edit-access-modal');
-}
-
-function buildEditPermsList(){
-  var container=document.getElementById('edit-perms-list');
-  if(!container)return;
-  container.innerHTML='';
-  PERM_LIST.forEach(function(p){
-    var row=document.createElement('label');
-    row.style.cssText='display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;cursor:pointer;transition:all 0.15s;';
-    var cb=document.createElement('input');
-    cb.type='checkbox';
-    cb.value=p.value;
-    cb.style.cssText='accent-color:var(--accent);width:16px;height:16px;cursor:pointer;flex-shrink:0;';
-    cb.addEventListener('change',function(){
-      row.style.borderColor=cb.checked?'var(--accent)':'var(--border)';
-      row.style.background=cb.checked?'var(--accent-glow)':'var(--surface2)';
-    });
-    row.addEventListener('click',function(e){
-      if(e.target===cb)return;
-      cb.checked=!cb.checked;
-      cb.dispatchEvent(new Event('change'));
-    });
-    var info=document.createElement('div');
-    info.style.flex='1';
-    info.innerHTML='<div style="font-size:13px;font-weight:500;color:var(--text);">'+p.label+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;">'+p.desc+'</div>';
-    row.appendChild(cb);
-    row.appendChild(info);
-    container.appendChild(row);
-  });
-}
-
-function toggleEditCustomPerms(){
-  var role=document.getElementById('edit-access-role').value;
-  var el=document.getElementById('edit-custom-perms');
-  if(role==='custom'){
-    el.style.display='block';
-    if(!document.getElementById('edit-perms-list').children.length) buildEditPermsList();
-  } else {
-    el.style.display='none';
-  }
-}
-
-function selectAllEditPerms(){
-  document.querySelectorAll('#edit-perms-list input[type=checkbox]').forEach(function(cb){
-    cb.checked=true;cb.dispatchEvent(new Event('change'));
-  });
-}
-
-function clearAllEditPerms(){
-  document.querySelectorAll('#edit-perms-list input[type=checkbox]').forEach(function(cb){
-    cb.checked=false;cb.dispatchEvent(new Event('change'));
-  });
-}
-
-async function saveEditAccess(){
-  var id=document.getElementById('edit-access-id').value;
-  var role=document.getElementById('edit-access-role').value;
-  var errEl=document.getElementById('edit-access-error');
-  errEl.style.display='none';
-  var permissions=[];
-  if(role==='custom'){
-    document.querySelectorAll('#edit-perms-list input[type=checkbox]:checked').forEach(function(cb){permissions.push(cb.value);});
-    if(!permissions.length){errEl.textContent='Select at least one section for custom access';errEl.style.display='block';return;}
-  }
-  try{
-    var r=await api('/api/admin-users/'+id+'/permissions',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({role,permissions})});
-    if(r.success){
-      toast('✓ Access updated');
-      closeModal('edit-access-modal');
-      loadAdmins();
-    } else {
-      errEl.textContent=r.error||'Failed to update';
-      errEl.style.display='block';
-    }
-  }catch(e){errEl.textContent='Server error';errEl.style.display='block';}
-}
-
+function toggleSettingsNav(){var sub=document.getElementById('settings-subnav');var chev=document.getElementById('settings-chevron');var open=sub.style.display==='none';sub.style.display=open?'block':'none';if(chev)chev.style.transform=open?'rotate(180deg)':'rotate(0deg)';}
+function expandSettingsIfNeeded(name){var settingsPages=['admins','settings','security','webhooks'];if(settingsPages.includes(name)){var sub=document.getElementById('settings-subnav');var chev=document.getElementById('settings-chevron');if(sub&&sub.style.display==='none'){sub.style.display='block';if(chev)chev.style.transform='rotate(180deg)';}}}
+function showRestrictedPage(name){var existing=document.getElementById('page-restricted');if(!existing){var div=document.createElement('div');div.id='page-restricted';div.className='page';document.querySelector('.main').appendChild(div);}var pg=document.getElementById('page-restricted');var username=localStorage.getItem('subloop_username')||'User';var role=getCurrentRole()||'viewer';pg.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;padding:40px 20px;"><div style="width:72px;height:72px;border-radius:18px;background:var(--surface2);border:1.5px solid var(--border2);display:flex;align-items:center;justify-content:center;margin-bottom:24px;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:8px;letter-spacing:-0.3px;">Access Restricted</div><div style="font-size:13px;color:var(--muted);font-family:var(--mono);max-width:320px;line-height:1.6;margin-bottom:24px;">You do not have permission to view this page. Contact your administrator to request access.</div><div style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:12px 20px;font-size:12px;color:var(--muted);font-family:var(--mono);">Logged in as: <strong style="color:var(--text);">'+username+'</strong> &nbsp;·&nbsp; Role: <strong style="color:var(--accent);">'+role+'</strong></div></div>';pg.classList.add('active');}
+function buildEditPermsList(){var container=document.getElementById('edit-perms-list');if(!container)return;container.innerHTML='';PERM_LIST.forEach(function(p){var row=document.createElement('label');row.style.cssText='display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;cursor:pointer;transition:all 0.15s;';var cb=document.createElement('input');cb.type='checkbox';cb.value=p.value;cb.style.cssText='accent-color:var(--accent);width:16px;height:16px;cursor:pointer;flex-shrink:0;';cb.addEventListener('change',function(){row.style.borderColor=cb.checked?'var(--accent)':'var(--border)';row.style.background=cb.checked?'var(--accent-glow)':'var(--surface2)';});row.addEventListener('click',function(e){if(e.target===cb)return;cb.checked=!cb.checked;cb.dispatchEvent(new Event('change'));});var info=document.createElement('div');info.style.flex='1';info.innerHTML='<div style="font-size:13px;font-weight:500;color:var(--text);">'+p.label+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;">'+p.desc+'</div>';row.appendChild(cb);row.appendChild(info);container.appendChild(row);});}
+function toggleEditCustomPerms(){var role=document.getElementById('edit-access-role').value;var el=document.getElementById('edit-custom-perms');if(role==='custom'){el.style.display='block';if(!document.getElementById('edit-perms-list').children.length)buildEditPermsList();}else{el.style.display='none';}}
+function selectAllEditPerms(){document.querySelectorAll('#edit-perms-list input[type=checkbox]').forEach(function(cb){cb.checked=true;cb.dispatchEvent(new Event('change'));});}
+function clearAllEditPerms(){document.querySelectorAll('#edit-perms-list input[type=checkbox]').forEach(function(cb){cb.checked=false;cb.dispatchEvent(new Event('change'));});}
+function openEditAccess(id){var a=(allAdminUsers||[]).find(function(x){return x.id===id;});if(!a)return;document.getElementById('edit-access-id').value=id;document.getElementById('edit-access-subtitle').textContent='Editing access for: '+a.username;document.getElementById('edit-access-role').value=a.role||'admin';document.getElementById('edit-access-error').style.display='none';buildEditPermsList();var currentPerms=a.permissions||[];setTimeout(function(){document.querySelectorAll('#edit-perms-list input[type=checkbox]').forEach(function(cb){var checked=currentPerms.includes(cb.value);cb.checked=checked;cb.dispatchEvent(new Event('change'));});},50);toggleEditCustomPerms();openModal('edit-access-modal');}
+async function saveEditAccess(){var id=document.getElementById('edit-access-id').value;var role=document.getElementById('edit-access-role').value;var errEl=document.getElementById('edit-access-error');errEl.style.display='none';var permissions=[];if(role==='custom'){document.querySelectorAll('#edit-perms-list input[type=checkbox]:checked').forEach(function(cb){permissions.push(cb.value);});if(!permissions.length){errEl.textContent='Select at least one section for custom access';errEl.style.display='block';return;}}try{var r=await api('/api/admin-users/'+id+'/permissions',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({role,permissions})});if(r.success){toast('✓ Access updated');closeModal('edit-access-modal');loadAdmins();}else{errEl.textContent=r.error||'Failed to update';errEl.style.display='block';}}catch(e){errEl.textContent='Server error';errEl.style.display='block';}}
 document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
 </script>
 </body>
