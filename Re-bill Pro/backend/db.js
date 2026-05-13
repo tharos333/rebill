@@ -358,7 +358,10 @@ const security = {
 
 const adminUsers = {
   all: async () => {
-    const r = await pool.query('SELECT id, username, role, permissions, created_at, last_login FROM admin_users ORDER BY created_at ASC');
+    // Run migration first to ensure columns exist
+    await pool.query('ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT \'[]\' ');
+    await pool.query('ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ');
+    const r = await pool.query('SELECT id, username, role, COALESCE(permissions, \'[]\') as permissions, created_at, last_login FROM admin_users ORDER BY created_at ASC');
     return r.rows;
   },
   byUsername: async (username) => {
@@ -376,13 +379,13 @@ const adminUsers = {
   updateLastLogin: async (id) => {
     await pool.query('UPDATE admin_users SET last_login=NOW() WHERE id=$1', [id]);
   },
-  updatePermissions: async (id, permissions) => {
-    await pool.query('UPDATE admin_users SET permissions=$1 WHERE id=$2', [JSON.stringify(permissions), id]);
-  },
   changePassword: async (id, newPassword) => {
     const crypto = require('crypto');
     const hash = crypto.createHash('sha256').update(newPassword).digest('hex');
     await pool.query('UPDATE admin_users SET password_hash=$1 WHERE id=$2', [hash, id]);
+  },
+  updatePermissions: async (id, permissions) => {
+    await pool.query('UPDATE admin_users SET permissions=$1 WHERE id=$2', [JSON.stringify(permissions), id]);
   },
   verify: async (username, password) => {
     const crypto = require('crypto');
@@ -391,6 +394,5 @@ const adminUsers = {
     return r.rows[0] || null;
   },
 };
-
 
 module.exports = { init, pool, settingsDb, stripeAccounts, customers, subscriptions, payments, activityLog, webhookLogs, security, adminUsers };
