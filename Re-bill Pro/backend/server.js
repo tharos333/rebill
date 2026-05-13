@@ -1,245 +1,628 @@
+require('dotenv').config();
 const express = require('express');
-const app = express();
+const cors = require('cors');
+const Stripe = require('stripe');
 const path = require('path');
 const { init, pool, settingsDb, stripeAccounts, customers, subscriptions, payments, activityLog, webhookLogs, security, adminUsers } = require('./db');
 let speakeasy, QRCode;
-try { speakeasy = require('speakeasy'); QRCode = require('qrcode'); } catch(e) {}
+try { speakeasy = require('speakeasy'); QRCode = require('qrcode'); } catch(e) { console.log('[2FA] speakeasy/qrcode not installed yet'); }
+const { initScheduler } = require('./scheduler');
 
+const app = express();
+app.use(cors());
+app.use('/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
-app.get('/api/stripe-accounts', async (req, res) => { try { res.json(await stripeAccounts.all()); } catch(err) { res.status(500).json({ error: err.message }); } });
+async function getStripe(accountId) {
+  let acc = accountId ? await stripeAccounts.byId(accountId) : null;
+  if (!acc) acc = await stripeAccounts.default();
+  return new Stripe(acc ? acc.secret_key : process.env.STRIPE_SECRET_KEY);
+}
+
+// ── Webhook ───────────────────────────────────────────────────────────────────
+app.post('/webhook', async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  let event, matchedAccount = null;
+  const accs = await pool.query('SELECT * FROM stripe_accounts');
+  for (const acc of accs.rows) {
+    try {
+      if (acc.webhook_secret) { event = Stripe.webhooks.constructEvent(req.body, sig, acc.webhook_secret); matchedAccount = acc; break; }
+    } catch(e) {}
+  }
+  if (!event && process.env.STRIPE_WEBHOOK_SECRET) {
+    try { event = Stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET); }
+    catch(e) { return res.status(400).send('Webhook Error: ' + e.message); }
+  }
+  if (!event) return res.status(400).send('No matching webhook secret');
+
+  const logsEnabled = await settingsDb.get('webhook_logs_enabled');
+  if (logsEnabled === 'true') await webhookLogs.add({ event_type: event.type, account_name: matchedAccount?.name });
+
+  console.log('[webhook]', event.type, matchedAccount ? '→ '+matchedAccount.name : '');
+  const stripe = matchedAccount ? new Stripe(matchedAccount.secret_key) : new Stripe(process.env.STRIPE_SECRET_KEY);
+
+  switch (event.type) {
+    case 'payment_intent.succeeded': {
+      const pi = event.data.object;
+      let customerId = pi.customer;
+      if (!customerId) {
+        try {
+          const sessions = await stripe.checkout.sessions.list({ payment_intent: pi.id, limit: 1 });
+          if (sessions.data.length > 0 && sessions.data[0].customer) customerId = sessions.data[0].customer;
+        } catch(e) {}
+      }
+      if (!customerId) { console.log('[webhook] No customer ID, skipping'); break; }
+      try {
+        const sc = await stripe.customers.retrieve(customerId);
+        const pms = await stripe.paymentMethods.list({ customer: customerId, type: 'card', limit: 1 });
+        const pm = pms.data[0]; const card = pm?.card || {};
+        await customers.upsert({ email: sc.email, name: sc.name||sc.email, stripe_customer_id: sc.id, stripe_payment_method: pm?.id||null, stripe_account_id: matchedAccount?.id||null, card_brand: card.brand||null, card_last4: card.last4||null, card_exp_month: card.exp_month||null, card_exp_year: card.exp_year||null });
+        const customer = await customers.byStripeId(sc.id);
+        const existingSubs = await subscriptions.byCustomer(customer.id);
+        if (existingSubs.length === 0) {
+          const next = new Date(); next.setDate(next.getDate()+30);
+          await subscriptions.create({ customer_id: customer.id, amount: pi.amount, currency: pi.currency, interval_days: 30, next_billing_date: next.toISOString().split('T')[0] });
+        }
+        await payments.insert({ customer_id: customer.id, subscription_id: null, stripe_payment_intent: pi.id, amount: pi.amount, currency: pi.currency, status: 'succeeded', failure_reason: null });
+        await activityLog.add('payment', `Payment of ${(pi.amount/100).toFixed(2)} ${pi.currency.toUpperCase()} received from ${sc.email}`, customer.id, pi.amount);
+        console.log('[webhook] ✓ Saved card for', sc.email);
+      } catch(err) { console.error('[webhook] Error:', err.message); }
+      break;
+    }
+    case 'payment_intent.payment_failed': {
+      const pi = event.data.object;
+      if (!pi.customer) break;
+      const customer = await customers.byStripeId(pi.customer);
+      if (!customer) break;
+      await payments.insert({ customer_id: customer.id, subscription_id: null, stripe_payment_intent: pi.id, amount: pi.amount, currency: pi.currency, status: 'failed', failure_reason: pi.last_payment_error?.message||'Unknown' });
+      await activityLog.add('failed', `Payment failed for ${customer.email}`, customer.id, pi.amount);
+      break;
+    }
+  }
+  res.json({ received: true });
+});
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+app.get('/api/settings', async (req, res) => { res.json(await settingsDb.getAll()); });
+app.patch('/api/settings', async (req, res) => {
+  const { key, value } = req.body;
+  await settingsDb.set(key, value);
+  res.json({ success: true });
+});
+
+// ── Stripe Accounts ───────────────────────────────────────────────────────────
+app.get('/api/stripe-accounts', async (req, res) => { res.json(await stripeAccounts.all()); });
 app.post('/api/stripe-accounts', async (req, res) => {
   try {
     const { name, secret_key, webhook_secret } = req.body;
     if (!name || !secret_key) return res.status(400).json({ error: 'Name and secret key required' });
-    await stripeAccounts.create(name, secret_key, webhook_secret);
-    res.json({ success: true });
+    const acc = await stripeAccounts.create({ name, secret_key, webhook_secret });
+    res.json({ success: true, id: acc.id });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.patch('/api/stripe-accounts/:id', async (req, res) => {
   try {
     const { name, secret_key, webhook_secret } = req.body;
     if (!name) return res.status(400).json({ error: 'Name is required' });
+    let query, params;
     if (secret_key && secret_key.trim()) {
-      await pool.query('UPDATE stripe_accounts SET name=$1, secret_key=$2, webhook_secret=$3 WHERE id=$4', [name, secret_key.trim(), webhook_secret||null, req.params.id]);
+      // Update name + key + webhook
+      query = 'UPDATE stripe_accounts SET name=$1, secret_key=$2, webhook_secret=$3 WHERE id=$4';
+      params = [name, secret_key.trim(), webhook_secret||null, req.params.id];
     } else {
-      await pool.query('UPDATE stripe_accounts SET name=$1, webhook_secret=$2 WHERE id=$3', [name, webhook_secret||null, req.params.id]);
+      // Update name + webhook only (keep existing key)
+      query = 'UPDATE stripe_accounts SET name=$1, webhook_secret=$2 WHERE id=$3';
+      params = [name, webhook_secret||null, req.params.id];
     }
+    await pool.query(query, params);
+    await activityLog.add('security', `Stripe account updated: ${name}`);
     res.json({ success: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
-app.patch('/api/stripe-accounts/:id/default', async (req, res) => {
-  try {
-    await pool.query('UPDATE stripe_accounts SET is_default=false');
-    await pool.query('UPDATE stripe_accounts SET is_default=true WHERE id=$1', [req.params.id]);
-    res.json({ success: true });
-  } catch(err) { res.status(500).json({ error: err.message }); }
-});
-app.delete('/api/stripe-accounts/:id', async (req, res) => { try { await stripeAccounts.delete(req.params.id); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
 
-app.get('/api/customers', async (req, res) => { try { res.json(await customers.all()); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.patch('/api/stripe-accounts/:id/default', async (req, res) => { await stripeAccounts.setDefault(req.params.id); res.json({ success: true }); });
+app.delete('/api/stripe-accounts/:id', async (req, res) => { await stripeAccounts.delete(req.params.id); res.json({ success: true }); });
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+app.get('/api/stats', async (req, res) => {
+  const [pStats, allSubs, allCust, custStats] = await Promise.all([payments.stats(), subscriptions.all(), customers.all(), customers.stats()]);
+  const activeSubs = allSubs.filter(s => s.status === 'active');
+  const churnRate = parseInt(custStats.total) > 0 ? ((parseInt(custStats.churned_30d)||0) / parseInt(custStats.total) * 100).toFixed(1) : 0;
+  const avgLtv = parseInt(custStats.total) > 0 ? Math.round(parseInt(pStats.total_revenue) / parseInt(custStats.total)) : 0;
+  const successRate = (parseInt(pStats.succeeded_count)+parseInt(pStats.failed_count)) > 0
+    ? (parseInt(pStats.succeeded_count)/(parseInt(pStats.succeeded_count)+parseInt(pStats.failed_count))*100).toFixed(1) : 100;
+  res.json({
+    mrr: activeSubs.reduce((s,sub) => s+(sub.amount*30/sub.interval_days), 0),
+    active_subscriptions: activeSubs.length,
+    dunning_subscriptions: allSubs.filter(s=>s.status==='dunning').length,
+    failed_payments: parseInt(pStats.failed_count)||0,
+    saved_cards: allCust.filter(c=>c.stripe_payment_method).length,
+    total_revenue: parseInt(pStats.total_revenue)||0,
+    total_customers: parseInt(custStats.total)||0,
+    new_customers_30d: parseInt(custStats.new_30d)||0,
+    churn_rate: churnRate,
+    avg_ltv: avgLtv,
+    payment_success_rate: successRate,
+    revenue_30d: parseInt(pStats.revenue_30d)||0,
+  });
+});
+
+app.get('/api/revenue-chart', async (req, res) => {
+  const period = req.query.period || 'month';
+  let interval;
+  if (period === 'today' || period === 'yesterday') interval = '2 days';
+  else if (period === 'week') interval = '7 days';
+  else interval = '30 days';
+  const r = await pool.query(`
+    SELECT DATE_TRUNC('day', created_at) as day,
+      SUM(CASE WHEN status='succeeded' THEN amount ELSE 0 END) as revenue,
+      COUNT(CASE WHEN status='succeeded' THEN 1 END) as count
+    FROM payments WHERE created_at >= NOW()-INTERVAL '${interval}'
+    GROUP BY day ORDER BY day ASC
+  `);
+  res.json(r.rows);
+});
+
+// ── Customers ─────────────────────────────────────────────────────────────────
+app.get('/api/customers', async (req, res) => { res.json(await customers.all()); });
 app.post('/api/customers', async (req, res) => {
   try {
-    const id = await customers.create(req.body);
-    res.json({ success: true, id });
+    const { name, email, stripe_customer_id, stripe_payment_method, card_brand, card_last4, card_exp_month, card_exp_year, stripe_account_id, note } = req.body;
+    if (!email || !stripe_customer_id) return res.status(400).json({ error: 'Email and Stripe customer ID required' });
+    await customers.upsert({ name, email, stripe_customer_id, stripe_payment_method, stripe_account_id, card_brand, card_last4, card_exp_month: parseInt(card_exp_month)||null, card_exp_year: parseInt(card_exp_year)||null });
+    const customer = await customers.byStripeId(stripe_customer_id);
+    if (note) await customers.updateNote(customer.id, note);
+    res.json({ success: true, id: customer.id });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
-app.patch('/api/customers/:id/status', async (req, res) => { try { await pool.query('UPDATE customers SET status=$1 WHERE id=$2', [req.body.status, req.params.id]); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
-app.patch('/api/customers/:id/note', async (req, res) => { try { await pool.query('UPDATE customers SET note=$1 WHERE id=$2', [req.body.note, req.params.id]); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.patch('/api/customers/:id/status', async (req, res) => { await customers.updateStatus(req.params.id, req.body.status); res.json({ success: true }); });
+app.patch('/api/customers/:id/note', async (req, res) => { await customers.updateNote(req.params.id, req.body.note); res.json({ success: true }); });
 app.post('/api/customers/:id/portal', async (req, res) => {
+  const customer = await customers.byId(req.params.id);
+  if (!customer) return res.status(404).json({ error: 'Not found' });
   try {
-    const c = await customers.byId(req.params.id);
-    const acc = await stripeAccounts.byId(c.stripe_account_id);
-    const stripe = require('stripe')(acc.secret_key);
-    const session = await stripe.billingPortal.sessions.create({ customer: c.stripe_customer_id, return_url: process.env.BASE_URL || 'https://rebill-production.up.railway.app' });
+    const stripe = await getStripe(customer.stripe_account_id);
+    const session = await stripe.billingPortal.sessions.create({ customer: customer.stripe_customer_id, return_url: process.env.BASE_URL||'http://localhost:8080' });
     res.json({ url: session.url });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
-app.post('/api/customers/:id/charge-once', async (req, res) => {
-  try {
-    const { amount, description, currency } = req.body;
-    const c = await customers.byId(req.params.id);
-    const acc = await stripeAccounts.byId(c.stripe_account_id);
-    const stripe = require('stripe')(acc.secret_key);
-    const pi = await stripe.paymentIntents.create({ amount, currency: currency||'usd', customer: c.stripe_customer_id, payment_method: c.stripe_payment_method, confirm: true, description: description||'Manual invoice', off_session: true });
-    await payments.create({ customer_id: c.id, amount, currency: currency||'usd', status: pi.status==='succeeded'?'succeeded':'failed', stripe_payment_intent: pi.id });
-    res.json({ success: pi.status==='succeeded', status: pi.status });
-  } catch(err) { res.status(500).json({ error: err.message }); }
-});
 app.get('/api/customers/export', async (req, res) => {
-  try {
-    const list = await customers.all();
-    const csv = ['Name,Email,Card,Status,Total Paid'].concat(list.map(c=>`${c.name},${c.email},${c.card_brand||''} ${c.card_last4||''},${c.status},${(c.total_paid||0)/100}`)).join('\n');
-    res.setHeader('Content-Type','text/csv'); res.setHeader('Content-Disposition','attachment; filename=customers.csv'); res.send(csv);
-  } catch(err) { res.status(500).json({ error: err.message }); }
+  const list = await customers.all();
+  const header = 'Name,Email,Card Brand,Last 4,Status,Total Paid,Account,Created\n';
+  const rows = list.map(c => [c.name||'', c.email, c.card_brand||'', c.card_last4||'', c.status, ((c.total_paid||0)/100).toFixed(2), c.account_name||'', new Date(c.created_at).toLocaleDateString()].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  res.setHeader('Content-Type','text/csv'); res.setHeader('Content-Disposition','attachment; filename="customers.csv"');
+  res.send(header+rows);
 });
 
-app.get('/api/subscriptions', async (req, res) => { try { res.json(await subscriptions.all()); } catch(err) { res.status(500).json({ error: err.message }); } });
-app.post('/api/subscriptions', async (req, res) => { try { const id = await subscriptions.create(req.body); res.json({ success: true, id }); } catch(err) { res.status(500).json({ error: err.message }); } });
-app.patch('/api/subscriptions/:id', async (req, res) => {
-  try {
-    const { status, amount, next_billing_date } = req.body;
-    if (status) await pool.query('UPDATE subscriptions SET status=$1, updated_at=NOW() WHERE id=$2', [status, req.params.id]);
-    if (amount) await pool.query('UPDATE subscriptions SET amount=$1 WHERE id=$2', [amount, req.params.id]);
-    if (next_billing_date) await pool.query('UPDATE subscriptions SET next_billing_date=$1 WHERE id=$2', [next_billing_date, req.params.id]);
-    res.json({ success: true });
-  } catch(err) { res.status(500).json({ error: err.message }); }
+// ── Subscriptions ─────────────────────────────────────────────────────────────
+app.get('/api/subscriptions', async (req, res) => { res.json(await subscriptions.all()); });
+app.patch('/api/subscriptions/:id/amount', async (req, res) => {
+  const { amount, prorate } = req.body;
+  if (!amount||isNaN(amount)) return res.status(400).json({ error: 'Invalid amount' });
+  const prorateEnabled = await settingsDb.get('proration_enabled');
+  if (prorate && prorateEnabled === 'true') {
+    // Proration: charge difference immediately
+    try {
+      const allSubs = await subscriptions.all();
+      const sub = allSubs.find(s => s.id === parseInt(req.params.id));
+      const customer = await customers.byId(sub.customer_id);
+      const today = new Date();
+      const nextBilling = new Date(sub.next_billing_date);
+      const daysLeft = Math.max(0, Math.ceil((nextBilling - today) / (1000*60*60*24)));
+      const daysTotal = sub.interval_days;
+      const oldDailyRate = sub.amount / daysTotal;
+      const newDailyRate = parseInt(amount) / daysTotal;
+      const proratedDiff = Math.round((newDailyRate - oldDailyRate) * daysLeft);
+      if (proratedDiff > 50) {
+        const stripe = await getStripe(customer.stripe_account_id);
+        const pi = await stripe.paymentIntents.create({ amount: proratedDiff, currency: sub.currency, customer: customer.stripe_customer_id, payment_method: customer.stripe_payment_method, off_session: true, confirm: true, description: 'Proration charge' });
+        await payments.insert({ customer_id: customer.id, subscription_id: sub.id, stripe_payment_intent: pi.id, amount: proratedDiff, currency: sub.currency, status: 'succeeded', failure_reason: null });
+        await activityLog.add('proration', `Proration charge of ${(proratedDiff/100).toFixed(2)} for ${customer.email}`, customer.id, proratedDiff);
+      }
+    } catch(err) { console.error('[proration]', err.message); }
+  }
+  await subscriptions.updateAmount(parseInt(req.params.id), parseInt(amount));
+  res.json({ success: true });
 });
-app.delete('/api/subscriptions/:id', async (req, res) => { try { await pool.query("UPDATE subscriptions SET status='cancelled', updated_at=NOW() WHERE id=$1", [req.params.id]); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.patch('/api/subscriptions/:id/status', async (req, res) => {
+  const { status, resume_date } = req.body;
+  await subscriptions.updateStatus(req.params.id, status);
+  if (status === 'paused' && resume_date) await subscriptions.setResumeDate(req.params.id, resume_date);
+  if (status === 'active') await subscriptions.setResumeDate(req.params.id, null);
+  res.json({ success: true });
+});
+app.post('/api/subscriptions/:id/charge', async (req, res) => {
+  try {
+    const allSubs = await subscriptions.all();
+    const sub = allSubs.find(s => s.id === parseInt(req.params.id));
+    if (!sub) return res.status(404).json({ error: 'Not found' });
+    const customer = await customers.byId(sub.customer_id);
+    const stripe = await getStripe(customer.stripe_account_id);
+    const pi = await stripe.paymentIntents.create({ amount: sub.amount, currency: sub.currency, customer: customer.stripe_customer_id, payment_method: customer.stripe_payment_method, off_session: true, confirm: true });
+    await payments.insert({ customer_id: customer.id, subscription_id: sub.id, stripe_payment_intent: pi.id, amount: sub.amount, currency: sub.currency, status: 'succeeded', failure_reason: null });
+    await subscriptions.advanceBillingDate(sub.id, sub.interval_days);
+    await activityLog.add('charge', `Manual charge of ${(sub.amount/100).toFixed(2)} for ${customer.email}`, customer.id, sub.amount);
+    res.json({ success: true, paymentIntentId: pi.id });
+  } catch(err) { res.status(500).json({ success: false, error: err.message }); }
+});
 
-app.get('/api/payments', async (req, res) => { try { res.json(await payments.all()); } catch(err) { res.status(500).json({ error: err.message }); } });
+// ── Payments ──────────────────────────────────────────────────────────────────
+app.get('/api/payments', async (req, res) => { res.json(await payments.recent(100)); });
 app.post('/api/payments/:id/retry', async (req, res) => {
   try {
-    const p = await payments.byId(req.params.id);
-    const c = await customers.byId(p.customer_id);
-    const acc = await stripeAccounts.byId(c.stripe_account_id);
-    const stripe = require('stripe')(acc.secret_key);
-    const pi = await stripe.paymentIntents.create({ amount: p.amount, currency: p.currency||'usd', customer: c.stripe_customer_id, payment_method: c.stripe_payment_method, confirm: true, off_session: true });
-    const status = pi.status==='succeeded'?'succeeded':'failed';
-    await payments.create({ customer_id: c.id, amount: p.amount, currency: p.currency, status, stripe_payment_intent: pi.id });
-    await activityLog.add('retry', `Retried payment for ${c.name}: ${status}`);
-    res.json({ success: status==='succeeded', status });
-  } catch(err) { res.status(500).json({ error: err.message }); }
-});
-app.patch('/api/payments/:id/note', async (req, res) => {
-  try {
-    await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS note TEXT');
-    await pool.query('UPDATE payments SET note=$1 WHERE id=$2', [req.body.note, req.params.id]);
+    const r = await pool.query('SELECT p.*, c.stripe_customer_id, c.stripe_payment_method, c.stripe_account_id, c.email FROM payments p JOIN customers c ON c.id=p.customer_id WHERE p.id=$1', [req.params.id]);
+    const pmt = r.rows[0]; if (!pmt) return res.status(404).json({ error: 'Not found' });
+    const stripe = await getStripe(pmt.stripe_account_id);
+    const pi = await stripe.paymentIntents.create({ amount: pmt.amount, currency: pmt.currency, customer: pmt.stripe_customer_id, payment_method: pmt.stripe_payment_method, off_session: true, confirm: true });
+    await payments.insert({ customer_id: pmt.customer_id, subscription_id: pmt.subscription_id, stripe_payment_intent: pi.id, amount: pmt.amount, currency: pmt.currency, status: 'succeeded', failure_reason: null });
+    await activityLog.add('retry', `Retry payment succeeded for ${pmt.email}`, pmt.customer_id, pmt.amount);
     res.json({ success: true });
-  } catch(err) { res.status(500).json({ error: err.message }); }
+  } catch(err) { res.status(500).json({ success: false, error: err.message }); }
 });
 app.get('/api/payments/export', async (req, res) => {
-  try {
-    const list = await payments.all();
-    const csv = ['Customer,Email,Amount,Status,Date'].concat(list.map(p=>`${p.name||''},${p.email||''},${(p.amount||0)/100},${p.status},${p.created_at}`)).join('\n');
-    res.setHeader('Content-Type','text/csv'); res.setHeader('Content-Disposition','attachment; filename=payments.csv'); res.send(csv);
-  } catch(err) { res.status(500).json({ error: err.message }); }
+  const list = await payments.recent(10000);
+  const header = 'Customer,Email,Amount,Currency,Status,Reason,Date,Stripe ID\n';
+  const rows = list.map(p => [p.name||'', p.email, ((p.amount||0)/100).toFixed(2), p.currency, p.status, p.failure_reason||'', new Date(p.created_at).toLocaleDateString(), p.stripe_payment_intent||''].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  res.setHeader('Content-Type','text/csv'); res.setHeader('Content-Disposition','attachment; filename="payments.csv"');
+  res.send(header+rows);
 });
 
+// ── Payment Links ─────────────────────────────────────────────────────────────
 app.post('/api/payment-links', async (req, res) => {
   try {
-    const { name, amount, currency, interval_days, account_id } = req.body;
-    const acc = account_id ? await stripeAccounts.byId(account_id) : await stripeAccounts.getDefault();
-    if (!acc) return res.status(400).json({ error: 'No Stripe account found' });
-    const stripe = require('stripe')(acc.secret_key);
-    const product = await stripe.products.create({ name: name||'Subscription' });
-    const price = await stripe.prices.create({ product: product.id, unit_amount: amount, currency: currency||'usd', recurring: { interval: interval_days===7?'week':interval_days===365?'year':'month' } });
-    const link = await stripe.paymentLinks.create({ line_items: [{ price: price.id, quantity: 1 }] });
-    res.json({ success: true, url: link.url });
+    const { amount, currency='usd', name='Subscription', interval_days=30, stripe_account_id } = req.body;
+    const stripe = await getStripe(stripe_account_id);
+    const price = await stripe.prices.create({ unit_amount: amount, currency, product_data: { name } });
+    const link = await stripe.paymentLinks.create({
+      line_items: [{ price: price.id, quantity: 1 }],
+      payment_intent_data: { setup_future_usage: 'off_session' },
+      customer_creation: 'always',
+      after_completion: { type: 'hosted_confirmation', hosted_confirmation: { custom_message: 'Thank you! Your subscription is active.' } },
+    });
+    res.json({ url: link.url, id: link.id });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
-app.get('/api/plan-templates', async (req, res) => {
-  try {
-    await pool.query(`CREATE TABLE IF NOT EXISTS plan_templates (id SERIAL PRIMARY KEY, name TEXT, amount INT, currency TEXT DEFAULT 'usd', interval_days INT, created_at TIMESTAMPTZ DEFAULT NOW())`);
-    const r = await pool.query('SELECT * FROM plan_templates ORDER BY created_at ASC');
-    res.json(r.rows);
-  } catch(err) { res.status(500).json({ error: err.message }); }
-});
-app.post('/api/plan-templates', async (req, res) => { try { const { name, amount, currency, interval_days } = req.body; await pool.query('INSERT INTO plan_templates (name,amount,currency,interval_days) VALUES ($1,$2,$3,$4)', [name, amount, currency||'usd', interval_days||30]); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
-app.delete('/api/plan-templates/:id', async (req, res) => { try { await pool.query('DELETE FROM plan_templates WHERE id=$1', [req.params.id]); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
-
-app.post('/api/run-rebills', async (req, res) => {
-  try {
-    const due = await subscriptions.getDue();
-    let charged = 0, failed = 0;
-    for (const sub of due) {
-      try {
-        const c = await customers.byId(sub.customer_id);
-        const acc = await stripeAccounts.byId(c.stripe_account_id);
-        const stripe = require('stripe')(acc.secret_key);
-        const pi = await stripe.paymentIntents.create({ amount: sub.amount, currency: sub.currency||'usd', customer: c.stripe_customer_id, payment_method: c.stripe_payment_method, confirm: true, off_session: true });
-        const status = pi.status==='succeeded'?'succeeded':'failed';
-        await payments.create({ customer_id: c.id, amount: sub.amount, currency: sub.currency, status, stripe_payment_intent: pi.id });
-        if (status==='succeeded') {
-          charged++;
-          const nextDate = new Date(); nextDate.setDate(nextDate.getDate() + (sub.interval_days||30));
-          await pool.query('UPDATE subscriptions SET last_billed_at=NOW(), next_billing_date=$1, dunning_count=0 WHERE id=$2', [nextDate, sub.id]);
-          await activityLog.add('payment', `Charged ${sub.amount/100} from ${c.name}`);
-        } else {
-          failed++;
-          await pool.query('UPDATE subscriptions SET dunning_count=dunning_count+1, last_failed_at=NOW() WHERE id=$1', [sub.id]);
-          await activityLog.add('failed', `Failed charge for ${c.name}`);
-        }
-      } catch(e) { failed++; }
-    }
-    res.json({ success: true, charged, failed, total: due.length });
-  } catch(err) { res.status(500).json({ error: err.message }); }
-});
-
+// ── Activity Log ──────────────────────────────────────────────────────────────
 app.get('/api/activity', async (req, res) => {
   try {
-    const username = req.headers['x-username'];
+    const username = req.headers['x-username'] || req.query.username;
     let list = await activityLog.recent(100);
+    // If viewer role, only show payment-related events
     if (username) {
-      try {
-        const userRow = await pool.query('SELECT role FROM admin_users WHERE username=$1', [username]);
-        if (userRow.rows[0] && userRow.rows[0].role === 'viewer') {
-          list = list.filter(a => ['payment','failed','retry','charge','dunning','proration','resume'].includes(a.type));
-        }
-      } catch(e) {}
+      const userRow = await pool.query('SELECT role FROM admin_users WHERE username=$1', [username]);
+      if (userRow.rows[0] && userRow.rows[0].role === 'viewer') {
+        const paymentTypes = ['payment','failed','retry','charge','dunning','proration','resume'];
+        list = list.filter(a => paymentTypes.includes(a.type));
+      }
     }
     res.json(list);
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
-app.get('/api/settings', async (req, res) => { try { res.json(await settingsDb.get()); } catch(err) { res.status(500).json({ error: err.message }); } });
-app.post('/api/settings', async (req, res) => { try { await settingsDb.set(req.body); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
-app.get('/api/webhook-logs', async (req, res) => { try { res.json(await webhookLogs.recent(50)); } catch(err) { res.status(500).json({ error: err.message }); } });
+// ── Webhook Logs ──────────────────────────────────────────────────────────────
+app.get('/api/webhook-logs', async (req, res) => { res.json(await webhookLogs.recent(100)); });
 
-app.get('/api/security/login-history', async (req, res) => { try { res.json(await security.loginHistory(20)); } catch(err) { res.status(500).json({ error: err.message }); } });
-app.get('/api/security/2fa/status', async (req, res) => {
-  try {
-    const r = await pool.query('SELECT two_fa_enabled FROM security WHERE id=1');
-    res.json({ enabled: r.rows[0]?.two_fa_enabled || false });
-  } catch(err) { res.status(500).json({ error: err.message }); }
+// ── Run Rebills (with dunning + auto-resume) ──────────────────────────────────
+app.post('/api/run-rebills', async (req, res) => {
+  const due = await subscriptions.due();
+  const dunningEnabled = await settingsDb.get('dunning_enabled');
+  const dunningDaysStr = await settingsDb.get('dunning_days') || '3,7,14';
+  const dunningDays = dunningDaysStr.split(',').map(Number);
+  const pauseAutoResume = await settingsDb.get('pause_auto_resume');
+  let succeeded=0, failed=0, resumed=0;
+
+  // Auto-resume paused subscriptions
+  if (pauseAutoResume === 'true') {
+    const toResume = await subscriptions.resumeDue();
+    for (const sub of toResume) {
+      await subscriptions.updateStatus(sub.id, 'active');
+      await subscriptions.setResumeDate(sub.id, null);
+      await activityLog.add('resume', `Subscription auto-resumed`, sub.customer_id);
+      resumed++;
+    }
+  }
+
+  // Process dunning retries
+  if (dunningEnabled === 'true') {
+    const dunning = await subscriptions.dunningDue();
+    for (const sub of dunning) {
+      try {
+        const stripe = sub.stripe_secret_key ? new Stripe(sub.stripe_secret_key) : new Stripe(process.env.STRIPE_SECRET_KEY);
+        const pi = await stripe.paymentIntents.create({ amount: sub.amount, currency: sub.currency, customer: sub.stripe_customer_id, payment_method: sub.stripe_payment_method, off_session: true, confirm: true });
+        await payments.insert({ customer_id: sub.customer_id, subscription_id: sub.id, stripe_payment_intent: pi.id, amount: sub.amount, currency: sub.currency, status: 'succeeded', failure_reason: null });
+        await subscriptions.advanceBillingDate(sub.id, sub.interval_days);
+        await subscriptions.updateStatus(sub.id, 'active');
+        await activityLog.add('dunning_success', `Dunning retry succeeded for ${sub.email}`, sub.customer_id, sub.amount);
+        succeeded++;
+      } catch(err) {
+        const count = sub.dunning_count || 0;
+        if (count >= dunningDays.length) {
+          await subscriptions.updateStatus(sub.id, 'cancelled');
+          await activityLog.add('dunning_cancelled', `Subscription cancelled after ${count} dunning retries for ${sub.email}`, sub.customer_id);
+        } else {
+          const nextRetryDays = dunningDays[count] || 7;
+          const retryDate = new Date(); retryDate.setDate(retryDate.getDate()+nextRetryDays);
+          await subscriptions.markDunning(sub.id, retryDate.toISOString().split('T')[0]);
+          await activityLog.add('dunning_retry', `Dunning retry ${count+1} scheduled for ${sub.email}`, sub.customer_id);
+        }
+        failed++;
+      }
+    }
+  }
+
+  // Normal rebills
+  for (const sub of due) {
+    try {
+      const stripe = sub.stripe_secret_key ? new Stripe(sub.stripe_secret_key) : new Stripe(process.env.STRIPE_SECRET_KEY);
+      const pi = await stripe.paymentIntents.create({ amount: sub.amount, currency: sub.currency, customer: sub.stripe_customer_id, payment_method: sub.stripe_payment_method, off_session: true, confirm: true });
+      await payments.insert({ customer_id: sub.customer_id, subscription_id: sub.id, stripe_payment_intent: pi.id, amount: sub.amount, currency: sub.currency, status: 'succeeded', failure_reason: null });
+      await subscriptions.advanceBillingDate(sub.id, sub.interval_days);
+      await activityLog.add('rebill', `Auto-rebill of ${(sub.amount/100).toFixed(2)} for ${sub.email}`, sub.customer_id, sub.amount);
+      succeeded++;
+    } catch(err) {
+      await payments.insert({ customer_id: sub.customer_id, subscription_id: sub.id, stripe_payment_intent: null, amount: sub.amount, currency: sub.currency, status: 'failed', failure_reason: err.message });
+      if (dunningEnabled === 'true') {
+        const retryDate = new Date(); retryDate.setDate(retryDate.getDate()+(dunningDays[0]||3));
+        await subscriptions.markDunning(sub.id, retryDate.toISOString().split('T')[0]);
+        await activityLog.add('dunning_start', `Dunning started for ${sub.email}`, sub.customer_id);
+      }
+      failed++;
+    }
+  }
+
+  res.json({ success: true, succeeded, failed, resumed, total: due.length });
 });
+
+// ── Security & 2FA ───────────────────────────────────────────────────────────
+
+// Get 2FA setup QR code
 app.post('/api/security/2fa/setup', async (req, res) => {
+  if (!speakeasy) return res.status(500).json({ error: '2FA library not installed' });
   try {
-    if (!speakeasy) return res.status(400).json({ error: 'speakeasy not installed' });
-    const secret = speakeasy.generateSecret({ name: 'Subloop' });
-    await pool.query('UPDATE security SET two_fa_secret=$1 WHERE id=1', [secret.base32]);
-    const qr = await QRCode.toDataURL(secret.otpauth_url);
-    res.json({ secret: secret.base32, qr });
+    const secret = speakeasy.generateSecret({ name: 'Subloop', issuer: 'Subloop' });
+    await settingsDb.set('two_fa_secret_pending', secret.base32);
+    const qrUrl = await QRCode.toDataURL(secret.otpauth_url);
+    res.json({ secret: secret.base32, qrCode: qrUrl });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
-app.post('/api/security/2fa/enable', async (req, res) => {
+
+// Verify and enable 2FA
+app.post('/api/security/2fa/verify', async (req, res) => {
+  if (!speakeasy) return res.status(500).json({ error: '2FA library not installed' });
   try {
-    if (!speakeasy) return res.status(400).json({ error: 'speakeasy not installed' });
-    const r = await pool.query('SELECT two_fa_secret FROM security WHERE id=1');
-    const valid = speakeasy.totp.verify({ secret: r.rows[0]?.two_fa_secret, encoding: 'base32', token: req.body.token, window: 1 });
-    if (!valid) return res.json({ success: false, error: 'Invalid code' });
-    await pool.query('UPDATE security SET two_fa_enabled=true WHERE id=1');
+    const { token } = req.body;
+    const secret = await settingsDb.get('two_fa_secret_pending');
+    if (!secret) return res.status(400).json({ error: 'No pending 2FA setup' });
+    const verified = speakeasy.totp.verify({ secret, encoding: 'base32', token, window: 2 });
+    if (!verified) return res.status(400).json({ error: 'Invalid code' });
+    await settingsDb.set('two_fa_secret', secret);
+    await settingsDb.set('two_fa_enabled', 'true');
+    await settingsDb.set('two_fa_secret_pending', '');
+    await activityLog.add('security', '2FA enabled');
     res.json({ success: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
-app.post('/api/security/2fa/verify', async (req, res) => {
+
+// Disable 2FA
+app.post('/api/security/2fa/disable', async (req, res) => {
+  await settingsDb.set('two_fa_enabled', 'false');
+  await settingsDb.set('two_fa_secret', '');
+  await activityLog.add('security', '2FA disabled');
+  res.json({ success: true });
+});
+
+// Validate 2FA token (called from login)
+app.post('/api/security/2fa/validate', async (req, res) => {
+  if (!speakeasy) return res.json({ valid: true }); // skip if not installed
   try {
-    if (!speakeasy) return res.json({ valid: true });
-    const r = await pool.query('SELECT two_fa_enabled, two_fa_secret FROM security WHERE id=1');
-    const row = r.rows[0];
-    if (!row?.two_fa_enabled) return res.json({ valid: true });
-    const valid = speakeasy.totp.verify({ secret: row.two_fa_secret, encoding: 'base32', token: req.body.token, window: 1 });
+    const { token } = req.body;
+    const secret = await settingsDb.get('two_fa_secret');
+    if (!secret) return res.json({ valid: true });
+    const valid = speakeasy.totp.verify({ secret, encoding: 'base32', token, window: 2 });
     res.json({ valid });
+  } catch(err) { res.json({ valid: false }); }
+});
+
+// Check if 2FA is enabled
+app.get('/api/security/2fa/status', async (req, res) => {
+  const enabled = await settingsDb.get('two_fa_enabled');
+  res.json({ enabled: enabled === 'true' });
+});
+
+// Login attempt tracking
+app.post('/api/security/login-attempt', async (req, res) => {
+  const { success } = req.body;
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+  await security.logAttempt(ip, success);
+  if (success) await security.clearAttempts(ip);
+  res.json({ success: true });
+});
+
+// Check if IP is locked out
+app.get('/api/security/lockout-check', async (req, res) => {
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+  const maxAttempts = parseInt(await settingsDb.get('max_login_attempts') || '5');
+  const lockoutMins = parseInt(await settingsDb.get('lockout_minutes') || '15');
+  const failures = await security.recentFailures(ip, lockoutMins);
+  res.json({ locked: failures >= maxAttempts, failures, maxAttempts, lockoutMins });
+});
+
+// Recent login history
+app.get('/api/security/login-history', async (req, res) => {
+  res.json(await security.recentLogins(30));
+});
+
+
+// ── Revenue Forecast ──────────────────────────────────────────────────────────
+app.get('/api/forecast', async (req, res) => {
+  try {
+    const allSubs = await subscriptions.all();
+    const activeSubs = allSubs.filter(s => s.status === 'active');
+    const now = new Date();
+    let forecast30 = 0, forecast60 = 0, forecast90 = 0;
+    activeSubs.forEach(s => {
+      const next = new Date(s.next_billing_date);
+      const diff = (next - now) / (1000*60*60*24);
+      const cycles30 = Math.floor(30 / s.interval_days) + (diff <= 30 ? 1 : 0);
+      const cycles60 = Math.floor(60 / s.interval_days) + (diff <= 60 ? 1 : 0);
+      const cycles90 = Math.floor(90 / s.interval_days) + (diff <= 90 ? 1 : 0);
+      forecast30 += s.amount * cycles30;
+      forecast60 += s.amount * cycles60;
+      forecast90 += s.amount * cycles90;
+    });
+    res.json({ forecast30, forecast60, forecast90, active_count: activeSubs.length });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
-app.post('/api/security/2fa/disable', async (req, res) => { try { await pool.query('UPDATE security SET two_fa_enabled=false, two_fa_secret=NULL WHERE id=1'); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
 
-app.get('/api/admin-users', async (req, res) => { try { res.json(await adminUsers.all()); } catch(err) { res.status(500).json({ error: err.message }); } });
+// ── Card Expiry Scanner ───────────────────────────────────────────────────────
+app.get('/api/expiring-cards', async (req, res) => {
+  try {
+    const days = parseInt(req.query.days) || 30;
+    const now = new Date();
+    const futureMonth = now.getMonth() + 1 + Math.ceil(days / 30);
+    const futureYear = now.getFullYear() + Math.floor((now.getMonth() + Math.ceil(days / 30)) / 12);
+    const r = await pool.query(`
+      SELECT c.*, s.amount, s.interval_days, s.next_billing_date
+      FROM customers c
+      LEFT JOIN subscriptions s ON s.customer_id = c.id AND s.status = 'active'
+      WHERE c.status = 'active'
+        AND c.card_exp_month IS NOT NULL
+        AND c.card_exp_year IS NOT NULL
+        AND (
+          c.card_exp_year < $1
+          OR (c.card_exp_year = $1 AND c.card_exp_month <= $2)
+        )
+      ORDER BY c.card_exp_year ASC, c.card_exp_month ASC
+    `, [futureYear, now.getMonth() + 1 + Math.ceil(days / 30)]);
+    res.json(r.rows);
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Customer Tags ─────────────────────────────────────────────────────────────
+app.patch('/api/customers/:id/tag', async (req, res) => {
+  try {
+    await pool.query('ALTER TABLE customers ADD COLUMN IF NOT EXISTS tag TEXT').catch(()=>{});
+    await pool.query('UPDATE customers SET tag=$1 WHERE id=$2', [req.body.tag, req.params.id]);
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/customers/:id/tag', async (req, res) => {
+  try {
+    await pool.query('ALTER TABLE customers ADD COLUMN IF NOT EXISTS tag TEXT').catch(()=>{});
+    const r = await pool.query('SELECT tag FROM customers WHERE id=$1', [req.params.id]);
+    res.json({ tag: r.rows[0]?.tag || null });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Blacklist ─────────────────────────────────────────────────────────────────
+app.patch('/api/customers/:id/blacklist', async (req, res) => {
+  try {
+    await pool.query('UPDATE customers SET status=$1 WHERE id=$2', ['blacklisted', req.params.id]);
+    await activityLog.add('blacklist', `Customer blacklisted`, req.params.id);
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Manual Invoice (one-time charge) ─────────────────────────────────────────
+app.post('/api/customers/:id/charge-once', async (req, res) => {
+  try {
+    const { amount, currency = 'usd', description = 'Manual invoice' } = req.body;
+    const customer = await customers.byId(req.params.id);
+    if (!customer) return res.status(404).json({ error: 'Not found' });
+    if (!customer.stripe_payment_method) return res.status(400).json({ error: 'No saved card' });
+    const stripe = await getStripe(customer.stripe_account_id);
+    const pi = await stripe.paymentIntents.create({
+      amount: parseInt(amount),
+      currency,
+      customer: customer.stripe_customer_id,
+      payment_method: customer.stripe_payment_method,
+      off_session: true,
+      confirm: true,
+      description,
+    });
+    await payments.insert({ customer_id: customer.id, subscription_id: null, stripe_payment_intent: pi.id, amount: parseInt(amount), currency, status: 'succeeded', failure_reason: null });
+    await activityLog.add('invoice', `Manual invoice of ${(amount/100).toFixed(2)} ${currency.toUpperCase()} charged to ${customer.email}`, customer.id, parseInt(amount));
+    res.json({ success: true, paymentIntentId: pi.id });
+  } catch(err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+// ── Daily Summary ─────────────────────────────────────────────────────────────
+app.get('/api/daily-summary', async (req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT
+        COUNT(CASE WHEN status='succeeded' AND created_at >= CURRENT_DATE THEN 1 END) as payments_today,
+        COALESCE(SUM(CASE WHEN status='succeeded' AND created_at >= CURRENT_DATE THEN amount ELSE 0 END),0) as revenue_today,
+        COUNT(CASE WHEN status='failed' AND created_at >= CURRENT_DATE THEN 1 END) as failed_today,
+        COUNT(CASE WHEN status='succeeded' AND created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as payments_7d,
+        COALESCE(SUM(CASE WHEN status='succeeded' AND created_at >= CURRENT_DATE - INTERVAL '7 days' THEN amount ELSE 0 END),0) as revenue_7d,
+        COUNT(CASE WHEN status='succeeded' AND created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN 1 END) as payments_month,
+        COALESCE(SUM(CASE WHEN status='succeeded' AND created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN amount ELSE 0 END),0) as revenue_month
+      FROM payments
+    `);
+    const custR = await pool.query(`
+      SELECT
+        COUNT(CASE WHEN created_at >= CURRENT_DATE THEN 1 END) as new_today,
+        COUNT(CASE WHEN created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as new_7d,
+        COUNT(CASE WHEN status='active' THEN 1 END) as active_total
+      FROM customers
+    `);
+    res.json({ ...r.rows[0], ...custR.rows[0] });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+
+// ── Admin Users ───────────────────────────────────────────────────────────────
+app.get('/api/admin-users', async (req, res) => {
+  try {
+    // Create table
+    await pool.query(`CREATE TABLE IF NOT EXISTS admin_users (id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, role TEXT DEFAULT 'admin', created_at TIMESTAMPTZ DEFAULT NOW())`);
+    // Add missing columns one by one
+    try { await pool.query(`ALTER TABLE admin_users ADD COLUMN permissions JSONB DEFAULT '[]'`); } catch(e) {}
+    try { await pool.query(`ALTER TABLE admin_users ADD COLUMN last_login TIMESTAMPTZ`); } catch(e) {}
+    // Seed owner
+    const crypto = require('crypto');
+    const hash = crypto.createHash('sha256').update('IssoMoussa544@###').digest('hex');
+    try { await pool.query(`INSERT INTO admin_users (username, password_hash, role) VALUES ('Tharos333', $1, 'owner')`, [hash]); } catch(e) {}
+    // Fetch
+    const r = await pool.query(`SELECT id, username, role, created_at, last_login, COALESCE(permissions::text, '[]') as permissions FROM admin_users ORDER BY created_at ASC`);
+    res.json(r.rows);
+  } catch(err) {
+    console.error('admin-users error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/admin-users', async (req, res) => {
   try {
     const { username, password, role, permissions } = req.body;
     if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
     if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
     await adminUsers.create(username, password, role || 'admin', permissions || []);
-    await activityLog.add('security', `New admin user created: ${username}`);
+    await activityLog.add('security', `New admin user created: ${username} (role: ${role||'admin'})`);
     res.json({ success: true });
   } catch(err) {
     if (err.message.includes('unique')) return res.status(400).json({ error: 'Username already exists' });
     res.status(500).json({ error: err.message });
   }
 });
+
+app.patch('/api/admin-users/:id/permissions', async (req, res) => {
+  try {
+    const { role, permissions } = req.body;
+    // Don't allow changing owner role
+    const current = await pool.query('SELECT role FROM admin_users WHERE id=$1', [req.params.id]);
+    if (current.rows[0]?.role === 'owner') return res.status(400).json({ error: 'Cannot change owner role' });
+    if (role) await pool.query('UPDATE admin_users SET role=$1 WHERE id=$2', [role, req.params.id]);
+    await adminUsers.updatePermissions(req.params.id, permissions || []);
+    await activityLog.add('security', 'Admin user access updated: ID '+req.params.id+' → role: '+(role||'unchanged'));
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
 app.delete('/api/admin-users/:id', async (req, res) => {
   try {
     const all = await adminUsers.all();
@@ -248,17 +631,32 @@ app.delete('/api/admin-users/:id', async (req, res) => {
     res.json({ success: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
-app.patch('/api/admin-users/:id/permissions', async (req, res) => {
+
+app.post('/api/admin-users/:id/change-password', async (req, res) => {
   try {
-    const { role, permissions } = req.body;
-    const current = await pool.query('SELECT role FROM admin_users WHERE id=$1', [req.params.id]);
-    if (current.rows[0]?.role === 'owner') return res.status(400).json({ error: 'Cannot change owner role' });
-    if (role) await pool.query('UPDATE admin_users SET role=$1 WHERE id=$2', [role, req.params.id]);
-    await adminUsers.updatePermissions(req.params.id, permissions || []);
+    const { password } = req.body;
+    if (!password || password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    await adminUsers.changePassword(req.params.id, password);
+    await activityLog.add('security', `Admin password changed for user ID ${req.params.id}`);
     res.json({ success: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
+// Check if current session is still valid and get fresh permissions
+app.post('/api/auth/check', async (req, res) => {
+  try {
+    const { username } = req.body;
+    if (!username) return res.json({ valid: false });
+    const r = await pool.query('SELECT id, username, role, permissions FROM admin_users WHERE username=$1', [username]);
+    if (!r.rows[0]) return res.json({ valid: false });
+    const user = r.rows[0];
+    res.json({ valid: true, role: user.role, permissions: user.permissions || [] });
+  } catch(err) {
+    res.json({ valid: false });
+  }
+});
+
+// Verify login against DB (used by frontend)
 app.post('/api/auth/verify', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -274,150 +672,52 @@ app.post('/api/auth/verify', async (req, res) => {
     }
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
-app.post('/api/auth/check', async (req, res) => {
+
+
+// ── Payment failure reason (store on payment record) ─────────────────────────
+app.get('/api/payments/:id/reason', async (req, res) => {
   try {
-    const { username } = req.body;
-    if (!username) return res.json({ valid: false });
-    const r = await pool.query('SELECT id, username, role FROM admin_users WHERE username=$1', [username]);
-    if (!r.rows[0]) return res.json({ valid: false });
-    const user = r.rows[0];
-    let permissions = [];
-    try { const p = await pool.query('SELECT permissions FROM admin_users WHERE id=$1', [user.id]); permissions = p.rows[0]?.permissions || []; } catch(e) {}
-    res.json({ valid: true, role: user.role, permissions });
-  } catch(err) { res.json({ valid: true, role: 'owner', permissions: [] }); }
+    const r = await pool.query('SELECT failure_reason, stripe_payment_intent FROM payments WHERE id=$1', [req.params.id]);
+    if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
+    res.json({ reason: r.rows[0].failure_reason, pi: r.rows[0].stripe_payment_intent });
+  } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
-app.get('/api/revenue-chart', async (req, res) => {
-  try {
-    const r = await pool.query(`SELECT DATE(created_at) as day, SUM(CASE WHEN status='succeeded' THEN amount ELSE 0 END) as revenue, COUNT(CASE WHEN status='succeeded' THEN 1 END) as count FROM payments WHERE created_at >= NOW() - INTERVAL '60 days' GROUP BY DATE(created_at) ORDER BY day ASC`);
-    res.json(r.rows);
-  } catch(err) { res.status(500).json({ error: err.message }); }
-});
-app.get('/api/daily-summary', async (req, res) => {
-  try {
-    const r = await pool.query(`SELECT COALESCE(SUM(CASE WHEN status='succeeded' AND created_at >= CURRENT_DATE THEN amount ELSE 0 END),0) as revenue_today, COALESCE(COUNT(CASE WHEN status='succeeded' AND created_at >= CURRENT_DATE THEN 1 END),0) as payments_today, COALESCE(COUNT(CASE WHEN status='failed' AND created_at >= CURRENT_DATE THEN 1 END),0) as failed_today, COALESCE(SUM(CASE WHEN status='succeeded' AND created_at >= CURRENT_DATE - INTERVAL '7 days' THEN amount ELSE 0 END),0) as revenue_7d, COALESCE(COUNT(CASE WHEN status='succeeded' AND created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END),0) as payments_7d, COALESCE(SUM(CASE WHEN status='succeeded' AND created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN amount ELSE 0 END),0) as revenue_month, COALESCE(COUNT(CASE WHEN status='succeeded' AND created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN 1 END),0) as payments_month FROM payments`);
-    const c = await pool.query(`SELECT COUNT(*) as active_total, COUNT(CASE WHEN created_at >= CURRENT_DATE THEN 1 END) as new_today, COUNT(CASE WHEN created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as new_7d FROM customers WHERE status='active'`);
-    res.json({ ...r.rows[0], ...c.rows[0] });
-  } catch(err) { res.status(500).json({ error: err.message }); }
-});
-app.get('/api/forecast', async (req, res) => {
-  try {
-    const subs = await pool.query(`SELECT COALESCE(SUM(amount),0) as mrr FROM subscriptions WHERE status='active'`);
-    const mrr = parseInt(subs.rows[0].mrr)||0;
-    res.json({ mrr, forecast_30: mrr, forecast_60: mrr*2, forecast_90: mrr*3 });
-  } catch(err) { res.status(500).json({ error: err.message }); }
-});
+// ── Churn alerts ──────────────────────────────────────────────────────────────
 app.get('/api/churn-alerts', async (req, res) => {
   try {
-    const cancelled = await pool.query(`SELECT c.id,c.name,c.email,s.updated_at as churned_at FROM subscriptions s JOIN customers c ON c.id=s.customer_id WHERE s.status='cancelled' AND s.updated_at >= NOW()-INTERVAL '7 days' ORDER BY s.updated_at DESC LIMIT 20`);
-    const failing = await pool.query(`SELECT c.id,c.name,c.email,s.dunning_count FROM subscriptions s JOIN customers c ON c.id=s.customer_id WHERE s.dunning_count >= 3 AND s.status != 'cancelled' ORDER BY s.dunning_count DESC LIMIT 20`);
+    const cancelled = await pool.query(`
+      SELECT c.id, c.name, c.email, s.updated_at as churned_at, 'cancelled' as reason
+      FROM subscriptions s JOIN customers c ON c.id=s.customer_id
+      WHERE s.status='cancelled' AND s.updated_at >= NOW()-INTERVAL '7 days'
+      ORDER BY s.updated_at DESC LIMIT 20
+    `);
+    const failing = await pool.query(`
+      SELECT c.id, c.name, c.email, s.last_failed_at, s.dunning_count,
+        'dunning' as reason
+      FROM subscriptions s JOIN customers c ON c.id=s.customer_id
+      WHERE s.dunning_count >= 3 AND s.status != 'cancelled'
+      ORDER BY s.dunning_count DESC LIMIT 20
+    `);
     res.json({ cancelled: cancelled.rows, failing: failing.rows });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
+
+// ── MRR history for growth chart ──────────────────────────────────────────────
 app.get('/api/mrr-history', async (req, res) => {
-  try {
-    const r = await pool.query(`SELECT TO_CHAR(DATE_TRUNC('month', created_at), 'Mon YY') as month, DATE_TRUNC('month', created_at) as month_date, SUM(CASE WHEN status='succeeded' THEN amount ELSE 0 END) as revenue FROM payments WHERE created_at >= NOW() - INTERVAL '12 months' GROUP BY DATE_TRUNC('month', created_at) ORDER BY month_date ASC`);
-    res.json(r.rows);
-  } catch(err) { res.status(500).json({ error: err.message }); }
-});
-app.get('/api/recovery-rate', async (req, res) => {
-  try {
-    const r = await pool.query(`SELECT COUNT(CASE WHEN status='failed' THEN 1 END) as total_failed, COUNT(CASE WHEN status='succeeded' THEN 1 END) as total_succeeded FROM payments WHERE created_at >= NOW()-INTERVAL '30 days'`);
-    const row = r.rows[0];
-    const tf = parseInt(row.total_failed)||0, ts = parseInt(row.total_succeeded)||0;
-    res.json({ total_failed: tf, recovered: 0, rate: (tf+ts)>0?Math.round((ts/(tf+ts))*100):0, total_succeeded: ts });
-  } catch(err) { res.status(500).json({ error: err.message }); }
-});
-app.get('/api/search', async (req, res) => {
-  try {
-    const q = '%'+(req.query.q||'').trim()+'%';
-    if (!req.query.q || req.query.q.trim().length < 2) return res.json({ customers:[], payments:[], subscriptions:[] });
-    const [cust, pmts, subs] = await Promise.all([
-      pool.query(`SELECT id,name,email,card_brand,card_last4,status FROM customers WHERE name ILIKE $1 OR email ILIKE $1 LIMIT 5`, [q]),
-      pool.query(`SELECT p.id,c.name,c.email,p.amount,p.currency,p.status,p.created_at FROM payments p JOIN customers c ON c.id=p.customer_id WHERE c.name ILIKE $1 OR c.email ILIKE $1 ORDER BY p.created_at DESC LIMIT 5`, [q]),
-      pool.query(`SELECT s.id,c.name,c.email,s.amount,s.currency,s.status FROM subscriptions s JOIN customers c ON c.id=s.customer_id WHERE c.name ILIKE $1 OR c.email ILIKE $1 LIMIT 5`, [q]),
-    ]);
-    res.json({ customers: cust.rows, payments: pmts.rows, subscriptions: subs.rows });
-  } catch(err) { res.status(500).json({ error: err.message }); }
-});
-app.get('/api/ip-geo', async (req, res) => {
-  try {
-    const ip = req.query.ip;
-    if (!ip || ip==='::1' || ip==='127.0.0.1') return res.json({ country: 'Local', code: null });
-    const response = await fetch('https://ipapi.co/'+ip+'/json/');
-    const data = await response.json();
-    res.json({ country: data.country_name||null, code: data.country_code?data.country_code.toLowerCase():null });
-  } catch(err) { res.json({ country: null, code: null }); }
-});
-app.get('/api/debug/admins', async (req, res) => {
-  const results = {};
-  try { const t1 = await pool.query('SELECT NOW() as time'); results.db_connected=true; results.db_time=t1.rows[0].time; } catch(e) { results.db_connected=false; results.db_error=e.message; }
-  try { const t2 = await pool.query("SELECT column_name FROM information_schema.columns WHERE table_name='admin_users'"); results.columns=t2.rows.map(r=>r.column_name); } catch(e) { results.columns_error=e.message; }
-  try { const t3 = await pool.query('SELECT COUNT(*) FROM admin_users'); results.row_count=t3.rows[0].count; } catch(e) { results.count_error=e.message; }
-  res.json(results);
-});
-
-
-// ── Stats (dashboard) ─────────────────────────────────────────────────────────
-app.get('/api/stats', async (req, res) => {
   try {
     const r = await pool.query(`
       SELECT
-        COALESCE(SUM(CASE WHEN s.status='active' THEN s.amount ELSE 0 END),0) as mrr,
-        COUNT(DISTINCT CASE WHEN s.status='active' THEN s.id END) as active_subs,
-        COUNT(DISTINCT c.id) as total_customers,
-        COUNT(DISTINCT CASE WHEN c.card_last4 IS NOT NULL THEN c.id END) as saved_cards,
-        COUNT(CASE WHEN p.status='failed' AND p.created_at >= NOW()-INTERVAL '30 days' THEN 1 END) as failed_payments,
-        COALESCE(SUM(CASE WHEN p.status='succeeded' AND p.created_at >= DATE_TRUNC('month',NOW()) THEN p.amount ELSE 0 END),0) as revenue_month,
-        COALESCE(SUM(CASE WHEN p.status='succeeded' THEN p.amount ELSE 0 END),0) as total_revenue
-      FROM customers c
-      LEFT JOIN subscriptions s ON s.customer_id=c.id
-      LEFT JOIN payments p ON p.customer_id=c.id
-    `);
-    const row = r.rows[0];
-    const successCount = await pool.query("SELECT COUNT(*) as n FROM payments WHERE status='succeeded' AND created_at >= NOW()-INTERVAL '30 days'");
-    const failCount = await pool.query("SELECT COUNT(*) as n FROM payments WHERE status='failed' AND created_at >= NOW()-INTERVAL '30 days'");
-    const total = parseInt(successCount.rows[0].n)+parseInt(failCount.rows[0].n);
-    const rate = total>0?Math.round((parseInt(successCount.rows[0].n)/total)*100):0;
-    res.json({ ...row, success_rate: rate });
-  } catch(err) { res.status(500).json({ error: err.message }); }
-});
-
-// ── Upcoming rebills ──────────────────────────────────────────────────────────
-app.get('/api/upcoming', async (req, res) => {
-  try {
-    const r = await pool.query(`
-      SELECT s.id, c.name, c.email, s.amount, s.currency, s.next_billing_date, s.interval_days
-      FROM subscriptions s JOIN customers c ON c.id=s.customer_id
-      WHERE s.status='active' AND s.next_billing_date IS NOT NULL
-      ORDER BY s.next_billing_date ASC LIMIT 10
+        TO_CHAR(DATE_TRUNC('month', created_at), 'Mon YY') as month,
+        DATE_TRUNC('month', created_at) as month_date,
+        SUM(CASE WHEN status='succeeded' THEN amount ELSE 0 END) as revenue,
+        COUNT(CASE WHEN status='succeeded' THEN 1 END) as payments
+      FROM payments
+      WHERE created_at >= NOW() - INTERVAL '12 months'
+      GROUP BY DATE_TRUNC('month', created_at)
+      ORDER BY month_date ASC
     `);
     res.json(r.rows);
-  } catch(err) { res.status(500).json({ error: err.message }); }
-});
-
-// ── Recent payments (dashboard) ───────────────────────────────────────────────
-app.get('/api/recent-payments', async (req, res) => {
-  try {
-    const r = await pool.query(`
-      SELECT p.id, c.name, c.email, p.amount, p.currency, p.status, p.created_at
-      FROM payments p JOIN customers c ON c.id=p.customer_id
-      ORDER BY p.created_at DESC LIMIT 10
-    `);
-    res.json(r.rows);
-  } catch(err) { res.status(500).json({ error: err.message }); }
-});
-
-// ── Revenue overview ──────────────────────────────────────────────────────────
-app.get('/api/revenue', async (req, res) => {
-  try {
-    const period = req.query.period || 'month';
-    let interval = "DATE_TRUNC('month', NOW())";
-    if (period==='today') interval = 'CURRENT_DATE';
-    else if (period==='yesterday') interval = "CURRENT_DATE - INTERVAL '1 day'";
-    else if (period==='week') interval = "NOW() - INTERVAL '7 days'";
-    const r = await pool.query(`SELECT COALESCE(SUM(CASE WHEN status='succeeded' THEN amount ELSE 0 END),0) as revenue, COUNT(CASE WHEN status='succeeded' THEN 1 END) as count FROM payments WHERE created_at >= ${interval}`);
-    res.json(r.rows[0]);
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -429,54 +729,99 @@ app.get('/api/best-customers', async (req, res) => {
         COALESCE(SUM(CASE WHEN p.status='succeeded' THEN p.amount ELSE 0 END),0) as total_paid,
         COUNT(CASE WHEN p.status='succeeded' THEN 1 END) as payment_count,
         MAX(p.created_at) as last_payment
-      FROM customers c LEFT JOIN payments p ON p.customer_id=c.id
+      FROM customers c
+      LEFT JOIN payments p ON p.customer_id=c.id
       GROUP BY c.id ORDER BY total_paid DESC LIMIT 10
     `);
     res.json(r.rows);
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
-// ── 2FA validate (alias) ──────────────────────────────────────────────────────
-app.post('/api/security/2fa/validate', async (req, res) => {
+// ── Failed payment recovery rate ──────────────────────────────────────────────
+app.get('/api/recovery-rate', async (req, res) => {
   try {
-    if (!speakeasy) return res.json({ valid: true });
-    const r = await pool.query('SELECT two_fa_enabled, two_fa_secret FROM security WHERE id=1');
+    const r = await pool.query(`
+      SELECT
+        COUNT(CASE WHEN status='failed' THEN 1 END) as total_failed,
+        COUNT(CASE WHEN status='succeeded' AND failure_reason IS NOT NULL THEN 1 END) as recovered,
+        COUNT(CASE WHEN status='succeeded' THEN 1 END) as total_succeeded
+      FROM payments WHERE created_at >= NOW()-INTERVAL '30 days'
+    `);
     const row = r.rows[0];
-    if (!row?.two_fa_enabled) return res.json({ valid: true });
-    const valid = speakeasy.totp.verify({ secret: row.two_fa_secret, encoding: 'base32', token: req.body.token, window: 1 });
-    res.json({ valid });
+    const totalFailed = parseInt(row.total_failed)||0;
+    const recovered = parseInt(row.recovered)||0;
+    const rate = totalFailed > 0 ? Math.round((recovered/totalFailed)*100) : 0;
+    res.json({ total_failed: totalFailed, recovered, rate, total_succeeded: parseInt(row.total_succeeded)||0 });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+// ── Global search ─────────────────────────────────────────────────────────────
+app.get('/api/search', async (req, res) => {
   try {
-    const accounts = await stripeAccounts.all();
-    let event = null, usedAccount = null;
-    for (const acc of accounts) {
-      if (!acc.webhook_secret) continue;
-      try { const stripe = require('stripe')(acc.secret_key); event = stripe.webhooks.constructEvent(req.body, req.headers['stripe-signature'], acc.webhook_secret); usedAccount = acc; break; } catch(e) {}
-    }
-    if (!event) { res.json({ received: true }); return; }
-    await webhookLogs.add(event.type, usedAccount?.id, JSON.stringify(event).slice(0, 500));
-    if (event.type === 'checkout.session.completed') {
-      const session = event.data.object;
-      const stripe = require('stripe')(usedAccount.secret_key);
-      const customer = await stripe.customers.retrieve(session.customer);
-      const pms = await stripe.paymentMethods.list({ customer: session.customer, type: 'card' });
-      const pm = pms.data[0];
-      const existing = await pool.query('SELECT id FROM customers WHERE stripe_customer_id=$1', [session.customer]);
-      if (!existing.rows[0]) {
-        await pool.query("INSERT INTO customers (email,name,stripe_customer_id,stripe_payment_method,stripe_account_id,card_brand,card_last4,card_exp_month,card_exp_year,status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'active')", [customer.email, customer.name||customer.email, session.customer, pm?.id, usedAccount.id, pm?.card?.brand, pm?.card?.last4, pm?.card?.exp_month, pm?.card?.exp_year]);
-      } else if (pm) {
-        await pool.query('UPDATE customers SET stripe_payment_method=$1,card_brand=$2,card_last4=$3,card_exp_month=$4,card_exp_year=$5 WHERE stripe_customer_id=$6', [pm.id, pm.card.brand, pm.card.last4, pm.card.exp_month, pm.card.exp_year, session.customer]);
-      }
-      await activityLog.add('payment', `New customer via checkout: ${customer.email}`);
-    }
-    res.json({ received: true });
-  } catch(err) { res.status(400).json({ error: err.message }); }
+    const q = '%'+(req.query.q||'').trim()+'%';
+    if (!req.query.q || req.query.q.trim().length < 2) return res.json({ customers:[], payments:[], subscriptions:[] });
+    const [cust, pmts, subs] = await Promise.all([
+      pool.query(`SELECT id,name,email,card_brand,card_last4,status FROM customers WHERE name ILIKE $1 OR email ILIKE $1 LIMIT 5`, [q]),
+      pool.query(`SELECT p.id,c.name,c.email,p.amount,p.currency,p.status,p.created_at,p.failure_reason FROM payments p JOIN customers c ON c.id=p.customer_id WHERE c.name ILIKE $1 OR c.email ILIKE $1 ORDER BY p.created_at DESC LIMIT 5`, [q]),
+      pool.query(`SELECT s.id,c.name,c.email,s.amount,s.currency,s.status,s.interval_days FROM subscriptions s JOIN customers c ON c.id=s.customer_id WHERE c.name ILIKE $1 OR c.email ILIKE $1 LIMIT 5`, [q]),
+    ]);
+    res.json({ customers: cust.rows, payments: pmts.rows, subscriptions: subs.rows });
+  } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
-app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+// ── Plan templates ────────────────────────────────────────────────────────────
+app.get('/api/plan-templates', async (req, res) => {
+  try {
+    await pool.query(`CREATE TABLE IF NOT EXISTS plan_templates (id SERIAL PRIMARY KEY, name TEXT, amount INT, currency TEXT DEFAULT 'usd', interval_days INT, created_at TIMESTAMPTZ DEFAULT NOW())`);
+    const r = await pool.query('SELECT * FROM plan_templates ORDER BY created_at ASC');
+    res.json(r.rows);
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
 
+app.post('/api/plan-templates', async (req, res) => {
+  try {
+    await pool.query(`CREATE TABLE IF NOT EXISTS plan_templates (id SERIAL PRIMARY KEY, name TEXT, amount INT, currency TEXT DEFAULT 'usd', interval_days INT, created_at TIMESTAMPTZ DEFAULT NOW())`);
+    const { name, amount, currency, interval_days } = req.body;
+    await pool.query('INSERT INTO plan_templates (name,amount,currency,interval_days) VALUES ($1,$2,$3,$4)', [name, amount, currency||'usd', interval_days||30]);
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/plan-templates/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM plan_templates WHERE id=$1', [req.params.id]);
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Payment notes ─────────────────────────────────────────────────────────────
+app.patch('/api/payments/:id/note', async (req, res) => {
+  try {
+    await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS note TEXT');
+    await pool.query('UPDATE payments SET note=$1 WHERE id=$2', [req.body.note, req.params.id]);
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── IP Geolocation ───────────────────────────────────────────────────────────
+app.get('/api/ip-geo', async (req, res) => {
+  try {
+    const ip = req.query.ip;
+    if (!ip || ip === '::1' || ip === '127.0.0.1' || ip.startsWith('192.168') || ip.startsWith('10.')) {
+      return res.json({ country: 'Local', code: null });
+    }
+    const response = await fetch('https://ipapi.co/' + ip + '/json/');
+    const data = await response.json();
+    res.json({ country: data.country_name || null, code: data.country_code ? data.country_code.toLowerCase() : null });
+  } catch(err) {
+    res.json({ country: null, code: null });
+  }
+});
+
+// ── Start ─────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 8080;
-init().then(() => { app.listen(PORT, () => console.log(`Subloop running on port ${PORT}`)); }).catch(err => { console.error('DB init failed:', err.message); process.exit(1); });
+app.listen(PORT, async () => {
+  await init();
+  console.log(`\n🚀 Subloop running on http://localhost:${PORT}\n`);
+  initScheduler();
+});
