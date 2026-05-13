@@ -820,15 +820,14 @@ function completeLogin(){
 // Access control constants
 var ALL_SECTIONS = ['dashboard','activity','customers','subscriptions','payments','links','accounts','forecast','expiry','summary','admins','settings','security','webhooks'];
 
-function getCurrentRole(){ return localStorage.getItem('subloop_role')||''; }
+function getCurrentRole(){ return localStorage.getItem('subloop_role')||'owner'; }
 function getCurrentPermissions(){
   try{ return JSON.parse(localStorage.getItem('subloop_permissions')||'[]'); }catch(e){ return []; }
 }
 
 function canAccess(section){
   var role=getCurrentRole();
-  if(!role) return false; // not logged in
-  if(role==='owner'||role==='admin') return true;
+  if(!role||role==='owner'||role==='admin') return true;
   if(role==='viewer') return ['dashboard','activity','payments','forecast','expiry','summary'].includes(section);
   if(role==='custom'){
     var perms=getCurrentPermissions();
