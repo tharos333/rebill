@@ -70,10 +70,14 @@ html.light .toggle-thumb{background:#fff;left:18px}
 .page-header h2{font-size:19px;font-weight:600;letter-spacing:-0.3px}
 .page-header p{font-size:13px;color:var(--muted);margin-top:2px}
 .page-header-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.top-action-wrap{position:relative;display:inline-flex;align-items:center}
-.notification-btn{position:relative;width:42px!important;min-width:42px;height:auto!important;min-height:0!important;padding:7px 13px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;align-self:center;line-height:1;border-radius:8px;box-sizing:border-box}
-.notification-btn svg{width:14px;height:14px;display:block;flex-shrink:0}
-.notification-dot{position:absolute;top:6px;right:8px;width:6px;height:6px;background:var(--red);border:1.5px solid var(--surface);border-radius:999px;display:none}
+.topbar-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.topbar-actions #global-search-input{height:34px;line-height:34px}
+.topbar-actions .btn{height:34px;min-height:34px;padding:0 13px;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;line-height:1}
+.topbar-actions .btn svg{width:13px;height:13px;display:block;flex-shrink:0}
+.top-action-wrap{position:relative;display:inline-flex;align-items:center;height:34px}
+.notification-btn{position:relative;width:42px!important;min-width:42px!important;height:34px!important;min-height:34px!important;padding:0!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;align-self:center;line-height:1;border-radius:8px;box-sizing:border-box}
+.notification-btn svg{width:13px!important;height:13px!important;display:block;flex-shrink:0}
+.notification-dot{position:absolute;top:8px;right:9px;width:5px;height:5px;background:var(--red);border:1.5px solid var(--surface);border-radius:999px;display:none}
 .notification-btn.has-alert .notification-dot{display:block}
 .notification-menu{display:none;position:absolute;top:calc(100% + 8px);right:0;width:300px;background:var(--surface);border:1px solid var(--border2);border-radius:12px;box-shadow:0 14px 38px rgba(0,0,0,0.35);z-index:300;overflow:hidden}
 .notification-menu.open{display:block}
@@ -288,7 +292,7 @@ textarea{resize:vertical;min-height:60px}
 <div id="page-dashboard" class="page active">
   <div class="page-header">
     <div><h2>Dashboard</h2><p>Your subscription overview</p></div>
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <div class="topbar-actions" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       <div style="position:relative;">
         <input type="text" id="global-search-input" placeholder="Search..." oninput="globalSearch(this.value)" style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:7px 10px 7px 30px;font-size:13px;font-family:var(--mono);outline:none;width:220px;">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" style="position:absolute;left:9px;top:9px;pointer-events:none;"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
