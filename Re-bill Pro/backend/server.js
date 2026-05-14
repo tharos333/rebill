@@ -21,7 +21,13 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
         break;
       } catch(e) {}
     }
-    if (!event) { res.json({ received: true }); return; }
+    if (!event) {
+      // Try parsing as JSON directly (no signature verification) for debugging
+      console.log('[webhook] signature verification failed for all accounts');
+      console.log('[webhook] accounts checked:', fullAccounts.rows.map(a => a.name + '(has_secret:' + !!a.webhook_secret + ')'));
+      res.json({ received: true }); 
+      return; 
+    }
     await webhookLogs.add({ event_type: event.type, account_name: usedAccount?.name });
     const stripe = require('stripe')(usedAccount.secret_key);
 
@@ -545,6 +551,11 @@ app.get('/api/ip-geo', async (req, res) => {
     res.json({ country: data.country_name||null, code: data.country_code?data.country_code.toLowerCase():null });
   } catch(err) { res.json({ country: null, code: null }); }
 });
+app.get('/api/debug/webhook', async (req, res) => {
+  const r = await pool.query('SELECT id, name, LEFT(webhook_secret,10) as ws_preview, webhook_secret IS NOT NULL as has_secret FROM stripe_accounts');
+  res.json(r.rows);
+});
+
 app.get('/api/debug/admins', async (req, res) => {
   const results = {};
   try { const t1 = await pool.query('SELECT NOW() as time'); results.db_connected=true; results.db_time=t1.rows[0].time; } catch(e) { results.db_connected=false; }
