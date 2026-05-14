@@ -909,24 +909,32 @@ function showPage(name,el){
   if(loaders[name])loaders[name]();
   setTimeout(enforceReadonly,200);
 }
-function fmt(c,cur){return new Intl.NumberFormat('en-US',{style:'currency',currency:(cur||'usd').toUpperCase()}).format((c||0)/100);}
-function fmtCompactMoney(c,cur){
+function fmtExact(c,cur){return new Intl.NumberFormat('en-US',{style:'currency',currency:(cur||'usd').toUpperCase()}).format((c||0)/100);}
+function moneySymbol(cur){
   const currency=(cur||'usd').toUpperCase();
-  const amount=Number(c||0)/100;
-  let symbol='$';
   try{
     const parts=new Intl.NumberFormat('en-US',{style:'currency',currency:currency,maximumFractionDigits:0}).formatToParts(0);
     const part=parts.find(p=>p.type==='currency');
-    if(part&&part.value)symbol=part.value;
+    if(part&&part.value)return part.value;
   }catch(e){}
-  if(amount>=1000000){
-    return symbol+(amount/1000000).toFixed(amount>=10000000?0:1).replace('.0','')+'M';
-  }
-  if(amount>=100000){
-    return symbol+Math.round(amount/1000)+'K';
-  }
-  return fmt(c,cur);
+  return '$';
 }
+function fmtCompactMoney(c,cur){
+  const amount=Number(c||0)/100;
+  const symbol=moneySymbol(cur);
+  if(amount>=1000000){
+    const m=amount/1000000;
+    const decimals=m<100?1:0;
+    return symbol+m.toFixed(decimals).replace('.0','')+'M';
+  }
+  if(amount>=1000){
+    const k=amount/1000;
+    const decimals=k<100?1:0;
+    return symbol+k.toFixed(decimals).replace('.0','')+'K';
+  }
+  return fmtExact(c,cur);
+}
+function fmt(c,cur){return fmtCompactMoney(c,cur);}
 function fmtDate(d){return d?new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';}
 function fmtTime(d){return d?new Date(d).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'—';}
 function initials(n){return(n||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();}
