@@ -5,6 +5,92 @@ const { init, pool, settingsDb, stripeAccounts, customers, subscriptions, paymen
 let speakeasy, QRCode;
 try { speakeasy = require('speakeasy'); QRCode = require('qrcode'); } catch(e) {}
 
+
+app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  try {
+    const accounts = await stripeAccounts.all();
+    let event = null, usedAccount = null;
+    // Need full secret_key for webhook verification - get from DB directly
+    const fullAccounts = await pool.query('SELECT * FROM stripe_accounts');
+    for (const acc of fullAccounts.rows) {
+      if (!acc.webhook_secret) continue;
+      try {
+        const stripe = require('stripe')(acc.secret_key);
+        event = stripe.webhooks.constructEvent(req.body, req.headers['stripe-signature'], acc.webhook_secret);
+        usedAccount = acc;
+        break;
+      } catch(e) {}
+    }
+    if (!event) { res.json({ received: true }); return; }
+    await webhookLogs.add({ event_type: event.type, account_name: usedAccount?.name });
+    const stripe = require('stripe')(usedAccount.secret_key);
+
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object;
+      if (!session.customer) { res.json({ received: true }); return; }
+      try {
+        const customer = await stripe.customers.retrieve(session.customer);
+        const pms = await stripe.paymentMethods.list({ customer: session.customer, type: 'card' });
+        const pm = pms.data[0];
+        const existing = await pool.query('SELECT id FROM customers WHERE stripe_customer_id=$1', [session.customer]);
+        let customerId;
+        if (!existing.rows[0]) {
+          const ins = await pool.query("INSERT INTO customers (email,name,stripe_customer_id,stripe_payment_method,stripe_account_id,card_brand,card_last4,card_exp_month,card_exp_year,status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'active') RETURNING id",
+            [customer.email, customer.name||customer.email, session.customer, pm?.id, usedAccount.id, pm?.card?.brand, pm?.card?.last4, pm?.card?.exp_month, pm?.card?.exp_year]);
+          customerId = ins.rows[0].id;
+        } else {
+          customerId = existing.rows[0].id;
+          if (pm) await pool.query('UPDATE customers SET stripe_payment_method=$1,card_brand=$2,card_last4=$3,card_exp_month=$4,card_exp_year=$5 WHERE stripe_customer_id=$6',
+            [pm.id, pm.card.brand, pm.card.last4, pm.card.exp_month, pm.card.exp_year, session.customer]);
+        }
+        if (session.amount_total && customerId) {
+          await pool.query("INSERT INTO payments (customer_id,stripe_payment_intent,amount,currency,status) VALUES ($1,$2,$3,$4,'succeeded')",
+            [customerId, session.payment_intent, session.amount_total, session.currency||'usd']);
+        }
+        await activityLog.add('payment', `New customer via checkout: ${customer.email}`);
+      } catch(err) { console.error('[webhook] checkout error:', err.message); }
+    }
+
+    else if (event.type === 'payment_intent.succeeded') {
+      const pi = event.data.object;
+      console.log('[webhook] payment_intent.succeeded - customer:', pi.customer, 'amount:', pi.amount);
+      if (!pi.customer) { console.log('[webhook] no customer, skipping'); res.json({ received: true }); return; }
+      try {
+        console.log('[webhook] retrieving customer from Stripe...');
+        const customer = await stripe.customers.retrieve(pi.customer);
+        console.log('[webhook] customer:', customer.email);
+        const pms = await stripe.paymentMethods.list({ customer: pi.customer, type: 'card' });
+        const pm = pms.data[0];
+        const existing = await pool.query('SELECT id FROM customers WHERE stripe_customer_id=$1', [pi.customer]);
+        let customerId;
+        if (!existing.rows[0]) {
+          console.log('[webhook] new customer, inserting...');
+          const ins = await pool.query("INSERT INTO customers (email,name,stripe_customer_id,stripe_payment_method,stripe_account_id,card_brand,card_last4,card_exp_month,card_exp_year,status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'active') RETURNING id",
+            [customer.email, customer.name||customer.email, pi.customer, pm?.id, usedAccount.id, pm?.card?.brand, pm?.card?.last4, pm?.card?.exp_month, pm?.card?.exp_year]);
+          customerId = ins.rows[0].id;
+        } else {
+          customerId = existing.rows[0].id;
+          console.log('[webhook] existing customer id:', customerId);
+          if (pm) await pool.query('UPDATE customers SET stripe_payment_method=$1,card_brand=$2,card_last4=$3,card_exp_month=$4,card_exp_year=$5 WHERE stripe_customer_id=$6',
+            [pm.id, pm.card.brand, pm.card.last4, pm.card.exp_month, pm.card.exp_year, pi.customer]);
+        }
+        const dupCheck = await pool.query('SELECT id FROM payments WHERE stripe_payment_intent=$1', [pi.id]);
+        if (!dupCheck.rows[0]) {
+          console.log('[webhook] inserting payment record...');
+          await pool.query("INSERT INTO payments (customer_id,stripe_payment_intent,amount,currency,status) VALUES ($1,$2,$3,$4,'succeeded')",
+            [customerId, pi.id, pi.amount, pi.currency||'usd']);
+          await activityLog.add('payment', `Payment of ${(pi.amount/100).toFixed(2)} received from ${customer.email}`);
+          console.log('[webhook] ✓ payment saved for', customer.email);
+        } else {
+          console.log('[webhook] duplicate payment, skipping:', pi.id);
+        }
+      } catch(err) { console.error('[webhook] payment_intent error:', err.message, err.stack); }
+    }
+
+    res.json({ received: true });
+  } catch(err) { res.status(400).json({ error: err.message }); }
+});
+
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
@@ -468,91 +554,6 @@ app.get('/api/debug/admins', async (req, res) => {
 });
 
 // ── Webhook ───────────────────────────────────────────────────────────────────
-app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
-  try {
-    const accounts = await stripeAccounts.all();
-    let event = null, usedAccount = null;
-    // Need full secret_key for webhook verification - get from DB directly
-    const fullAccounts = await pool.query('SELECT * FROM stripe_accounts');
-    for (const acc of fullAccounts.rows) {
-      if (!acc.webhook_secret) continue;
-      try {
-        const stripe = require('stripe')(acc.secret_key);
-        event = stripe.webhooks.constructEvent(req.body, req.headers['stripe-signature'], acc.webhook_secret);
-        usedAccount = acc;
-        break;
-      } catch(e) {}
-    }
-    if (!event) { res.json({ received: true }); return; }
-    await webhookLogs.add({ event_type: event.type, account_name: usedAccount?.name });
-    const stripe = require('stripe')(usedAccount.secret_key);
-
-    if (event.type === 'checkout.session.completed') {
-      const session = event.data.object;
-      if (!session.customer) { res.json({ received: true }); return; }
-      try {
-        const customer = await stripe.customers.retrieve(session.customer);
-        const pms = await stripe.paymentMethods.list({ customer: session.customer, type: 'card' });
-        const pm = pms.data[0];
-        const existing = await pool.query('SELECT id FROM customers WHERE stripe_customer_id=$1', [session.customer]);
-        let customerId;
-        if (!existing.rows[0]) {
-          const ins = await pool.query("INSERT INTO customers (email,name,stripe_customer_id,stripe_payment_method,stripe_account_id,card_brand,card_last4,card_exp_month,card_exp_year,status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'active') RETURNING id",
-            [customer.email, customer.name||customer.email, session.customer, pm?.id, usedAccount.id, pm?.card?.brand, pm?.card?.last4, pm?.card?.exp_month, pm?.card?.exp_year]);
-          customerId = ins.rows[0].id;
-        } else {
-          customerId = existing.rows[0].id;
-          if (pm) await pool.query('UPDATE customers SET stripe_payment_method=$1,card_brand=$2,card_last4=$3,card_exp_month=$4,card_exp_year=$5 WHERE stripe_customer_id=$6',
-            [pm.id, pm.card.brand, pm.card.last4, pm.card.exp_month, pm.card.exp_year, session.customer]);
-        }
-        if (session.amount_total && customerId) {
-          await pool.query("INSERT INTO payments (customer_id,stripe_payment_intent,amount,currency,status) VALUES ($1,$2,$3,$4,'succeeded')",
-            [customerId, session.payment_intent, session.amount_total, session.currency||'usd']);
-        }
-        await activityLog.add('payment', `New customer via checkout: ${customer.email}`);
-      } catch(err) { console.error('[webhook] checkout error:', err.message); }
-    }
-
-    else if (event.type === 'payment_intent.succeeded') {
-      const pi = event.data.object;
-      console.log('[webhook] payment_intent.succeeded - customer:', pi.customer, 'amount:', pi.amount);
-      if (!pi.customer) { console.log('[webhook] no customer, skipping'); res.json({ received: true }); return; }
-      try {
-        console.log('[webhook] retrieving customer from Stripe...');
-        const customer = await stripe.customers.retrieve(pi.customer);
-        console.log('[webhook] customer:', customer.email);
-        const pms = await stripe.paymentMethods.list({ customer: pi.customer, type: 'card' });
-        const pm = pms.data[0];
-        const existing = await pool.query('SELECT id FROM customers WHERE stripe_customer_id=$1', [pi.customer]);
-        let customerId;
-        if (!existing.rows[0]) {
-          console.log('[webhook] new customer, inserting...');
-          const ins = await pool.query("INSERT INTO customers (email,name,stripe_customer_id,stripe_payment_method,stripe_account_id,card_brand,card_last4,card_exp_month,card_exp_year,status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'active') RETURNING id",
-            [customer.email, customer.name||customer.email, pi.customer, pm?.id, usedAccount.id, pm?.card?.brand, pm?.card?.last4, pm?.card?.exp_month, pm?.card?.exp_year]);
-          customerId = ins.rows[0].id;
-        } else {
-          customerId = existing.rows[0].id;
-          console.log('[webhook] existing customer id:', customerId);
-          if (pm) await pool.query('UPDATE customers SET stripe_payment_method=$1,card_brand=$2,card_last4=$3,card_exp_month=$4,card_exp_year=$5 WHERE stripe_customer_id=$6',
-            [pm.id, pm.card.brand, pm.card.last4, pm.card.exp_month, pm.card.exp_year, pi.customer]);
-        }
-        const dupCheck = await pool.query('SELECT id FROM payments WHERE stripe_payment_intent=$1', [pi.id]);
-        if (!dupCheck.rows[0]) {
-          console.log('[webhook] inserting payment record...');
-          await pool.query("INSERT INTO payments (customer_id,stripe_payment_intent,amount,currency,status) VALUES ($1,$2,$3,$4,'succeeded')",
-            [customerId, pi.id, pi.amount, pi.currency||'usd']);
-          await activityLog.add('payment', `Payment of ${(pi.amount/100).toFixed(2)} received from ${customer.email}`);
-          console.log('[webhook] ✓ payment saved for', customer.email);
-        } else {
-          console.log('[webhook] duplicate payment, skipping:', pi.id);
-        }
-      } catch(err) { console.error('[webhook] payment_intent error:', err.message, err.stack); }
-    }
-
-    res.json({ received: true });
-  } catch(err) { res.status(400).json({ error: err.message }); }
-});
-
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
 const PORT = process.env.PORT || 8080;
