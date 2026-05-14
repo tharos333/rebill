@@ -148,7 +148,7 @@ textarea{resize:vertical;min-height:60px}
 .rev-tab:hover{color:var(--text);border-color:var(--accent)}
 .rev-tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
 .payment-card{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;vertical-align:middle}
-.payment-img{width:38px;height:24px;border-radius:5px;object-fit:contain;display:block;box-shadow:0 1px 4px rgba(0,0,0,0.25)}
+.payment-img{width:28px;height:18px;border-radius:4px;object-fit:contain;display:block;box-shadow:0 1px 3px rgba(0,0,0,0.2)}
 .payment-dots{color:#8b8b98;letter-spacing:2px;font-weight:700;font-size:12px;font-family:var(--mono)}
 .payment-last4{color:#a1a1aa;font-weight:700;font-size:12px;font-family:var(--mono)}
 .payment-badge-fallback{width:38px;height:24px;border-radius:5px;background:#1f1f2a;border:1px solid #343442;display:inline-flex;align-items:center;justify-content:center;color:#9ca3af;font-size:9px;font-weight:700;font-family:var(--sans);flex-shrink:0}
@@ -959,7 +959,7 @@ function cardBadge(brand,last4){
     :'<div class="payment-badge-fallback" title="'+label+'">'+((b||'card').slice(0,4).toUpperCase())+'</div>';
   var dots=last4?'<span class="payment-dots">••••</span>':'';
   var num=last4?'<span class="payment-last4">'+last4+'</span>':'';
-  return '<div class="payment-card">'+img+'<span style="font-size:12px;color:var(--muted);font-family:var(--mono);">'+label+'</span>'+dots+num+'</div>';
+  return '<div class="payment-card">'+img+dots+num+'</div>'; 
 }
 function initApp(){
   var username=localStorage.getItem('subloop_username');
