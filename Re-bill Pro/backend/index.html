@@ -934,7 +934,7 @@ function fmtCompactMoney(c,cur){
   }
   return fmtExact(c,cur);
 }
-function fmt(c,cur){return fmtCompactMoney(c,cur);}
+function fmt(c,cur){return fmtExact(c,cur);}
 function fmtDate(d){return d?new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';}
 function fmtTime(d){return d?new Date(d).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'—';}
 function initials(n){return(n||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();}
@@ -1028,11 +1028,11 @@ async function loadStats(){
     document.getElementById('stat-new-customers').textContent='+'+(s.new_customers_30d||0)+' this month';
     document.getElementById('stat-cards').textContent=s.saved_cards||0;
     document.getElementById('stat-failed').textContent=s.failed_payments||0;
-    document.getElementById('stat-revenue').textContent=fmt(s.total_revenue||0);
-    document.getElementById('stat-revenue-sub').textContent=fmt(s.revenue_30d||0)+' this month';
+    document.getElementById('stat-revenue').textContent=fmtCompactMoney(s.total_revenue||0);
+    document.getElementById('stat-revenue-sub').textContent=fmtCompactMoney(s.revenue_30d||0)+' this month';
     document.getElementById('stat-churn').textContent=(s.churn_rate||0)+'%';
     document.getElementById('stat-success').textContent=(s.payment_success_rate||100)+'%';
-    document.getElementById('stat-ltv').textContent=fmt(s.avg_ltv||0);
+    document.getElementById('stat-ltv').textContent=fmtCompactMoney(s.avg_ltv||0);
     document.getElementById('server-status').textContent='● connected';
     document.getElementById('server-status').style.color='var(--green)';
   }catch(e){document.getElementById('server-status').textContent='● offline';document.getElementById('server-status').style.color='var(--red)';}
