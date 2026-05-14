@@ -5,130 +5,301 @@ const { init, pool, settingsDb, stripeAccounts, customers, subscriptions, paymen
 let speakeasy, QRCode;
 try { speakeasy = require('speakeasy'); QRCode = require('qrcode'); } catch(e) {}
 
+const Stripe = require('stripe');
+
+async function ensureWebhookColumns() {
+  await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_price_id TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_invoice_id TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS stripe_invoice_id TEXT').catch(()=>{});
+  await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS subscriptions_stripe_subscription_uidx ON subscriptions(stripe_subscription_id) WHERE stripe_subscription_id IS NOT NULL').catch(()=>{});
+  await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS payments_stripe_payment_intent_uidx ON payments(stripe_payment_intent) WHERE stripe_payment_intent IS NOT NULL').catch(()=>{});
+}
+
+function intervalToDays(interval, count) {
+  const n = Number(count || 1);
+  if (interval === 'day') return 1 * n;
+  if (interval === 'week') return 7 * n;
+  if (interval === 'month') return 30 * n;
+  if (interval === 'year') return 365 * n;
+  return 30;
+}
+
+function dateFromUnixOrFallback(unixSeconds, intervalDays = 30) {
+  if (unixSeconds) return new Date(unixSeconds * 1000).toISOString().split('T')[0];
+  const d = new Date();
+  d.setDate(d.getDate() + intervalDays);
+  return d.toISOString().split('T')[0];
+}
+
+async function getCustomerPaymentMethod(stripe, customerId, preferredPaymentMethodId = null) {
+  if (preferredPaymentMethodId && typeof preferredPaymentMethodId === 'string') {
+    try { return await stripe.paymentMethods.retrieve(preferredPaymentMethodId); } catch(e) {}
+  }
+  try {
+    const pms = await stripe.paymentMethods.list({ customer: customerId, type: 'card', limit: 1 });
+    return pms.data[0] || null;
+  } catch(e) { return null; }
+}
+
+async function upsertStripeCustomer(stripe, usedAccount, stripeCustomerId, preferredPaymentMethodId = null) {
+  if (!stripeCustomerId || typeof stripeCustomerId !== 'string') return null;
+  const customer = await stripe.customers.retrieve(stripeCustomerId);
+  if (!customer || customer.deleted) return null;
+  const pm = await getCustomerPaymentMethod(stripe, stripeCustomerId, preferredPaymentMethodId);
+  const name = customer.name || customer.email || stripeCustomerId;
+  const email = customer.email || `${stripeCustomerId}@stripe.local`;
+
+  const existing = await pool.query('SELECT id FROM customers WHERE stripe_customer_id=$1', [stripeCustomerId]);
+  if (!existing.rows[0]) {
+    const ins = await pool.query(
+      `INSERT INTO customers (email,name,stripe_customer_id,stripe_payment_method,stripe_account_id,card_brand,card_last4,card_exp_month,card_exp_year,status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'active') RETURNING id`,
+      [email, name, stripeCustomerId, pm?.id || null, usedAccount?.id || null, pm?.card?.brand || null, pm?.card?.last4 || null, pm?.card?.exp_month || null, pm?.card?.exp_year || null]
+    );
+    console.log('[customer] saved:', email, 'local id:', ins.rows[0].id);
+    return { id: ins.rows[0].id, email, name };
+  }
+
+  await pool.query(
+    `UPDATE customers SET email=COALESCE($1,email), name=COALESCE($2,name), stripe_account_id=COALESCE($3,stripe_account_id),
+      stripe_payment_method=COALESCE($4,stripe_payment_method), card_brand=COALESCE($5,card_brand), card_last4=COALESCE($6,card_last4),
+      card_exp_month=COALESCE($7,card_exp_month), card_exp_year=COALESCE($8,card_exp_year), status='active'
+     WHERE stripe_customer_id=$9`,
+    [email, name, usedAccount?.id || null, pm?.id || null, pm?.card?.brand || null, pm?.card?.last4 || null, pm?.card?.exp_month || null, pm?.card?.exp_year || null, stripeCustomerId]
+  );
+  console.log('[customer] updated:', email, 'local id:', existing.rows[0].id);
+  return { id: existing.rows[0].id, email, name };
+}
+
+async function saveSubscriptionFromStripe(stripe, usedAccount, subscriptionOrId, source = 'unknown') {
+  await ensureWebhookColumns();
+  if (!subscriptionOrId) {
+    console.log('[subscription] no subscription id/object from', source);
+    return null;
+  }
+
+  let stripeSub = subscriptionOrId;
+  if (typeof subscriptionOrId === 'string') {
+    stripeSub = await stripe.subscriptions.retrieve(subscriptionOrId, {
+      expand: ['items.data.price', 'customer', 'latest_invoice']
+    });
+  }
+
+  const subId = stripeSub.id;
+  const stripeCustomerId = typeof stripeSub.customer === 'string' ? stripeSub.customer : stripeSub.customer?.id;
+  console.log('[subscription] retrieved:', subId, 'customer:', stripeCustomerId, 'status:', stripeSub.status, 'source:', source);
+  if (!subId || !stripeCustomerId) return null;
+
+  const firstItem = stripeSub.items?.data?.[0];
+  const price = firstItem?.price || {};
+  const amount = price.unit_amount || firstItem?.plan?.amount || 0;
+  const currency = price.currency || firstItem?.plan?.currency || 'usd';
+  const interval = price.recurring?.interval || firstItem?.plan?.interval || 'month';
+  const intervalCount = price.recurring?.interval_count || firstItem?.plan?.interval_count || 1;
+  const intervalDays = intervalToDays(interval, intervalCount);
+  const nextBilling = dateFromUnixOrFallback(stripeSub.current_period_end || firstItem?.current_period_end, intervalDays);
+  const invoiceId = typeof stripeSub.latest_invoice === 'string' ? stripeSub.latest_invoice : stripeSub.latest_invoice?.id || null;
+
+  const localCustomer = await upsertStripeCustomer(stripe, usedAccount, stripeCustomerId, stripeSub.default_payment_method || null);
+  if (!localCustomer?.id) return null;
+
+  const existingByStripe = await pool.query('SELECT id FROM subscriptions WHERE stripe_subscription_id=$1', [subId]);
+  if (existingByStripe.rows[0]) {
+    await pool.query(
+      `UPDATE subscriptions SET customer_id=$1, amount=$2, currency=$3, interval_days=$4, next_billing_date=$5, status=$6,
+       stripe_price_id=$7, stripe_invoice_id=$8 WHERE id=$9`,
+      [localCustomer.id, amount, currency, intervalDays, nextBilling, stripeSub.status || 'active', price.id || null, invoiceId, existingByStripe.rows[0].id]
+    );
+    console.log('[subscription] updated subscription:', subId, 'row id:', existingByStripe.rows[0].id);
+    return existingByStripe.rows[0].id;
+  }
+
+  const ins = await pool.query(
+    `INSERT INTO subscriptions (customer_id,amount,currency,interval_days,next_billing_date,status,stripe_subscription_id,stripe_price_id,stripe_invoice_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
+    [localCustomer.id, amount, currency, intervalDays, nextBilling, stripeSub.status || 'active', subId, price.id || null, invoiceId]
+  );
+  console.log('[subscription] saved subscription:', subId, 'row id:', ins.rows[0].id, 'customer:', localCustomer.email, 'next billing:', nextBilling);
+  await activityLog.add('subscription', `Subscription saved for ${localCustomer.email}`, localCustomer.id, amount).catch(()=>{});
+  return ins.rows[0].id;
+}
+
+async function getInvoiceFromPaymentIntent(stripe, pi) {
+  let invoice = pi.invoice || null;
+  if (!invoice) {
+    try {
+      const fullPi = await stripe.paymentIntents.retrieve(pi.id, { expand: ['invoice', 'latest_charge'] });
+      invoice = fullPi.invoice || null;
+      pi.payment_method = pi.payment_method || fullPi.payment_method;
+      pi.latest_charge = pi.latest_charge || fullPi.latest_charge;
+    } catch(e) { console.log('[payment] could not expand PI invoice:', e.message); }
+  }
+  if (typeof invoice === 'string') {
+    try { invoice = await stripe.invoices.retrieve(invoice, { expand: ['subscription', 'lines.data.price'] }); } catch(e) { console.log('[payment] could not retrieve invoice:', e.message); }
+  }
+  return invoice;
+}
+
+function subscriptionIdFromInvoice(invoice) {
+  if (!invoice) return null;
+  if (typeof invoice.subscription === 'string') return invoice.subscription;
+  if (invoice.subscription?.id) return invoice.subscription.id;
+  for (const line of (invoice.lines?.data || [])) {
+    if (typeof line.subscription === 'string') return line.subscription;
+    if (line.subscription?.id) return line.subscription.id;
+    if (typeof line.parent?.subscription_item_details?.subscription === 'string') return line.parent.subscription_item_details.subscription;
+  }
+  return null;
+}
+
+async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null) {
+  await ensureWebhookColumns();
+  if (!pi?.customer) { console.log('[payment] no customer on PI, skipping:', pi?.id); return null; }
+
+  const invoice = await getInvoiceFromPaymentIntent(stripe, pi);
+  const invoiceId = typeof invoice === 'string' ? invoice : invoice?.id || null;
+  const subId = subscriptionIdFromInvoice(invoice);
+  console.log('[payment] PI:', pi.id, 'invoice:', invoiceId || '-', 'subscription:', subId || '-');
+
+  const localCustomer = await upsertStripeCustomer(stripe, usedAccount, pi.customer, pi.payment_method || null);
+  if (!localCustomer?.id) return null;
+
+  let localSubId = null;
+  if (subId) {
+    try { localSubId = await saveSubscriptionFromStripe(stripe, usedAccount, subId, 'payment_intent.' + pi.id); }
+    catch(e) { console.error('[payment] failed saving related subscription:', e.message); }
+  }
+
+  const status = forcedStatus || (pi.status === 'succeeded' ? 'succeeded' : (pi.status || 'failed'));
+  const failureReason = pi.last_payment_error?.message || pi.cancellation_reason || null;
+  const existingPayment = await pool.query('SELECT id FROM payments WHERE stripe_payment_intent=$1', [pi.id]);
+  if (existingPayment.rows[0]) {
+    await pool.query('UPDATE payments SET customer_id=$1, subscription_id=COALESCE($2,subscription_id), amount=$3, currency=$4, status=$5, failure_reason=$6, stripe_invoice_id=COALESCE($7,stripe_invoice_id) WHERE id=$8',
+      [localCustomer.id, localSubId, pi.amount || pi.amount_received || 0, pi.currency || 'usd', status, failureReason, invoiceId, existingPayment.rows[0].id]);
+    console.log('[payment] updated existing payment:', pi.id);
+    return existingPayment.rows[0].id;
+  }
+
+  const ins = await pool.query(
+    `INSERT INTO payments (customer_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,stripe_invoice_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+    [localCustomer.id, localSubId, pi.id, pi.amount || pi.amount_received || 0, pi.currency || 'usd', status, failureReason, invoiceId]
+  );
+  console.log('[payment] saved payment:', pi.id, 'row id:', ins.rows[0].id, 'customer:', localCustomer.email);
+  await activityLog.add('payment', `Payment ${status} for ${localCustomer.email}`, localCustomer.id, pi.amount || pi.amount_received || 0).catch(()=>{});
+  return ins.rows[0].id;
+}
+
+async function handleInvoiceEvent(stripe, usedAccount, invoice, statusLabel = 'succeeded') {
+  await ensureWebhookColumns();
+  const subId = subscriptionIdFromInvoice(invoice);
+  console.log('[invoice] event invoice:', invoice.id, 'subscription:', subId || '-', 'payment_intent:', invoice.payment_intent || '-');
+  let localSubId = null;
+  if (subId) localSubId = await saveSubscriptionFromStripe(stripe, usedAccount, subId, 'invoice.' + invoice.id);
+
+  if (invoice.payment_intent) {
+    try {
+      const pi = await stripe.paymentIntents.retrieve(invoice.payment_intent, { expand: ['invoice'] });
+      await savePaymentIntent(stripe, usedAccount, pi, statusLabel);
+    } catch(e) { console.error('[invoice] could not save PI from invoice:', e.message); }
+  }
+  return localSubId;
+}
 
 app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  let event = null, usedAccount = null;
   try {
-    const accounts = await stripeAccounts.all();
-    let event = null, usedAccount = null;
-    // Need full secret_key for webhook verification - get from DB directly
+    await ensureWebhookColumns();
     const fullAccounts = await pool.query('SELECT * FROM stripe_accounts');
+
     for (const acc of fullAccounts.rows) {
       if (!acc.webhook_secret) continue;
       try {
-        const stripe = require('stripe')(acc.secret_key);
+        const stripe = Stripe(acc.secret_key);
         event = stripe.webhooks.constructEvent(req.body, req.headers['stripe-signature'], acc.webhook_secret);
         usedAccount = acc;
         break;
       } catch(e) {}
     }
+
     if (!event) {
-      // Try parsing as JSON directly (no signature verification) for debugging
-      console.log('[webhook] signature verification failed for all accounts');
-      console.log('[webhook] accounts checked:', fullAccounts.rows.map(a => a.name + '(has_secret:' + !!a.webhook_secret + ')'));
-      res.json({ received: true }); 
-      return; 
+      console.error('[webhook] signature verification failed for all accounts');
+      await webhookLogs.add({ event_type: 'verification_failed', account_name: null, status: 'failed', error: 'Invalid webhook signature' }).catch(()=>{});
+      return res.status(400).json({ error: 'Invalid webhook signature' });
     }
+
     await webhookLogs.add({ event_type: event.type, account_name: usedAccount?.name });
-    const stripe = require('stripe')(usedAccount.secret_key);
+    const stripe = Stripe(usedAccount.secret_key);
+    console.log('[webhook] received:', event.type, 'account:', usedAccount.name);
 
-    if (event.type === 'checkout.session.completed') {
-      const session = event.data.object;
-      console.log('[webhook] checkout.session.completed - customer:', session.customer, 'subscription:', session.subscription, 'payment_intent:', session.payment_intent);
-      if (!session.customer) { res.json({ received: true }); return; }
-      try {
-        const customer = await stripe.customers.retrieve(session.customer);
-        const pms = await stripe.paymentMethods.list({ customer: session.customer, type: 'card' });
-        const pm = pms.data[0];
-        const existing = await pool.query('SELECT id FROM customers WHERE stripe_customer_id=$1', [session.customer]);
-        let customerId;
-        if (!existing.rows[0]) {
-          const ins = await pool.query("INSERT INTO customers (email,name,stripe_customer_id,stripe_payment_method,stripe_account_id,card_brand,card_last4,card_exp_month,card_exp_year,status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'active') RETURNING id",
-            [customer.email, customer.name||customer.email, session.customer, pm?.id, usedAccount.id, pm?.card?.brand, pm?.card?.last4, pm?.card?.exp_month, pm?.card?.exp_year]);
-          customerId = ins.rows[0].id;
-          console.log('[webhook] new customer saved:', customer.email, 'id:', customerId);
-        } else {
-          customerId = existing.rows[0].id;
-          if (pm) await pool.query('UPDATE customers SET stripe_payment_method=$1,card_brand=$2,card_last4=$3,card_exp_month=$4,card_exp_year=$5 WHERE stripe_customer_id=$6',
-            [pm.id, pm.card.brand, pm.card.last4, pm.card.exp_month, pm.card.exp_year, session.customer]);
-          console.log('[webhook] existing customer updated:', customer.email, 'id:', customerId);
-        }
-        // Save payment if one-time
-        if (session.payment_intent && session.amount_total) {
-          const dupCheck = await pool.query('SELECT id FROM payments WHERE stripe_payment_intent=$1', [session.payment_intent]);
-          if (!dupCheck.rows[0]) {
-            await pool.query("INSERT INTO payments (customer_id,stripe_payment_intent,amount,currency,status) VALUES ($1,$2,$3,$4,'succeeded')",
-              [customerId, session.payment_intent, session.amount_total, session.currency||'usd']);
-          }
-        }
-        // Save subscription if recurring payment link
+    try {
+      if (event.type === 'checkout.session.completed') {
+        const session = event.data.object;
+        console.log('[webhook] checkout.session.completed customer:', session.customer, 'mode:', session.mode, 'subscription:', session.subscription || '-', 'payment_intent:', session.payment_intent || '-');
+
+        if (session.customer) await upsertStripeCustomer(stripe, usedAccount, session.customer, session.payment_method || null);
+
         if (session.subscription) {
-          console.log('[webhook] checkout.session.completed session subscription:', session.subscription);
-          try {
-            const stripeSub = await stripe.subscriptions.retrieve(session.subscription);
-            console.log('[subscription] saving subscription for customer:', session.customer, 'status:', stripeSub.status);
-            const item = stripeSub.items.data[0];
-            const amount = item?.price?.unit_amount || session.amount_total || 0;
-            const currency = item?.price?.currency || session.currency || 'usd';
-            const intervalMap = { week: 7, month: 30, year: 365, day: 1 };
-            const intervalDays = intervalMap[item?.price?.recurring?.interval] || 30;
-            const nextBilling = new Date(stripeSub.current_period_end * 1000);
-            const existingSub = await pool.query('SELECT id FROM subscriptions WHERE customer_id=$1 AND status NOT IN ($2,$3)', [customerId, 'cancelled', 'ended']);
-            if (!existingSub.rows[0]) {
-              await pool.query(
-                'INSERT INTO subscriptions (customer_id,amount,currency,interval_days,next_billing_date,status) VALUES ($1,$2,$3,$4,$5,$6)',
-                [customerId, amount, currency, intervalDays, nextBilling.toISOString().split('T')[0], stripeSub.status === 'active' ? 'active' : stripeSub.status]
-              );
-              console.log('[subscription] saved subscription:', session.subscription, 'next billing:', nextBilling.toISOString().split('T')[0]);
-            } else {
-              console.log('[subscription] subscription already exists for customer, skipping');
-            }
-          } catch(subErr) {
-            console.error('[subscription] error saving subscription:', subErr.message);
-          }
-        }
-        await activityLog.add('payment', `New customer via checkout: ${customer.email}`);
-      } catch(err) { console.error('[webhook] checkout error:', err.message); }
-    }
-
-    else if (event.type === 'payment_intent.succeeded') {
-      const pi = event.data.object;
-      console.log('[webhook] payment_intent.succeeded - customer:', pi.customer, 'amount:', pi.amount);
-      if (!pi.customer) { console.log('[webhook] no customer, skipping'); res.json({ received: true }); return; }
-      try {
-        console.log('[webhook] retrieving customer from Stripe...');
-        const customer = await stripe.customers.retrieve(pi.customer);
-        console.log('[webhook] customer:', customer.email);
-        const pms = await stripe.paymentMethods.list({ customer: pi.customer, type: 'card' });
-        const pm = pms.data[0];
-        const existing = await pool.query('SELECT id FROM customers WHERE stripe_customer_id=$1', [pi.customer]);
-        let customerId;
-        if (!existing.rows[0]) {
-          console.log('[webhook] new customer, inserting...');
-          const ins = await pool.query("INSERT INTO customers (email,name,stripe_customer_id,stripe_payment_method,stripe_account_id,card_brand,card_last4,card_exp_month,card_exp_year,status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'active') RETURNING id",
-            [customer.email, customer.name||customer.email, pi.customer, pm?.id, usedAccount.id, pm?.card?.brand, pm?.card?.last4, pm?.card?.exp_month, pm?.card?.exp_year]);
-          customerId = ins.rows[0].id;
+          await saveSubscriptionFromStripe(stripe, usedAccount, session.subscription, 'checkout.session.completed');
         } else {
-          customerId = existing.rows[0].id;
-          console.log('[webhook] existing customer id:', customerId);
-          if (pm) await pool.query('UPDATE customers SET stripe_payment_method=$1,card_brand=$2,card_last4=$3,card_exp_month=$4,card_exp_year=$5 WHERE stripe_customer_id=$6',
-            [pm.id, pm.card.brand, pm.card.last4, pm.card.exp_month, pm.card.exp_year, pi.customer]);
+          console.log('[webhook] checkout session has no subscription. mode:', session.mode);
         }
-        const dupCheck = await pool.query('SELECT id FROM payments WHERE stripe_payment_intent=$1', [pi.id]);
-        if (!dupCheck.rows[0]) {
-          console.log('[webhook] inserting payment record...');
-          await pool.query("INSERT INTO payments (customer_id,stripe_payment_intent,amount,currency,status) VALUES ($1,$2,$3,$4,'succeeded')",
-            [customerId, pi.id, pi.amount, pi.currency||'usd']);
-          await activityLog.add('payment', `Payment of ${(pi.amount/100).toFixed(2)} received from ${customer.email}`);
-          console.log('[webhook] ✓ payment saved for', customer.email);
-        } else {
-          console.log('[webhook] duplicate payment, skipping:', pi.id);
-        }
-      } catch(err) { console.error('[webhook] payment_intent error:', err.message, err.stack); }
-    }
 
-    res.json({ received: true });
-  } catch(err) { res.status(400).json({ error: err.message }); }
+        if (session.payment_intent) {
+          const pi = await stripe.paymentIntents.retrieve(session.payment_intent, { expand: ['invoice'] });
+          await savePaymentIntent(stripe, usedAccount, pi, pi.status === 'succeeded' ? 'succeeded' : pi.status);
+        }
+      }
+
+      else if (event.type === 'payment_intent.succeeded') {
+        await savePaymentIntent(stripe, usedAccount, event.data.object, 'succeeded');
+      }
+
+      else if (event.type === 'payment_intent.payment_failed') {
+        await savePaymentIntent(stripe, usedAccount, event.data.object, 'failed');
+      }
+
+      else if (event.type === 'invoice.paid' || event.type === 'invoice.payment_succeeded') {
+        await handleInvoiceEvent(stripe, usedAccount, event.data.object, 'succeeded');
+      }
+
+      else if (event.type === 'invoice.payment_failed') {
+        await handleInvoiceEvent(stripe, usedAccount, event.data.object, 'failed');
+      }
+
+      else if (event.type === 'customer.subscription.created' || event.type === 'customer.subscription.updated') {
+        await saveSubscriptionFromStripe(stripe, usedAccount, event.data.object, event.type);
+      }
+
+      else if (event.type === 'customer.subscription.deleted') {
+        const stripeSub = event.data.object;
+        console.log('[subscription] deleted/cancelled:', stripeSub.id);
+        await saveSubscriptionFromStripe(stripe, usedAccount, stripeSub, event.type).catch(()=>{});
+        await pool.query("UPDATE subscriptions SET status='cancelled' WHERE stripe_subscription_id=$1", [stripeSub.id]).catch(()=>{});
+      }
+
+      else if (event.type === 'customer.updated') {
+        const customer = event.data.object;
+        if (customer?.id) await upsertStripeCustomer(stripe, usedAccount, customer.id, null).catch(e => console.error('[customer.updated] error:', e.message));
+      }
+
+      else {
+        console.log('[webhook] ignored event type:', event.type);
+      }
+
+      return res.json({ received: true });
+    } catch(handlerErr) {
+      console.error('[webhook] handler error:', handlerErr.message, handlerErr.stack);
+      await webhookLogs.add({ event_type: event.type, account_name: usedAccount?.name, status: 'failed', error: handlerErr.message }).catch(()=>{});
+      return res.status(500).json({ error: handlerErr.message });
+    }
+  } catch(err) {
+    console.error('[webhook] fatal error:', err.message, err.stack);
+    return res.status(500).json({ error: err.message });
+  }
 });
+
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
@@ -288,11 +459,24 @@ app.post('/api/payment-links', async (req, res) => {
     const acc = stripe_account_id ? await stripeAccounts.byId(stripe_account_id) : await stripeAccounts.default();
     if (!acc) return res.status(400).json({ error: 'No Stripe account found' });
     const stripe = require('stripe')(acc.secret_key);
-    const product = await stripe.products.create({ name: name||'Subscription' });
+    const product = await stripe.products.create({ name: name||'Subscription', metadata: { source: 'subloop' } });
     const intervalMap = { 7: 'week', 14: 'week', 30: 'month', 90: 'month', 365: 'year' };
-    const price = await stripe.prices.create({ product: product.id, unit_amount: amount, currency: currency||'usd', recurring: { interval: intervalMap[interval_days]||'month' } });
-    const link = await stripe.paymentLinks.create({ line_items: [{ price: price.id, quantity: 1 }], subscription_data: { metadata: { source: 'subloop' } } });
-    res.json({ success: true, url: link.url });
+    const recurringInterval = intervalMap[Number(interval_days)] || 'month';
+    const price = await stripe.prices.create({
+      product: product.id,
+      unit_amount: amount,
+      currency: currency||'usd',
+      recurring: { interval: recurringInterval },
+      metadata: { source: 'subloop', interval_days: String(interval_days || 30) }
+    });
+    console.log('[payment-link] created recurring price:', price.id, 'interval:', recurringInterval, 'amount:', amount, 'account:', acc.name);
+    const link = await stripe.paymentLinks.create({
+      line_items: [{ price: price.id, quantity: 1 }],
+      subscription_data: { metadata: { source: 'subloop', interval_days: String(interval_days || 30) } },
+      metadata: { source: 'subloop', type: 'subscription_link' }
+    });
+    console.log('[payment-link] created subscription payment link:', link.id, link.url);
+    res.json({ success: true, url: link.url, price_id: price.id, payment_link_id: link.id });
   } catch(err) {
     console.error('[payment-links] ERROR:', err.message, err.stack);
     res.status(500).json({ error: err.message });
