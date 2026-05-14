@@ -910,6 +910,23 @@ function showPage(name,el){
   setTimeout(enforceReadonly,200);
 }
 function fmt(c,cur){return new Intl.NumberFormat('en-US',{style:'currency',currency:(cur||'usd').toUpperCase()}).format((c||0)/100);}
+function fmtCompactMoney(c,cur){
+  const currency=(cur||'usd').toUpperCase();
+  const amount=Number(c||0)/100;
+  let symbol='$';
+  try{
+    const parts=new Intl.NumberFormat('en-US',{style:'currency',currency:currency,maximumFractionDigits:0}).formatToParts(0);
+    const part=parts.find(p=>p.type==='currency');
+    if(part&&part.value)symbol=part.value;
+  }catch(e){}
+  if(amount>=1000000){
+    return symbol+(amount/1000000).toFixed(amount>=10000000?0:1).replace('.0','')+'M';
+  }
+  if(amount>=100000){
+    return symbol+Math.round(amount/1000)+'K';
+  }
+  return fmt(c,cur);
+}
 function fmtDate(d){return d?new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';}
 function fmtTime(d){return d?new Date(d).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'—';}
 function initials(n){return(n||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();}
@@ -997,7 +1014,7 @@ function forceLogout(){
 async function loadStats(){
   try{
     const s=await api('/api/stats');
-    document.getElementById('stat-mrr').textContent=fmt(s.mrr||0);
+    document.getElementById('stat-mrr').textContent=fmtCompactMoney(s.mrr||0);
     document.getElementById('stat-subs').textContent=s.active_subscriptions||0;
     document.getElementById('stat-customers').textContent=s.total_customers||0;
     document.getElementById('stat-new-customers').textContent='+'+(s.new_customers_30d||0)+' this month';
