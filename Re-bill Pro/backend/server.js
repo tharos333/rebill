@@ -6,95 +6,256 @@ let speakeasy, QRCode;
 try { speakeasy = require('speakeasy'); QRCode = require('qrcode'); } catch(e) {}
 
 
-app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+const Stripe = require('stripe');
+
+function centsToMoney(amount, currency = 'usd') {
+  return `${((amount || 0) / 100).toFixed(2)} ${String(currency || 'usd').toUpperCase()}`;
+}
+
+function getSafeCustomerEmail(customer, fallbackId) {
+  if (customer && !customer.deleted && customer.email) return customer.email;
+  return `${fallbackId || 'unknown-customer'}@stripe.local`;
+}
+
+function getSafeCustomerName(customer, email, fallbackId) {
+  if (customer && !customer.deleted && customer.name) return customer.name;
+  return email || fallbackId || 'Stripe Customer';
+}
+
+async function findStripeAccountForWebhook(rawBody, signature) {
+  const accountsResult = await pool.query(
+    'SELECT * FROM stripe_accounts WHERE COALESCE(webhook_secret, $1) <> $1 ORDER BY is_default DESC, created_at ASC',
+    ['']
+  );
+
+  let lastError = null;
+  for (const account of accountsResult.rows) {
+    try {
+      const stripe = new Stripe(account.secret_key);
+      const event = stripe.webhooks.constructEvent(rawBody, signature, account.webhook_secret.trim());
+      return { event, account, stripe };
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  return { event: null, account: null, stripe: null, lastError };
+}
+
+async function getPaymentMethodDetails(stripe, paymentIntent) {
+  let paymentMethodId = typeof paymentIntent.payment_method === 'string' ? paymentIntent.payment_method : paymentIntent.payment_method?.id;
+
+  if (!paymentMethodId && paymentIntent.latest_charge) {
+    try {
+      const chargeId = typeof paymentIntent.latest_charge === 'string' ? paymentIntent.latest_charge : paymentIntent.latest_charge.id;
+      const charge = await stripe.charges.retrieve(chargeId);
+      paymentMethodId = typeof charge.payment_method === 'string' ? charge.payment_method : null;
+    } catch (err) {
+      console.warn('[webhook] could not retrieve latest_charge payment method:', err.message);
+    }
+  }
+
+  if (paymentMethodId) {
+    try {
+      const pm = await stripe.paymentMethods.retrieve(paymentMethodId);
+      return {
+        id: pm.id,
+        brand: pm.card?.brand || null,
+        last4: pm.card?.last4 || null,
+        exp_month: pm.card?.exp_month || null,
+        exp_year: pm.card?.exp_year || null,
+      };
+    } catch (err) {
+      console.warn('[webhook] could not retrieve payment method:', err.message);
+      return { id: paymentMethodId, brand: null, last4: null, exp_month: null, exp_year: null };
+    }
+  }
+
+  if (paymentIntent.customer) {
+    try {
+      const pms = await stripe.paymentMethods.list({ customer: paymentIntent.customer, type: 'card', limit: 1 });
+      const pm = pms.data[0];
+      if (pm) {
+        return {
+          id: pm.id,
+          brand: pm.card?.brand || null,
+          last4: pm.card?.last4 || null,
+          exp_month: pm.card?.exp_month || null,
+          exp_year: pm.card?.exp_year || null,
+        };
+      }
+    } catch (err) {
+      console.warn('[webhook] could not list customer payment methods:', err.message);
+    }
+  }
+
+  return { id: null, brand: null, last4: null, exp_month: null, exp_year: null };
+}
+
+async function upsertStripeCustomerFromPaymentIntent(stripe, account, paymentIntent) {
+  const stripeCustomerId = typeof paymentIntent.customer === 'string' ? paymentIntent.customer : paymentIntent.customer?.id;
+  if (!stripeCustomerId) return null;
+
+  let customer = null;
   try {
-    const accounts = await stripeAccounts.all();
-    let event = null, usedAccount = null;
-    // Need full secret_key for webhook verification - get from DB directly
-    const fullAccounts = await pool.query('SELECT * FROM stripe_accounts');
-    for (const acc of fullAccounts.rows) {
-      if (!acc.webhook_secret) continue;
-      try {
-        const stripe = require('stripe')(acc.secret_key);
-        event = stripe.webhooks.constructEvent(req.body, req.headers['stripe-signature'], acc.webhook_secret);
-        usedAccount = acc;
-        break;
-      } catch(e) {}
+    customer = await stripe.customers.retrieve(stripeCustomerId);
+  } catch (err) {
+    console.warn('[webhook] could not retrieve customer from Stripe:', err.message);
+  }
+
+  const email = getSafeCustomerEmail(customer, stripeCustomerId);
+  const name = getSafeCustomerName(customer, email, stripeCustomerId);
+  const pm = await getPaymentMethodDetails(stripe, paymentIntent);
+
+  const result = await pool.query(
+    `INSERT INTO customers
+      (email, name, stripe_customer_id, stripe_payment_method, stripe_account_id, card_brand, card_last4, card_exp_month, card_exp_year, status)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'active')
+     ON CONFLICT (stripe_customer_id) DO UPDATE SET
+       email = COALESCE(NULLIF(EXCLUDED.email, ''), customers.email),
+       name = COALESCE(NULLIF(EXCLUDED.name, ''), customers.name),
+       stripe_payment_method = COALESCE(EXCLUDED.stripe_payment_method, customers.stripe_payment_method),
+       stripe_account_id = COALESCE(EXCLUDED.stripe_account_id, customers.stripe_account_id),
+       card_brand = COALESCE(EXCLUDED.card_brand, customers.card_brand),
+       card_last4 = COALESCE(EXCLUDED.card_last4, customers.card_last4),
+       card_exp_month = COALESCE(EXCLUDED.card_exp_month, customers.card_exp_month),
+       card_exp_year = COALESCE(EXCLUDED.card_exp_year, customers.card_exp_year),
+       status = 'active'
+     RETURNING id, email, name`,
+    [email, name, stripeCustomerId, pm.id, account.id, pm.brand, pm.last4, pm.exp_month, pm.exp_year]
+  );
+
+  return result.rows[0];
+}
+
+async function savePaymentIntent(stripe, account, paymentIntent, statusOverride = null, failureReasonOverride = null) {
+  if (!paymentIntent || !paymentIntent.id) return { saved: false, reason: 'missing_payment_intent' };
+
+  const stripeCustomerId = typeof paymentIntent.customer === 'string' ? paymentIntent.customer : paymentIntent.customer?.id;
+  if (!stripeCustomerId) return { saved: false, reason: 'payment_intent_has_no_customer' };
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Prevent two Stripe events, for example checkout.session.completed and payment_intent.succeeded,
+    // from inserting the same PaymentIntent at the same time.
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [paymentIntent.id]);
+
+    const duplicate = await client.query('SELECT id FROM payments WHERE stripe_payment_intent=$1 LIMIT 1', [paymentIntent.id]);
+    if (duplicate.rows[0]) {
+      await client.query('COMMIT');
+      return { saved: false, reason: 'duplicate', payment_id: duplicate.rows[0].id };
     }
+
+    // Use the normal pool for Stripe API/customer helper work before final insert.
+    // It is okay because the advisory lock stays open in this transaction.
+    const dbCustomer = await upsertStripeCustomerFromPaymentIntent(stripe, account, paymentIntent);
+    if (!dbCustomer) {
+      await client.query('ROLLBACK');
+      return { saved: false, reason: 'customer_not_saved' };
+    }
+
+    const status = statusOverride || (paymentIntent.status === 'succeeded' ? 'succeeded' : paymentIntent.status || 'unknown');
+    const failureReason = failureReasonOverride || paymentIntent.last_payment_error?.message || null;
+
+    const inserted = await client.query(
+      `INSERT INTO payments (customer_id, subscription_id, stripe_payment_intent, amount, currency, status, failure_reason)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
+       RETURNING id`,
+      [dbCustomer.id, null, paymentIntent.id, paymentIntent.amount || paymentIntent.amount_received || 0, paymentIntent.currency || 'usd', status, failureReason]
+    );
+
+    await client.query('COMMIT');
+    await activityLog.add(
+      status === 'succeeded' ? 'payment' : 'failed',
+      `${status === 'succeeded' ? 'Payment received' : 'Payment failed'}: ${centsToMoney(paymentIntent.amount || paymentIntent.amount_received || 0, paymentIntent.currency)} from ${dbCustomer.email}`,
+      dbCustomer.id,
+      paymentIntent.amount || paymentIntent.amount_received || 0
+    );
+
+    return { saved: true, payment_id: inserted.rows[0].id, customer_email: dbCustomer.email };
+  } catch (err) {
+    try { await client.query('ROLLBACK'); } catch (_) {}
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const signature = req.headers['stripe-signature'];
+
+  try {
+    const { event, account, stripe, lastError } = await findStripeAccountForWebhook(req.body, signature);
+
     if (!event) {
-      // Try parsing as JSON directly (no signature verification) for debugging
-      console.log('[webhook] signature verification failed for all accounts');
-      console.log('[webhook] accounts checked:', fullAccounts.rows.map(a => a.name + '(has_secret:' + !!a.webhook_secret + ')'));
-      res.json({ received: true }); 
-      return; 
-    }
-    await webhookLogs.add({ event_type: event.type, account_name: usedAccount?.name });
-    const stripe = require('stripe')(usedAccount.secret_key);
-
-    if (event.type === 'checkout.session.completed') {
-      const session = event.data.object;
-      if (!session.customer) { res.json({ received: true }); return; }
-      try {
-        const customer = await stripe.customers.retrieve(session.customer);
-        const pms = await stripe.paymentMethods.list({ customer: session.customer, type: 'card' });
-        const pm = pms.data[0];
-        const existing = await pool.query('SELECT id FROM customers WHERE stripe_customer_id=$1', [session.customer]);
-        let customerId;
-        if (!existing.rows[0]) {
-          const ins = await pool.query("INSERT INTO customers (email,name,stripe_customer_id,stripe_payment_method,stripe_account_id,card_brand,card_last4,card_exp_month,card_exp_year,status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'active') RETURNING id",
-            [customer.email, customer.name||customer.email, session.customer, pm?.id, usedAccount.id, pm?.card?.brand, pm?.card?.last4, pm?.card?.exp_month, pm?.card?.exp_year]);
-          customerId = ins.rows[0].id;
-        } else {
-          customerId = existing.rows[0].id;
-          if (pm) await pool.query('UPDATE customers SET stripe_payment_method=$1,card_brand=$2,card_last4=$3,card_exp_month=$4,card_exp_year=$5 WHERE stripe_customer_id=$6',
-            [pm.id, pm.card.brand, pm.card.last4, pm.card.exp_month, pm.card.exp_year, session.customer]);
-        }
-        if (session.amount_total && customerId) {
-          await pool.query("INSERT INTO payments (customer_id,stripe_payment_intent,amount,currency,status) VALUES ($1,$2,$3,$4,'succeeded')",
-            [customerId, session.payment_intent, session.amount_total, session.currency||'usd']);
-        }
-        await activityLog.add('payment', `New customer via checkout: ${customer.email}`);
-      } catch(err) { console.error('[webhook] checkout error:', err.message); }
+      console.error('[webhook] signature verification failed:', lastError?.message || 'No matching webhook_secret');
+      await webhookLogs.add({
+        event_type: 'signature_verification_failed',
+        account_name: null,
+        status: 'error',
+        error: lastError?.message || 'No matching webhook_secret',
+      });
+      // Return 400 so Stripe retries instead of silently losing real events.
+      return res.status(400).json({ error: 'Webhook signature verification failed' });
     }
 
-    else if (event.type === 'payment_intent.succeeded') {
+    console.log(`[webhook] received ${event.type} for account ${account.name}`);
+    await webhookLogs.add({ event_type: event.type, account_name: account.name, status: 'ok' });
+
+    if (event.type === 'payment_intent.succeeded') {
+      const result = await savePaymentIntent(stripe, account, event.data.object, 'succeeded');
+      console.log('[webhook] payment_intent.succeeded result:', result);
+    }
+
+    else if (event.type === 'payment_intent.payment_failed') {
       const pi = event.data.object;
-      console.log('[webhook] payment_intent.succeeded - customer:', pi.customer, 'amount:', pi.amount);
-      if (!pi.customer) { console.log('[webhook] no customer, skipping'); res.json({ received: true }); return; }
-      try {
-        console.log('[webhook] retrieving customer from Stripe...');
-        const customer = await stripe.customers.retrieve(pi.customer);
-        console.log('[webhook] customer:', customer.email);
-        const pms = await stripe.paymentMethods.list({ customer: pi.customer, type: 'card' });
-        const pm = pms.data[0];
-        const existing = await pool.query('SELECT id FROM customers WHERE stripe_customer_id=$1', [pi.customer]);
-        let customerId;
-        if (!existing.rows[0]) {
-          console.log('[webhook] new customer, inserting...');
-          const ins = await pool.query("INSERT INTO customers (email,name,stripe_customer_id,stripe_payment_method,stripe_account_id,card_brand,card_last4,card_exp_month,card_exp_year,status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'active') RETURNING id",
-            [customer.email, customer.name||customer.email, pi.customer, pm?.id, usedAccount.id, pm?.card?.brand, pm?.card?.last4, pm?.card?.exp_month, pm?.card?.exp_year]);
-          customerId = ins.rows[0].id;
-        } else {
-          customerId = existing.rows[0].id;
-          console.log('[webhook] existing customer id:', customerId);
-          if (pm) await pool.query('UPDATE customers SET stripe_payment_method=$1,card_brand=$2,card_last4=$3,card_exp_month=$4,card_exp_year=$5 WHERE stripe_customer_id=$6',
-            [pm.id, pm.card.brand, pm.card.last4, pm.card.exp_month, pm.card.exp_year, pi.customer]);
-        }
-        const dupCheck = await pool.query('SELECT id FROM payments WHERE stripe_payment_intent=$1', [pi.id]);
-        if (!dupCheck.rows[0]) {
-          console.log('[webhook] inserting payment record...');
-          await pool.query("INSERT INTO payments (customer_id,stripe_payment_intent,amount,currency,status) VALUES ($1,$2,$3,$4,'succeeded')",
-            [customerId, pi.id, pi.amount, pi.currency||'usd']);
-          await activityLog.add('payment', `Payment of ${(pi.amount/100).toFixed(2)} received from ${customer.email}`);
-          console.log('[webhook] ✓ payment saved for', customer.email);
-        } else {
-          console.log('[webhook] duplicate payment, skipping:', pi.id);
-        }
-      } catch(err) { console.error('[webhook] payment_intent error:', err.message, err.stack); }
+      const result = await savePaymentIntent(stripe, account, pi, 'failed', pi.last_payment_error?.message || 'Payment failed');
+      console.log('[webhook] payment_intent.payment_failed result:', result);
     }
 
-    res.json({ received: true });
-  } catch(err) { res.status(400).json({ error: err.message }); }
+    else if (event.type === 'checkout.session.completed') {
+      const session = event.data.object;
+
+      // Checkout can arrive before payment_intent.succeeded. Save it here too, but the
+      // advisory lock + duplicate check makes the later PaymentIntent event a no-op.
+      if (session.payment_intent) {
+        const pi = await stripe.paymentIntents.retrieve(session.payment_intent);
+        const result = await savePaymentIntent(stripe, account, pi, pi.status === 'succeeded' ? 'succeeded' : pi.status);
+        console.log('[webhook] checkout.session.completed payment result:', result);
+      } else if (session.customer) {
+        // Subscription-mode Payment Links often do not have session.payment_intent.
+        // Still save/update the customer so the customer appears in the app.
+        const customer = await stripe.customers.retrieve(session.customer);
+        const fakePaymentIntentForCustomer = {
+          id: null,
+          customer: session.customer,
+          payment_method: session.payment_method || null,
+          latest_charge: null,
+          amount: session.amount_total || 0,
+          currency: session.currency || 'usd',
+          status: session.payment_status === 'paid' ? 'succeeded' : session.payment_status,
+        };
+        await upsertStripeCustomerFromPaymentIntent(stripe, account, fakePaymentIntentForCustomer);
+        console.log('[webhook] checkout.session.completed saved customer only:', customer.email || session.customer);
+      } else {
+        console.log('[webhook] checkout.session.completed has no customer/payment_intent, skipped');
+      }
+    }
+
+    return res.json({ received: true });
+  } catch (err) {
+    console.error('[webhook] handler error:', err.message, err.stack);
+    await webhookLogs.add({
+      event_type: 'handler_error',
+      account_name: null,
+      status: 'error',
+      error: err.message,
+    });
+    // Return 500 so Stripe retries. Do not return 200 when the database save failed.
+    return res.status(500).json({ error: 'Webhook handler failed' });
+  }
 });
 
 app.use(express.json());
