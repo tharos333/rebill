@@ -8,6 +8,12 @@ try { speakeasy = require('speakeasy'); QRCode = require('qrcode'); } catch(e) {
 const Stripe = require('stripe');
 
 async function ensureWebhookColumns() {
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_brand TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_last4 TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_exp_month INT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_exp_year INT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_country TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_funding TEXT').catch(()=>{});
   await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT').catch(()=>{});
   await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_price_id TEXT').catch(()=>{});
   await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_invoice_id TEXT').catch(()=>{});
@@ -141,6 +147,63 @@ async function getInvoiceFromPaymentIntent(stripe, pi) {
   return invoice;
 }
 
+
+function normalizeCardBrand(brand) {
+  if (!brand) return null;
+  const b = String(brand).toLowerCase().trim().replace(/[\s-]+/g, '_');
+  const aliases = {
+    american_express: 'amex',
+    master_card: 'mastercard',
+    diners_club: 'diners',
+    carte_bancaire: 'cartes_bancaires',
+    cb: 'cartes_bancaires'
+  };
+  return aliases[b] || b;
+}
+
+async function getCardDetailsFromPaymentIntent(stripe, pi) {
+  const details = { brand: null, last4: null, exp_month: null, exp_year: null, country: null, funding: null };
+
+  try {
+    if ((!pi.latest_charge || typeof pi.latest_charge === 'string') || !pi.payment_method) {
+      const fullPi = await stripe.paymentIntents.retrieve(pi.id, { expand: ['latest_charge', 'payment_method'] });
+      pi.latest_charge = pi.latest_charge || fullPi.latest_charge;
+      pi.payment_method = pi.payment_method || fullPi.payment_method;
+    }
+  } catch(e) {
+    console.log('[payment] could not expand card details from PI:', e.message);
+  }
+
+  let card = null;
+  try {
+    let charge = pi.latest_charge;
+    if (charge && typeof charge === 'string') charge = await stripe.charges.retrieve(charge);
+    card = charge?.payment_method_details?.card || null;
+  } catch(e) {
+    console.log('[payment] could not retrieve charge card details:', e.message);
+  }
+
+  if (!card) {
+    try {
+      let pm = pi.payment_method;
+      if (pm && typeof pm === 'string') pm = await stripe.paymentMethods.retrieve(pm);
+      card = pm?.card || null;
+    } catch(e) {
+      console.log('[payment] could not retrieve payment method card details:', e.message);
+    }
+  }
+
+  if (card) {
+    details.brand = normalizeCardBrand(card.brand);
+    details.last4 = card.last4 || null;
+    details.exp_month = card.exp_month || null;
+    details.exp_year = card.exp_year || null;
+    details.country = card.country || null;
+    details.funding = card.funding || null;
+  }
+  return details;
+}
+
 function subscriptionIdFromInvoice(invoice) {
   if (!invoice) return null;
   if (typeof invoice.subscription === 'string') return invoice.subscription;
@@ -165,6 +228,13 @@ async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null) {
   const localCustomer = await upsertStripeCustomer(stripe, usedAccount, pi.customer, pi.payment_method || null);
   if (!localCustomer?.id) return null;
 
+  const cardDetails = await getCardDetailsFromPaymentIntent(stripe, pi);
+  if (cardDetails.brand || cardDetails.last4) {
+    await pool.query(`UPDATE customers SET card_brand=COALESCE($1,card_brand), card_last4=COALESCE($2,card_last4), card_exp_month=COALESCE($3,card_exp_month), card_exp_year=COALESCE($4,card_exp_year) WHERE id=$5`,
+      [cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, localCustomer.id]).catch(()=>{});
+    console.log('[payment] card details:', cardDetails.brand || '-', cardDetails.last4 || '-');
+  }
+
   let localSubId = null;
   if (subId) {
     try { localSubId = await saveSubscriptionFromStripe(stripe, usedAccount, subId, 'payment_intent.' + pi.id); }
@@ -175,16 +245,19 @@ async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null) {
   const failureReason = pi.last_payment_error?.message || pi.cancellation_reason || null;
   const existingPayment = await pool.query('SELECT id FROM payments WHERE stripe_payment_intent=$1', [pi.id]);
   if (existingPayment.rows[0]) {
-    await pool.query('UPDATE payments SET customer_id=$1, subscription_id=COALESCE($2,subscription_id), amount=$3, currency=$4, status=$5, failure_reason=$6, stripe_invoice_id=COALESCE($7,stripe_invoice_id) WHERE id=$8',
-      [localCustomer.id, localSubId, pi.amount || pi.amount_received || 0, pi.currency || 'usd', status, failureReason, invoiceId, existingPayment.rows[0].id]);
+    await pool.query(`UPDATE payments SET customer_id=$1, subscription_id=COALESCE($2,subscription_id), amount=$3, currency=$4, status=$5, failure_reason=$6,
+      stripe_invoice_id=COALESCE($7,stripe_invoice_id), card_brand=COALESCE($8,card_brand), card_last4=COALESCE($9,card_last4),
+      card_exp_month=COALESCE($10,card_exp_month), card_exp_year=COALESCE($11,card_exp_year), card_country=COALESCE($12,card_country), card_funding=COALESCE($13,card_funding)
+      WHERE id=$14`,
+      [localCustomer.id, localSubId, pi.amount || pi.amount_received || 0, pi.currency || 'usd', status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, existingPayment.rows[0].id]);
     console.log('[payment] updated existing payment:', pi.id);
     return existingPayment.rows[0].id;
   }
 
   const ins = await pool.query(
-    `INSERT INTO payments (customer_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,stripe_invoice_id)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
-    [localCustomer.id, localSubId, pi.id, pi.amount || pi.amount_received || 0, pi.currency || 'usd', status, failureReason, invoiceId]
+    `INSERT INTO payments (customer_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,stripe_invoice_id,card_brand,card_last4,card_exp_month,card_exp_year,card_country,card_funding)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id`,
+    [localCustomer.id, localSubId, pi.id, pi.amount || pi.amount_received || 0, pi.currency || 'usd', status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding]
   );
   console.log('[payment] saved payment:', pi.id, 'row id:', ins.rows[0].id, 'customer:', localCustomer.email);
   await activityLog.add('payment', `Payment ${status} for ${localCustomer.email}`, localCustomer.id, pi.amount || pi.amount_received || 0).catch(()=>{});
@@ -302,6 +375,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 
 
 app.use(express.json());
+app.use('/icons', express.static(path.join(__dirname, 'public', 'icons')));
 app.use(express.static(path.join(__dirname)));
 
 // ── Stripe Accounts ───────────────────────────────────────────────────────────
