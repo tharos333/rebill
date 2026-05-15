@@ -1305,7 +1305,15 @@ async function loadAccounts(){
     const tb=document.getElementById('accounts-table');
     if(tb){
       if(!list.length){tb.innerHTML='<tr><td colspan="4" class="empty">No accounts yet</td></tr>';}
-      else{tb.innerHTML=list.map(function(a){var defaultBadge=a.is_default?'<span class="badge badge-green">default</span>':'<span class="badge badge-blue">active</span>';var setDefBtn=!a.is_default?'<button class="btn btn-sm" onclick="setDefaultAccount('+a.id+')">Set default</button>':'';return '<tr><td><strong style="font-size:13px;">'+a.name+'</strong></td><td class="mono" style="font-size:12px;color:var(--muted);">'+(a.key_preview||'—')+'</td><td>'+defaultBadge+'</td><td><div class="actions">'+setDefBtn+'<button class="btn btn-sm" onclick="openEditAcc('+a.id+')">Edit</button><button class="btn btn-sm btn-danger" onclick="deleteAccount('+a.id+')">Delete</button></div></td></tr>';}).join('');}
+      else{tb.innerHTML=list.map(function(a){
+        var st=(a.account_status||a.status||'active').toLowerCase();
+        var color=st==='active'?'green':(st==='restricted'?'amber':'red');
+        var reason=a.account_status_reason?String(a.account_status_reason).replace(/"/g,'&quot;'):'';
+        var statusBadge='<span class="badge badge-'+color+'" title="'+reason+'">'+st+'</span>';
+        var defaultBadge=a.is_default?'<span class="badge badge-blue" style="margin-left:6px;">default</span>':'';
+        var setDefBtn=!a.is_default?'<button class="btn btn-sm" onclick="setDefaultAccount('+a.id+')">Set default</button>':'';
+        return '<tr><td><strong style="font-size:13px;">'+a.name+'</strong></td><td class="mono" style="font-size:12px;color:var(--muted);">'+(a.key_preview||'—')+'</td><td>'+statusBadge+defaultBadge+'</td><td><div class="actions">'+setDefBtn+'<button class="btn btn-sm" onclick="openEditAcc('+a.id+')">Edit</button><button class="btn btn-sm btn-danger" onclick="deleteAccount('+a.id+')">Delete</button></div></td></tr>';
+      }).join('');}
     }
     allStripeAccounts=list;
     const opts=list.map(a=>'<option value="'+a.id+'"'+(a.is_default?' selected':'')+'>'+a.name+'</option>').join('');

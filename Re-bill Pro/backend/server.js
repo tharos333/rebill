@@ -505,7 +505,81 @@ app.use('/icons', express.static(path.join(__dirname, 'public', 'icons')));
 app.use(express.static(path.join(__dirname)));
 
 // ── Stripe Accounts ───────────────────────────────────────────────────────────
-app.get('/api/stripe-accounts', async (req, res) => { try { res.json(await stripeAccounts.all()); } catch(err) { res.status(500).json({ error: err.message }); } });
+async function getStripeAccountDisplayStatus(accountRow) {
+  const base = {
+    account_status: 'closed',
+    account_status_label: 'closed',
+    account_status_reason: null,
+    charges_enabled: false,
+    payouts_enabled: false
+  };
+
+  if (!accountRow.secret_key || !String(accountRow.secret_key).startsWith('sk_')) {
+    return { ...base, account_status_reason: 'Missing or invalid secret key' };
+  }
+
+  try {
+    const stripe = new Stripe(accountRow.secret_key);
+    const acc = await stripe.accounts.retrieve();
+
+    const disabledReason = acc?.requirements?.disabled_reason || null;
+    const chargesEnabled = !!acc?.charges_enabled;
+    const payoutsEnabled = !!acc?.payouts_enabled;
+
+    if (acc?.deleted) {
+      return { ...base, account_status_reason: 'Stripe account deleted or closed' };
+    }
+
+    if (disabledReason || (!chargesEnabled && !payoutsEnabled)) {
+      return {
+        account_status: 'restricted',
+        account_status_label: 'restricted',
+        account_status_reason: disabledReason || 'Charges and payouts are not enabled',
+        charges_enabled: chargesEnabled,
+        payouts_enabled: payoutsEnabled
+      };
+    }
+
+    return {
+      account_status: 'active',
+      account_status_label: 'active',
+      account_status_reason: null,
+      charges_enabled: chargesEnabled,
+      payouts_enabled: payoutsEnabled
+    };
+  } catch (err) {
+    return {
+      ...base,
+      account_status_reason: err?.message || 'Unable to verify Stripe account'
+    };
+  }
+}
+
+app.get('/api/stripe-accounts', async (req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT
+        id,
+        name,
+        is_default,
+        created_at,
+        secret_key,
+        LEFT(secret_key,12)||'...' as key_preview
+      FROM stripe_accounts
+      ORDER BY created_at ASC
+    `);
+
+    const accounts = await Promise.all(r.rows.map(async (account) => {
+      const health = await getStripeAccountDisplayStatus(account);
+      const { secret_key, ...safeAccount } = account;
+      return { ...safeAccount, ...health };
+    }));
+
+    res.json(accounts);
+  } catch(err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 app.post('/api/stripe-accounts', async (req, res) => {
   try {
     const { name, secret_key, webhook_secret } = req.body;
