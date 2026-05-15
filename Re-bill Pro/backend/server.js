@@ -8,6 +8,62 @@ try { speakeasy = require('speakeasy'); QRCode = require('qrcode'); } catch(e) {
 const Stripe = require('stripe');
 const crypto = require('crypto');
 
+// Estimated currency conversion for analytics/dashboard only.
+// Amounts are stored in their original Stripe currency; these helpers convert analytics totals to USD cents.
+const USD_ESTIMATE_RATES = {
+  usd: 1,
+  gbp: 1.34,
+  eur: 1.1702,
+  cad: 0.7297,
+  aud: 0.7152,
+  nzd: 0.5855,
+  chf: 1.279,
+  sek: 0.1072,
+  nok: 0.094,
+  dkk: 0.1566,
+  pln: 0.2761,
+  czk: 0.04815,
+  mad: 0.109,
+  mxn: 0.0578,
+  brl: 0.19,
+  jpy: 0.00633,
+  inr: 0.012,
+  aed: 0.2723,
+  sar: 0.2666
+};
+function usdRateSql(alias) {
+  const c = alias ? `${alias}.currency` : 'currency';
+  return `(CASE LOWER(COALESCE(${c}, 'usd'))
+    WHEN 'usd' THEN 1
+    WHEN 'gbp' THEN 1.34
+    WHEN 'eur' THEN 1.1702
+    WHEN 'cad' THEN 0.7297
+    WHEN 'aud' THEN 0.7152
+    WHEN 'nzd' THEN 0.5855
+    WHEN 'chf' THEN 1.279
+    WHEN 'sek' THEN 0.1072
+    WHEN 'nok' THEN 0.094
+    WHEN 'dkk' THEN 0.1566
+    WHEN 'pln' THEN 0.2761
+    WHEN 'czk' THEN 0.04815
+    WHEN 'mad' THEN 0.109
+    WHEN 'mxn' THEN 0.0578
+    WHEN 'brl' THEN 0.19
+    WHEN 'jpy' THEN 0.00633
+    WHEN 'inr' THEN 0.012
+    WHEN 'aed' THEN 0.2723
+    WHEN 'sar' THEN 0.2666
+    ELSE 1.0 END)`;
+}
+function usdAmountSql(alias) {
+  const a = alias ? `${alias}.amount` : 'amount';
+  return `ROUND(${a} * ${usdRateSql(alias)})`;
+}
+function toUsdCents(amount, currency) {
+  const rate = USD_ESTIMATE_RATES[String(currency || 'usd').toLowerCase()] || 1;
+  return Math.round((Number(amount) || 0) * rate);
+}
+
 async function ensureWebhookColumns() {
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_brand TEXT').catch(()=>{});
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_last4 TEXT').catch(()=>{});
@@ -942,13 +998,13 @@ app.get('/api/stats', async (req, res) => {
   try {
     const r = await pool.query(`
       SELECT
-        COALESCE(SUM(CASE WHEN s.status='active' THEN s.amount ELSE 0 END),0) as mrr,
+        COALESCE(SUM(CASE WHEN s.status='active' THEN ${usdAmountSql('s')} ELSE 0 END),0) as mrr,
         COUNT(DISTINCT CASE WHEN s.status='active' THEN s.id END) as active_subscriptions,
         COUNT(DISTINCT c.id) as total_customers,
         COUNT(DISTINCT CASE WHEN c.card_last4 IS NOT NULL THEN c.id END) as saved_cards,
         COUNT(CASE WHEN p.status='failed' AND p.created_at >= NOW()-INTERVAL '30 days' THEN 1 END) as failed_payments,
-        COALESCE(SUM(CASE WHEN p.status='succeeded' AND p.created_at >= DATE_TRUNC('month',NOW()) THEN p.amount ELSE 0 END),0) as revenue_month,
-        COALESCE(SUM(CASE WHEN p.status='succeeded' THEN p.amount ELSE 0 END),0) as total_revenue,
+        COALESCE(SUM(CASE WHEN p.status='succeeded' AND p.created_at >= DATE_TRUNC('month',NOW()) THEN ${usdAmountSql('p')} ELSE 0 END),0) as revenue_month,
+        COALESCE(SUM(CASE WHEN p.status='succeeded' THEN ${usdAmountSql('p')} ELSE 0 END),0) as total_revenue,
         COUNT(DISTINCT CASE WHEN c.created_at >= NOW()-INTERVAL '30 days' THEN c.id END) as new_customers_30d
       FROM customers c
       LEFT JOIN subscriptions s ON s.customer_id=c.id
@@ -973,13 +1029,13 @@ app.get('/api/stats', async (req, res) => {
 });
 app.get('/api/revenue-chart', async (req, res) => {
   try {
-    const r = await pool.query(`SELECT DATE(created_at) as day, SUM(CASE WHEN status='succeeded' THEN amount ELSE 0 END) as revenue, COUNT(CASE WHEN status='succeeded' THEN 1 END) as count FROM payments WHERE created_at >= NOW() - INTERVAL '60 days' GROUP BY DATE(created_at) ORDER BY day ASC`);
+    const r = await pool.query(`SELECT DATE(created_at) as day, SUM(CASE WHEN status='succeeded' THEN ${usdAmountSql()} ELSE 0 END) as revenue, COUNT(CASE WHEN status='succeeded' THEN 1 END) as count FROM payments WHERE created_at >= NOW() - INTERVAL '60 days' GROUP BY DATE(created_at) ORDER BY day ASC`);
     res.json(r.rows);
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.get('/api/daily-summary', async (req, res) => {
   try {
-    const r = await pool.query(`SELECT COALESCE(SUM(CASE WHEN status='succeeded' AND created_at >= CURRENT_DATE THEN amount ELSE 0 END),0) as revenue_today, COALESCE(COUNT(CASE WHEN status='succeeded' AND created_at >= CURRENT_DATE THEN 1 END),0) as payments_today, COALESCE(COUNT(CASE WHEN status='failed' AND created_at >= CURRENT_DATE THEN 1 END),0) as failed_today, COALESCE(SUM(CASE WHEN status='succeeded' AND created_at >= CURRENT_DATE - INTERVAL '7 days' THEN amount ELSE 0 END),0) as revenue_7d, COALESCE(COUNT(CASE WHEN status='succeeded' AND created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END),0) as payments_7d, COALESCE(SUM(CASE WHEN status='succeeded' AND created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN amount ELSE 0 END),0) as revenue_month, COALESCE(COUNT(CASE WHEN status='succeeded' AND created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN 1 END),0) as payments_month FROM payments`);
+    const r = await pool.query(`SELECT COALESCE(SUM(CASE WHEN status='succeeded' AND created_at >= CURRENT_DATE THEN ${usdAmountSql()} ELSE 0 END),0) as revenue_today, COALESCE(COUNT(CASE WHEN status='succeeded' AND created_at >= CURRENT_DATE THEN 1 END),0) as payments_today, COALESCE(COUNT(CASE WHEN status='failed' AND created_at >= CURRENT_DATE THEN 1 END),0) as failed_today, COALESCE(SUM(CASE WHEN status='succeeded' AND created_at >= CURRENT_DATE - INTERVAL '7 days' THEN ${usdAmountSql()} ELSE 0 END),0) as revenue_7d, COALESCE(COUNT(CASE WHEN status='succeeded' AND created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END),0) as payments_7d, COALESCE(SUM(CASE WHEN status='succeeded' AND created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN ${usdAmountSql()} ELSE 0 END),0) as revenue_month, COALESCE(COUNT(CASE WHEN status='succeeded' AND created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN 1 END),0) as payments_month FROM payments`);
     const c = await pool.query(`SELECT COUNT(*) as active_total, COUNT(CASE WHEN created_at >= CURRENT_DATE THEN 1 END) as new_today, COUNT(CASE WHEN created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as new_7d FROM customers WHERE status='active'`);
     res.json({ ...r.rows[0], ...c.rows[0] });
   } catch(err) { res.status(500).json({ error: err.message }); }
@@ -993,9 +1049,10 @@ app.get('/api/forecast', async (req, res) => {
     activeSubs.forEach(s => {
       const next = new Date(s.next_billing_date);
       const diff = (next - now) / (1000*60*60*24);
-      forecast30 += s.amount * (Math.floor(30/s.interval_days) + (diff<=30?1:0));
-      forecast60 += s.amount * (Math.floor(60/s.interval_days) + (diff<=60?1:0));
-      forecast90 += s.amount * (Math.floor(90/s.interval_days) + (diff<=90?1:0));
+      const usdAmount = toUsdCents(s.amount, s.currency);
+      forecast30 += usdAmount * (Math.floor(30/s.interval_days) + (diff<=30?1:0));
+      forecast60 += usdAmount * (Math.floor(60/s.interval_days) + (diff<=60?1:0));
+      forecast90 += usdAmount * (Math.floor(90/s.interval_days) + (diff<=90?1:0));
     });
     res.json({ forecast30, forecast60, forecast90 });
   } catch(err) { res.status(500).json({ error: err.message }); }
@@ -1009,7 +1066,7 @@ app.get('/api/churn-alerts', async (req, res) => {
 });
 app.get('/api/mrr-history', async (req, res) => {
   try {
-    const r = await pool.query(`SELECT TO_CHAR(DATE_TRUNC('month', created_at), 'Mon YY') as month, DATE_TRUNC('month', created_at) as month_date, SUM(CASE WHEN status='succeeded' THEN amount ELSE 0 END) as revenue FROM payments WHERE created_at >= NOW() - INTERVAL '12 months' GROUP BY DATE_TRUNC('month', created_at) ORDER BY month_date ASC`);
+    const r = await pool.query(`SELECT TO_CHAR(DATE_TRUNC('month', created_at), 'Mon YY') as month, DATE_TRUNC('month', created_at) as month_date, SUM(CASE WHEN status='succeeded' THEN ${usdAmountSql()} ELSE 0 END) as revenue FROM payments WHERE created_at >= NOW() - INTERVAL '12 months' GROUP BY DATE_TRUNC('month', created_at) ORDER BY month_date ASC`);
     res.json(r.rows);
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
