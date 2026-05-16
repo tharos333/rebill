@@ -572,11 +572,8 @@ function formatStripeRequirementKey(key) {
     .replace(/\./g, ' ')
     .replace(/_/g, ' ');
 
-  if (/verification document|additional document|identity document/i.test(clean)) {
-    return 'ID / document verification required';
-  }
-  if (/verification/i.test(clean)) {
-    return 'Identity verification required';
+  if (/selfie|identity|verification document|additional document|document|verification/i.test(clean)) {
+    return 'Selfie / ID verification required';
   }
   if (/tos acceptance/i.test(clean)) {
     return 'Terms acceptance required';
@@ -587,8 +584,11 @@ function formatStripeRequirementKey(key) {
   if (/business profile/i.test(clean)) {
     return 'Business profile required';
   }
-  if (/owners|directors|executives|representative/i.test(clean)) {
+  if (/owners|directors|executives|representative|person/i.test(clean)) {
     return 'Representative / ownership details required';
+  }
+  if (/tax/i.test(clean)) {
+    return 'Tax information required';
   }
 
   return clean.charAt(0).toUpperCase() + clean.slice(1);
@@ -605,6 +605,36 @@ function uniqueRequirements(items) {
       seen.add(key);
       return true;
     });
+}
+
+function collectStripeRequirementKeys(req, futureReq) {
+  const keys = [];
+
+  [
+    req?.past_due,
+    req?.currently_due,
+    req?.pending_verification,
+    req?.eventually_due,
+    futureReq?.past_due,
+    futureReq?.currently_due,
+    futureReq?.pending_verification,
+    futureReq?.eventually_due
+  ].forEach((arr) => {
+    if (Array.isArray(arr)) keys.push(...arr);
+  });
+
+  // Stripe sometimes gives the clearest reason in requirements.errors.
+  [req?.errors, futureReq?.errors].forEach((errors) => {
+    if (Array.isArray(errors)) {
+      errors.forEach((e) => {
+        if (e?.requirement) keys.push(e.requirement);
+        if (e?.reason) keys.push(e.reason);
+        if (e?.code) keys.push(e.code);
+      });
+    }
+  });
+
+  return keys;
 }
 
 async function getStripeAccountDisplayStatus(accountRow) {
@@ -636,18 +666,36 @@ async function getStripeAccountDisplayStatus(accountRow) {
 
     const req = acc?.requirements || {};
     const futureReq = acc?.future_requirements || {};
-    const disabledReason = req.disabled_reason || null;
+    const disabledReason = req.disabled_reason || futureReq.disabled_reason || null;
     const chargesEnabled = !!acc?.charges_enabled;
     const payoutsEnabled = !!acc?.payouts_enabled;
 
-    const currentlyDue = req.currently_due || [];
     const pastDue = req.past_due || [];
+    const currentlyDue = req.currently_due || [];
     const eventuallyDue = req.eventually_due || [];
-    const futureCurrentlyDue = futureReq.currently_due || [];
+    const pendingVerification = req.pending_verification || [];
     const futurePastDue = futureReq.past_due || [];
+    const futureCurrentlyDue = futureReq.currently_due || [];
+    const futureEventuallyDue = futureReq.eventually_due || [];
+    const futurePendingVerification = futureReq.pending_verification || [];
 
-    const requiredNow = [...pastDue, ...currentlyDue, ...futurePastDue, ...futureCurrentlyDue];
-    const verificationDetails = uniqueRequirements(requiredNow);
+    const allRequirementKeys = collectStripeRequirementKeys(req, futureReq);
+    const verificationDetails = uniqueRequirements(allRequirementKeys);
+
+    const hasRequiredNow =
+      disabledReason ||
+      pastDue.length ||
+      currentlyDue.length ||
+      futurePastDue.length ||
+      futureCurrentlyDue.length ||
+      (!chargesEnabled && !payoutsEnabled);
+
+    const hasUpcomingOrPending =
+      pendingVerification.length ||
+      eventuallyDue.length ||
+      futurePendingVerification.length ||
+      futureEventuallyDue.length ||
+      verificationDetails.length;
 
     if (acc?.deleted) {
       return {
@@ -657,7 +705,7 @@ async function getStripeAccountDisplayStatus(accountRow) {
       };
     }
 
-    if (disabledReason || pastDue.length || currentlyDue.length || futurePastDue.length || futureCurrentlyDue.length || (!chargesEnabled && !payoutsEnabled)) {
+    if (hasRequiredNow) {
       return {
         account_status: 'restricted',
         account_status_label: 'needs verification',
@@ -667,6 +715,22 @@ async function getStripeAccountDisplayStatus(accountRow) {
         raw_requirements_currently_due: currentlyDue,
         raw_requirements_past_due: pastDue,
         raw_requirements_eventually_due: eventuallyDue,
+        disabled_reason: disabledReason,
+        charges_enabled: chargesEnabled,
+        payouts_enabled: payoutsEnabled
+      };
+    }
+
+    if (hasUpcomingOrPending) {
+      return {
+        account_status: 'verification',
+        account_status_label: 'verification',
+        account_status_reason: verificationDetails[0] || 'Verification pending or upcoming',
+        verification_needed: true,
+        verification_details: verificationDetails.length ? verificationDetails : ['Verification pending or upcoming'],
+        raw_requirements_currently_due: currentlyDue,
+        raw_requirements_past_due: pastDue,
+        raw_requirements_eventually_due: [...eventuallyDue, ...futureEventuallyDue],
         disabled_reason: disabledReason,
         charges_enabled: chargesEnabled,
         payouts_enabled: payoutsEnabled

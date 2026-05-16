@@ -1297,7 +1297,7 @@ async function loadAccounts(){
         tb.innerHTML=list.map(function(a){
           var st=(a.account_status||a.status||'active').toLowerCase();
           var label=(a.account_status_label||st);
-          var color=st==='active'?'green':(st==='restricted'?'amber':'red');
+          var color=st==='active'?'green':((st==='restricted'||st==='verification')?'amber':'red');
           var details=Array.isArray(a.verification_details)?a.verification_details:[];
           var reason=a.account_status_reason?String(a.account_status_reason).replace(/"/g,'&quot;'):'';
           var statusBadge='<span class="badge badge-'+color+'" title="'+reason+'">'+label+'</span>';
