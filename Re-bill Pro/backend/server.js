@@ -572,7 +572,7 @@ function formatStripeRequirementKey(key) {
     .replace(/\./g, ' ')
     .replace(/_/g, ' ');
 
-  if (/selfie|identity|verification document|additional document|document|verification/i.test(clean)) {
+  if (/selfie|id_number|identity|verification document|additional document|document|verification|photo/i.test(clean)) {
     return 'Selfie / ID verification required';
   }
   if (/tos acceptance/i.test(clean)) {
@@ -581,14 +581,17 @@ function formatStripeRequirementKey(key) {
   if (/external account|bank account/i.test(clean)) {
     return 'Bank account required';
   }
-  if (/business profile/i.test(clean)) {
+  if (/business profile|url|mcc|product description/i.test(clean)) {
     return 'Business profile required';
   }
-  if (/owners|directors|executives|representative|person/i.test(clean)) {
+  if (/owners|directors|executives|representative|person|relationship/i.test(clean)) {
     return 'Representative / ownership details required';
   }
   if (/tax/i.test(clean)) {
     return 'Tax information required';
+  }
+  if (/capability|charges|payouts|transfers|card payments/i.test(clean)) {
+    return 'Capability / charges verification required';
   }
 
   return clean.charAt(0).toUpperCase() + clean.slice(1);
@@ -607,30 +610,66 @@ function uniqueRequirements(items) {
     });
 }
 
-function collectStripeRequirementKeys(req, futureReq) {
-  const keys = [];
-
+function pushReqKeys(keys, source) {
+  if (!source) return;
   [
-    req?.past_due,
-    req?.currently_due,
-    req?.pending_verification,
-    req?.eventually_due,
-    futureReq?.past_due,
-    futureReq?.currently_due,
-    futureReq?.pending_verification,
-    futureReq?.eventually_due
+    source.past_due,
+    source.currently_due,
+    source.pending_verification,
+    source.eventually_due
   ].forEach((arr) => {
     if (Array.isArray(arr)) keys.push(...arr);
   });
 
-  // Stripe sometimes gives the clearest reason in requirements.errors.
-  [req?.errors, futureReq?.errors].forEach((errors) => {
-    if (Array.isArray(errors)) {
-      errors.forEach((e) => {
-        if (e?.requirement) keys.push(e.requirement);
-        if (e?.reason) keys.push(e.reason);
-        if (e?.code) keys.push(e.code);
-      });
+  if (Array.isArray(source.errors)) {
+    source.errors.forEach((e) => {
+      if (e?.requirement) keys.push(e.requirement);
+      if (e?.reason) keys.push(e.reason);
+      if (e?.code) keys.push(e.code);
+    });
+  }
+}
+
+function collectStripeRequirementKeys(req, futureReq) {
+  const keys = [];
+  pushReqKeys(keys, req);
+  pushReqKeys(keys, futureReq);
+  return keys;
+}
+
+async function collectPersonRequirementKeys(stripe, accountId) {
+  const keys = [];
+
+  try {
+    const people = await stripe.accounts.listPersons(accountId, { limit: 100 });
+
+    for (const person of (people.data || [])) {
+      pushReqKeys(keys, person.requirements || {});
+      pushReqKeys(keys, person.future_requirements || {});
+
+      if (person.verification) {
+        const v = person.verification;
+        if (v.status && v.status !== 'verified') keys.push('person.verification.' + v.status);
+        if (v.document && (v.document.front || v.document.back)) keys.push('person.verification.document');
+        if (v.additional_document && (v.additional_document.front || v.additional_document.back)) keys.push('person.verification.additional_document');
+      }
+    }
+  } catch (err) {
+    // Some direct Stripe keys do not allow listing persons. Do not fail the whole status check.
+    console.log('[stripe-account-status] could not list persons for account', accountId, err.message);
+  }
+
+  return keys;
+}
+
+function collectCapabilityIssues(acc) {
+  const keys = [];
+  const caps = acc?.capabilities || {};
+
+  Object.keys(caps).forEach((name) => {
+    const value = caps[name];
+    if (value && value !== 'active') {
+      keys.push('capability.' + name + '.' + value);
     }
   });
 
@@ -679,7 +718,16 @@ async function getStripeAccountDisplayStatus(accountRow) {
     const futureEventuallyDue = futureReq.eventually_due || [];
     const futurePendingVerification = futureReq.pending_verification || [];
 
-    const allRequirementKeys = collectStripeRequirementKeys(req, futureReq);
+    const accountRequirementKeys = collectStripeRequirementKeys(req, futureReq);
+    const personRequirementKeys = await collectPersonRequirementKeys(stripe, acc.id);
+    const capabilityIssueKeys = collectCapabilityIssues(acc);
+
+    const allRequirementKeys = [
+      ...accountRequirementKeys,
+      ...personRequirementKeys,
+      ...capabilityIssueKeys
+    ];
+
     const verificationDetails = uniqueRequirements(allRequirementKeys);
 
     const hasRequiredNow =
@@ -695,6 +743,8 @@ async function getStripeAccountDisplayStatus(accountRow) {
       eventuallyDue.length ||
       futurePendingVerification.length ||
       futureEventuallyDue.length ||
+      personRequirementKeys.length ||
+      capabilityIssueKeys.length ||
       verificationDetails.length;
 
     if (acc?.deleted) {
@@ -784,6 +834,84 @@ app.get('/api/stripe-accounts', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+app.get('/api/stripe-accounts/:id/verification-debug', async (req, res) => {
+  try {
+    const account = await stripeAccounts.byId(req.params.id);
+    if (!account) return res.status(404).json({ error: 'Stripe account not found' });
+    if (!account.secret_key || !String(account.secret_key).startsWith('sk_')) {
+      return res.status(400).json({ error: 'Missing or invalid secret key' });
+    }
+
+    const stripe = new Stripe(account.secret_key);
+    const acc = await stripe.accounts.retrieve();
+
+    let persons = [];
+    let persons_error = null;
+
+    try {
+      const people = await stripe.accounts.listPersons(acc.id, { limit: 100 });
+      persons = (people.data || []).map((p) => ({
+        id: p.id,
+        first_name: p.first_name || null,
+        last_name: p.last_name || null,
+        email: p.email || null,
+        relationship: p.relationship || null,
+        verification: p.verification || null,
+        requirements: p.requirements || null,
+        future_requirements: p.future_requirements || null
+      }));
+    } catch (err) {
+      persons_error = err.message;
+    }
+
+    const debug = {
+      local_account: {
+        id: account.id,
+        name: account.name,
+        is_default: account.is_default,
+        key_preview: account.secret_key ? account.secret_key.slice(0, 12) + '...' : null
+      },
+      stripe_account: {
+        id: acc.id,
+        type: acc.type,
+        country: acc.country,
+        email: acc.email,
+        business_type: acc.business_type,
+        charges_enabled: acc.charges_enabled,
+        payouts_enabled: acc.payouts_enabled,
+        details_submitted: acc.details_submitted,
+        default_currency: acc.default_currency,
+        capabilities: acc.capabilities || null,
+        requirements: acc.requirements || null,
+        future_requirements: acc.future_requirements || null,
+        controller: acc.controller || null,
+        company: acc.company ? {
+          verification: acc.company.verification || null,
+          structure: acc.company.structure || null
+        } : null,
+        individual: acc.individual ? {
+          id: acc.individual.id,
+          first_name: acc.individual.first_name || null,
+          last_name: acc.individual.last_name || null,
+          email: acc.individual.email || null,
+          verification: acc.individual.verification || null,
+          requirements: acc.individual.requirements || null,
+          future_requirements: acc.individual.future_requirements || null
+        } : null
+      },
+      persons_error,
+      persons,
+      interpreted_status: await getStripeAccountDisplayStatus(account)
+    };
+
+    res.json(debug);
+  } catch (err) {
+    console.error('[stripe-account-debug] error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/stripe-accounts', async (req, res) => {
   try {
     const { name, secret_key, webhook_secret } = req.body;

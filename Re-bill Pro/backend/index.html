@@ -814,6 +814,20 @@ textarea{resize:vertical;min-height:60px}
     </div>
   </div>
 </div>
+
+<div class="modal-bg" id="verification-debug-modal">
+  <div class="modal" style="width:760px;max-width:96vw;">
+    <h3>Stripe Verification Debug</h3>
+    <p>Raw Stripe verification data for this account. Send this output if the app status looks wrong.</p>
+    <div id="verification-debug-summary" style="font-size:12px;color:var(--muted);font-family:var(--mono);margin-bottom:10px;"></div>
+    <pre id="verification-debug-output" style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:12px;max-height:520px;overflow:auto;font-size:11px;line-height:1.45;color:var(--text);white-space:pre-wrap;"></pre>
+    <div class="modal-footer">
+      <button class="btn" onclick="copyVerificationDebug()">Copy debug</button>
+      <button class="btn btn-primary" onclick="closeModal('verification-debug-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 <script>
 let currentLink=null,allCustomers=[],allSubscriptions=[],allPayments=[],allStripeAccounts=[],allAdminUsers=[],appSettings={},selectedSubs=new Set(),currentRevPeriod='month',bulkMode=false;
@@ -1286,6 +1300,51 @@ async function createPaymentLink(){
 }
 function copyLink(){navigator.clipboard.writeText(currentLink);toast('Copied!');}
 function openLink(){window.open(currentLink,'_blank');}
+
+async function debugStripeAccount(id){
+  openModal('verification-debug-modal');
+  var out=document.getElementById('verification-debug-output');
+  var sum=document.getElementById('verification-debug-summary');
+  if(sum)sum.textContent='Loading Stripe verification data...';
+  if(out)out.textContent='Loading...';
+
+  try{
+    var data=await api('/api/stripe-accounts/'+id+'/verification-debug');
+
+    var status=data&&data.interpreted_status?data.interpreted_status:{};
+    var req=data&&data.stripe_account&&data.stripe_account.requirements?data.stripe_account.requirements:{};
+    var future=data&&data.stripe_account&&data.stripe_account.future_requirements?data.stripe_account.future_requirements:{};
+    var persons=Array.isArray(data.persons)?data.persons:[];
+
+    var quick=[
+      'Account: '+((data.local_account&&data.local_account.name)||'—'),
+      'Stripe ID: '+((data.stripe_account&&data.stripe_account.id)||'—'),
+      'Status: '+(status.account_status_label||status.account_status||'—'),
+      'Charges enabled: '+((data.stripe_account&&data.stripe_account.charges_enabled)===true?'yes':'no'),
+      'Payouts enabled: '+((data.stripe_account&&data.stripe_account.payouts_enabled)===true?'yes':'no'),
+      'Currently due: '+((req.currently_due||[]).join(', ')||'none'),
+      'Past due: '+((req.past_due||[]).join(', ')||'none'),
+      'Future due: '+((future.currently_due||future.eventually_due||[]).join(', ')||'none'),
+      'Persons checked: '+persons.length,
+      'App details: '+((status.verification_details||[]).join(', ')||'none')
+    ].join('\\n');
+
+    if(sum)sum.textContent=quick;
+    if(out)out.textContent=JSON.stringify(data,null,2);
+  }catch(e){
+    if(sum)sum.textContent='Error loading verification debug.';
+    if(out)out.textContent=e.message||String(e);
+  }
+}
+function copyVerificationDebug(){
+  var out=document.getElementById('verification-debug-output');
+  var txt=out?out.textContent:'';
+  if(!txt)return;
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(function(){toast('Debug copied');}).catch(function(){fallbackCopy(txt);});
+  }else fallbackCopy(txt);
+}
+
 async function loadAccounts(){
   try{
     const list=await api('/api/stripe-accounts');
@@ -1306,7 +1365,7 @@ async function loadAccounts(){
           if(st==='active'&&!details.length){
             verificationHtml='<span style="color:var(--green);font-size:12px;font-family:var(--mono);">Clear</span>';
           } else if(details.length){
-            verificationHtml='<div style="font-size:12px;line-height:1.45;max-width:260px;">'
+            verificationHtml='<div style="font-size:12px;line-height:1.45;max-width:220px;">'
               + details.slice(0,3).map(function(d){return '<div style="color:var(--amber);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="'+String(d).replace(/"/g,'&quot;')+'">⚠ '+d+'</div>';}).join('')
               + (details.length>3?'<div style="color:var(--muted);font-size:11px;font-family:var(--mono);">+'+(details.length-3)+' more</div>':'')
               + '</div>';
@@ -1314,7 +1373,7 @@ async function loadAccounts(){
             verificationHtml='<span style="color:var(--muted);font-size:12px;font-family:var(--mono);">'+(reason||'—')+'</span>';
           }
           var setDefBtn=!a.is_default?'<button class="btn btn-sm" onclick="setDefaultAccount('+a.id+')">Set default</button>':'';
-          return '<tr><td><strong style="font-size:13px;">'+a.name+'</strong></td><td class="mono" style="font-size:12px;color:var(--muted);">'+(a.key_preview||'—')+'</td><td>'+statusBadge+defaultBadge+'</td><td>'+verificationHtml+'</td><td><div class="actions">'+setDefBtn+'<button class="btn btn-sm" onclick="openEditAcc('+a.id+')">Edit</button><button class="btn btn-sm btn-danger" onclick="deleteAccount('+a.id+')">Delete</button></div></td></tr>';
+          return '<tr><td><strong style="font-size:13px;">'+a.name+'</strong></td><td class="mono" style="font-size:12px;color:var(--muted);">'+(a.key_preview||'—')+'</td><td>'+statusBadge+defaultBadge+'</td><td>'+verificationHtml+'</td><td><div class="actions">'+setDefBtn+'<button class="btn btn-sm" onclick="debugStripeAccount('+a.id+')" title="Check verification details">Check</button><button class="btn btn-sm" onclick="openEditAcc('+a.id+')">Edit</button><button class="btn btn-sm btn-danger" onclick="deleteAccount('+a.id+')">Delete</button></div></td></tr>';
         }).join('');
       }
     }
