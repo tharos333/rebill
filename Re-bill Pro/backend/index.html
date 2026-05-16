@@ -816,13 +816,13 @@ textarea{resize:vertical;min-height:60px}
 </div>
 
 <div class="modal-bg" id="verification-debug-modal">
-  <div class="modal" style="width:760px;max-width:96vw;">
+  <div class="modal" style="width:760px;max-width:96vw;max-height:88vh;overflow:auto;">
     <h3>Stripe Account Check</h3>
     <p>Simple check for payment access, payout access, and required Stripe actions.</p>
     <div id="verification-debug-summary" style="font-size:13px;color:var(--text);font-family:var(--sans);margin-bottom:12px;line-height:1.5;"></div>
     <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin:8px 0 6px;">Technical details</div>
-    <pre id="verification-debug-output" style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:12px;max-height:520px;overflow:auto;font-size:11px;line-height:1.45;color:var(--text);white-space:pre-wrap;"></pre>
-    <div class="modal-footer">
+    <pre id="verification-debug-output" style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:12px;max-height:260px;overflow:auto;font-size:11px;line-height:1.45;color:var(--text);white-space:pre-wrap;"></pre>
+    <div class="modal-footer" style="position:sticky;bottom:0;background:var(--surface);padding-top:12px;">
       <button class="btn" onclick="copyVerificationDebug()">Copy technical details</button>
       <button class="btn btn-primary" onclick="closeModal('verification-debug-modal')">Close</button>
     </div>
