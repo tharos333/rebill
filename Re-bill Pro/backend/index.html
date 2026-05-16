@@ -1375,9 +1375,17 @@ async function loadAccounts(){
           if(st==='active'&&!details.length){
             verificationHtml='<span style="color:var(--green);font-size:12px;font-family:var(--mono);">Clear</span>';
           } else if(details.length){
-            verificationHtml='<div style="font-size:12px;line-height:1.45;max-width:220px;">'
-              + details.slice(0,3).map(function(d){return '<div style="color:var(--amber);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="'+String(d).replace(/"/g,'&quot;')+'">⚠ '+d+'</div>';}).join('')
-              + (details.length>3?'<div style="color:var(--muted);font-size:11px;font-family:var(--mono);">+'+(details.length-3)+' more</div>':'')
+            verificationHtml='<div style="font-size:12px;line-height:1.45;max-width:260px;">'
+              + details.slice(0,3).map(function(d){
+                var safe=String(d).replace(/"/g,'&quot;');
+                return '<div title="'+safe+'" style="display:inline-flex;align-items:center;gap:7px;max-width:100%;color:var(--amber);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
+                  + '<span style="width:16px;height:16px;border-radius:999px;background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.28);display:inline-flex;align-items:center;justify-content:center;flex:0 0 16px;">'
+                  + '<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="var(--amber)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v5"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>'
+                  + '</span>'
+                  + '<span style="overflow:hidden;text-overflow:ellipsis;">'+d+'</span>'
+                  + '</div>';
+              }).join('')
+              + (details.length>3?'<div style="color:var(--muted);font-size:11px;font-family:var(--mono);margin-left:23px;">+'+(details.length-3)+' more</div>':'')
               + '</div>';
           } else {
             verificationHtml='<span style="color:var(--muted);font-size:12px;font-family:var(--mono);">'+(reason||'—')+'</span>';
