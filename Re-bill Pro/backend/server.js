@@ -561,36 +561,113 @@ app.use('/icons', express.static(path.join(__dirname, 'public', 'icons')));
 app.use(express.static(path.join(__dirname)));
 
 // ── Stripe Accounts ───────────────────────────────────────────────────────────
+function formatStripeRequirementKey(key) {
+  const raw = String(key || '');
+  const clean = raw
+    .replace(/^individual\./, '')
+    .replace(/^representative\./, '')
+    .replace(/^company\./, '')
+    .replace(/^business_profile\./, 'business profile.')
+    .replace(/person_[^.]+\./, 'person.')
+    .replace(/\./g, ' ')
+    .replace(/_/g, ' ');
+
+  if (/verification document|additional document|identity document/i.test(clean)) {
+    return 'ID / document verification required';
+  }
+  if (/verification/i.test(clean)) {
+    return 'Identity verification required';
+  }
+  if (/tos acceptance/i.test(clean)) {
+    return 'Terms acceptance required';
+  }
+  if (/external account|bank account/i.test(clean)) {
+    return 'Bank account required';
+  }
+  if (/business profile/i.test(clean)) {
+    return 'Business profile required';
+  }
+  if (/owners|directors|executives|representative/i.test(clean)) {
+    return 'Representative / ownership details required';
+  }
+
+  return clean.charAt(0).toUpperCase() + clean.slice(1);
+}
+
+function uniqueRequirements(items) {
+  const seen = new Set();
+  return (items || [])
+    .map(formatStripeRequirementKey)
+    .filter(Boolean)
+    .filter((item) => {
+      const key = item.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
 async function getStripeAccountDisplayStatus(accountRow) {
   const base = {
     account_status: 'closed',
     account_status_label: 'closed',
     account_status_reason: null,
+    verification_needed: false,
+    verification_details: [],
+    raw_requirements_currently_due: [],
+    raw_requirements_past_due: [],
+    raw_requirements_eventually_due: [],
+    disabled_reason: null,
     charges_enabled: false,
     payouts_enabled: false
   };
 
   if (!accountRow.secret_key || !String(accountRow.secret_key).startsWith('sk_')) {
-    return { ...base, account_status_reason: 'Missing or invalid secret key' };
+    return {
+      ...base,
+      account_status_reason: 'Missing or invalid secret key',
+      verification_details: ['Missing or invalid secret key']
+    };
   }
 
   try {
     const stripe = new Stripe(accountRow.secret_key);
     const acc = await stripe.accounts.retrieve();
 
-    const disabledReason = acc?.requirements?.disabled_reason || null;
+    const req = acc?.requirements || {};
+    const futureReq = acc?.future_requirements || {};
+    const disabledReason = req.disabled_reason || null;
     const chargesEnabled = !!acc?.charges_enabled;
     const payoutsEnabled = !!acc?.payouts_enabled;
 
+    const currentlyDue = req.currently_due || [];
+    const pastDue = req.past_due || [];
+    const eventuallyDue = req.eventually_due || [];
+    const futureCurrentlyDue = futureReq.currently_due || [];
+    const futurePastDue = futureReq.past_due || [];
+
+    const requiredNow = [...pastDue, ...currentlyDue, ...futurePastDue, ...futureCurrentlyDue];
+    const verificationDetails = uniqueRequirements(requiredNow);
+
     if (acc?.deleted) {
-      return { ...base, account_status_reason: 'Stripe account deleted or closed' };
+      return {
+        ...base,
+        account_status_reason: 'Stripe account deleted or closed',
+        verification_details: ['Stripe account deleted or closed']
+      };
     }
 
-    if (disabledReason || (!chargesEnabled && !payoutsEnabled)) {
+    if (disabledReason || pastDue.length || currentlyDue.length || futurePastDue.length || futureCurrentlyDue.length || (!chargesEnabled && !payoutsEnabled)) {
       return {
         account_status: 'restricted',
-        account_status_label: 'restricted',
-        account_status_reason: disabledReason || 'Charges and payouts are not enabled',
+        account_status_label: 'needs verification',
+        account_status_reason: disabledReason || (verificationDetails[0] || 'Verification required'),
+        verification_needed: true,
+        verification_details: verificationDetails.length ? verificationDetails : ['Verification required'],
+        raw_requirements_currently_due: currentlyDue,
+        raw_requirements_past_due: pastDue,
+        raw_requirements_eventually_due: eventuallyDue,
+        disabled_reason: disabledReason,
         charges_enabled: chargesEnabled,
         payouts_enabled: payoutsEnabled
       };
@@ -600,13 +677,20 @@ async function getStripeAccountDisplayStatus(accountRow) {
       account_status: 'active',
       account_status_label: 'active',
       account_status_reason: null,
+      verification_needed: false,
+      verification_details: [],
+      raw_requirements_currently_due: currentlyDue,
+      raw_requirements_past_due: pastDue,
+      raw_requirements_eventually_due: eventuallyDue,
+      disabled_reason: disabledReason,
       charges_enabled: chargesEnabled,
       payouts_enabled: payoutsEnabled
     };
   } catch (err) {
     return {
       ...base,
-      account_status_reason: err?.message || 'Unable to verify Stripe account'
+      account_status_reason: err?.message || 'Unable to verify Stripe account',
+      verification_details: [err?.message || 'Unable to verify Stripe account']
     };
   }
 }

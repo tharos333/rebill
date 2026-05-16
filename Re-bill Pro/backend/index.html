@@ -549,8 +549,8 @@ textarea{resize:vertical;min-height:60px}
     <button class="btn btn-primary" onclick="openModal('add-account-modal')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add account</button>
   </div>
   <div class="card"><div class="scrollable"><table>
-    <thead><tr><th>Name</th><th>Key</th><th>Status</th><th>Actions</th></tr></thead>
-    <tbody id="accounts-table"><tr><td colspan="4" class="empty">Loading...</td></tr></tbody>
+    <thead><tr><th>Name</th><th>Key</th><th>Status</th><th>Verification</th><th>Actions</th></tr></thead>
+    <tbody id="accounts-table"><tr><td colspan="5" class="empty">Loading...</td></tr></tbody>
   </table></div></div>
 </div>
 
@@ -1291,16 +1291,32 @@ async function loadAccounts(){
     const list=await api('/api/stripe-accounts');
     const tb=document.getElementById('accounts-table');
     if(tb){
-      if(!list.length){tb.innerHTML='<tr><td colspan="4" class="empty">No accounts yet</td></tr>';}
-      else{tb.innerHTML=list.map(function(a){
-        var st=(a.account_status||a.status||'active').toLowerCase();
-        var color=st==='active'?'green':(st==='restricted'?'amber':'red');
-        var reason=a.account_status_reason?String(a.account_status_reason).replace(/"/g,'&quot;'):'';
-        var statusBadge='<span class="badge badge-'+color+'" title="'+reason+'">'+st+'</span>';
-        var defaultBadge=a.is_default?'<span class="badge badge-blue" style="margin-left:6px;">default</span>':'';
-        var setDefBtn=!a.is_default?'<button class="btn btn-sm" onclick="setDefaultAccount('+a.id+')">Set default</button>':'';
-        return '<tr><td><strong style="font-size:13px;">'+a.name+'</strong></td><td class="mono" style="font-size:12px;color:var(--muted);">'+(a.key_preview||'—')+'</td><td>'+statusBadge+defaultBadge+'</td><td><div class="actions">'+setDefBtn+'<button class="btn btn-sm" onclick="openEditAcc('+a.id+')">Edit</button><button class="btn btn-sm btn-danger" onclick="deleteAccount('+a.id+')">Delete</button></div></td></tr>';
-      }).join('');}
+      if(!list.length){
+        tb.innerHTML='<tr><td colspan="5" class="empty">No accounts yet</td></tr>';
+      } else {
+        tb.innerHTML=list.map(function(a){
+          var st=(a.account_status||a.status||'active').toLowerCase();
+          var label=(a.account_status_label||st);
+          var color=st==='active'?'green':(st==='restricted'?'amber':'red');
+          var details=Array.isArray(a.verification_details)?a.verification_details:[];
+          var reason=a.account_status_reason?String(a.account_status_reason).replace(/"/g,'&quot;'):'';
+          var statusBadge='<span class="badge badge-'+color+'" title="'+reason+'">'+label+'</span>';
+          var defaultBadge=a.is_default?'<span class="badge badge-blue" style="margin-left:6px;">default</span>':'';
+          var verificationHtml='';
+          if(st==='active'&&!details.length){
+            verificationHtml='<span style="color:var(--green);font-size:12px;font-family:var(--mono);">Clear</span>';
+          } else if(details.length){
+            verificationHtml='<div style="font-size:12px;line-height:1.45;max-width:260px;">'
+              + details.slice(0,3).map(function(d){return '<div style="color:var(--amber);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="'+String(d).replace(/"/g,'&quot;')+'">⚠ '+d+'</div>';}).join('')
+              + (details.length>3?'<div style="color:var(--muted);font-size:11px;font-family:var(--mono);">+'+(details.length-3)+' more</div>':'')
+              + '</div>';
+          } else {
+            verificationHtml='<span style="color:var(--muted);font-size:12px;font-family:var(--mono);">'+(reason||'—')+'</span>';
+          }
+          var setDefBtn=!a.is_default?'<button class="btn btn-sm" onclick="setDefaultAccount('+a.id+')">Set default</button>':'';
+          return '<tr><td><strong style="font-size:13px;">'+a.name+'</strong></td><td class="mono" style="font-size:12px;color:var(--muted);">'+(a.key_preview||'—')+'</td><td>'+statusBadge+defaultBadge+'</td><td>'+verificationHtml+'</td><td><div class="actions">'+setDefBtn+'<button class="btn btn-sm" onclick="openEditAcc('+a.id+')">Edit</button><button class="btn btn-sm btn-danger" onclick="deleteAccount('+a.id+')">Delete</button></div></td></tr>';
+        }).join('');
+      }
     }
     allStripeAccounts=list;
     const opts=list.map(a=>'<option value="'+a.id+'"'+(a.is_default?' selected':'')+'>'+a.name+'</option>').join('');
