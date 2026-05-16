@@ -834,6 +834,84 @@ app.get('/api/stripe-accounts', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+app.get('/api/stripe-accounts/:id/verification-debug', async (req, res) => {
+  try {
+    const account = await stripeAccounts.byId(req.params.id);
+    if (!account) return res.status(404).json({ error: 'Stripe account not found' });
+    if (!account.secret_key || !String(account.secret_key).startsWith('sk_')) {
+      return res.status(400).json({ error: 'Missing or invalid secret key' });
+    }
+
+    const stripe = new Stripe(account.secret_key);
+    const acc = await stripe.accounts.retrieve();
+
+    let persons = [];
+    let persons_error = null;
+
+    try {
+      const people = await stripe.accounts.listPersons(acc.id, { limit: 100 });
+      persons = (people.data || []).map((p) => ({
+        id: p.id,
+        first_name: p.first_name || null,
+        last_name: p.last_name || null,
+        email: p.email || null,
+        relationship: p.relationship || null,
+        verification: p.verification || null,
+        requirements: p.requirements || null,
+        future_requirements: p.future_requirements || null
+      }));
+    } catch (err) {
+      persons_error = err.message;
+    }
+
+    const debug = {
+      local_account: {
+        id: account.id,
+        name: account.name,
+        is_default: account.is_default,
+        key_preview: account.secret_key ? account.secret_key.slice(0, 12) + '...' : null
+      },
+      stripe_account: {
+        id: acc.id,
+        type: acc.type,
+        country: acc.country,
+        email: acc.email,
+        business_type: acc.business_type,
+        charges_enabled: acc.charges_enabled,
+        payouts_enabled: acc.payouts_enabled,
+        details_submitted: acc.details_submitted,
+        default_currency: acc.default_currency,
+        capabilities: acc.capabilities || null,
+        requirements: acc.requirements || null,
+        future_requirements: acc.future_requirements || null,
+        controller: acc.controller || null,
+        company: acc.company ? {
+          verification: acc.company.verification || null,
+          structure: acc.company.structure || null
+        } : null,
+        individual: acc.individual ? {
+          id: acc.individual.id,
+          first_name: acc.individual.first_name || null,
+          last_name: acc.individual.last_name || null,
+          email: acc.individual.email || null,
+          verification: acc.individual.verification || null,
+          requirements: acc.individual.requirements || null,
+          future_requirements: acc.individual.future_requirements || null
+        } : null
+      },
+      persons_error,
+      persons,
+      interpreted_status: await getStripeAccountDisplayStatus(account)
+    };
+
+    res.json(debug);
+  } catch (err) {
+    console.error('[stripe-account-debug] error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/stripe-accounts', async (req, res) => {
   try {
     const { name, secret_key, webhook_secret } = req.body;
