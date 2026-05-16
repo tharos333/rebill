@@ -572,11 +572,8 @@ function formatStripeRequirementKey(key) {
     .replace(/\./g, ' ')
     .replace(/_/g, ' ');
 
-  if (/selfie|id_number|identity|verification document|additional document|document|verification|photo/i.test(clean)) {
-    return 'Selfie / ID verification required';
-  }
-  if (/tos acceptance/i.test(clean)) {
-    return 'Terms acceptance required';
+  if (/verification|document|id_number|identity|selfie|photo/i.test(clean)) {
+    return 'ID / verification required';
   }
   if (/external account|bank account/i.test(clean)) {
     return 'Bank account required';
@@ -584,14 +581,14 @@ function formatStripeRequirementKey(key) {
   if (/business profile|url|mcc|product description/i.test(clean)) {
     return 'Business profile required';
   }
-  if (/owners|directors|executives|representative|person|relationship/i.test(clean)) {
+  if (/representative|owners|directors|executives|person|relationship/i.test(clean)) {
     return 'Representative / ownership details required';
   }
   if (/tax/i.test(clean)) {
     return 'Tax information required';
   }
-  if (/capability|charges|payouts|transfers|card payments/i.test(clean)) {
-    return 'Capability / charges verification required';
+  if (/tos acceptance/i.test(clean)) {
+    return 'Terms acceptance required';
   }
 
   return clean.charAt(0).toUpperCase() + clean.slice(1);
@@ -608,72 +605,6 @@ function uniqueRequirements(items) {
       seen.add(key);
       return true;
     });
-}
-
-function pushReqKeys(keys, source) {
-  if (!source) return;
-  [
-    source.past_due,
-    source.currently_due,
-    source.pending_verification,
-    source.eventually_due
-  ].forEach((arr) => {
-    if (Array.isArray(arr)) keys.push(...arr);
-  });
-
-  if (Array.isArray(source.errors)) {
-    source.errors.forEach((e) => {
-      if (e?.requirement) keys.push(e.requirement);
-      if (e?.reason) keys.push(e.reason);
-      if (e?.code) keys.push(e.code);
-    });
-  }
-}
-
-function collectStripeRequirementKeys(req, futureReq) {
-  const keys = [];
-  pushReqKeys(keys, req);
-  pushReqKeys(keys, futureReq);
-  return keys;
-}
-
-async function collectPersonRequirementKeys(stripe, accountId) {
-  const keys = [];
-
-  try {
-    const people = await stripe.accounts.listPersons(accountId, { limit: 100 });
-
-    for (const person of (people.data || [])) {
-      pushReqKeys(keys, person.requirements || {});
-      pushReqKeys(keys, person.future_requirements || {});
-
-      if (person.verification) {
-        const v = person.verification;
-        if (v.status && v.status !== 'verified') keys.push('person.verification.' + v.status);
-        if (v.document && (v.document.front || v.document.back)) keys.push('person.verification.document');
-        if (v.additional_document && (v.additional_document.front || v.additional_document.back)) keys.push('person.verification.additional_document');
-      }
-    }
-  } catch (err) {
-    // Some direct Stripe keys do not allow listing persons. Do not fail the whole status check.
-    console.log('[stripe-account-status] could not list persons for account', accountId, err.message);
-  }
-
-  return keys;
-}
-
-function collectCapabilityIssues(acc) {
-  const keys = [];
-  const caps = acc?.capabilities || {};
-
-  Object.keys(caps).forEach((name) => {
-    const value = caps[name];
-    if (value && value !== 'active') {
-      keys.push('capability.' + name + '.' + value);
-    }
-  });
-
-  return keys;
 }
 
 async function getStripeAccountDisplayStatus(accountRow) {
@@ -704,48 +635,13 @@ async function getStripeAccountDisplayStatus(accountRow) {
     const acc = await stripe.accounts.retrieve();
 
     const req = acc?.requirements || {};
-    const futureReq = acc?.future_requirements || {};
-    const disabledReason = req.disabled_reason || futureReq.disabled_reason || null;
+    const disabledReason = req.disabled_reason || null;
     const chargesEnabled = !!acc?.charges_enabled;
     const payoutsEnabled = !!acc?.payouts_enabled;
 
-    const pastDue = req.past_due || [];
-    const currentlyDue = req.currently_due || [];
-    const eventuallyDue = req.eventually_due || [];
-    const pendingVerification = req.pending_verification || [];
-    const futurePastDue = futureReq.past_due || [];
-    const futureCurrentlyDue = futureReq.currently_due || [];
-    const futureEventuallyDue = futureReq.eventually_due || [];
-    const futurePendingVerification = futureReq.pending_verification || [];
-
-    const accountRequirementKeys = collectStripeRequirementKeys(req, futureReq);
-    const personRequirementKeys = await collectPersonRequirementKeys(stripe, acc.id);
-    const capabilityIssueKeys = collectCapabilityIssues(acc);
-
-    const allRequirementKeys = [
-      ...accountRequirementKeys,
-      ...personRequirementKeys,
-      ...capabilityIssueKeys
-    ];
-
-    const verificationDetails = uniqueRequirements(allRequirementKeys);
-
-    const hasRequiredNow =
-      disabledReason ||
-      pastDue.length ||
-      currentlyDue.length ||
-      futurePastDue.length ||
-      futureCurrentlyDue.length ||
-      (!chargesEnabled && !payoutsEnabled);
-
-    const hasUpcomingOrPending =
-      pendingVerification.length ||
-      eventuallyDue.length ||
-      futurePendingVerification.length ||
-      futureEventuallyDue.length ||
-      personRequirementKeys.length ||
-      capabilityIssueKeys.length ||
-      verificationDetails.length;
+    const currentlyDue = Array.isArray(req.currently_due) ? req.currently_due : [];
+    const pastDue = Array.isArray(req.past_due) ? req.past_due : [];
+    const details = uniqueRequirements([...pastDue, ...currentlyDue]);
 
     if (acc?.deleted) {
       return {
@@ -755,32 +651,32 @@ async function getStripeAccountDisplayStatus(accountRow) {
       };
     }
 
-    if (hasRequiredNow) {
+    // Main rule:
+    // No action needed only when charges + payouts are enabled and Stripe has no requirements due now.
+    const needsAction =
+      !chargesEnabled ||
+      !payoutsEnabled ||
+      !!disabledReason ||
+      currentlyDue.length > 0 ||
+      pastDue.length > 0;
+
+    if (needsAction) {
+      const reason =
+        disabledReason ||
+        (!chargesEnabled && !payoutsEnabled ? 'Payments and payouts not enabled' :
+          !chargesEnabled ? 'Payments access disabled' :
+          !payoutsEnabled ? 'Payouts paused or disabled' :
+          details[0] || 'Verification required');
+
       return {
         account_status: 'restricted',
-        account_status_label: 'needs verification',
-        account_status_reason: disabledReason || (verificationDetails[0] || 'Verification required'),
+        account_status_label: 'verification required',
+        account_status_reason: reason,
         verification_needed: true,
-        verification_details: verificationDetails.length ? verificationDetails : ['Verification required'],
+        verification_details: details.length ? details : [reason],
         raw_requirements_currently_due: currentlyDue,
         raw_requirements_past_due: pastDue,
-        raw_requirements_eventually_due: eventuallyDue,
-        disabled_reason: disabledReason,
-        charges_enabled: chargesEnabled,
-        payouts_enabled: payoutsEnabled
-      };
-    }
-
-    if (hasUpcomingOrPending) {
-      return {
-        account_status: 'verification',
-        account_status_label: 'verification',
-        account_status_reason: verificationDetails[0] || 'Verification pending or upcoming',
-        verification_needed: true,
-        verification_details: verificationDetails.length ? verificationDetails : ['Verification pending or upcoming'],
-        raw_requirements_currently_due: currentlyDue,
-        raw_requirements_past_due: pastDue,
-        raw_requirements_eventually_due: [...eventuallyDue, ...futureEventuallyDue],
+        raw_requirements_eventually_due: req.eventually_due || [],
         disabled_reason: disabledReason,
         charges_enabled: chargesEnabled,
         payouts_enabled: payoutsEnabled
@@ -795,7 +691,7 @@ async function getStripeAccountDisplayStatus(accountRow) {
       verification_details: [],
       raw_requirements_currently_due: currentlyDue,
       raw_requirements_past_due: pastDue,
-      raw_requirements_eventually_due: eventuallyDue,
+      raw_requirements_eventually_due: req.eventually_due || [],
       disabled_reason: disabledReason,
       charges_enabled: chargesEnabled,
       payouts_enabled: payoutsEnabled
