@@ -817,12 +817,13 @@ textarea{resize:vertical;min-height:60px}
 
 <div class="modal-bg" id="verification-debug-modal">
   <div class="modal" style="width:760px;max-width:96vw;">
-    <h3>Stripe Verification Debug</h3>
-    <p>Raw Stripe verification data for this account. Send this output if the app status looks wrong.</p>
-    <div id="verification-debug-summary" style="font-size:12px;color:var(--muted);font-family:var(--mono);margin-bottom:10px;"></div>
+    <h3>Stripe Account Check</h3>
+    <p>Simple check for payment access, payout access, and required Stripe actions.</p>
+    <div id="verification-debug-summary" style="font-size:13px;color:var(--text);font-family:var(--sans);margin-bottom:12px;line-height:1.5;"></div>
+    <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin:8px 0 6px;">Technical details</div>
     <pre id="verification-debug-output" style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:12px;max-height:520px;overflow:auto;font-size:11px;line-height:1.45;color:var(--text);white-space:pre-wrap;"></pre>
     <div class="modal-footer">
-      <button class="btn" onclick="copyVerificationDebug()">Copy debug</button>
+      <button class="btn" onclick="copyVerificationDebug()">Copy technical details</button>
       <button class="btn btn-primary" onclick="closeModal('verification-debug-modal')">Close</button>
     </div>
   </div>
@@ -1316,20 +1317,29 @@ async function debugStripeAccount(id){
     var future=data&&data.stripe_account&&data.stripe_account.future_requirements?data.stripe_account.future_requirements:{};
     var persons=Array.isArray(data.persons)?data.persons:[];
 
-    var quick=[
-      'Account: '+((data.local_account&&data.local_account.name)||'—'),
-      'Stripe ID: '+((data.stripe_account&&data.stripe_account.id)||'—'),
-      'Status: '+(status.account_status_label||status.account_status||'—'),
-      'Charges enabled: '+((data.stripe_account&&data.stripe_account.charges_enabled)===true?'yes':'no'),
-      'Payouts enabled: '+((data.stripe_account&&data.stripe_account.payouts_enabled)===true?'yes':'no'),
-      'Currently due: '+((req.currently_due||[]).join(', ')||'none'),
-      'Past due: '+((req.past_due||[]).join(', ')||'none'),
-      'Future due: '+((future.currently_due||future.eventually_due||[]).join(', ')||'none'),
-      'Persons checked: '+persons.length,
-      'App details: '+((status.verification_details||[]).join(', ')||'none')
-    ].join('\\n');
+    var payOk=(data.stripe_account&&data.stripe_account.charges_enabled)===true;
+    var payoutOk=(data.stripe_account&&data.stripe_account.payouts_enabled)===true;
+    var statusText=(status.account_status_label||status.account_status||'—');
+    var details=(status.verification_details||[]);
+    var dueNow=(req.currently_due||[]).concat(req.past_due||[]);
+    var actionText=details.length ? details.join(', ') : (dueNow.length ? dueNow.join(', ') : 'No action needed');
 
-    if(sum)sum.textContent=quick;
+    var quickHtml=''
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">'
+      + '<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:10px;"><div style="color:var(--muted);font-size:11px;font-family:var(--mono);text-transform:uppercase;">Payment access</div><div style="font-weight:700;color:'+(payOk?'var(--green)':'var(--red)')+';">'+(payOk?'Can receive payments':'Cannot receive payments')+'</div></div>'
+      + '<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:10px;"><div style="color:var(--muted);font-size:11px;font-family:var(--mono);text-transform:uppercase;">Payout access</div><div style="font-weight:700;color:'+(payoutOk?'var(--green)':'var(--red)')+';">'+(payoutOk?'Can receive payouts':'Payouts paused/disabled')+'</div></div>'
+      + '</div>'
+      + '<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:10px;margin-bottom:10px;">'
+      + '<div style="color:var(--muted);font-size:11px;font-family:var(--mono);text-transform:uppercase;">Account status</div>'
+      + '<div style="font-weight:700;color:'+(status.account_status==='active'?'var(--green)':'var(--amber)')+';">'+statusText+'</div>'
+      + '</div>'
+      + '<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:10px;">'
+      + '<div style="color:var(--muted);font-size:11px;font-family:var(--mono);text-transform:uppercase;">Action needed</div>'
+      + '<div style="font-weight:600;">'+actionText+'</div>'
+      + '<div style="margin-top:8px;color:var(--muted);font-size:12px;font-family:var(--mono);">Account: '+((data.local_account&&data.local_account.name)||'—')+' · Stripe ID: '+((data.stripe_account&&data.stripe_account.id)||'—')+'</div>'
+      + '</div>';
+
+    if(sum)sum.innerHTML=quickHtml;
     if(out)out.textContent=JSON.stringify(data,null,2);
   }catch(e){
     if(sum)sum.textContent='Error loading verification debug.';
