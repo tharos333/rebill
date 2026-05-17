@@ -56,7 +56,6 @@ async function init() {
       card_exp_year INT,
       card_country TEXT,
       card_funding TEXT,
-      stripe_account_id INT,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS settings (
@@ -115,7 +114,6 @@ async function init() {
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_exp_year INT',
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_country TEXT',
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_funding TEXT',
-    'ALTER TABLE payments ADD COLUMN IF NOT EXISTS stripe_account_id INT',
   ];
   for (const m of migrations) await pool.query(m).catch(() => {});
   const adminCount = await pool.query('SELECT COUNT(*) FROM admin_users');
@@ -177,7 +175,7 @@ const subscriptions = {
   markDunning: async (id, retryDate) => { await pool.query("UPDATE subscriptions SET status='dunning', next_billing_date=$1, dunning_count=dunning_count+1, last_failed_at=NOW() WHERE id=$2", [retryDate, id]); },
 };
 const payments = {
-  recent: async (limit=50) => { const r = await pool.query('SELECT p.*, c.email, c.name, COALESCE(p.card_brand,c.card_brand) AS card_brand, COALESCE(p.card_last4,c.card_last4) AS card_last4, sa.name AS account_name FROM payments p LEFT JOIN customers c ON c.id=p.customer_id LEFT JOIN stripe_accounts sa ON sa.id=COALESCE(p.stripe_account_id,c.stripe_account_id) ORDER BY p.created_at DESC LIMIT $1', [limit]); return r.rows; },
+  recent: async (limit=50) => { const r = await pool.query('SELECT p.*, c.email, c.name, COALESCE(p.card_brand,c.card_brand) AS card_brand, COALESCE(p.card_last4,c.card_last4) AS card_last4 FROM payments p JOIN customers c ON c.id=p.customer_id ORDER BY p.created_at DESC LIMIT $1', [limit]); return r.rows; },
   byCustomer: async (cid) => { const r = await pool.query('SELECT * FROM payments WHERE customer_id=$1 ORDER BY created_at DESC', [cid]); return r.rows; },
   stats: async () => { const r = await pool.query(`SELECT COUNT(CASE WHEN status='succeeded' THEN 1 END) as succeeded_count, COUNT(CASE WHEN status='failed' THEN 1 END) as failed_count, COALESCE(SUM(CASE WHEN status='succeeded' THEN amount ELSE 0 END),0) as total_revenue, COUNT(CASE WHEN status='succeeded' AND created_at >= NOW()-INTERVAL '30 days' THEN 1 END) as count_30d, COALESCE(SUM(CASE WHEN status='succeeded' AND created_at >= NOW()-INTERVAL '30 days' THEN amount ELSE 0 END),0) as revenue_30d FROM payments`); return r.rows[0]; },
   insert: async (data) => { await pool.query('INSERT INTO payments (customer_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,card_brand,card_last4,card_exp_month,card_exp_year,card_country,card_funding) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)', [data.customer_id, data.subscription_id, data.stripe_payment_intent, data.amount, data.currency, data.status, data.failure_reason, data.card_brand||null, data.card_last4||null, data.card_exp_month||null, data.card_exp_year||null, data.card_country||null, data.card_funding||null]); },
