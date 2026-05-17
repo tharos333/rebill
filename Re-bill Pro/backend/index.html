@@ -6,7 +6,7 @@
 <link rel="icon" type="image/png" href="https://i.ibb.co/6cnnDkWy/Blue-and-White-Minimalist-Professional-Brand-Logo-1.png">
 <title>Subloop Beta 1.0 — Manage & Rebill Subscriptions</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -17,7 +17,7 @@
   --red:#f87171;--red-bg:rgba(248,113,113,0.1);
   --amber:#fbbf24;--amber-bg:rgba(251,191,36,0.1);
   --blue:#60a5fa;--blue-bg:rgba(96,165,250,0.1);
-  --mono:'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;--sans:'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --mono:'DM Mono',monospace;--sans:'Syne',sans-serif;
 }
 html.light{
   --bg:#f4f4f8;--surface:#ffffff;--surface2:#f0f0f5;
@@ -180,140 +180,6 @@ textarea{resize:vertical;min-height:60px}
 /* OTP boxes */
 .otp-input{width:46px;height:52px;text-align:center;font-size:20px;font-weight:700;font-family:var(--mono);background:var(--surface2);border:1.5px solid var(--border2);border-radius:10px;color:var(--text);outline:none}
 .otp-input:focus{border-color:var(--accent)}
-
-/* ===== FONT / TEXT STYLE ONLY =====
-   No layout, colors, API calls, IDs, routes, or Stripe logic changed.
-   Goal: modern app-style typography like the reference UI.
-*/
-body,
-button,
-input,
-select,
-textarea,
-td,
-th,
-label,
-.btn,
-.nav-item,
-.nav-section,
-.nav-section-toggle,
-.page-header h2,
-.page-header p,
-.stat-label,
-.stat-value,
-.stat-sub,
-.card-header h3,
-.customer-name,
-.customer-email,
-.badge,
-.empty,
-.setting-label,
-.setting-desc,
-.notification-head,
-.notification-item,
-.notification-item strong,
-.notification-time,
-.notification-view-all,
-.login-field label,
-.login-field input,
-.login-btn,
-.login-error,
-.rev-tab,
-.link-url,
-.payment-dots,
-.payment-last4,
-.no-card,
-.mono{
-  font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif!important;
-  -webkit-font-smoothing:antialiased;
-  text-rendering:geometricPrecision;
-}
-
-body{
-  letter-spacing:-0.011em;
-}
-
-.page-header h2{
-  font-weight:800!important;
-  letter-spacing:-0.045em!important;
-  line-height:1.12!important;
-}
-
-.page-header p{
-  font-weight:500!important;
-  letter-spacing:-0.012em!important;
-}
-
-.nav-item{
-  font-weight:600!important;
-  letter-spacing:-0.015em!important;
-}
-
-.nav-section,
-.nav-section-toggle,
-.stat-label,
-.card-header h3,
-th,
-label{
-  font-weight:700!important;
-  letter-spacing:0.055em!important;
-}
-
-.stat-value{
-  font-weight:800!important;
-  letter-spacing:-0.055em!important;
-  line-height:1.08!important;
-}
-
-.stat-sub{
-  font-weight:500!important;
-  letter-spacing:-0.012em!important;
-}
-
-.customer-name,
-.setting-label,
-.notification-item strong{
-  font-weight:700!important;
-  letter-spacing:-0.018em!important;
-}
-
-.customer-email,
-.payment-dots,
-.payment-last4,
-.link-url,
-.notification-time,
-.setting-desc{
-  font-weight:500!important;
-  letter-spacing:-0.012em!important;
-}
-
-.btn,
-.login-btn,
-.notification-view-all,
-.rev-tab{
-  font-weight:700!important;
-  letter-spacing:-0.016em!important;
-}
-
-.badge{
-  font-weight:800!important;
-  letter-spacing:-0.012em!important;
-}
-
-input::placeholder,
-textarea::placeholder{
-  font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif!important;
-  letter-spacing:-0.01em;
-}
-
-/* Keep only real code/debug blocks technical and readable */
-pre,
-code,
-#verification-debug-output{
-  font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation Mono',monospace!important;
-  letter-spacing:0!important;
-}
-
 </style>
 </head>
 <body>
