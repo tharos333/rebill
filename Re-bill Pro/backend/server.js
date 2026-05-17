@@ -441,7 +441,7 @@ async function retrieveFullCheckoutSession(stripe, session) {
   if (!session?.id) return session;
   try {
     return await stripe.checkout.sessions.retrieve(session.id, {
-      expand: ['customer', 'payment_intent', 'subscription', 'line_items.data.price']
+      expand: ['customer', 'payment_intent', 'subscription', 'invoice', 'line_items.data.price']
     });
   } catch(e) {
     console.log('[external-import] could not retrieve checkout session:', e.message);
@@ -482,6 +482,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
         const sessionCustomerId = typeof session.customer === 'string' ? session.customer : session.customer?.id || null;
         const sessionSubId = typeof session.subscription === 'string' ? session.subscription : session.subscription?.id || null;
         const sessionPiId = typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id || null;
+        const sessionInvoiceId = typeof session.invoice === 'string' ? session.invoice : session.invoice?.id || null;
         const fallbackCustomer = {
           seed: session.id,
           email: cleanEmail(session.customer_details?.email) || cleanEmail(session.customer_email),
@@ -504,6 +505,15 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
         if (sessionPiId) {
           const pi = typeof session.payment_intent === 'object' ? session.payment_intent : await stripe.paymentIntents.retrieve(sessionPiId, { expand: ['invoice', 'latest_charge', 'payment_method'] });
           await savePaymentIntent(stripe, usedAccount, pi, pi.status === 'succeeded' ? 'succeeded' : pi.status, fallbackCustomer);
+        } else if (sessionInvoiceId) {
+          // Subscription Checkout sessions often do not include payment_intent directly.
+          // Pull the invoice so the first subscription payment is saved in the Payments page.
+          try {
+            const invoice = await stripe.invoices.retrieve(sessionInvoiceId, { expand: ['payment_intent', 'subscription', 'lines.data.price'] });
+            await handleInvoiceEvent(stripe, usedAccount, invoice, invoice.status === 'paid' ? 'succeeded' : 'failed');
+          } catch(e) {
+            console.error('[external-import] could not save checkout invoice payment:', e.message);
+          }
         }
       }
 
@@ -513,6 +523,22 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 
       else if (event.type === 'payment_intent.payment_failed') {
         await savePaymentIntent(stripe, usedAccount, event.data.object, 'failed');
+      }
+
+      else if (event.type === 'charge.succeeded' || event.type === 'charge.failed') {
+        // Extra safety: some webhook setups send charge.* events but not payment_intent.* events.
+        const charge = event.data.object;
+        if (charge?.payment_intent) {
+          try {
+            const pi = await stripe.paymentIntents.retrieve(charge.payment_intent, { expand: ['invoice', 'latest_charge', 'payment_method'] });
+            await savePaymentIntent(stripe, usedAccount, pi, event.type === 'charge.succeeded' ? 'succeeded' : 'failed', {
+              email: cleanEmail(charge.billing_details?.email),
+              name: charge.billing_details?.name || charge.billing_details?.email || charge.id
+            });
+          } catch(e) {
+            console.error('[charge] could not save payment from charge event:', e.message);
+          }
+        }
       }
 
       else if (event.type === 'invoice.paid' || event.type === 'invoice.payment_succeeded') {
@@ -925,7 +951,24 @@ app.post('/api/subscriptions/:id/charge', async (req, res) => {
 app.delete('/api/subscriptions/:id', async (req, res) => { try { await subscriptions.updateStatus(req.params.id, 'cancelled'); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
 
 // ── Payments ──────────────────────────────────────────────────────────────────
-app.get('/api/payments', async (req, res) => { try { res.json(await payments.recent(200)); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.get('/api/payments', async (req, res) => {
+  try {
+    await ensureWebhookColumns();
+    const r = await pool.query(`
+      SELECT p.*, COALESCE(c.email, '') AS email, COALESCE(c.name, 'Stripe Customer') AS name,
+             COALESCE(p.card_brand,c.card_brand) AS card_brand,
+             COALESCE(p.card_last4,c.card_last4) AS card_last4
+      FROM payments p
+      LEFT JOIN customers c ON c.id=p.customer_id
+      ORDER BY p.created_at DESC
+      LIMIT 200
+    `);
+    res.json(r.rows);
+  } catch(err) {
+    console.error('[api/payments] error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 app.post('/api/payments/:id/retry', async (req, res) => {
   try {
     const r = await pool.query('SELECT p.*, c.stripe_customer_id, c.stripe_payment_method, c.stripe_account_id, c.email, c.name FROM payments p JOIN customers c ON c.id=p.customer_id WHERE p.id=$1', [req.params.id]);
