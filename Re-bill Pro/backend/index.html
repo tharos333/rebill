@@ -1386,7 +1386,7 @@ async function loadAccounts(){
             verificationHtml='<span style="color:var(--muted);font-size:12px;font-family:var(--mono);">'+(reason||'—')+'</span>';
           }
           var setDefBtn=!a.is_default?'<button class="btn btn-sm" onclick="setDefaultAccount('+a.id+')">Set default</button>':'';
-          return '<tr><td><strong style="font-size:13px;">'+a.name+'</strong></td><td class="mono" style="font-size:12px;color:var(--muted);">'+(a.key_preview||'—')+'</td><td>'+statusBadge+defaultBadge+'</td><td>'+verificationHtml+'</td><td><div class="actions">'+setDefBtn+'<button class="btn btn-sm" onclick="debugStripeAccount('+a.id+')" title="Check verification details">Check</button><button class="btn btn-sm" onclick="syncAccountPayments('+a.id+',''+String(a.name).replace(/'/g,'\\'')+'')" title="Import recent payments from this Stripe account">Sync payments</button><button class="btn btn-sm" onclick="openEditAcc('+a.id+')">Edit</button><button class="btn btn-sm btn-danger" onclick="deleteAccount('+a.id+')">Delete</button></div></td></tr>';
+          return '<tr><td><strong style="font-size:13px;">'+a.name+'</strong></td><td class="mono" style="font-size:12px;color:var(--muted);">'+(a.key_preview||'—')+'</td><td>'+statusBadge+defaultBadge+'</td><td>'+verificationHtml+'</td><td><div class="actions">'+setDefBtn+'<button class="btn btn-sm" onclick="debugStripeAccount('+a.id+')" title="Check verification details">Check</button><button class="btn btn-sm" onclick="syncAccountPayments('+a.id+')" title="Import recent payments from this Stripe account">Sync payments</button><button class="btn btn-sm" onclick="openEditAcc('+a.id+')">Edit</button><button class="btn btn-sm btn-danger" onclick="deleteAccount('+a.id+')">Delete</button></div></td></tr>';
         }).join('');
       }
     }
@@ -1398,7 +1398,11 @@ async function loadAccounts(){
 }
 async function addAccount(){const name=document.getElementById('acc-name').value.trim(),key=document.getElementById('acc-key').value.trim(),webhook=document.getElementById('acc-webhook').value.trim();if(!name||!key){toast('Name and key required','error');return;}const r=await api('/api/stripe-accounts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,secret_key:key,webhook_secret:webhook})});if(r.success){toast('✓ Account added');closeModal('add-account-modal');document.getElementById('acc-name').value='';document.getElementById('acc-key').value='';document.getElementById('acc-webhook').value='';loadAccounts();}else toast('Error: '+(r.error||'Failed'),'error');}
 async function syncAccountPayments(id,name){
-  toast('Syncing payments from '+(name||'Stripe account')+'…');
+  if(!name){
+    var acc=(allStripeAccounts||[]).find(function(x){return String(x.id)===String(id);});
+    name=acc&&acc.name?acc.name:'Stripe account';
+  }
+  toast('Syncing payments from '+name+'…');
   try{
     var r=await api('/api/stripe-accounts/'+id+'/sync-payments',{method:'POST'});
     if(r.success){toast('✓ Synced '+(r.saved||0)+' payments from '+(r.account||name||'account'));loadPayments();loadRecentPayments();loadStats();}
