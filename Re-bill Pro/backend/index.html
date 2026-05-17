@@ -413,7 +413,7 @@ textarea{resize:vertical;min-height:60px}
     <button class="btn" onclick="window.location='/api/payments/export'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export CSV</button>
   </div>
   <div class="card"><div class="scrollable"><table>
-    <thead><tr><th>Customer</th><th>Amount</th><th>Card</th><th>Status</th><th>Failure Reason</th><th>Date</th><th>Reference</th><th>Action</th></tr></thead>
+    <thead><tr><th>Customer</th><th>Amount</th><th>Card</th><th>Account</th><th>Status</th><th>Failure Reason</th><th>Date</th><th>Reference</th><th>Action</th></tr></thead>
     <tbody id="payments-table"><tr><td colspan="8" class="empty">Loading...</td></tr></tbody>
   </table></div></div>
 </div>
@@ -1225,17 +1225,7 @@ async function bulkPause(){if(!selectedSubs.size)return;if(!confirm('Pause '+sel
 async function bulkCancel(){if(!selectedSubs.size)return;if(!confirm('Cancel '+selectedSubs.size+' subscriptions? Cannot be undone.'))return;for(const id of selectedSubs){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'cancelled'})}).catch(()=>{});}toast('✓ '+selectedSubs.size+' cancelled');exitBulkMode();loadSubscriptions();loadStats();}
 function showEditAmount(subId,currentAmount){const container=document.getElementById('edit-'+subId);if(!container)return;const dollars=(currentAmount/100).toFixed(2);container.innerHTML='<div style="display:inline-flex;align-items:center;gap:4px;"><input type="number" id="new-amount-'+subId+'" value="'+dollars+'" step="0.01" min="0.50" style="width:75px;padding:3px 6px;font-size:12px;"><button class="btn btn-sm btn-primary" onclick="saveAmount('+subId+')">Save</button><button class="btn btn-sm" onclick="loadSubscriptions()">✕</button></div>';document.getElementById('new-amount-'+subId).focus();}
 async function saveAmount(subId){const input=document.getElementById('new-amount-'+subId);if(!input)return;const newCents=Math.round(parseFloat(input.value)*100);if(isNaN(newCents)||newCents<50){toast('Minimum $0.50','error');return;}const r=await api('/api/subscriptions/'+subId+'/amount',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:newCents})});if(r.success){toast('✓ Amount updated');loadSubscriptions();}else toast('Error','error');}
-async function loadPayments(){
-  try{
-    allPayments=await api('/api/payments');
-    renderPaymentSummary(allPayments);
-    filterPayments();
-  }catch(e){
-    var tb=document.getElementById('payments-table');
-    if(tb)tb.innerHTML='<tr><td colspan="8" class="empty">Payments failed to load: '+String(e.message||e)+'</td></tr>';
-    toast('Payments failed to load','error');
-  }
-}
+async function loadPayments(){try{allPayments=await api('/api/payments');renderPaymentSummary(allPayments);filterPayments();}catch(e){var tb=document.getElementById('payments-table');if(tb)tb.innerHTML='<tr><td colspan="9" class="empty" style="color:var(--red);">Payments API error: '+(e.message||e)+'</td></tr>';}}
 function renderPaymentSummary(list){var total=list.filter(p=>p.status==='succeeded').reduce((s,p)=>s+(parseInt(p.amount)||0),0);var success=list.filter(p=>p.status==='succeeded').length;var failed=list.filter(p=>p.status==='failed').length;var te=document.getElementById('pay-total');if(te)te.textContent=fmt(total);var se=document.getElementById('pay-success-count');if(se)se.textContent=success;var fe=document.getElementById('pay-fail-count');if(fe)fe.textContent=failed;var re=document.getElementById('pay-retry-count');if(re)re.textContent=failed;}
 function filterPayments(){
   if(!allPayments)return;
@@ -1244,7 +1234,7 @@ function filterPayments(){
   var dateFilter=document.getElementById('pay-date-filter')?.value||'';
   var now=new Date();
   var filtered=allPayments.filter(function(p){
-    var matchQ=!q||(p.name||'').toLowerCase().includes(q)||(p.email||'').toLowerCase().includes(q)||(p.stripe_payment_intent||'').toLowerCase().includes(q);
+    var matchQ=!q||(p.name||'').toLowerCase().includes(q)||(p.email||'').toLowerCase().includes(q)||(p.stripe_payment_intent||'').toLowerCase().includes(q)||(p.account_name||'').toLowerCase().includes(q);
     var matchS=!status||p.status===status;
     var matchD=true;
     if(dateFilter){var d=new Date(p.created_at);if(dateFilter==='today')matchD=d.toDateString()===now.toDateString();else if(dateFilter==='yesterday'){var y=new Date(now);y.setDate(y.getDate()-1);matchD=d.toDateString()===y.toDateString();}else if(dateFilter==='week'){var w=new Date(now);w.setDate(w.getDate()-7);matchD=d>=w;}else if(dateFilter==='month'){matchD=d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();}}
@@ -1256,7 +1246,7 @@ var reasonLabels={'insufficient_funds':'Insufficient funds','card_declined':'Car
 function renderPayments(list){
   var isViewer=localStorage.getItem('subloop_readonly')==='1';
   var tb=document.getElementById('payments-table');
-  if(!list.length){tb.innerHTML='<tr><td colspan="8" class="empty">No payments found</td></tr>';return;}
+  if(!list.length){tb.innerHTML='<tr><td colspan="9" class="empty">No payments found</td></tr>';return;}
   tb.innerHTML=list.map(function(p){
     var shortReason=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'';
     var reasonHtml=shortReason?'<div style="font-size:12px;color:var(--red);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+p.failure_reason+'">'+shortReason+'</div>':'<span style="color:var(--muted);font-size:12px;">—</span>';
@@ -1265,7 +1255,7 @@ function renderPayments(list){
     if(!isViewer&&p.status==='failed')actions+='<button class="btn btn-sm btn-success" onclick="retryPayment('+p.id+')">Retry</button>';
     actions+='<button class="btn btn-sm" onclick="openPaymentNote('+p.id+')" title="'+(p.note||'Add note')+'">'+(p.note?'📝 Note':'Note')+'</button>';
     actions+='</div>';
-    return '<tr style="'+(p.status==='failed'?'background:rgba(248,113,113,0.04);':'')+'"><td><div class="customer-cell"><div class="avatar">'+initials(p.name)+'</div><div><div class="customer-name" style="font-size:12px;">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div></div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+cardBadge(p.card_brand,p.card_last4)+'</td><td>'+badge(p.status)+'</td><td>'+reasonHtml+'</td><td class="mono" style="font-size:12px;white-space:nowrap;">'+fmtDate(p.created_at)+'</td><td>'+refHtml+'</td><td>'+actions+'</td></tr>';
+    return '<tr style="'+(p.status==='failed'?'background:rgba(248,113,113,0.04);':'')+'"><td><div class="customer-cell"><div class="avatar">'+initials(p.name)+'</div><div><div class="customer-name" style="font-size:12px;">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div></div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+cardBadge(p.card_brand,p.card_last4)+'</td><td class="mono" style="font-size:11px;color:var(--muted);white-space:nowrap;">'+(p.account_name||'—')+'</td><td>'+badge(p.status)+'</td><td>'+reasonHtml+'</td><td class="mono" style="font-size:12px;white-space:nowrap;">'+fmtDate(p.created_at)+'</td><td>'+refHtml+'</td><td>'+actions+'</td></tr>';
   }).join('');
 }
 async function retryPayment(id){toast('Retrying…');try{const r=await api('/api/payments/'+id+'/retry',{method:'POST'});if(r.success){toast('✓ Succeeded');loadPayments();loadStats();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
@@ -1396,7 +1386,7 @@ async function loadAccounts(){
             verificationHtml='<span style="color:var(--muted);font-size:12px;font-family:var(--mono);">'+(reason||'—')+'</span>';
           }
           var setDefBtn=!a.is_default?'<button class="btn btn-sm" onclick="setDefaultAccount('+a.id+')">Set default</button>':'';
-          return '<tr><td><strong style="font-size:13px;">'+a.name+'</strong></td><td class="mono" style="font-size:12px;color:var(--muted);">'+(a.key_preview||'—')+'</td><td>'+statusBadge+defaultBadge+'</td><td>'+verificationHtml+'</td><td><div class="actions">'+setDefBtn+'<button class="btn btn-sm" onclick="debugStripeAccount('+a.id+')" title="Check verification details">Check</button><button class="btn btn-sm" onclick="openEditAcc('+a.id+')">Edit</button><button class="btn btn-sm btn-danger" onclick="deleteAccount('+a.id+')">Delete</button></div></td></tr>';
+          return '<tr><td><strong style="font-size:13px;">'+a.name+'</strong></td><td class="mono" style="font-size:12px;color:var(--muted);">'+(a.key_preview||'—')+'</td><td>'+statusBadge+defaultBadge+'</td><td>'+verificationHtml+'</td><td><div class="actions">'+setDefBtn+'<button class="btn btn-sm" onclick="debugStripeAccount('+a.id+')" title="Check verification details">Check</button><button class="btn btn-sm" onclick="syncAccountPayments('+a.id+',''+String(a.name).replace(/'/g,'\\'')+'')" title="Import recent payments from this Stripe account">Sync payments</button><button class="btn btn-sm" onclick="openEditAcc('+a.id+')">Edit</button><button class="btn btn-sm btn-danger" onclick="deleteAccount('+a.id+')">Delete</button></div></td></tr>';
         }).join('');
       }
     }
@@ -1407,6 +1397,14 @@ async function loadAccounts(){
   }catch(e){}
 }
 async function addAccount(){const name=document.getElementById('acc-name').value.trim(),key=document.getElementById('acc-key').value.trim(),webhook=document.getElementById('acc-webhook').value.trim();if(!name||!key){toast('Name and key required','error');return;}const r=await api('/api/stripe-accounts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,secret_key:key,webhook_secret:webhook})});if(r.success){toast('✓ Account added');closeModal('add-account-modal');document.getElementById('acc-name').value='';document.getElementById('acc-key').value='';document.getElementById('acc-webhook').value='';loadAccounts();}else toast('Error: '+(r.error||'Failed'),'error');}
+async function syncAccountPayments(id,name){
+  toast('Syncing payments from '+(name||'Stripe account')+'…');
+  try{
+    var r=await api('/api/stripe-accounts/'+id+'/sync-payments',{method:'POST'});
+    if(r.success){toast('✓ Synced '+(r.saved||0)+' payments from '+(r.account||name||'account'));loadPayments();loadRecentPayments();loadStats();}
+    else toast('Sync failed: '+(r.error||'Unknown error'),'error');
+  }catch(e){toast('Sync failed','error');}
+}
 async function setDefaultAccount(id){await api('/api/stripe-accounts/'+id+'/default',{method:'PATCH'});toast('✓ Default updated');loadAccounts();}
 async function deleteAccount(id){if(!confirm('Delete this account?'))return;await api('/api/stripe-accounts/'+id,{method:'DELETE'});toast('Account deleted');loadAccounts();}
 async function loadForecast(){try{const d=await api('/api/forecast');document.getElementById('forecast-30').textContent=fmt(d.forecast30||0);document.getElementById('forecast-60').textContent=fmt(d.forecast60||0);document.getElementById('forecast-90').textContent=fmt(d.forecast90||0);}catch(e){}}

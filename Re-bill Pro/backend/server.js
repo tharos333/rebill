@@ -71,6 +71,7 @@ async function ensureWebhookColumns() {
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_exp_year INT').catch(()=>{});
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_country TEXT').catch(()=>{});
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_funding TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS stripe_account_id INT').catch(()=>{});
   await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT').catch(()=>{});
   await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_price_id TEXT').catch(()=>{});
   await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_invoice_id TEXT').catch(()=>{});
@@ -379,10 +380,14 @@ async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null, f
     syntheticId: stripeCustomerId ? null : stableImportId(usedAccount, 'pi_' + pi.id)
   };
 
-  const localCustomer = await resolveLocalCustomerForPayment(stripe, usedAccount, stripeCustomerId, fallback.paymentMethodId, fallback, cardDetails);
-  if (!localCustomer?.id) { console.log('[payment] could not resolve local customer for PI:', pi.id); return null; }
+  let localCustomer = await resolveLocalCustomerForPayment(stripe, usedAccount, stripeCustomerId, fallback.paymentMethodId, fallback, cardDetails);
+  // Do not drop the payment if customer linking fails. Save it as an unlinked Stripe payment so it still appears in Payments.
+  if (!localCustomer?.id) {
+    console.log('[payment] could not resolve local customer for PI, saving unlinked payment:', pi.id);
+    localCustomer = { id: null, email: fallback.email || 'unknown@stripe.local', name: fallback.name || 'Unknown Customer' };
+  }
 
-  if (cardDetails.brand || cardDetails.last4) {
+  if (localCustomer.id && (cardDetails.brand || cardDetails.last4)) {
     await pool.query(`UPDATE customers SET card_brand=COALESCE($1,card_brand), card_last4=COALESCE($2,card_last4), card_exp_month=COALESCE($3,card_exp_month), card_exp_year=COALESCE($4,card_exp_year) WHERE id=$5`,
       [cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, localCustomer.id]).catch(()=>{});
     console.log('[payment] card details:', cardDetails.brand || '-', cardDetails.last4 || '-');
@@ -406,7 +411,10 @@ async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null, f
       card_exp_month=COALESCE($10,card_exp_month), card_exp_year=COALESCE($11,card_exp_year), card_country=COALESCE($12,card_country), card_funding=COALESCE($13,card_funding)
       WHERE id=$14`,
       [localCustomer.id, localSubId, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, existingPayment.rows[0].id]);
-    console.log('[external-import] updated payment:', pi.id, 'customer:', localCustomer.email);
+    if (usedAccount?.id) {
+      await pool.query('UPDATE payments SET stripe_account_id=$1 WHERE id=$2', [usedAccount.id, existingPayment.rows[0].id]).catch(()=>{});
+    }
+    console.log('[external-import] updated payment:', pi.id, 'customer:', localCustomer.email, 'account:', usedAccount?.name || '-');
     return existingPayment.rows[0].id;
   }
 
@@ -415,10 +423,78 @@ async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null, f
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id`,
     [localCustomer.id, localSubId, pi.id, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding]
   );
-  console.log('[external-import] saved payment:', pi.id, 'row id:', ins.rows[0].id, 'customer:', localCustomer.email);
+  if (usedAccount?.id) {
+    await pool.query('UPDATE payments SET stripe_account_id=$1 WHERE id=$2', [usedAccount.id, ins.rows[0].id]).catch(()=>{});
+  }
+  console.log('[external-import] saved payment:', pi.id, 'row id:', ins.rows[0].id, 'customer:', localCustomer.email, 'account:', usedAccount?.name || '-');
   await activityLog.add('payment', `Payment ${status} for ${localCustomer.email}`, localCustomer.id, amount).catch(()=>{});
   return ins.rows[0].id;
 }
+
+async function saveChargePayment(stripe, usedAccount, charge, forcedStatus = null) {
+  await ensureWebhookColumns();
+  if (!charge?.id && typeof charge === 'string') charge = await stripe.charges.retrieve(charge);
+  if (!charge?.id) { console.log('[charge] missing charge object'); return null; }
+
+  // Prefer PaymentIntent when available because it is the main reference shown in the app.
+  const piId = typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent?.id || null;
+  if (piId) {
+    try {
+      const pi = await stripe.paymentIntents.retrieve(piId, { expand: ['latest_charge', 'payment_method', 'invoice'] });
+      return await savePaymentIntent(stripe, usedAccount, pi, forcedStatus || (charge.paid ? 'succeeded' : 'failed'), {
+        email: cleanEmail(charge.billing_details?.email) || cleanEmail(charge.receipt_email),
+        name: charge.billing_details?.name || charge.receipt_email || charge.id,
+        seed: charge.id
+      });
+    } catch(e) {
+      console.error('[charge] could not retrieve/save PI from charge:', charge.id, e.message);
+    }
+  }
+
+  const card = charge.payment_method_details?.card || {};
+  const cardDetails = {
+    brand: normalizeCardBrand(card.brand),
+    last4: card.last4 || null,
+    exp_month: card.exp_month || null,
+    exp_year: card.exp_year || null,
+    country: card.country || null,
+    funding: card.funding || null,
+    billing_name: charge.billing_details?.name || null,
+    billing_email: cleanEmail(charge.billing_details?.email) || cleanEmail(charge.receipt_email)
+  };
+  const fallback = {
+    seed: charge.id,
+    email: cardDetails.billing_email,
+    name: cardDetails.billing_name || cardDetails.billing_email || charge.id,
+    syntheticId: stableImportId(usedAccount, 'charge_' + charge.id)
+  };
+  let localCustomer = await resolveLocalCustomerForPayment(stripe, usedAccount, typeof charge.customer === 'string' ? charge.customer : charge.customer?.id || null, charge.payment_method || null, fallback, cardDetails);
+  if (!localCustomer?.id) localCustomer = { id: null, email: fallback.email || 'unknown@stripe.local', name: fallback.name || 'Unknown Customer' };
+  const ref = piId || charge.payment_intent || charge.id;
+  const status = forcedStatus || (charge.paid ? 'succeeded' : 'failed');
+  const failureReason = charge.failure_message || charge.failure_code || null;
+  const amount = charge.amount_captured || charge.amount || 0;
+  const currency = charge.currency || 'usd';
+
+  const existing = await pool.query('SELECT id FROM payments WHERE stripe_payment_intent=$1', [ref]);
+  if (existing.rows[0]) {
+    await pool.query(`UPDATE payments SET customer_id=$1, amount=$2, currency=$3, status=$4, failure_reason=$5,
+      card_brand=COALESCE($6,card_brand), card_last4=COALESCE($7,card_last4), card_exp_month=COALESCE($8,card_exp_month),
+      card_exp_year=COALESCE($9,card_exp_year), card_country=COALESCE($10,card_country), card_funding=COALESCE($11,card_funding),
+      stripe_account_id=COALESCE($12,stripe_account_id) WHERE id=$13`,
+      [localCustomer.id, amount, currency, status, failureReason, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, usedAccount?.id || null, existing.rows[0].id]);
+    console.log('[charge] updated payment:', ref, 'account:', usedAccount?.name || '-');
+    return existing.rows[0].id;
+  }
+
+  const ins = await pool.query(`INSERT INTO payments (customer_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,card_brand,card_last4,card_exp_month,card_exp_year,card_country,card_funding,stripe_account_id)
+    VALUES ($1,NULL,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id`,
+    [localCustomer.id, ref, amount, currency, status, failureReason, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, usedAccount?.id || null]);
+  console.log('[charge] saved payment:', ref, 'row id:', ins.rows[0].id, 'account:', usedAccount?.name || '-');
+  await activityLog.add('payment', `Payment ${status} for ${localCustomer.email}`, localCustomer.id, amount).catch(()=>{});
+  return ins.rows[0].id;
+}
+
 
 async function handleInvoiceEvent(stripe, usedAccount, invoice, statusLabel = 'succeeded') {
   await ensureWebhookColumns();
@@ -441,7 +517,7 @@ async function retrieveFullCheckoutSession(stripe, session) {
   if (!session?.id) return session;
   try {
     return await stripe.checkout.sessions.retrieve(session.id, {
-      expand: ['customer', 'payment_intent', 'subscription', 'invoice', 'line_items.data.price']
+      expand: ['customer', 'payment_intent', 'subscription', 'line_items.data.price']
     });
   } catch(e) {
     console.log('[external-import] could not retrieve checkout session:', e.message);
@@ -482,7 +558,6 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
         const sessionCustomerId = typeof session.customer === 'string' ? session.customer : session.customer?.id || null;
         const sessionSubId = typeof session.subscription === 'string' ? session.subscription : session.subscription?.id || null;
         const sessionPiId = typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id || null;
-        const sessionInvoiceId = typeof session.invoice === 'string' ? session.invoice : session.invoice?.id || null;
         const fallbackCustomer = {
           seed: session.id,
           email: cleanEmail(session.customer_details?.email) || cleanEmail(session.customer_email),
@@ -505,15 +580,6 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
         if (sessionPiId) {
           const pi = typeof session.payment_intent === 'object' ? session.payment_intent : await stripe.paymentIntents.retrieve(sessionPiId, { expand: ['invoice', 'latest_charge', 'payment_method'] });
           await savePaymentIntent(stripe, usedAccount, pi, pi.status === 'succeeded' ? 'succeeded' : pi.status, fallbackCustomer);
-        } else if (sessionInvoiceId) {
-          // Subscription Checkout sessions often do not include payment_intent directly.
-          // Pull the invoice so the first subscription payment is saved in the Payments page.
-          try {
-            const invoice = await stripe.invoices.retrieve(sessionInvoiceId, { expand: ['payment_intent', 'subscription', 'lines.data.price'] });
-            await handleInvoiceEvent(stripe, usedAccount, invoice, invoice.status === 'paid' ? 'succeeded' : 'failed');
-          } catch(e) {
-            console.error('[external-import] could not save checkout invoice payment:', e.message);
-          }
         }
       }
 
@@ -525,20 +591,12 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
         await savePaymentIntent(stripe, usedAccount, event.data.object, 'failed');
       }
 
-      else if (event.type === 'charge.succeeded' || event.type === 'charge.failed') {
-        // Extra safety: some webhook setups send charge.* events but not payment_intent.* events.
-        const charge = event.data.object;
-        if (charge?.payment_intent) {
-          try {
-            const pi = await stripe.paymentIntents.retrieve(charge.payment_intent, { expand: ['invoice', 'latest_charge', 'payment_method'] });
-            await savePaymentIntent(stripe, usedAccount, pi, event.type === 'charge.succeeded' ? 'succeeded' : 'failed', {
-              email: cleanEmail(charge.billing_details?.email),
-              name: charge.billing_details?.name || charge.billing_details?.email || charge.id
-            });
-          } catch(e) {
-            console.error('[charge] could not save payment from charge event:', e.message);
-          }
-        }
+      else if (event.type === 'charge.succeeded') {
+        await saveChargePayment(stripe, usedAccount, event.data.object, 'succeeded');
+      }
+
+      else if (event.type === 'charge.failed') {
+        await saveChargePayment(stripe, usedAccount, event.data.object, 'failed');
       }
 
       else if (event.type === 'invoice.paid' || event.type === 'invoice.payment_succeeded') {
@@ -951,24 +1009,33 @@ app.post('/api/subscriptions/:id/charge', async (req, res) => {
 app.delete('/api/subscriptions/:id', async (req, res) => { try { await subscriptions.updateStatus(req.params.id, 'cancelled'); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
 
 // ── Payments ──────────────────────────────────────────────────────────────────
-app.get('/api/payments', async (req, res) => {
+
+app.post('/api/stripe-accounts/:id/sync-payments', async (req, res) => {
   try {
     await ensureWebhookColumns();
-    const r = await pool.query(`
-      SELECT p.*, COALESCE(c.email, '') AS email, COALESCE(c.name, 'Stripe Customer') AS name,
-             COALESCE(p.card_brand,c.card_brand) AS card_brand,
-             COALESCE(p.card_last4,c.card_last4) AS card_last4
-      FROM payments p
-      LEFT JOIN customers c ON c.id=p.customer_id
-      ORDER BY p.created_at DESC
-      LIMIT 200
-    `);
-    res.json(r.rows);
+    const acc = await stripeAccounts.byId(req.params.id);
+    if (!acc) return res.status(404).json({ error: 'Stripe account not found' });
+    const stripe = Stripe(acc.secret_key);
+    const limit = Math.min(parseInt(req.query.limit || '50', 10) || 50, 100);
+    let saved = 0, failed = 0;
+    const charges = await stripe.charges.list({ limit });
+    for (const ch of charges.data || []) {
+      try {
+        const id = await saveChargePayment(stripe, acc, ch, ch.paid ? 'succeeded' : 'failed');
+        if (id) saved++;
+      } catch(e) {
+        failed++;
+        console.error('[sync-payments] failed charge:', ch.id, e.message);
+      }
+    }
+    res.json({ success: true, account: acc.name, scanned: (charges.data || []).length, saved, failed });
   } catch(err) {
-    console.error('[api/payments] error:', err.message);
+    console.error('[sync-payments] error:', err.message, err.stack);
     res.status(500).json({ error: err.message });
   }
 });
+
+app.get('/api/payments', async (req, res) => { try { await ensureWebhookColumns(); res.json(await payments.recent(300)); } catch(err) { console.error('[api/payments] error:', err.message, err.stack); res.status(500).json({ error: err.message }); } });
 app.post('/api/payments/:id/retry', async (req, res) => {
   try {
     const r = await pool.query('SELECT p.*, c.stripe_customer_id, c.stripe_payment_method, c.stripe_account_id, c.email, c.name FROM payments p JOIN customers c ON c.id=p.customer_id WHERE p.id=$1', [req.params.id]);
