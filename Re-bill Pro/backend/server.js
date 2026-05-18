@@ -716,7 +716,7 @@ app.get('/api/stripe-accounts', async (req, res) => {
         secret_key,
         LEFT(secret_key,12)||'...' as key_preview
       FROM stripe_accounts
-      ORDER BY created_at ASC
+      ORDER BY created_at DESC, id DESC
     `);
 
     const accounts = await Promise.all(r.rows.map(async (account) => {

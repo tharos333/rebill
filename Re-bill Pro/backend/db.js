@@ -145,7 +145,7 @@ const settingsDb = {
   set: async (key, value) => { await pool.query('INSERT INTO settings (key,value,updated_at) VALUES ($1,$2,NOW()) ON CONFLICT (key) DO UPDATE SET value=$2, updated_at=NOW()', [key, value]); },
 };
 const stripeAccounts = {
-  all: async () => { const r = await pool.query("SELECT id, name, is_default, created_at, LEFT(secret_key,12)||'...' as key_preview FROM stripe_accounts ORDER BY created_at ASC"); return r.rows; },
+  all: async () => { const r = await pool.query("SELECT id, name, is_default, created_at, LEFT(secret_key,12)||'...' as key_preview FROM stripe_accounts ORDER BY created_at DESC, id DESC"); return r.rows; },
   byId: async (id) => { const r = await pool.query('SELECT * FROM stripe_accounts WHERE id=$1', [id]); return r.rows[0]; },
   default: async () => { const r = await pool.query('SELECT * FROM stripe_accounts WHERE is_default=true LIMIT 1'); if (r.rows[0]) return r.rows[0]; const r2 = await pool.query('SELECT * FROM stripe_accounts ORDER BY created_at ASC LIMIT 1'); return r2.rows[0]; },
   create: async (data) => { const count = await pool.query('SELECT COUNT(*) FROM stripe_accounts'); const isDefault = parseInt(count.rows[0].count) === 0; const r = await pool.query('INSERT INTO stripe_accounts (name,secret_key,webhook_secret,is_default) VALUES ($1,$2,$3,$4) RETURNING id', [data.name, data.secret_key, data.webhook_secret || '', isDefault]); return r.rows[0]; },
@@ -202,7 +202,49 @@ const customers = {
   stats: async () => { const r = await pool.query(`SELECT COUNT(*) as total, COUNT(CASE WHEN status='active' THEN 1 END) as active, COUNT(CASE WHEN created_at >= NOW() - INTERVAL '30 days' THEN 1 END) as new_30d, COUNT(CASE WHEN status='cancelled' AND created_at >= NOW() - INTERVAL '30 days' THEN 1 END) as churned_30d FROM customers`); return r.rows[0]; },
 };
 const subscriptions = {
-  all: async () => { const r = await pool.query(`SELECT s.*, c.email, c.name, c.card_brand, c.card_last4, c.stripe_account_id, sa.name as account_name FROM subscriptions s JOIN customers c ON c.id=s.customer_id LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id ORDER BY s.next_billing_date ASC`); return r.rows; },
+  all: async () => { const r = await pool.query(`
+    WITH sub_pay_stats AS (
+      SELECT
+        subscription_id,
+        MAX(CASE WHEN status='succeeded' THEN created_at END) as last_subscription_payment_at,
+        MAX(created_at) as last_subscription_attempt_at
+      FROM payments
+      WHERE subscription_id IS NOT NULL
+      GROUP BY subscription_id
+    ),
+    customer_pay_stats AS (
+      SELECT
+        customer_id,
+        MAX(CASE WHEN status='succeeded' THEN created_at END) as last_customer_payment_at,
+        MAX(created_at) as last_customer_attempt_at
+      FROM payments
+      GROUP BY customer_id
+    )
+    SELECT
+      s.*,
+      c.email,
+      c.name,
+      c.card_brand,
+      c.card_last4,
+      c.stripe_account_id,
+      sa.name as account_name,
+      COALESCE(
+        sp.last_subscription_payment_at,
+        cp.last_customer_payment_at,
+        sp.last_subscription_attempt_at,
+        cp.last_customer_attempt_at,
+        s.created_at
+      ) as order_sort_date
+    FROM subscriptions s
+    JOIN customers c ON c.id=s.customer_id
+    LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id
+    LEFT JOIN sub_pay_stats sp ON sp.subscription_id=s.id
+    LEFT JOIN customer_pay_stats cp ON cp.customer_id=s.customer_id
+    ORDER BY
+      order_sort_date DESC NULLS LAST,
+      s.created_at DESC,
+      s.id DESC
+  `); return r.rows; },
   byCustomer: async (cid) => { const r = await pool.query('SELECT * FROM subscriptions WHERE customer_id=$1', [cid]); return r.rows; },
   due: async () => { const r = await pool.query(`SELECT s.*, c.stripe_customer_id, c.stripe_payment_method, c.email, c.name, c.stripe_account_id, sa.secret_key as stripe_secret_key FROM subscriptions s JOIN customers c ON c.id=s.customer_id LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id WHERE s.status='active' AND c.status='active' AND s.next_billing_date <= CURRENT_DATE`); return r.rows; },
   dunningDue: async () => { const r = await pool.query(`SELECT s.*, c.stripe_customer_id, c.stripe_payment_method, c.email, c.name, c.stripe_account_id, sa.secret_key as stripe_secret_key FROM subscriptions s JOIN customers c ON c.id=s.customer_id LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id WHERE s.status='dunning' AND c.status='active' AND s.next_billing_date <= CURRENT_DATE`); return r.rows; },
