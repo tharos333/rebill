@@ -398,26 +398,22 @@ async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null, f
   const failureReason = pi.last_payment_error?.message || pi.cancellation_reason || null;
   const amount = pi.amount_received || pi.amount || 0;
   const currency = pi.currency || 'usd';
-  // Use Stripe's original transaction time. Without this, a manual sync done on May 17
-  // would show a missing May 15 order as May 17 because payments.created_at defaults to NOW().
-  const stripeCreatedAt = pi.created ? new Date(pi.created * 1000) : new Date();
 
   const existingPayment = await pool.query('SELECT id FROM payments WHERE stripe_payment_intent=$1', [pi.id]);
   if (existingPayment.rows[0]) {
     await pool.query(`UPDATE payments SET customer_id=$1, subscription_id=COALESCE($2,subscription_id), amount=$3, currency=$4, status=$5, failure_reason=$6,
       stripe_invoice_id=COALESCE($7,stripe_invoice_id), card_brand=COALESCE($8,card_brand), card_last4=COALESCE($9,card_last4),
-      card_exp_month=COALESCE($10,card_exp_month), card_exp_year=COALESCE($11,card_exp_year), card_country=COALESCE($12,card_country), card_funding=COALESCE($13,card_funding),
-      created_at=COALESCE($14,created_at)
-      WHERE id=$15`,
-      [localCustomer.id, localSubId, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, stripeCreatedAt, existingPayment.rows[0].id]);
+      card_exp_month=COALESCE($10,card_exp_month), card_exp_year=COALESCE($11,card_exp_year), card_country=COALESCE($12,card_country), card_funding=COALESCE($13,card_funding)
+      WHERE id=$14`,
+      [localCustomer.id, localSubId, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, existingPayment.rows[0].id]);
     console.log('[external-import] updated payment:', pi.id, 'customer:', localCustomer.email);
     return existingPayment.rows[0].id;
   }
 
   const ins = await pool.query(
-    `INSERT INTO payments (customer_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,stripe_invoice_id,card_brand,card_last4,card_exp_month,card_exp_year,card_country,card_funding,created_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING id`,
-    [localCustomer.id, localSubId, pi.id, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, stripeCreatedAt]
+    `INSERT INTO payments (customer_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,stripe_invoice_id,card_brand,card_last4,card_exp_month,card_exp_year,card_country,card_funding)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id`,
+    [localCustomer.id, localSubId, pi.id, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding]
   );
   console.log('[external-import] saved payment:', pi.id, 'row id:', ins.rows[0].id, 'customer:', localCustomer.email);
   await activityLog.add('payment', `Payment ${status} for ${localCustomer.email}`, localCustomer.id, amount).catch(()=>{});
@@ -841,80 +837,6 @@ app.patch('/api/stripe-accounts/:id/default', async (req, res) => {
 });
 app.delete('/api/stripe-accounts/:id', async (req, res) => { try { await stripeAccounts.delete(req.params.id); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
 
-// Manual sync: import recent Stripe transactions for one Stripe account into local Payments.
-// This does not change Stripe receiving/payment logic; it only pulls existing Stripe PaymentIntents and saves missing rows locally.
-app.post('/api/stripe-accounts/:id/sync-transactions', async (req, res) => {
-  try {
-    await ensureWebhookColumns();
-    const account = await stripeAccounts.byId(req.params.id);
-    if (!account) return res.status(404).json({ error: 'Stripe account not found' });
-    if (!account.secret_key || !String(account.secret_key).startsWith('sk_')) {
-      return res.status(400).json({ error: 'Missing or invalid Stripe secret key' });
-    }
-
-    const stripe = new Stripe(account.secret_key);
-    const limit = Math.min(Math.max(parseInt(req.body?.limit || req.query.limit || '100', 10) || 100, 1), 100);
-    const sinceDays = Math.min(Math.max(parseInt(req.body?.days || req.query.days || '30', 10) || 30, 1), 365);
-    const created = { gte: Math.floor(Date.now() / 1000) - (sinceDays * 24 * 60 * 60) };
-
-    const before = await pool.query('SELECT COUNT(*)::int AS n FROM payments');
-    let checked = 0;
-    let saved = 0;
-    const errors = [];
-
-    const intents = await stripe.paymentIntents.list({
-      limit,
-      created,
-      expand: ['data.latest_charge', 'data.payment_method', 'data.customer']
-    });
-
-    for (const pi of intents.data || []) {
-      checked++;
-      try {
-        await savePaymentIntent(stripe, account, pi);
-        saved++;
-      } catch (err) {
-        console.error('[manual-sync] PI error:', pi.id, err.message);
-        errors.push(`${pi.id}: ${err.message}`);
-      }
-    }
-
-    // Extra safety: also scan recent Checkout Sessions and save their PaymentIntent if present.
-    try {
-      const sessions = await stripe.checkout.sessions.list({ limit, created, expand: ['data.payment_intent', 'data.customer'] });
-      for (const s of sessions.data || []) {
-        const pi = s.payment_intent;
-        if (!pi) continue;
-        const piObj = typeof pi === 'string' ? await stripe.paymentIntents.retrieve(pi, { expand: ['latest_charge', 'payment_method', 'customer'] }) : pi;
-        checked++;
-        try {
-          await savePaymentIntent(stripe, account, piObj, null, {
-            email: s.customer_details?.email || s.customer_email || null,
-            name: s.customer_details?.name || null
-          });
-          saved++;
-        } catch (err) {
-          console.error('[manual-sync] Checkout Session error:', s.id, err.message);
-          errors.push(`${s.id}: ${err.message}`);
-        }
-      }
-    } catch (err) {
-      console.error('[manual-sync] checkout sessions scan failed:', err.message);
-      errors.push(`checkout_sessions: ${err.message}`);
-    }
-
-    const after = await pool.query('SELECT COUNT(*)::int AS n FROM payments');
-    const inserted = Math.max(0, (after.rows[0]?.n || 0) - (before.rows[0]?.n || 0));
-
-    await activityLog.add('sync', `Synced ${checked} Stripe transactions from ${account.name}`).catch(()=>{});
-    res.json({ success: true, account: account.name, checked, saved, inserted, errors: errors.slice(0, 10) });
-  } catch (err) {
-    console.error('[manual-sync] fatal:', err.message, err.stack);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-
 // ── Customers ─────────────────────────────────────────────────────────────────
 app.get('/api/customers', async (req, res) => { try { res.json(await customers.all()); } catch(err) { res.status(500).json({ error: err.message }); } });
 app.post('/api/customers', async (req, res) => {
@@ -952,7 +874,7 @@ app.post('/api/customers/:id/charge-once', async (req, res) => {
 app.get('/api/customers/export', async (req, res) => {
   try {
     const list = await customers.all();
-    const csv = ['Name,Email,Card,Status,Total Paid'].concat(list.map(c=>`${c.name},${c.email},${c.card_brand||''} ${c.card_last4||''},${c.status},${(c.total_paid||0)/100}`)).join('\n');
+    const csv = ['Name,Email,Card,Status,Last Payment,Created,Total Paid'].concat(list.map(c=>`${c.name},${c.email},${c.card_brand||''} ${c.card_last4||''},${c.status},${c.last_payment_at||''},${c.created_at||''},${(c.total_paid||0)/100}`)).join('\n');
     res.setHeader('Content-Type','text/csv'); res.setHeader('Content-Disposition','attachment; filename=customers.csv'); res.send(csv);
   } catch(err) { res.status(500).json({ error: err.message }); }
 });

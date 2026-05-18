@@ -153,7 +153,31 @@ const stripeAccounts = {
   delete: async (id) => { await pool.query('DELETE FROM stripe_accounts WHERE id=$1', [id]); },
 };
 const customers = {
-  all: async () => { const r = await pool.query(`SELECT c.*, sa.name as account_name, COUNT(CASE WHEN s.status='active' THEN 1 END) as active_subs, COALESCE(SUM(CASE WHEN p.status='succeeded' THEN p.amount ELSE 0 END),0) as total_paid FROM customers c LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id LEFT JOIN subscriptions s ON s.customer_id=c.id LEFT JOIN payments p ON p.customer_id=c.id GROUP BY c.id, sa.name ORDER BY c.created_at DESC`); return r.rows; },
+  all: async () => { const r = await pool.query(`
+    SELECT
+      c.*,
+      sa.name as account_name,
+      COALESCE(s.active_subs, 0) as active_subs,
+      COALESCE(p.total_paid, 0) as total_paid,
+      p.last_payment_at,
+      COALESCE(p.last_payment_at, c.created_at) as sort_date
+    FROM customers c
+    LEFT JOIN stripe_accounts sa ON sa.id = c.stripe_account_id
+    LEFT JOIN (
+      SELECT customer_id, COUNT(*) FILTER (WHERE status='active') as active_subs
+      FROM subscriptions
+      GROUP BY customer_id
+    ) s ON s.customer_id = c.id
+    LEFT JOIN (
+      SELECT
+        customer_id,
+        COALESCE(SUM(CASE WHEN status='succeeded' THEN amount ELSE 0 END), 0) as total_paid,
+        MAX(created_at) as last_payment_at
+      FROM payments
+      GROUP BY customer_id
+    ) p ON p.customer_id = c.id
+    ORDER BY COALESCE(p.last_payment_at, c.created_at) DESC, c.created_at DESC
+  `); return r.rows; },
   byId: async (id) => { const r = await pool.query('SELECT * FROM customers WHERE id=$1', [id]); return r.rows[0]; },
   byStripeId: async (sid) => { const r = await pool.query('SELECT * FROM customers WHERE stripe_customer_id=$1', [sid]); return r.rows[0]; },
   upsert: async (data) => { await pool.query(`INSERT INTO customers (email,name,stripe_customer_id,stripe_payment_method,stripe_account_id,card_brand,card_last4,card_exp_month,card_exp_year) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (stripe_customer_id) DO UPDATE SET stripe_payment_method=EXCLUDED.stripe_payment_method, stripe_account_id=EXCLUDED.stripe_account_id, card_brand=EXCLUDED.card_brand, card_last4=EXCLUDED.card_last4, card_exp_month=EXCLUDED.card_exp_month, card_exp_year=EXCLUDED.card_exp_year`, [data.email, data.name, data.stripe_customer_id, data.stripe_payment_method, data.stripe_account_id||null, data.card_brand, data.card_last4, data.card_exp_month, data.card_exp_year]); },
