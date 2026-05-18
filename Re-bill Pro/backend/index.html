@@ -180,6 +180,143 @@ textarea{resize:vertical;min-height:60px}
 /* OTP boxes */
 .otp-input{width:46px;height:52px;text-align:center;font-size:20px;font-weight:700;font-family:var(--mono);background:var(--surface2);border:1.5px solid var(--border2);border-radius:10px;color:var(--text);outline:none}
 .otp-input:focus{border-color:var(--accent)}
+
+/* ===== Platform switcher: Stripe / Shopify ===== */
+.platform-switcher{
+  padding:10px 12px 8px;
+  border-bottom:1px solid var(--border);
+  background:var(--surface);
+}
+.platform-switcher-inner{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:6px;
+  background:var(--surface2);
+  border:1px solid var(--border2);
+  border-radius:10px;
+  padding:4px;
+}
+.platform-switch-btn{
+  border:0;
+  background:transparent;
+  color:var(--muted);
+  border-radius:8px;
+  padding:7px 8px;
+  font-size:12px;
+  font-family:var(--sans);
+  font-weight:600;
+  cursor:pointer;
+  transition:all .15s;
+}
+.platform-switch-btn:hover{
+  color:var(--text);
+}
+.platform-switch-btn.active{
+  background:var(--accent);
+  color:#fff;
+  box-shadow:0 8px 22px var(--accent-glow);
+}
+.nav-hidden-by-platform{
+  display:none!important;
+}
+
+
+/* ===== Platform switcher bottom position polish ===== */
+.platform-switcher-bottom{
+  padding:0 0 12px!important;
+  border-bottom:none!important;
+  background:transparent!important;
+}
+.platform-switcher-bottom .platform-switcher-inner{
+  width:100%;
+}
+
+
+/* ===== Platform switcher inside Settings section ===== */
+.platform-switcher-settings{
+  padding:8px 12px 10px!important;
+  border-bottom:none!important;
+  background:transparent!important;
+}
+.platform-switcher-settings .platform-switcher-inner{
+  width:100%;
+}
+.platform-switcher-bottom{
+  display:none!important;
+}
+
+
+/* ===== Final placement: platform switcher footer, theme toggle inside Settings ===== */
+.platform-switcher-bottom{
+  padding:0!important;
+  border-bottom:none!important;
+  background:transparent!important;
+}
+.platform-switcher-bottom .platform-switcher-inner{
+  width:100%;
+}
+.platform-switcher-settings{
+  display:none!important;
+}
+.theme-toggle-settings{
+  padding:8px 12px 10px!important;
+}
+.theme-toggle-settings .theme-toggle{
+  width:100%;
+  justify-content:flex-start;
+  padding:10px 12px;
+  border-radius:10px;
+  color:var(--muted);
+}
+.theme-toggle-settings .theme-toggle:hover{
+  background:var(--surface2);
+  color:var(--text);
+}
+.theme-toggle-settings .theme-toggle .toggle-track{
+  margin-right:10px;
+}
+
+
+/* ===== Fix: show Stripe / Shopify switcher in footer ===== */
+.platform-switcher-bottom{
+  display:block!important;
+  padding:0!important;
+  border-bottom:none!important;
+  background:transparent!important;
+}
+.platform-switcher-bottom .platform-switcher-inner{
+  width:100%;
+}
+
+
+/* ===== Final placement: Dark mode footer, Stripe/Shopify switcher replaces Run rebills ===== */
+.platform-switcher-topbar{
+  height:42px;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:4px;
+  padding:4px;
+  border:1px solid var(--border2);
+  background:var(--surface2);
+  border-radius:12px;
+  min-width:178px;
+}
+.platform-topbar-btn{
+  border:0;
+  background:transparent;
+  color:var(--muted);
+  border-radius:9px;
+  padding:0 14px;
+  font-family:var(--sans);
+  font-size:13px;
+  font-weight:700;
+  cursor:pointer;
+  transition:all .15s ease;
+}
+.platform-topbar-btn:hover{color:var(--text)}
+.platform-topbar-btn.active{background:var(--accent);color:#fff;box-shadow:0 8px 22px var(--accent-glow)}
+.platform-switcher-bottom,.platform-switcher-settings,.theme-toggle-settings{display:none!important}
+
 </style>
 </head>
 <body>
@@ -258,6 +395,21 @@ textarea{resize:vertical;min-height:60px}
   <button class="nav-item" onclick="showPage('recovery',this)">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 2v6h6"/><path d="M21.5 22v-6h-6"/><path d="M22 11.5A10 10 0 0 0 3.2 7.2"/><path d="M2 12.5a10 10 0 0 0 18.8 4.2"/></svg>Recovery Rate</button>
 
+
+  <div class="nav-section">Shopify</div>
+  <button class="nav-item" onclick="showPage('shopify-dashboard',this)">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>Shopify Dashboard</button>
+  <button class="nav-item" onclick="showPage('shopify-stores',this)">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 10h16l-1 10H5L4 10Z"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Shopify Stores</button>
+  <button class="nav-item" onclick="showPage('shopify-orders',this)">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2V2Z"/><path d="M9 8h6"/><path d="M9 12h6"/></svg>Shopify Orders</button>
+  <button class="nav-item" onclick="showPage('shopify-customers',this)">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>Shopify Customers</button>
+  <button class="nav-item" onclick="showPage('shopify-subscriptions',this)">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>Shopify Subscriptions</button>
+  <button class="nav-item" onclick="showPage('shopify-webhooks',this)">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 16.98h-5.99c-1.1 0-1.95.94-2.48 1.9A4 4 0 0 1 2 17c.01-.7.2-1.4.57-2"/><path d="m6 17 3.13-5.78c.53-.97.1-2.18-.5-3.1a4 4 0 1 1 6.89-4.06"/><path d="m12 6 3.13 5.73C15.66 12.7 16.9 13 18 13a4 4 0 0 1 0 8"/></svg>Shopify Webhooks</button>
+
   <!-- Settings collapsible -->
   <button class="nav-section-toggle" id="settings-toggle" onclick="toggleSettingsNav()" style="display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:none;cursor:pointer;padding:10px 24px 4px;font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:1px;text-transform:uppercase;">
     <span>Settings</span>
@@ -272,15 +424,19 @@ textarea{resize:vertical;min-height:60px}
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Security</button>
     <button class="nav-item" onclick="showPage('webhooks',this)">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 16.98h-5.99c-1.1 0-1.95.94-2.48 1.9A4 4 0 0 1 2 17c.01-.7.2-1.4.57-2"/><path d="m6 17 3.13-5.78c.53-.97.1-2.18-.5-3.1a4 4 0 1 1 6.89-4.06"/><path d="m12 6 3.13 5.73C15.66 12.7 16.9 13 18 13a4 4 0 0 1 0 8"/></svg>Webhook Logs</button>
+
+
   </div>
 
   </div><!-- end scrollable nav -->
+  <div style="flex-shrink:0;background:var(--surface);padding:18px 24px 16px;">
+    <div style="height:1px;background:var(--border);margin:14px -24px;"></div>
   <div style="flex-shrink:0;background:var(--surface);padding:18px 24px 16px;">
     <button class="theme-toggle" onclick="toggleTheme()">
       <div class="toggle-track"><div class="toggle-thumb"></div></div>
       <span id="theme-label">Dark mode</span>
     </button>
-    <div style="height:1px;background:var(--border);margin:14px -24px;"></div>
+  </div>
     <div style="display:flex;align-items:center;font-size:11px;color:var(--muted);font-family:var(--mono);">
       <span id="server-status">● loading...</span>
     </div>
@@ -298,7 +454,10 @@ textarea{resize:vertical;min-height:60px}
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" style="position:absolute;left:9px;top:9px;pointer-events:none;"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         <div id="global-search-results" style="display:none;position:absolute;top:calc(100% + 6px);left:0;width:340px;background:var(--surface);border:1px solid var(--border2);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.3);z-index:200;max-height:320px;overflow-y:auto;"></div>
       </div>
-      <button class="btn" onclick="runRebills()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/></svg>Run rebills now</button>
+      <div class="platform-switcher-topbar">
+      <button type="button" class="platform-topbar-btn active" id="platform-btn-stripe" onclick="setPlatformMode('stripe',true)">Stripe</button>
+      <button type="button" class="platform-topbar-btn" id="platform-btn-shopify" onclick="setPlatformMode('shopify',true)">Shopify</button>
+    </div>
       <button class="btn btn-disconnect" onclick="disconnectApp()" title="Disconnect">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         Disconnect
@@ -457,6 +616,84 @@ textarea{resize:vertical;min-height:60px}
     </div>
   </div>
 </div>
+
+
+<!-- Shopify Dashboard -->
+<div id="page-shopify-dashboard" class="page">
+  <div class="page-header">
+    <div><h2>Shopify Dashboard</h2><p>External Shopify app overview</p></div>
+    <div class="page-header-actions">
+      <button class="btn" onclick="syncAllShopify()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/></svg>Sync all stores</button>
+      <button class="btn btn-primary" onclick="openModal('add-shopify-store-modal')">Add Shopify store</button>
+    </div>
+  </div>
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-label">Stores</div><div class="stat-value" id="shopify-stat-stores">—</div><div class="stat-sub">connected stores</div></div>
+    <div class="stat-card"><div class="stat-label">Orders</div><div class="stat-value" id="shopify-stat-orders">—</div><div class="stat-sub">synced orders</div></div>
+    <div class="stat-card"><div class="stat-label">Revenue</div><div class="stat-value" id="shopify-stat-revenue">—</div><div class="stat-sub">paid Shopify orders</div></div>
+    <div class="stat-card"><div class="stat-label">Customers</div><div class="stat-value" id="shopify-stat-customers">—</div><div class="stat-sub">synced customers</div></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><h3>Recent Shopify orders</h3></div>
+    <div class="scrollable"><table>
+      <thead><tr><th>Order</th><th>Customer</th><th>Total</th><th>Status</th><th>Store</th><th>Date</th></tr></thead>
+      <tbody id="shopify-dashboard-orders"><tr><td colspan="6" class="empty">Loading...</td></tr></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- Shopify Stores -->
+<div id="page-shopify-stores" class="page">
+  <div class="page-header">
+    <div><h2>Shopify Stores</h2><p>Connect external Shopify stores with Admin API tokens</p></div>
+    <button class="btn btn-primary" onclick="openModal('add-shopify-store-modal')">Add store</button>
+  </div>
+  <div class="card"><div class="scrollable"><table>
+    <thead><tr><th>Store</th><th>Domain</th><th>Status</th><th>Last sync</th><th>Actions</th></tr></thead>
+    <tbody id="shopify-stores-table"><tr><td colspan="5" class="empty">Loading...</td></tr></tbody>
+  </table></div></div>
+</div>
+
+<!-- Shopify Orders -->
+<div id="page-shopify-orders" class="page">
+  <div class="page-header">
+    <div><h2>Shopify Orders</h2><p>Synced Shopify orders from connected stores</p></div>
+    <button class="btn" onclick="syncAllShopify()">Sync all stores</button>
+  </div>
+  <div class="card"><div class="scrollable"><table>
+    <thead><tr><th>Order</th><th>Customer</th><th>Total</th><th>Financial</th><th>Fulfillment</th><th>Store</th><th>Date</th></tr></thead>
+    <tbody id="shopify-orders-table"><tr><td colspan="7" class="empty">Loading...</td></tr></tbody>
+  </table></div></div>
+</div>
+
+<!-- Shopify Customers -->
+<div id="page-shopify-customers" class="page">
+  <div class="page-header"><div><h2>Shopify Customers</h2><p>Customer list synced from Shopify orders</p></div></div>
+  <div class="card"><div class="scrollable"><table>
+    <thead><tr><th>Customer</th><th>Email</th><th>Orders</th><th>Total spent</th><th>Store</th><th>Updated</th></tr></thead>
+    <tbody id="shopify-customers-table"><tr><td colspan="6" class="empty">Loading...</td></tr></tbody>
+  </table></div></div>
+</div>
+
+<!-- Shopify Subscriptions -->
+<div id="page-shopify-subscriptions" class="page">
+  <div class="page-header"><div><h2>Shopify Subscriptions</h2><p>Subscription contracts and billing attempts — Phase 2</p></div></div>
+  <div class="card">
+    <div style="padding:22px 18px;color:var(--muted);font-size:13px;line-height:1.7;">
+      Phase 1 connects Shopify stores and syncs orders/customers. Phase 2 will add selling plans, subscription contracts, billing attempts, pause/cancel and Charge Now.
+    </div>
+  </div>
+</div>
+
+<!-- Shopify Webhooks -->
+<div id="page-shopify-webhooks" class="page">
+  <div class="page-header"><div><h2>Shopify Webhooks</h2><p>Incoming Shopify webhook logs</p></div></div>
+  <div class="card"><div class="scrollable"><table>
+    <thead><tr><th>Topic</th><th>Store</th><th>Status</th><th>Error</th><th>Time</th></tr></thead>
+    <tbody id="shopify-webhooks-table"><tr><td colspan="5" class="empty">Loading...</td></tr></tbody>
+  </table></div></div>
+</div>
+
 
 <!-- Settings -->
 <div id="page-settings" class="page">
@@ -830,6 +1067,33 @@ textarea{resize:vertical;min-height:60px}
 </div>
 
 <div id="toast"></div>
+
+<div class="modal-bg" id="add-shopify-store-modal">
+  <div class="modal">
+    <h3>Add Shopify store</h3>
+    <p>Connect your external Shopify store using Admin API access token.</p>
+    <div class="form-group">
+      <label>Store name</label>
+      <input type="text" id="shopify-store-name" placeholder="My Shopify Store">
+    </div>
+    <div class="form-group">
+      <label>Shopify domain</label>
+      <input type="text" id="shopify-store-domain" placeholder="example.myshopify.com">
+    </div>
+    <div class="form-group">
+      <label>Admin API token</label>
+      <input type="password" id="shopify-store-token" placeholder="shpat_...">
+    </div>
+    <div style="font-size:11px;color:var(--muted);font-family:var(--mono);line-height:1.6;margin-top:-4px;margin-bottom:12px;">
+      Token stays on your backend/database. It is used only to read and sync Shopify data.
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('add-shopify-store-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="addShopifyStore()">Connect store</button>
+    </div>
+  </div>
+</div>
+
 <script>
 let currentLink=null,allCustomers=[],allSubscriptions=[],allPayments=[],allStripeAccounts=[],allAdminUsers=[],appSettings={},selectedSubs=new Set(),currentRevPeriod='month',bulkMode=false;
 function toggleTheme(){const isLight=document.documentElement.classList.toggle('light');localStorage.setItem('subloop_theme',isLight?'light':'dark');document.getElementById('theme-label').textContent=isLight?'Light mode':'Dark mode';updateLogos(isLight);}
@@ -927,12 +1191,76 @@ async function verify2FA(){
   catch(e){toast('Error verifying code','error');}
 }
 function backToLogin(){document.getElementById('login-step-2').style.display='none';document.getElementById('login-step-1').style.display='block';clearOtp();document.getElementById('twofa-error').style.display='none';}
+
+const STRIPE_MODE_PAGES=['dashboard','activity','customers','subscriptions','payments','links','accounts','forecast','summary','mrr','recovery'];
+const SHOPIFY_MODE_PAGES=['shopify-dashboard','shopify-stores','shopify-orders','shopify-customers','shopify-subscriptions','shopify-webhooks'];
+const GLOBAL_MODE_PAGES=['admins','settings','security','webhooks'];
+
+function getPlatformMode(){
+  return localStorage.getItem('subloop_platform_mode') || 'stripe';
+}
+function getPageNameFromNav(btn){
+  var onclick=btn && (btn.getAttribute('onclick') || '');
+  var m=onclick.match(/showPage\('([^']+)'/);
+  return m ? m[1] : '';
+}
+function findNavForPage(page){
+  return Array.prototype.slice.call(document.querySelectorAll('.nav-item')).find(function(btn){
+    return getPageNameFromNav(btn)===page;
+  });
+}
+function navSectionType(section){
+  var text=(section.textContent||'').trim().toLowerCase();
+  if(text==='shopify') return 'shopify';
+  if(text==='main'||text==='billing'||text==='insights') return 'stripe';
+  return 'global';
+}
+function setPlatformMode(mode, switchPage){
+  mode = mode === 'shopify' ? 'shopify' : 'stripe';
+  localStorage.setItem('subloop_platform_mode', mode);
+
+  var btnStripe=document.getElementById('platform-btn-stripe');
+  var btnShopify=document.getElementById('platform-btn-shopify');
+  if(btnStripe)btnStripe.classList.toggle('active', mode==='stripe');
+  if(btnShopify)btnShopify.classList.toggle('active', mode==='shopify');
+
+  document.querySelectorAll('.nav-item').forEach(function(btn){
+    var page=getPageNameFromNav(btn);
+    var show=true;
+    if(STRIPE_MODE_PAGES.indexOf(page)>=0) show=(mode==='stripe');
+    if(SHOPIFY_MODE_PAGES.indexOf(page)>=0) show=(mode==='shopify');
+    if(GLOBAL_MODE_PAGES.indexOf(page)>=0) show=true;
+    btn.classList.toggle('nav-hidden-by-platform', !show);
+  });
+
+  document.querySelectorAll('.nav-section,.nav-section-toggle').forEach(function(section){
+    var type=navSectionType(section);
+    var show = type==='global' || type===mode;
+    section.classList.toggle('nav-hidden-by-platform', !show);
+  });
+
+  if(switchPage){
+    var target = mode==='shopify' ? 'shopify-dashboard' : 'dashboard';
+    var nav = findNavForPage(target);
+    if(nav) showPage(target, nav);
+  }
+}
+function pagePlatform(name){
+  if(SHOPIFY_MODE_PAGES.indexOf(name)>=0) return 'shopify';
+  if(STRIPE_MODE_PAGES.indexOf(name)>=0) return 'stripe';
+  return getPlatformMode();
+}
+
 function showPage(name,el){
+  var modeForPage=pagePlatform(name);
+  if(getPlatformMode()!==modeForPage) setPlatformMode(modeForPage,false);
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-  document.getElementById('page-'+name).classList.add('active');
-  el.classList.add('active');
-  const loaders={dashboard:()=>{loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();},activity:loadActivity,customers:loadCustomers,subscriptions:loadSubscriptions,payments:loadPayments,settings:loadSettings,accounts:loadAccounts,security:loadSecurity,webhooks:loadWebhooks,forecast:loadForecast,summary:loadSummary,admins:loadAdmins,mrr:loadMrr,recovery:loadRecovery,links:()=>{loadAccounts();loadTemplates();}};
+  var pageEl=document.getElementById('page-'+name);
+  if(pageEl) pageEl.classList.add('active');
+  if(!el) el=findNavForPage(name);
+  if(el) el.classList.add('active');
+  const loaders={dashboard:()=>{loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();},activity:loadActivity,customers:loadCustomers,subscriptions:loadSubscriptions,payments:loadPayments,settings:loadSettings,accounts:loadAccounts,security:loadSecurity,webhooks:loadWebhooks,forecast:loadForecast,summary:loadSummary,admins:loadAdmins,mrr:loadMrr,recovery:loadRecovery,links:()=>{loadAccounts();loadTemplates();},'shopify-dashboard':loadShopifyDashboard,'shopify-stores':loadShopifyStores,'shopify-orders':loadShopifyOrders,'shopify-customers':loadShopifyCustomers,'shopify-subscriptions':loadShopifySubscriptions,'shopify-webhooks':loadShopifyWebhooks};
   var _username=localStorage.getItem('subloop_username');
   if(_username&&(getCurrentRole()==='custom'||getCurrentRole()==='viewer')){
     api('/api/auth/check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:_username})})
@@ -1027,6 +1355,7 @@ function cardBadge(brand,last4){
   return '<div class="payment-card">'+img+dots+num+'</div>'; 
 }
 function initApp(){
+  setTimeout(function(){setPlatformMode(getPlatformMode(), true);},0);
   var username=localStorage.getItem('subloop_username');
   if(username){
     api('/api/auth/check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:username})})
@@ -1424,7 +1753,7 @@ async function loadAdmins(){
     tb.innerHTML=rows.join('');
   }catch(e){tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--red);font-size:13px;">Failed to load. <button class="btn btn-sm" onclick="loadAdmins()" style="margin-left:8px;">Retry</button></td></tr>';}
 }
-var PERM_LIST=[{value:'dashboard',label:'Dashboard',desc:'Overview stats and revenue charts'},{value:'activity',label:'Activity',desc:'Full activity log of all actions'},{value:'customers',label:'Customers',desc:'View and manage customer accounts'},{value:'subscriptions',label:'Subscriptions',desc:'Manage rebilling schedules'},{value:'payments',label:'Payments',desc:'Full payment history and retries'},{value:'links',label:'Payment Links',desc:'Generate Stripe payment links'},{value:'accounts',label:'Stripe Accounts',desc:'Manage connected Stripe accounts'},{value:'forecast',label:'Forecast',desc:'Revenue projection for next 30–90 days'},{value:'expiry',label:'Expiring Cards',desc:'Cards expiring soon that need updating'},{value:'summary',label:'Daily Summary',desc:'Business snapshot and manual invoices'},{value:'settings',label:'Settings',desc:'Dunning, proration and app settings'},{value:'security',label:'Security',desc:'Two-factor auth and login protection'},{value:'webhooks',label:'Webhook Logs',desc:'Incoming Stripe webhook events'}];
+var PERM_LIST=[{value:'dashboard',label:'Dashboard',desc:'Overview stats and revenue charts'},{value:'activity',label:'Activity',desc:'Full activity log of all actions'},{value:'customers',label:'Customers',desc:'View and manage customer accounts'},{value:'subscriptions',label:'Subscriptions',desc:'Manage rebilling schedules'},{value:'payments',label:'Payments',desc:'Full payment history and retries'},{value:'links',label:'Payment Links',desc:'Generate Stripe payment links'},{value:'accounts',label:'Stripe Accounts',desc:'Manage connected Stripe accounts'},{value:'forecast',label:'Forecast',desc:'Revenue projection for next 30–90 days'},{value:'expiry',label:'Expiring Cards',desc:'Cards expiring soon that need updating'},{value:'summary',label:'Daily Summary',desc:'Business snapshot and manual invoices'},{value:'settings',label:'Settings',desc:'Dunning, proration and app settings'},{value:'security',label:'Security',desc:'Two-factor auth and login protection'},{value:'webhooks',label:'Webhook Logs',desc:'Incoming Stripe webhook events'},{value:'shopify-dashboard',label:'Shopify Dashboard',desc:'Shopify overview and stats'},{value:'shopify-stores',label:'Shopify Stores',desc:'Connect and sync Shopify stores'},{value:'shopify-orders',label:'Shopify Orders',desc:'View synced Shopify orders'},{value:'shopify-customers',label:'Shopify Customers',desc:'View synced Shopify customers'},{value:'shopify-subscriptions',label:'Shopify Subscriptions',desc:'Manage subscription contracts later'},{value:'shopify-webhooks',label:'Shopify Webhooks',desc:'Incoming Shopify webhook logs'}];
 function buildPermsList(){var container=document.getElementById('perms-list');if(!container)return;container.innerHTML='';PERM_LIST.forEach(function(p){var row=document.createElement('label');row.style.cssText='display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;cursor:pointer;transition:all 0.15s;';var cb=document.createElement('input');cb.type='checkbox';cb.value=p.value;cb.style.cssText='accent-color:var(--accent);width:16px;height:16px;cursor:pointer;flex-shrink:0;';cb.addEventListener('change',function(){row.style.borderColor=cb.checked?'var(--accent)':'var(--border)';row.style.background=cb.checked?'var(--accent-glow)':'var(--surface2)';});row.addEventListener('click',function(e){if(e.target===cb)return;cb.checked=!cb.checked;cb.dispatchEvent(new Event('change'));});var info=document.createElement('div');info.style.flex='1';info.innerHTML='<div style="font-size:13px;font-weight:500;color:var(--text);">'+p.label+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;">'+p.desc+'</div>';row.appendChild(cb);row.appendChild(info);container.appendChild(row);});}
 function selectAllPerms(){document.querySelectorAll('#perms-list input[type=checkbox]').forEach(function(cb){cb.checked=true;cb.dispatchEvent(new Event('change'));});}
 function clearAllPerms(){document.querySelectorAll('#perms-list input[type=checkbox]').forEach(function(cb){cb.checked=false;cb.dispatchEvent(new Event('change'));});}
@@ -1531,6 +1860,111 @@ function selectAllEditPerms(){document.querySelectorAll('#edit-perms-list input[
 function clearAllEditPerms(){document.querySelectorAll('#edit-perms-list input[type=checkbox]').forEach(function(cb){cb.checked=false;cb.dispatchEvent(new Event('change'));});}
 function openEditAccess(id){var a=(allAdminUsers||[]).find(function(x){return x.id===id;});if(!a)return;document.getElementById('edit-access-id').value=id;document.getElementById('edit-access-subtitle').textContent='Editing access for: '+a.username;document.getElementById('edit-access-role').value=a.role||'admin';document.getElementById('edit-access-error').style.display='none';buildEditPermsList();var currentPerms=a.permissions||[];setTimeout(function(){document.querySelectorAll('#edit-perms-list input[type=checkbox]').forEach(function(cb){var checked=currentPerms.includes(cb.value);cb.checked=checked;cb.dispatchEvent(new Event('change'));});},50);toggleEditCustomPerms();openModal('edit-access-modal');}
 async function saveEditAccess(){var id=document.getElementById('edit-access-id').value;var role=document.getElementById('edit-access-role').value;var errEl=document.getElementById('edit-access-error');errEl.style.display='none';var permissions=[];if(role==='custom'){document.querySelectorAll('#edit-perms-list input[type=checkbox]:checked').forEach(function(cb){permissions.push(cb.value);});if(!permissions.length){errEl.textContent='Select at least one section for custom access';errEl.style.display='block';return;}}try{var r=await api('/api/admin-users/'+id+'/permissions',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({role,permissions})});if(r.success){toast('✓ Access updated');closeModal('edit-access-modal');loadAdmins();}else{errEl.textContent=r.error||'Failed to update';errEl.style.display='block';}}catch(e){errEl.textContent='Server error';errEl.style.display='block';}}
+
+// ── Shopify UI ───────────────────────────────────────────────────────────────
+function shopifyMoney(c,cur){return fmtExact(c||0,cur||'USD');}
+function shopifyStatusBadge(s){return badge((s||'pending').toLowerCase().replace(/\s+/g,'_'));}
+async function loadShopifyDashboard(){
+  try{
+    const s=await api('/api/shopify/overview');
+    document.getElementById('shopify-stat-stores').textContent=s.stores||0;
+    document.getElementById('shopify-stat-orders').textContent=s.orders||0;
+    document.getElementById('shopify-stat-revenue').textContent=fmtCompactMoney(s.revenue||0,'USD');
+    document.getElementById('shopify-stat-customers').textContent=s.customers||0;
+    const orders=await api('/api/shopify/orders');
+    renderShopifyOrdersTable('shopify-dashboard-orders',orders.slice(0,8),6);
+  }catch(e){toast('Shopify dashboard error','error');}
+}
+async function loadShopifyStores(){
+  const tb=document.getElementById('shopify-stores-table');
+  try{
+    const stores=await api('/api/shopify/stores');
+    if(!stores.length){tb.innerHTML='<tr><td colspan="5" class="empty">No Shopify stores connected</td></tr>';return;}
+    tb.innerHTML=stores.map(function(s){
+      return '<tr><td><strong>'+s.name+'</strong></td><td class="mono">'+s.shop_domain+'</td><td>'+badge(s.status||'active')+'</td><td class="mono">'+fmtTime(s.last_sync_at)+'</td><td><div class="actions"><button class="btn btn-sm" onclick="syncShopifyStore('+s.id+')">Sync orders</button><button class="btn btn-sm btn-danger" onclick="deleteShopifyStore('+s.id+')">Delete</button></div></td></tr>';
+    }).join('');
+  }catch(e){tb.innerHTML='<tr><td colspan="5" class="empty">Error loading stores</td></tr>';}
+}
+async function addShopifyStore(){
+  const name=document.getElementById('shopify-store-name').value.trim();
+  const shop_domain=document.getElementById('shopify-store-domain').value.trim();
+  const access_token=document.getElementById('shopify-store-token').value.trim();
+  if(!name||!shop_domain||!access_token){toast('Enter store name, domain and token','error');return;}
+  try{
+    await api('/api/shopify/stores',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,shop_domain,access_token})});
+    document.getElementById('shopify-store-name').value='';
+    document.getElementById('shopify-store-domain').value='';
+    document.getElementById('shopify-store-token').value='';
+    closeModal('add-shopify-store-modal');
+    toast('✓ Shopify store connected');
+    loadShopifyStores();
+    loadShopifyDashboard();
+  }catch(e){toast('Failed to connect store','error');}
+}
+async function deleteShopifyStore(id){
+  if(!confirm('Delete this Shopify store from Subloop?'))return;
+  try{await api('/api/shopify/stores/'+id,{method:'DELETE'});toast('Store deleted');loadShopifyStores();}
+  catch(e){toast('Delete failed','error');}
+}
+async function syncShopifyStore(id){
+  try{
+    toast('Syncing Shopify orders...');
+    const r=await api('/api/shopify/stores/'+id+'/sync',{method:'POST'});
+    toast('✓ Synced '+(r.imported||0)+' orders');
+    loadShopifyStores();loadShopifyOrders();loadShopifyCustomers();loadShopifyDashboard();
+  }catch(e){toast('Shopify sync failed','error');}
+}
+async function syncAllShopify(){
+  try{
+    toast('Syncing all Shopify stores...');
+    const r=await api('/api/shopify/sync-all',{method:'POST'});
+    var msg='✓ Synced '+(r.imported||0)+' orders';
+    if(r.errors&&r.errors.length)msg+=' · '+r.errors.length+' errors';
+    toast(msg,r.errors&&r.errors.length?'error':'success');
+    loadShopifyDashboard();loadShopifyOrders();loadShopifyCustomers();loadShopifyStores();
+  }catch(e){toast('Sync all failed','error');}
+}
+function renderShopifyOrdersTable(id,orders,colspan){
+  const tb=document.getElementById(id);
+  if(!orders.length){tb.innerHTML='<tr><td colspan="'+colspan+'" class="empty">No Shopify orders yet</td></tr>';return;}
+  tb.innerHTML=orders.map(function(o){
+    const name=o.customer_name||o.customer_email||'—';
+    if(id==='shopify-dashboard-orders'){
+      return '<tr><td class="mono">'+(o.order_name||o.shopify_order_id)+'</td><td>'+name+'</td><td>'+shopifyMoney(o.total_price_cents,o.currency)+'</td><td>'+shopifyStatusBadge(o.financial_status)+'</td><td>'+((o.store_name)||'—')+'</td><td class="mono">'+fmtDate(o.processed_at||o.created_at)+'</td></tr>';
+    }
+    return '<tr><td class="mono">'+(o.order_name||o.shopify_order_id)+'</td><td>'+name+'<div class="customer-email">'+(o.customer_email||'')+'</div></td><td>'+shopifyMoney(o.total_price_cents,o.currency)+'</td><td>'+shopifyStatusBadge(o.financial_status)+'</td><td>'+shopifyStatusBadge(o.fulfillment_status||'unfulfilled')+'</td><td>'+((o.store_name)||'—')+'</td><td class="mono">'+fmtDate(o.processed_at||o.created_at)+'</td></tr>';
+  }).join('');
+}
+async function loadShopifyOrders(){
+  const tb=document.getElementById('shopify-orders-table');
+  try{renderShopifyOrdersTable('shopify-orders-table',await api('/api/shopify/orders'),7);}
+  catch(e){tb.innerHTML='<tr><td colspan="7" class="empty">Error loading Shopify orders</td></tr>';}
+}
+async function loadShopifyCustomers(){
+  const tb=document.getElementById('shopify-customers-table');
+  try{
+    const list=await api('/api/shopify/customers');
+    if(!list.length){tb.innerHTML='<tr><td colspan="6" class="empty">No Shopify customers yet</td></tr>';return;}
+    tb.innerHTML=list.map(function(c){
+      return '<tr><td><strong>'+((c.name)||'Customer')+'</strong></td><td class="mono">'+(c.email||'—')+'</td><td>'+(c.orders_count||0)+'</td><td>'+shopifyMoney(c.total_spent_cents,c.currency)+'</td><td>'+((c.store_name)||'—')+'</td><td class="mono">'+fmtDate(c.updated_at||c.created_at)+'</td></tr>';
+    }).join('');
+  }catch(e){tb.innerHTML='<tr><td colspan="6" class="empty">Error loading Shopify customers</td></tr>';}
+}
+async function loadShopifySubscriptions(){
+  // Placeholder for Phase 2.
+}
+async function loadShopifyWebhooks(){
+  const tb=document.getElementById('shopify-webhooks-table');
+  try{
+    const list=await api('/api/shopify/webhooks');
+    if(!list.length){tb.innerHTML='<tr><td colspan="5" class="empty">No Shopify webhook logs yet</td></tr>';return;}
+    tb.innerHTML=list.map(function(l){
+      return '<tr><td class="mono">'+(l.topic||'unknown')+'</td><td>'+((l.store_name)||'—')+'</td><td>'+badge(l.status||'ok')+'</td><td class="mono">'+(l.error||'—')+'</td><td class="mono">'+fmtTime(l.created_at)+'</td></tr>';
+    }).join('');
+  }catch(e){tb.innerHTML='<tr><td colspan="5" class="empty">Error loading Shopify webhooks</td></tr>';}
+}
+
+
 document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
 </script>
 </body>
