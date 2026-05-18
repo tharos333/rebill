@@ -154,29 +154,45 @@ const stripeAccounts = {
 };
 const customers = {
   all: async () => { const r = await pool.query(`
+    WITH sub_stats AS (
+      SELECT customer_id, COUNT(*) FILTER (WHERE status='active') as active_subs
+      FROM subscriptions
+      GROUP BY customer_id
+    ),
+    pay_stats AS (
+      SELECT
+        customer_id,
+        COALESCE(SUM(CASE WHEN status='succeeded' THEN amount ELSE 0 END), 0) as total_paid,
+        MAX(CASE WHEN status='succeeded' THEN created_at END) as last_payment_at,
+        MAX(created_at) as last_any_payment_at
+      FROM payments
+      GROUP BY customer_id
+    )
     SELECT
       c.*,
       sa.name as account_name,
       COALESCE(s.active_subs, 0) as active_subs,
       COALESCE(p.total_paid, 0) as total_paid,
       p.last_payment_at,
+      p.last_any_payment_at,
       COALESCE(p.last_payment_at, c.created_at) as sort_date
     FROM customers c
     LEFT JOIN stripe_accounts sa ON sa.id = c.stripe_account_id
-    LEFT JOIN (
-      SELECT customer_id, COUNT(*) FILTER (WHERE status='active') as active_subs
-      FROM subscriptions
-      GROUP BY customer_id
-    ) s ON s.customer_id = c.id
-    LEFT JOIN (
-      SELECT
-        customer_id,
-        COALESCE(SUM(CASE WHEN status='succeeded' THEN amount ELSE 0 END), 0) as total_paid,
-        MAX(created_at) as last_payment_at
-      FROM payments
-      GROUP BY customer_id
-    ) p ON p.customer_id = c.id
-    ORDER BY COALESCE(p.last_payment_at, c.created_at) DESC, c.created_at DESC
+    LEFT JOIN sub_stats s ON s.customer_id = c.id
+    LEFT JOIN pay_stats p ON p.customer_id = c.id
+    WHERE NOT (
+      COALESCE(p.total_paid, 0) = 0
+      AND (
+        COALESCE(c.email, '') ILIKE '%@stripe.local'
+        OR COALESCE(c.stripe_customer_id, '') LIKE 'external_%'
+        OR COALESCE(c.name, '') LIKE 'pi_%'
+      )
+    )
+    ORDER BY
+      CASE WHEN p.last_payment_at IS NOT NULL THEN 0 ELSE 1 END ASC,
+      p.last_payment_at DESC NULLS LAST,
+      COALESCE(p.total_paid, 0) DESC,
+      c.created_at DESC
   `); return r.rows; },
   byId: async (id) => { const r = await pool.query('SELECT * FROM customers WHERE id=$1', [id]); return r.rows[0]; },
   byStripeId: async (sid) => { const r = await pool.query('SELECT * FROM customers WHERE stripe_customer_id=$1', [sid]); return r.rows[0]; },
