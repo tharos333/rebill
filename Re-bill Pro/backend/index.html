@@ -231,6 +231,20 @@ textarea{resize:vertical;min-height:60px}
   width:100%;
 }
 
+
+/* ===== Platform switcher inside Settings section ===== */
+.platform-switcher-settings{
+  padding:8px 12px 10px!important;
+  border-bottom:none!important;
+  background:transparent!important;
+}
+.platform-switcher-settings .platform-switcher-inner{
+  width:100%;
+}
+.platform-switcher-bottom{
+  display:none!important;
+}
+
 </style>
 </head>
 <body>
@@ -338,16 +352,17 @@ textarea{resize:vertical;min-height:60px}
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Security</button>
     <button class="nav-item" onclick="showPage('webhooks',this)">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 16.98h-5.99c-1.1 0-1.95.94-2.48 1.9A4 4 0 0 1 2 17c.01-.7.2-1.4.57-2"/><path d="m6 17 3.13-5.78c.53-.97.1-2.18-.5-3.1a4 4 0 1 1 6.89-4.06"/><path d="m12 6 3.13 5.73C15.66 12.7 16.9 13 18 13a4 4 0 0 1 0 8"/></svg>Webhook Logs</button>
+      <div class="platform-switcher platform-switcher-settings">
+        <div class="platform-switcher-inner">
+          <button type="button" class="platform-switch-btn active" id="platform-btn-stripe" onclick="setPlatformMode('stripe',true)">Stripe</button>
+          <button type="button" class="platform-switch-btn" id="platform-btn-shopify" onclick="setPlatformMode('shopify',true)">Shopify</button>
+        </div>
+      </div>
+
   </div>
 
   </div><!-- end scrollable nav -->
   <div style="flex-shrink:0;background:var(--surface);padding:18px 24px 16px;">
-    <div class="platform-switcher platform-switcher-bottom">
-      <div class="platform-switcher-inner">
-        <button type="button" class="platform-switch-btn active" id="platform-btn-stripe" onclick="setPlatformMode('stripe',true)">Stripe</button>
-        <button type="button" class="platform-switch-btn" id="platform-btn-shopify" onclick="setPlatformMode('shopify',true)">Shopify</button>
-      </div>
-    </div>
     <button class="theme-toggle" onclick="toggleTheme()">
       <div class="toggle-track"><div class="toggle-thumb"></div></div>
       <span id="theme-label">Dark mode</span>
