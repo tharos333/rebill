@@ -315,7 +315,45 @@ textarea{resize:vertical;min-height:60px}
 }
 .platform-topbar-btn:hover{color:var(--text)}
 .platform-topbar-btn.active{background:var(--accent);color:#fff;box-shadow:0 8px 22px var(--accent-glow)}
-.platform-switcher-bottom,.platform-switcher-settings,.theme-toggle-settings{display:none!important}
+.platform-switcher-bottom,.platform-switcher-settings{display:none!important}
+
+
+/* ===== Switcher visible on both dashboards + dark mode original footer ===== */
+.platform-switcher-topbar{
+  height:42px;
+  display:grid!important;
+  grid-template-columns:1fr 1fr;
+  gap:4px;
+  padding:4px;
+  border:1px solid var(--border2);
+  background:var(--surface2);
+  border-radius:12px;
+  min-width:178px;
+  flex-shrink:0;
+}
+.platform-topbar-btn{
+  border:0;
+  background:transparent;
+  color:var(--muted);
+  border-radius:9px;
+  padding:0 14px;
+  font-family:var(--sans);
+  font-size:13px;
+  font-weight:700;
+  cursor:pointer;
+  transition:all .15s ease;
+}
+.platform-topbar-btn:hover{color:var(--text)}
+.platform-topbar-btn.active{
+  background:var(--accent);
+  color:#fff;
+  box-shadow:0 8px 22px var(--accent-glow);
+}
+.platform-switcher-bottom,.platform-switcher-settings{display:none!important}
+@media(max-width:900px){
+  .platform-switcher-topbar{min-width:150px}
+  .platform-topbar-btn{font-size:12px;padding:0 10px}
+}
 
 </style>
 </head>
@@ -455,8 +493,8 @@ textarea{resize:vertical;min-height:60px}
         <div id="global-search-results" style="display:none;position:absolute;top:calc(100% + 6px);left:0;width:340px;background:var(--surface);border:1px solid var(--border2);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.3);z-index:200;max-height:320px;overflow-y:auto;"></div>
       </div>
       <div class="platform-switcher-topbar">
-      <button type="button" class="platform-topbar-btn active" id="platform-btn-stripe" onclick="setPlatformMode('stripe',true)">Stripe</button>
-      <button type="button" class="platform-topbar-btn" id="platform-btn-shopify" onclick="setPlatformMode('shopify',true)">Shopify</button>
+      <button type="button" class="platform-topbar-btn platform-btn-stripe active" onclick="setPlatformMode('stripe',true)">Stripe</button>
+      <button type="button" class="platform-topbar-btn platform-btn-shopify" onclick="setPlatformMode('shopify',true)">Shopify</button>
     </div>
       <button class="btn btn-disconnect" onclick="disconnectApp()" title="Disconnect">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -623,6 +661,11 @@ textarea{resize:vertical;min-height:60px}
   <div class="page-header">
     <div><h2>Shopify Dashboard</h2><p>External Shopify app overview</p></div>
     <div class="page-header-actions">
+    <div class="platform-switcher-topbar">
+      <button type="button" class="platform-topbar-btn platform-btn-stripe active" onclick="setPlatformMode('stripe',true)">Stripe</button>
+      <button type="button" class="platform-topbar-btn platform-btn-shopify" onclick="setPlatformMode('shopify',true)">Shopify</button>
+    </div>
+      
       <button class="btn" onclick="syncAllShopify()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/></svg>Sync all stores</button>
       <button class="btn btn-primary" onclick="openModal('add-shopify-store-modal')">Add Shopify store</button>
     </div>
@@ -1219,10 +1262,12 @@ function setPlatformMode(mode, switchPage){
   mode = mode === 'shopify' ? 'shopify' : 'stripe';
   localStorage.setItem('subloop_platform_mode', mode);
 
-  var btnStripe=document.getElementById('platform-btn-stripe');
-  var btnShopify=document.getElementById('platform-btn-shopify');
-  if(btnStripe)btnStripe.classList.toggle('active', mode==='stripe');
-  if(btnShopify)btnShopify.classList.toggle('active', mode==='shopify');
+  document.querySelectorAll('.platform-btn-stripe').forEach(function(btn){
+    btn.classList.toggle('active', mode==='stripe');
+  });
+  document.querySelectorAll('.platform-btn-shopify').forEach(function(btn){
+    btn.classList.toggle('active', mode==='shopify');
+  });
 
   document.querySelectorAll('.nav-item').forEach(function(btn){
     var page=getPageNameFromNav(btn);
