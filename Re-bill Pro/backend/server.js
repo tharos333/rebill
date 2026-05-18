@@ -1,7 +1,7 @@
 const express = require('express');
 const app = express();
 const path = require('path');
-const { init, pool, settingsDb, stripeAccounts, customers, subscriptions, payments, activityLog, webhookLogs, security, adminUsers } = require('./db');
+const { init, pool, settingsDb, stripeAccounts, customers, subscriptions, payments, activityLog, webhookLogs, security, adminUsers, shopifyDb } = require('./db');
 let speakeasy, QRCode;
 try { speakeasy = require('speakeasy'); QRCode = require('qrcode'); } catch(e) {}
 
@@ -559,6 +559,161 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 app.use(express.json());
 app.use('/icons', express.static(path.join(__dirname, 'public', 'icons')));
 app.use(express.static(path.join(__dirname)));
+
+
+// ── Shopify External App (Phase 1) ────────────────────────────────────────────
+const SHOPIFY_API_VERSION = process.env.SHOPIFY_API_VERSION || '2026-04';
+function normalizeShopDomain(input) {
+  let shop = String(input || '').trim().toLowerCase();
+  shop = shop.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+  if (!shop) return '';
+  if (!shop.endsWith('.myshopify.com')) shop += '.myshopify.com';
+  return shop;
+}
+async function shopifyFetch(store, endpoint, options = {}) {
+  const url = `https://${store.shop_domain}/admin/api/${SHOPIFY_API_VERSION}${endpoint}`;
+  const r = await fetch(url, {
+    ...options,
+    headers: {
+      'X-Shopify-Access-Token': store.access_token,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      ...(options.headers || {})
+    }
+  });
+  const text = await r.text();
+  let data = {};
+  try { data = text ? JSON.parse(text) : {}; } catch(e) { data = { raw: text }; }
+  if (!r.ok) {
+    const msg = data.errors ? JSON.stringify(data.errors) : (data.error || text || `Shopify HTTP ${r.status}`);
+    throw new Error(msg);
+  }
+  return data;
+}
+function centsFromShopifyAmount(value) {
+  const n = parseFloat(value || 0);
+  return Math.round(n * 100);
+}
+function customerNameFromOrder(order) {
+  const c = order.customer || {};
+  const billing = order.billing_address || {};
+  const name = [c.first_name || billing.first_name, c.last_name || billing.last_name].filter(Boolean).join(' ');
+  return name || order.email || order.contact_email || ('Order ' + (order.name || order.id));
+}
+async function syncShopifyStoreOrders(store) {
+  const data = await shopifyFetch(store, `/orders.json?status=any&limit=50&order=created_at%20desc`);
+  const orders = data.orders || [];
+  for (const order of orders) {
+    await shopifyDb.saveOrder(store.id, {
+      id: order.id,
+      name: order.name,
+      email: order.email || order.contact_email || (order.customer && order.customer.email),
+      customer_name: customerNameFromOrder(order),
+      total_price_cents: centsFromShopifyAmount(order.total_price),
+      currency: order.currency || 'USD',
+      financial_status: order.financial_status,
+      fulfillment_status: order.fulfillment_status,
+      processed_at: order.processed_at || order.created_at
+    });
+    if (order.customer) {
+      await shopifyDb.saveCustomer(store.id, {
+        ...order.customer,
+        currency: order.currency || 'USD'
+      });
+    }
+  }
+  await shopifyDb.markSynced(store.id);
+  return { imported: orders.length };
+}
+
+app.get('/api/shopify/stores', async (req, res) => {
+  try { res.json(await shopifyDb.stores()); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/shopify/stores', async (req, res) => {
+  try {
+    const name = String(req.body.name || '').trim();
+    const shop_domain = normalizeShopDomain(req.body.shop_domain);
+    const access_token = String(req.body.access_token || '').trim();
+    if (!name || !shop_domain || !access_token) return res.status(400).json({ error: 'Name, shop domain and Admin API token are required' });
+    const store = await shopifyDb.createStore({ name, shop_domain, access_token });
+    res.json({ success: true, store });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/shopify/stores/:id', async (req, res) => {
+  try { await shopifyDb.deleteStore(req.params.id); res.json({ success: true }); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/shopify/stores/:id/sync', async (req, res) => {
+  try {
+    const store = await shopifyDb.getStore(req.params.id);
+    if (!store) return res.status(404).json({ error: 'Shopify store not found' });
+    const result = await syncShopifyStoreOrders(store);
+    res.json({ success: true, ...result });
+  } catch(e) {
+    console.error('[shopify sync] error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/shopify/sync-all', async (req, res) => {
+  try {
+    const stores = await shopifyDb.stores();
+    let imported = 0, errors = [];
+    for (const item of stores) {
+      try {
+        const store = await shopifyDb.getStore(item.id);
+        const r = await syncShopifyStoreOrders(store);
+        imported += r.imported || 0;
+      } catch(e) {
+        errors.push({ store: item.name, error: e.message });
+      }
+    }
+    res.json({ success: true, imported, errors });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/shopify/overview', async (req, res) => {
+  try { res.json(await shopifyDb.summary()); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/shopify/orders', async (req, res) => {
+  try { res.json(await shopifyDb.orders(150)); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/shopify/customers', async (req, res) => {
+  try { res.json(await shopifyDb.customers(150)); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/shopify/subscriptions', async (req, res) => {
+  // Phase 1 placeholder. Shopify subscription contracts require subscription scopes and GraphQL implementation.
+  res.json([]);
+});
+
+app.get('/api/shopify/webhooks', async (req, res) => {
+  try { res.json(await shopifyDb.webhookLogs(100)); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/webhook/shopify/:storeId?', express.raw({ type: 'application/json' }), async (req, res) => {
+  const topic = req.headers['x-shopify-topic'] || 'unknown';
+  const storeId = req.params.storeId || null;
+  try {
+    await shopifyDb.logWebhook(storeId, topic, 'ok', null);
+    res.status(200).send('ok');
+  } catch(e) {
+    await shopifyDb.logWebhook(storeId, topic, 'error', e.message).catch(()=>{});
+    res.status(200).send('ok');
+  }
+});
+
+
 
 // ── Stripe Accounts ───────────────────────────────────────────────────────────
 function formatStripeRequirementKey(key) {
