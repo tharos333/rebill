@@ -1173,13 +1173,7 @@ async function loadRecentPayments(){
   try{
     const pmts=await api('/api/payments');const tb=document.getElementById('recent-payments-table');
     if(!pmts.length){tb.innerHTML='<tr><td colspan="5" class="empty">No payments yet</td></tr>';return;}
-    tb.innerHTML=pmts.slice(0,8).map(function(p){
-      var unk=isUnknownPayment(p);
-      var custCell=unk
-        ?'<div class="customer-cell"><div class="avatar" style="background:rgba(248,113,113,0.15);color:#dc2626;font-size:14px;">?</div><div><div class="customer-name" style="color:var(--red);display:flex;align-items:center;gap:3px;">&#9888; No profile</div><div class="customer-email">External payment</div></div></div>'
-        :'<div class="customer-cell"><div class="avatar">'+initials(p.name)+'</div><div><div class="customer-name">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div></div></div>';
-      return '<tr style="'+(unk?'background:rgba(248,113,113,0.04);':'')+'">'+'<td>'+custCell+'</td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+cardBadge(p.card_brand,p.card_last4)+'</td><td>'+badge(p.status)+'</td><td class="mono">'+fmtDate(p.created_at)+'</td></tr>';
-    }).join('');
+    tb.innerHTML=pmts.slice(0,8).map(p=>'<tr><td><div class="customer-cell"><div class="avatar">'+initials(p.name)+'</div><div><div class="customer-name">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div></div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+cardBadge(p.card_brand,p.card_last4)+'</td><td>'+badge(p.status)+'</td><td class="mono">'+fmtDate(p.created_at)+'</td></tr>').join('');
   }catch(e){}
 }
 async function loadActivity(){
@@ -1234,9 +1228,7 @@ async function bulkCharge(){if(!selectedSubs.size)return;if(!confirm('Charge '+s
 async function bulkPause(){if(!selectedSubs.size)return;if(!confirm('Pause '+selectedSubs.size+' subscriptions?'))return;for(const id of selectedSubs){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'paused'})}).catch(()=>{});}toast('✓ '+selectedSubs.size+' paused');exitBulkMode();loadSubscriptions();}
 async function bulkCancel(){if(!selectedSubs.size)return;if(!confirm('Cancel '+selectedSubs.size+' subscriptions? Cannot be undone.'))return;for(const id of selectedSubs){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'cancelled'})}).catch(()=>{});}toast('✓ '+selectedSubs.size+' cancelled');exitBulkMode();loadSubscriptions();loadStats();}
 function showEditAmount(subId,currentAmount){const container=document.getElementById('edit-'+subId);if(!container)return;const dollars=(currentAmount/100).toFixed(2);container.innerHTML='<div style="display:inline-flex;align-items:center;gap:4px;"><input type="number" id="new-amount-'+subId+'" value="'+dollars+'" step="0.01" min="0.50" style="width:75px;padding:3px 6px;font-size:12px;"><button class="btn btn-sm btn-primary" onclick="saveAmount('+subId+')">Save</button><button class="btn btn-sm" onclick="loadSubscriptions()">✕</button></div>';document.getElementById('new-amount-'+subId).focus();}
-async function saveAmount(subId){const input=document.getElementById('new-amount-'+subId);if(!isViewer&&!unknown&&p.status==='failed'){
-      actions+='<button class="btn btn-sm btn-success" onclick="retryPayment('+p.id+')">Retry</button>';
-    }nput)return;const newCents=Math.round(parseFloat(input.value)*100);if(isNaN(newCents)||newCents<50){toast('Minimum $0.50','error');return;}const r=await api('/api/subscriptions/'+subId+'/amount',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:newCents})});if(r.success){toast('✓ Amount updated');loadSubscriptions();}else toast('Error','error');}
+async function saveAmount(subId){const input=document.getElementById('new-amount-'+subId);if(!input)return;const newCents=Math.round(parseFloat(input.value)*100);if(isNaN(newCents)||newCents<50){toast('Minimum $0.50','error');return;}const r=await api('/api/subscriptions/'+subId+'/amount',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:newCents})});if(r.success){toast('✓ Amount updated');loadSubscriptions();}else toast('Error','error');}
 async function loadPayments(){try{allPayments=await api('/api/payments');renderPaymentSummary(allPayments);filterPayments();}catch(e){}}
 function renderPaymentSummary(list){var total=list.filter(p=>p.status==='succeeded').reduce((s,p)=>s+(parseInt(p.amount)||0),0);var success=list.filter(p=>p.status==='succeeded').length;var failed=list.filter(p=>p.status==='failed').length;var te=document.getElementById('pay-total');if(te)te.textContent=fmt(total);var se=document.getElementById('pay-success-count');if(se)se.textContent=success;var fe=document.getElementById('pay-fail-count');if(fe)fe.textContent=failed;var re=document.getElementById('pay-retry-count');if(re)re.textContent=failed;}
 function filterPayments(){
@@ -1255,33 +1247,19 @@ function filterPayments(){
   renderPayments(filtered);
 }
 var reasonLabels={'insufficient_funds':'Insufficient funds','card_declined':'Card declined','expired_card':'Card expired','incorrect_cvc':'Wrong CVC','lost_card':'Card reported lost','stolen_card':'Reported stolen','do_not_honor':'Bank declined','processing_error':'Processing error','fraudulent':'Fraud suspected','generic_decline':'Generic decline','no_such_customer':'Customer not found','authentication_required':'Auth required'};
-function isUnknownPayment(p){
-  var email=p.email||'';var name=p.name||'';
-  return email.indexOf('@stripe.local')!==-1||name.indexOf('pi_')===0||name.indexOf('external_')===0;
-}
 function renderPayments(list){
   var isViewer=localStorage.getItem('subloop_readonly')==='1';
   var tb=document.getElementById('payments-table');
   if(!list.length){tb.innerHTML='<tr><td colspan="8" class="empty">No payments found</td></tr>';return;}
   tb.innerHTML=list.map(function(p){
-    var unknown=isUnknownPayment(p);
     var shortReason=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'';
     var reasonHtml=shortReason?'<div style="font-size:12px;color:var(--red);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+p.failure_reason+'">'+shortReason+'</div>':'<span style="color:var(--muted);font-size:12px;">—</span>';
     var refHtml=buildRefCell(p.stripe_payment_intent);
-    var rowBg=p.status==='failed'||unknown?'background:rgba(248,113,113,0.04)':'';
-    var customerCell;
-    if(unknown){
-      customerCell='<div class="customer-cell"><div class="avatar" style="background:rgba(248,113,113,0.15);color:#dc2626;font-size:14px;">?</div><div><div style="font-size:12px;font-weight:500;color:var(--red);display:flex;align-items:center;gap:4px;">&#9888; No profile</div><div class="customer-email">External payment · no email collected</div></div></div>';
-    } else {
-      customerCell='<div class="customer-cell"><div class="avatar">'+initials(p.name)+'</div><div><div class="customer-name" style="font-size:12px;">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div></div></div>';
-    }
-    var actions='<div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">';
-    if(!isViewer&&!unknown&&p.status==='failed'){
-      actions+='<button class="btn btn-sm btn-success" onclick="retryPayment('+p.id+')">Retry</button>';
-    }
+    var actions='<div style="display:flex;gap:4px;align-items:center;">';
+    if(!isViewer&&p.status==='failed')actions+='<button class="btn btn-sm btn-success" onclick="retryPayment('+p.id+')">Retry</button>';
     actions+='<button class="btn btn-sm" onclick="openPaymentNote('+p.id+')" title="'+(p.note||'Add note')+'">'+(p.note?'📝 Note':'Note')+'</button>';
     actions+='</div>';
-    return '<tr style="'+rowBg+'"><td>'+customerCell+'</td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+cardBadge(p.card_brand,p.card_last4)+'</td><td>'+badge(p.status)+'</td><td>'+reasonHtml+'</td><td class="mono" style="font-size:12px;white-space:nowrap;">'+fmtDate(p.created_at)+'</td><td>'+refHtml+'</td><td>'+actions+'</td></tr>';
+    return '<tr style="'+(p.status==='failed'?'background:rgba(248,113,113,0.04);':'')+'"><td><div class="customer-cell"><div class="avatar">'+initials(p.name)+'</div><div><div class="customer-name" style="font-size:12px;">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div></div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+cardBadge(p.card_brand,p.card_last4)+'</td><td>'+badge(p.status)+'</td><td>'+reasonHtml+'</td><td class="mono" style="font-size:12px;white-space:nowrap;">'+fmtDate(p.created_at)+'</td><td>'+refHtml+'</td><td>'+actions+'</td></tr>';
   }).join('');
 }
 async function retryPayment(id){toast('Retrying…');try{const r=await api('/api/payments/'+id+'/retry',{method:'POST'});if(r.success){toast('✓ Succeeded');loadPayments();loadStats();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
