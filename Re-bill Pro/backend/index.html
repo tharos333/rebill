@@ -216,6 +216,101 @@ textarea{resize:vertical;min-height:60px}
   .platform-topbar-btn{font-size:11px;padding:0 8px}
 }
 
+
+/* ===== Shopify mode cleanup ===== */
+.nav-hidden-by-platform{display:none!important}
+.platform-switcher-topbar{
+  height:34px;
+  display:grid!important;
+  grid-template-columns:1fr 1fr;
+  gap:4px;
+  padding:3px;
+  border:1px solid var(--border2);
+  background:var(--surface2);
+  border-radius:8px;
+  min-width:150px;
+  flex-shrink:0;
+}
+.platform-topbar-btn{
+  border:0;
+  background:transparent;
+  color:var(--muted);
+  border-radius:6px;
+  padding:0 12px;
+  font-family:var(--sans);
+  font-size:12px;
+  font-weight:700;
+  cursor:pointer;
+}
+.platform-topbar-btn.active{
+  background:var(--accent);
+  color:#fff;
+}
+
+
+/* ===== Final placement: Stripe/Shopify footer switcher + Dark mode in Settings ===== */
+.platform-switcher-footer{
+  width:100%;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:4px;
+  padding:4px;
+  border:1px solid var(--border2);
+  background:var(--surface2);
+  border-radius:10px;
+  box-sizing:border-box;
+}
+.platform-footer-btn{
+  height:30px;
+  border:0;
+  background:transparent;
+  color:var(--muted);
+  border-radius:7px;
+  font-family:var(--sans);
+  font-size:12px;
+  font-weight:700;
+  cursor:pointer;
+  transition:all .15s ease;
+  text-align:center;
+}
+.platform-footer-btn:hover{
+  color:var(--text);
+}
+.platform-footer-btn.active{
+  background:var(--accent);
+  color:#fff;
+  box-shadow:0 6px 16px var(--accent-glow);
+}
+.theme-toggle-settings{
+  padding:8px 24px 10px;
+}
+.theme-toggle-settings .theme-toggle{
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  gap:10px;
+  padding:8px 0;
+  margin:0;
+  background:transparent;
+  border:0;
+  color:var(--muted);
+  font-family:var(--mono);
+  font-size:13px;
+  line-height:1;
+  cursor:pointer;
+}
+.theme-toggle-settings .theme-toggle:hover{
+  color:var(--text);
+}
+.theme-toggle-settings .toggle-track{
+  margin:0!important;
+  flex:0 0 auto;
+}
+.platform-switcher-topbar{
+  display:none!important;
+}
+
 </style>
 </head>
 <body>
@@ -264,13 +359,13 @@ textarea{resize:vertical;min-height:60px}
     <img id="sidebar-logo" src="https://i.ibb.co/xq0HVT9G/1.png" alt="Subloop" class="sidebar-logo-img">
   </div>
   <div style="flex:1;overflow-y:auto;overflow-x:hidden;">
-  <div class="nav-section">Main</div>
+  <div class="nav-section nav-stripe-section">Main</div>
   <button class="nav-item active" onclick="showPage('dashboard',this)">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Dashboard</button>
   <button class="nav-item" onclick="showPage('activity',this)">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Activity</button>
 
-  <div class="nav-section">Billing</div>
+  <div class="nav-section nav-stripe-section">Billing</div>
   <button class="nav-item" onclick="showPage('customers',this)">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Customers</button>
   <button class="nav-item" onclick="showPage('subscriptions',this)">
@@ -282,7 +377,7 @@ textarea{resize:vertical;min-height:60px}
   <button class="nav-item" onclick="showPage('accounts',this)">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>Stripe Accounts</button>
 
-  <div class="nav-section">Insights</div>
+  <div class="nav-section nav-stripe-section">Insights</div>
   <button class="nav-item" onclick="showPage('forecast',this)">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Forecast</button>
 
@@ -323,16 +418,25 @@ textarea{resize:vertical;min-height:60px}
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Security</button>
     <button class="nav-item" onclick="showPage('webhooks',this)">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 16.98h-5.99c-1.1 0-1.95.94-2.48 1.9A4 4 0 0 1 2 17c.01-.7.2-1.4.57-2"/><path d="m6 17 3.13-5.78c.53-.97.1-2.18-.5-3.1a4 4 0 1 1 6.89-4.06"/><path d="m12 6 3.13 5.73C15.66 12.7 16.9 13 18 13a4 4 0 0 1 0 8"/></svg>Webhook Logs</button>
+      <div class="theme-toggle-settings">
+        <button class="theme-toggle" onclick="toggleTheme()">
+      <div class="toggle-track"><div class="toggle-thumb"></div></div>
+      <span id="theme-label">Dark mode</span>
+    </button>
+      </div>
   </div>
 
   </div><!-- end scrollable nav -->
   <div style="flex-shrink:0;background:var(--surface);padding:18px 24px 16px;">
-    <button class="theme-toggle" onclick="toggleTheme()">
-      <div class="toggle-track"><div class="toggle-thumb"></div></div>
-      <span id="theme-label">Dark mode</span>
-    </button>
+    
     <div style="height:1px;background:var(--border);margin:14px -24px;"></div>
-    <div style="display:flex;align-items:center;font-size:11px;color:var(--muted);font-family:var(--mono);">
+    <div style="flex-shrink:0;background:var(--surface);padding:18px 24px 16px;">
+    <div class="platform-switcher-footer">
+      <button type="button" class="platform-footer-btn platform-btn-stripe active" onclick="setPlatformMode('stripe',true)">Stripe</button>
+      <button type="button" class="platform-footer-btn platform-btn-shopify" onclick="setPlatformMode('shopify',true)">Shopify</button>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;font-size:11px;color:var(--muted);font-family:var(--mono);">
       <span id="server-status">● loading...</span>
     </div>
   </div>
@@ -349,16 +453,6 @@ textarea{resize:vertical;min-height:60px}
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" style="position:absolute;left:9px;top:9px;pointer-events:none;"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         <div id="global-search-results" style="display:none;position:absolute;top:calc(100% + 6px);left:0;width:340px;background:var(--surface);border:1px solid var(--border2);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.3);z-index:200;max-height:320px;overflow-y:auto;"></div>
       </div>
-      <div class="platform-switcher-topbar">
-        <button type="button" class="platform-topbar-btn platform-btn-stripe active" onclick="setPlatformMode('stripe',true)">Stripe</button>
-        <button type="button" class="platform-topbar-btn platform-btn-shopify" onclick="setPlatformMode('shopify',true)">Shopify</button>
-      </div>
-      <button class="btn btn-disconnect" onclick="disconnectApp()" title="Disconnect">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-        Disconnect
-      </button>
-    </div>
-  </div>
   <div class="stats-grid">
     <div class="stat-card"><div class="stat-label">MRR</div><div class="stat-value" id="stat-mrr">—</div><div class="stat-sub">monthly recurring</div></div>
     <div class="stat-card"><div class="stat-label">Active subs</div><div class="stat-value" id="stat-subs">—</div><div class="stat-sub">subscriptions</div></div>
@@ -518,14 +612,6 @@ textarea{resize:vertical;min-height:60px}
   <div class="page-header">
     <div><h2>Shopify Dashboard</h2><p>External Shopify app overview</p></div>
     <div class="page-header-actions">
-      <div class="platform-switcher-topbar">
-        <button type="button" class="platform-topbar-btn platform-btn-stripe" onclick="setPlatformMode('stripe',true)">Stripe</button>
-        <button type="button" class="platform-topbar-btn platform-btn-shopify active" onclick="setPlatformMode('shopify',true)">Shopify</button>
-      </div>
-      <button class="btn" onclick="syncAllShopifyStores()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/></svg>Sync all stores</button>
-      <button class="btn btn-primary" onclick="openModal('add-shopify-store-modal')">Add Shopify store</button>
-    </div>
-  </div>
   <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);">
     <div class="stat-card"><div class="stat-label">Stores</div><div class="stat-value" id="shopify-stat-stores">0</div><div class="stat-sub">connected stores</div></div>
     <div class="stat-card"><div class="stat-label">Orders</div><div class="stat-value" id="shopify-stat-orders">0</div><div class="stat-sub">synced orders</div></div>
@@ -1088,6 +1174,7 @@ function setPlatformMode(mode,switchPage){
   document.querySelectorAll('.platform-btn-stripe').forEach(function(btn){btn.classList.toggle('active',mode==='stripe');});
   document.querySelectorAll('.platform-btn-shopify').forEach(function(btn){btn.classList.toggle('active',mode==='shopify');});
   document.querySelectorAll('.nav-shopify').forEach(function(el){el.classList.toggle('nav-hidden-by-platform',mode!=='shopify');});
+  document.querySelectorAll('.nav-stripe-section').forEach(function(el){el.classList.toggle('nav-hidden-by-platform',mode!=='stripe');});
   document.querySelectorAll('.nav-item').forEach(function(btn){
     var page=getPageNameFromNav(btn);
     if(STRIPE_MODE_PAGES.indexOf(page)>=0)btn.classList.toggle('nav-hidden-by-platform',mode!=='stripe');

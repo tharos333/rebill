@@ -1319,7 +1319,76 @@ async function shopifyApi(store, path, options={}){
   }
   return data;
 }
+
+async function ensureShopifyTables(){
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS shopify_stores (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      domain TEXT UNIQUE NOT NULL,
+      access_token TEXT NOT NULL,
+      status TEXT DEFAULT 'connected',
+      last_sync_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS shopify_customers (
+      id SERIAL PRIMARY KEY,
+      shopify_store_id INT REFERENCES shopify_stores(id) ON DELETE CASCADE,
+      shopify_customer_id TEXT NOT NULL,
+      email TEXT,
+      name TEXT,
+      phone TEXT,
+      orders_count INT DEFAULT 0,
+      total_spent_cents BIGINT DEFAULT 0,
+      currency TEXT DEFAULT 'usd',
+      created_at TIMESTAMPTZ,
+      updated_at TIMESTAMPTZ,
+      UNIQUE(shopify_store_id, shopify_customer_id)
+    );
+    CREATE TABLE IF NOT EXISTS shopify_orders (
+      id SERIAL PRIMARY KEY,
+      shopify_store_id INT REFERENCES shopify_stores(id) ON DELETE CASCADE,
+      shopify_order_id TEXT NOT NULL,
+      order_name TEXT,
+      customer_id TEXT,
+      customer_email TEXT,
+      customer_name TEXT,
+      total_cents BIGINT DEFAULT 0,
+      currency TEXT DEFAULT 'usd',
+      financial_status TEXT,
+      fulfillment_status TEXT,
+      processed_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      raw JSONB,
+      UNIQUE(shopify_store_id, shopify_order_id)
+    );
+    CREATE TABLE IF NOT EXISTS shopify_subscriptions (
+      id SERIAL PRIMARY KEY,
+      shopify_store_id INT REFERENCES shopify_stores(id) ON DELETE CASCADE,
+      shopify_contract_id TEXT NOT NULL,
+      customer_email TEXT,
+      customer_name TEXT,
+      status TEXT,
+      next_billing_date TIMESTAMPTZ,
+      amount_cents BIGINT DEFAULT 0,
+      currency TEXT DEFAULT 'usd',
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      raw JSONB,
+      UNIQUE(shopify_store_id, shopify_contract_id)
+    );
+    CREATE TABLE IF NOT EXISTS shopify_webhook_logs (
+      id SERIAL PRIMARY KEY,
+      shopify_store_id INT REFERENCES shopify_stores(id) ON DELETE SET NULL,
+      topic TEXT,
+      status TEXT DEFAULT 'ok',
+      payload JSONB,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+  `);
+}
+
 async function syncShopifyStore(storeId){
+  await ensureShopifyTables();
   const storeRes = await pool.query('SELECT * FROM shopify_stores WHERE id=$1', [storeId]);
   const store = storeRes.rows[0];
   if(!store) throw new Error('Shopify store not found');
@@ -1389,6 +1458,7 @@ async function syncShopifyStore(storeId){
 
 app.get('/api/shopify/stores', async (req,res)=>{
   try{
+    await ensureShopifyTables();
     const r = await pool.query(`SELECT id,name,domain,status,last_sync_at,created_at FROM shopify_stores ORDER BY created_at DESC`);
     res.json(r.rows);
   }catch(e){ res.status(500).json({ error:e.message }); }
@@ -1396,6 +1466,7 @@ app.get('/api/shopify/stores', async (req,res)=>{
 
 app.post('/api/shopify/stores', async (req,res)=>{
   try{
+    await ensureShopifyTables();
     const name = String(req.body.name || '').trim() || 'Shopify Store';
     const domain = cleanShopifyDomain(req.body.domain);
     const accessToken = String(req.body.access_token || req.body.token || '').trim();
@@ -1424,6 +1495,7 @@ app.post('/api/shopify/stores', async (req,res)=>{
 
 app.delete('/api/shopify/stores/:id', async (req,res)=>{
   try{
+    await ensureShopifyTables();
     await pool.query('DELETE FROM shopify_stores WHERE id=$1', [req.params.id]);
     res.json({ ok:true });
   }catch(e){ res.status(500).json({ error:e.message }); }
@@ -1431,6 +1503,7 @@ app.delete('/api/shopify/stores/:id', async (req,res)=>{
 
 app.post('/api/shopify/stores/:id/sync', async (req,res)=>{
   try{
+    await ensureShopifyTables();
     const result = await syncShopifyStore(req.params.id);
     res.json({ ok:true, result });
   }catch(e){
@@ -1441,6 +1514,7 @@ app.post('/api/shopify/stores/:id/sync', async (req,res)=>{
 
 app.post('/api/shopify/sync-all', async (req,res)=>{
   try{
+    await ensureShopifyTables();
     const stores = await pool.query('SELECT id FROM shopify_stores ORDER BY created_at DESC');
     const results = [];
     for(const s of stores.rows){
@@ -1453,8 +1527,9 @@ app.post('/api/shopify/sync-all', async (req,res)=>{
 
 app.get('/api/shopify/dashboard', async (req,res)=>{
   try{
+    await ensureShopifyTables();
     const stores = await pool.query('SELECT COUNT(*)::int count FROM shopify_stores');
-    const orders = await pool.query(`SELECT COUNT(*)::int count, COALESCE(SUM(CASE WHEN financial_status='paid' THEN total_cents ELSE 0 END),0)::int revenue FROM shopify_orders`);
+    const orders = await pool.query(`SELECT COUNT(*)::int count, COALESCE(SUM(CASE WHEN financial_status='paid' THEN total_cents ELSE 0 END),0)::bigint revenue FROM shopify_orders`);
     const customers = await pool.query('SELECT COUNT(*)::int count FROM shopify_customers');
     const recent = await pool.query(`
       SELECT o.*, s.name store_name FROM shopify_orders o
@@ -1464,15 +1539,19 @@ app.get('/api/shopify/dashboard', async (req,res)=>{
     res.json({
       stores: stores.rows[0].count,
       orders: orders.rows[0].count,
-      revenue_cents: orders.rows[0].revenue,
+      revenue_cents: Number(orders.rows[0].revenue || 0),
       customers: customers.rows[0].count,
       recent_orders: recent.rows
     });
-  }catch(e){ res.status(500).json({ error:e.message }); }
+  }catch(e){
+    console.error('Shopify dashboard error:', e.message);
+    res.json({ stores:0, orders:0, revenue_cents:0, customers:0, recent_orders:[], warning:e.message });
+  }
 });
 
 app.get('/api/shopify/orders', async (req,res)=>{
   try{
+    await ensureShopifyTables();
     const r = await pool.query(`
       SELECT o.*, s.name store_name FROM shopify_orders o
       LEFT JOIN shopify_stores s ON s.id=o.shopify_store_id
@@ -1484,6 +1563,7 @@ app.get('/api/shopify/orders', async (req,res)=>{
 
 app.get('/api/shopify/customers', async (req,res)=>{
   try{
+    await ensureShopifyTables();
     const r = await pool.query(`
       SELECT c.*, s.name store_name FROM shopify_customers c
       LEFT JOIN shopify_stores s ON s.id=c.shopify_store_id
@@ -1495,6 +1575,7 @@ app.get('/api/shopify/customers', async (req,res)=>{
 
 app.get('/api/shopify/subscriptions', async (req,res)=>{
   try{
+    await ensureShopifyTables();
     const r = await pool.query(`
       SELECT sc.*, s.name store_name FROM shopify_subscriptions sc
       LEFT JOIN shopify_stores s ON s.id=sc.shopify_store_id
@@ -1506,6 +1587,7 @@ app.get('/api/shopify/subscriptions', async (req,res)=>{
 
 app.get('/api/shopify/webhooks', async (req,res)=>{
   try{
+    await ensureShopifyTables();
     const r = await pool.query(`
       SELECT w.*, s.name store_name FROM shopify_webhook_logs w
       LEFT JOIN shopify_stores s ON s.id=w.shopify_store_id
