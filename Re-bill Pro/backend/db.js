@@ -80,70 +80,6 @@ async function init() {
       payload JSONB,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
-
-    CREATE TABLE IF NOT EXISTS shopify_stores (
-      id SERIAL PRIMARY KEY,
-      name TEXT NOT NULL,
-      domain TEXT UNIQUE NOT NULL,
-      access_token TEXT NOT NULL,
-      status TEXT DEFAULT 'connected',
-      last_sync_at TIMESTAMPTZ,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    );
-    CREATE TABLE IF NOT EXISTS shopify_customers (
-      id SERIAL PRIMARY KEY,
-      shopify_store_id INT REFERENCES shopify_stores(id) ON DELETE CASCADE,
-      shopify_customer_id TEXT NOT NULL,
-      email TEXT,
-      name TEXT,
-      phone TEXT,
-      orders_count INT DEFAULT 0,
-      total_spent_cents INT DEFAULT 0,
-      currency TEXT DEFAULT 'usd',
-      created_at TIMESTAMPTZ,
-      updated_at TIMESTAMPTZ,
-      UNIQUE(shopify_store_id, shopify_customer_id)
-    );
-    CREATE TABLE IF NOT EXISTS shopify_orders (
-      id SERIAL PRIMARY KEY,
-      shopify_store_id INT REFERENCES shopify_stores(id) ON DELETE CASCADE,
-      shopify_order_id TEXT NOT NULL,
-      order_name TEXT,
-      customer_id TEXT,
-      customer_email TEXT,
-      customer_name TEXT,
-      total_cents INT DEFAULT 0,
-      currency TEXT DEFAULT 'usd',
-      financial_status TEXT,
-      fulfillment_status TEXT,
-      processed_at TIMESTAMPTZ,
-      created_at TIMESTAMPTZ DEFAULT NOW(),
-      raw JSONB,
-      UNIQUE(shopify_store_id, shopify_order_id)
-    );
-    CREATE TABLE IF NOT EXISTS shopify_subscriptions (
-      id SERIAL PRIMARY KEY,
-      shopify_store_id INT REFERENCES shopify_stores(id) ON DELETE CASCADE,
-      shopify_contract_id TEXT NOT NULL,
-      customer_email TEXT,
-      customer_name TEXT,
-      status TEXT,
-      next_billing_date TIMESTAMPTZ,
-      amount_cents INT DEFAULT 0,
-      currency TEXT DEFAULT 'usd',
-      created_at TIMESTAMPTZ DEFAULT NOW(),
-      raw JSONB,
-      UNIQUE(shopify_store_id, shopify_contract_id)
-    );
-    CREATE TABLE IF NOT EXISTS shopify_webhook_logs (
-      id SERIAL PRIMARY KEY,
-      shopify_store_id INT REFERENCES shopify_stores(id) ON DELETE SET NULL,
-      topic TEXT,
-      status TEXT DEFAULT 'ok',
-      payload JSONB,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    );
-
     CREATE TABLE IF NOT EXISTS security (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL,
@@ -178,10 +114,6 @@ async function init() {
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_exp_year INT',
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_country TEXT',
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_funding TEXT',
-    'ALTER TABLE shopify_stores ADD COLUMN IF NOT EXISTS last_sync_at TIMESTAMPTZ',
-    'ALTER TABLE shopify_stores ADD COLUMN IF NOT EXISTS status TEXT DEFAULT \'connected\'',
-    'ALTER TABLE shopify_orders ADD COLUMN IF NOT EXISTS raw JSONB',
-    'ALTER TABLE shopify_subscriptions ADD COLUMN IF NOT EXISTS raw JSONB',
   ];
   for (const m of migrations) await pool.query(m).catch(() => {});
   const adminCount = await pool.query('SELECT COUNT(*) FROM admin_users');
