@@ -1173,7 +1173,17 @@ async function loadRecentPayments(){
   try{
     const pmts=await api('/api/payments');const tb=document.getElementById('recent-payments-table');
     if(!pmts.length){tb.innerHTML='<tr><td colspan="5" class="empty">No payments yet</td></tr>';return;}
-    tb.innerHTML=pmts.slice(0,8).map(p=>'<tr><td><div class="customer-cell"><div class="avatar">'+initials(p.name)+'</div><div><div class="customer-name">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div></div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+cardBadge(p.card_brand,p.card_last4)+'</td><td>'+badge(p.status)+'</td><td class="mono">'+fmtDate(p.created_at)+'</td></tr>').join('');
+    tb.innerHTML=pmts.slice(0,8).map(function(p){
+      var isGhost=((p.email||'').toLowerCase().endsWith('@stripe.local')||(p.name||'').startsWith('pi_')||(p.name||'').startsWith('external_'));
+      var rowBg=(p.status==='failed'||isGhost)?'background:rgba(248,113,113,0.04);':'';
+      var avatarHtml=isGhost
+        ?'<div class="avatar" style="background:rgba(248,113,113,0.15);border-color:rgba(248,113,113,0.4);color:var(--red);">?</div>'
+        :'<div class="avatar">'+initials(p.name)+'</div>';
+      var customerHtml=isGhost
+        ?'<div class="customer-name" style="color:var(--red);">⚠ No profile</div><div class="customer-email">External payment · no email collected</div>'
+        :'<div class="customer-name">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div>';
+      return '<tr style="'+rowBg+'"><td><div class="customer-cell">'+avatarHtml+'<div>'+customerHtml+'</div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+cardBadge(p.card_brand,p.card_last4)+'</td><td>'+badge(p.status)+'</td><td class="mono">'+fmtDate(p.created_at)+'</td></tr>';
+    }).join('');
   }catch(e){}
 }
 async function loadActivity(){
@@ -1252,14 +1262,22 @@ function renderPayments(list){
   var tb=document.getElementById('payments-table');
   if(!list.length){tb.innerHTML='<tr><td colspan="8" class="empty">No payments found</td></tr>';return;}
   tb.innerHTML=list.map(function(p){
+    var isGhost=((p.email||'').toLowerCase().endsWith('@stripe.local')||(p.name||'').startsWith('pi_')||(p.name||'').startsWith('external_'));
     var shortReason=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'';
     var reasonHtml=shortReason?'<div style="font-size:12px;color:var(--red);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+p.failure_reason+'">'+shortReason+'</div>':'<span style="color:var(--muted);font-size:12px;">—</span>';
     var refHtml=buildRefCell(p.stripe_payment_intent);
     var actions='<div style="display:flex;gap:4px;align-items:center;">';
-    if(!isViewer&&p.status==='failed')actions+='<button class="btn btn-sm btn-success" onclick="retryPayment('+p.id+')">Retry</button>';
+    if(!isViewer&&p.status==='failed'&&!isGhost)actions+='<button class="btn btn-sm btn-success" onclick="retryPayment('+p.id+')">Retry</button>';
     actions+='<button class="btn btn-sm" onclick="openPaymentNote('+p.id+')" title="'+(p.note||'Add note')+'">'+(p.note?'📝 Note':'Note')+'</button>';
     actions+='</div>';
-    return '<tr style="'+(p.status==='failed'?'background:rgba(248,113,113,0.04);':'')+'"><td><div class="customer-cell"><div class="avatar">'+initials(p.name)+'</div><div><div class="customer-name" style="font-size:12px;">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div></div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+cardBadge(p.card_brand,p.card_last4)+'</td><td>'+badge(p.status)+'</td><td>'+reasonHtml+'</td><td class="mono" style="font-size:12px;white-space:nowrap;">'+fmtDate(p.created_at)+'</td><td>'+refHtml+'</td><td>'+actions+'</td></tr>';
+    var rowBg=(p.status==='failed'||isGhost)?'background:rgba(248,113,113,0.04);':'';
+    var avatarHtml=isGhost
+      ?'<div class="avatar" style="background:rgba(248,113,113,0.15);border-color:rgba(248,113,113,0.4);color:var(--red);">?</div>'
+      :'<div class="avatar">'+initials(p.name)+'</div>';
+    var customerHtml=isGhost
+      ?'<div class="customer-name" style="font-size:12px;color:var(--red);">⚠ No profile</div><div class="customer-email">External payment · no email collected</div>'
+      :'<div class="customer-name" style="font-size:12px;">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div>';
+    return '<tr style="'+rowBg+'"><td><div class="customer-cell">'+avatarHtml+'<div>'+customerHtml+'</div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+cardBadge(p.card_brand,p.card_last4)+'</td><td>'+badge(p.status)+'</td><td>'+reasonHtml+'</td><td class="mono" style="font-size:12px;white-space:nowrap;">'+fmtDate(p.created_at)+'</td><td>'+refHtml+'</td><td>'+actions+'</td></tr>';
   }).join('');
 }
 async function retryPayment(id){toast('Retrying…');try{const r=await api('/api/payments/'+id+'/retry',{method:'POST'});if(r.success){toast('✓ Succeeded');loadPayments();loadStats();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
