@@ -412,6 +412,7 @@ textarea{resize:vertical;min-height:60px}
     <div><h2>Payments</h2><p>Full payment history</p></div>
     <button class="btn" onclick="window.location='/api/payments/export'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export CSV</button>
   </div>
+  <div id="no-profile-banner" style="display:none;align-items:center;gap:8px;background:rgba(234,158,23,0.08);border:1px solid rgba(234,158,23,0.25);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#92400e;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span><strong>No profile</strong> rows are payments received without a customer identity — usually from an external Stripe payment link where no email was collected. They still count toward revenue but cannot be retried automatically.</span></div>
   <div class="card"><div class="scrollable"><table>
     <thead><tr><th>Customer</th><th>Amount</th><th>Card</th><th>Status</th><th>Failure Reason</th><th>Date</th><th>Reference</th><th>Action</th></tr></thead>
     <tbody id="payments-table"><tr><td colspan="8" class="empty">Loading...</td></tr></tbody>
@@ -1173,7 +1174,13 @@ async function loadRecentPayments(){
   try{
     const pmts=await api('/api/payments');const tb=document.getElementById('recent-payments-table');
     if(!pmts.length){tb.innerHTML='<tr><td colspan="5" class="empty">No payments yet</td></tr>';return;}
-    tb.innerHTML=pmts.slice(0,8).map(p=>'<tr><td><div class="customer-cell"><div class="avatar">'+initials(p.name)+'</div><div><div class="customer-name">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div></div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+cardBadge(p.card_brand,p.card_last4)+'</td><td>'+badge(p.status)+'</td><td class="mono">'+fmtDate(p.created_at)+'</td></tr>').join('');
+    tb.innerHTML=pmts.slice(0,8).map(function(p){
+      var unk=isUnknownPayment(p);
+      var custCell=unk
+        ?'<div class="customer-cell"><div class="avatar" style="background:rgba(234,158,23,0.15);color:#b45309;font-size:14px;">?</div><div><div class="customer-name" style="color:#b45309;display:flex;align-items:center;gap:3px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>No profile</div><div class="customer-email">External payment</div></div></div>'
+        :'<div class="customer-cell"><div class="avatar">'+initials(p.name)+'</div><div><div class="customer-name">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div></div></div>';
+      return '<tr style="'+(unk?'background:rgba(234,158,23,0.05);':'')+'">'+'<td>'+custCell+'</td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+cardBadge(p.card_brand,p.card_last4)+'</td><td>'+badge(p.status)+'</td><td class="mono">'+fmtDate(p.created_at)+'</td></tr>';
+    }).join('');
   }catch(e){}
 }
 async function loadActivity(){
@@ -1247,22 +1254,42 @@ function filterPayments(){
   renderPayments(filtered);
 }
 var reasonLabels={'insufficient_funds':'Insufficient funds','card_declined':'Card declined','expired_card':'Card expired','incorrect_cvc':'Wrong CVC','lost_card':'Card reported lost','stolen_card':'Reported stolen','do_not_honor':'Bank declined','processing_error':'Processing error','fraudulent':'Fraud suspected','generic_decline':'Generic decline','no_such_customer':'Customer not found','authentication_required':'Auth required'};
+function isUnknownPayment(p){
+  var email=p.email||'';var name=p.name||'';
+  return email.indexOf('@stripe.local')!==-1||name.indexOf('pi_')===0||name.indexOf('external_')===0;
+}
 function renderPayments(list){
   var isViewer=localStorage.getItem('subloop_readonly')==='1';
   var tb=document.getElementById('payments-table');
   if(!list.length){tb.innerHTML='<tr><td colspan="8" class="empty">No payments found</td></tr>';return;}
+  updateNoProfileBanner(list);
   tb.innerHTML=list.map(function(p){
+    var unknown=isUnknownPayment(p);
     var shortReason=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'';
     var reasonHtml=shortReason?'<div style="font-size:12px;color:var(--red);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+p.failure_reason+'">'+shortReason+'</div>':'<span style="color:var(--muted);font-size:12px;">—</span>';
     var refHtml=buildRefCell(p.stripe_payment_intent);
-    var actions='<div style="display:flex;gap:4px;align-items:center;">';
-    if(!isViewer&&p.status==='failed')actions+='<button class="btn btn-sm btn-success" onclick="retryPayment('+p.id+')">Retry</button>';
+    var rowBg=unknown?'background:rgba(234,158,23,0.05);':p.status==='failed'?'background:rgba(248,113,113,0.04);':'';
+    var customerCell;
+    if(unknown){
+      customerCell='<div class="customer-cell"><div class="avatar" style="background:rgba(234,158,23,0.15);color:#b45309;font-size:14px;">?</div><div><div style="font-size:12px;font-weight:500;color:#b45309;display:flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>No profile</div><div class="customer-email" title="External Stripe payment — no customer email was collected">External payment · no email collected</div></div></div>';
+    } else {
+      customerCell='<div class="customer-cell"><div class="avatar">'+initials(p.name)+'</div><div><div class="customer-name" style="font-size:12px;">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div></div></div>';
+    }
+    var actions='<div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">';
+    if(!isViewer){
+      if(unknown){
+        actions+='<button class="btn btn-sm" style="color:#b45309;border-color:rgba(234,158,23,0.5);" onclick="alert(\'To link this payment, find the matching customer and merge manually in Stripe dashboard.\')">Link customer</button>';
+      } else if(p.status==='failed'){
+        actions+='<button class="btn btn-sm btn-success" onclick="retryPayment('+p.id+')">Retry</button>';
+      }
+    }
     actions+='<button class="btn btn-sm" onclick="openPaymentNote('+p.id+')" title="'+(p.note||'Add note')+'">'+(p.note?'📝 Note':'Note')+'</button>';
     actions+='</div>';
-    return '<tr style="'+(p.status==='failed'?'background:rgba(248,113,113,0.04);':'')+'"><td><div class="customer-cell"><div class="avatar">'+initials(p.name)+'</div><div><div class="customer-name" style="font-size:12px;">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div></div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+cardBadge(p.card_brand,p.card_last4)+'</td><td>'+badge(p.status)+'</td><td>'+reasonHtml+'</td><td class="mono" style="font-size:12px;white-space:nowrap;">'+fmtDate(p.created_at)+'</td><td>'+refHtml+'</td><td>'+actions+'</td></tr>';
+    return '<tr style="'+rowBg+'"><td>'+customerCell+'</td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+cardBadge(p.card_brand,p.card_last4)+'</td><td>'+badge(p.status)+'</td><td>'+reasonHtml+'</td><td class="mono" style="font-size:12px;white-space:nowrap;">'+fmtDate(p.created_at)+'</td><td>'+refHtml+'</td><td>'+actions+'</td></tr>';
   }).join('');
 }
 async function retryPayment(id){toast('Retrying…');try{const r=await api('/api/payments/'+id+'/retry',{method:'POST'});if(r.success){toast('✓ Succeeded');loadPayments();loadStats();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
+function updateNoProfileBanner(list){var banner=document.getElementById('no-profile-banner');if(!banner)return;var hasUnknown=list.some(function(p){return isUnknownPayment(p);});banner.style.display=hasUnknown?'flex':'none';}
 async function loadWebhooks(){try{const list=await api('/api/webhook-logs');const tb=document.getElementById('webhook-table');if(!list.length){tb.innerHTML='<tr><td colspan="4" class="empty">No webhook events yet</td></tr>';return;}tb.innerHTML=list.map(w=>'<tr><td class="mono" style="font-size:12px;">'+w.event_type+'</td><td style="font-size:12px;color:var(--muted);">'+(w.account_name||'—')+'</td><td>'+badge(w.status||'ok')+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+fmtTime(w.created_at)+'</td></tr>').join('');}catch(e){}}
 async function loadSettings(){try{appSettings=await api('/api/settings');document.getElementById('setting-dunning').checked=appSettings.dunning_enabled==='true';document.getElementById('setting-dunning-days').value=appSettings.dunning_days||'3,7,14';document.getElementById('setting-auto-resume').checked=appSettings.pause_auto_resume==='true';document.getElementById('setting-proration').checked=appSettings.proration_enabled==='true';document.getElementById('setting-webhook-logs').checked=appSettings.webhook_logs_enabled==='true';}catch(e){}}
 async function saveSetting(key,value){await api('/api/settings',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({key,value:String(value)})});appSettings[key]=String(value);toast('✓ Setting saved');}
