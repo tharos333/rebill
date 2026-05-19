@@ -1177,7 +1177,7 @@ async function loadRecentPayments(){
       var isGhost=((p.email||'').toLowerCase().endsWith('@stripe.local')||(p.name||'').startsWith('pi_')||(p.name||'').startsWith('external_'));
       var rowBg=(p.status==='failed'||isGhost)?'background:rgba(248,113,113,0.04);':'';
       var avatarHtml=isGhost
-        ?'<div class="avatar" style="background:rgba(248,113,113,0.15);border-color:rgba(248,113,113,0.4);color:var(--red);">?</div>'
+        ?'<div class="avatar" style="background:rgba(248,113,113,0.15);border-color:rgba(248,113,113,0.4);color:var(--red);"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><line x1="3" y1="3" x2="21" y2="21"/></svg></div>'
         :'<div class="avatar">'+initials(p.name)+'</div>';
       var customerHtml=isGhost
         ?'<div class="customer-name" style="color:var(--red);">⚠ No profile</div><div class="customer-email">External payment · no email collected</div>'
@@ -1272,7 +1272,7 @@ function renderPayments(list){
     actions+='</div>';
     var rowBg=(p.status==='failed'||isGhost)?'background:rgba(248,113,113,0.04);':'';
     var avatarHtml=isGhost
-      ?'<div class="avatar" style="background:rgba(248,113,113,0.15);border-color:rgba(248,113,113,0.4);color:var(--red);">?</div>'
+      ?'<div class="avatar" style="background:rgba(248,113,113,0.15);border-color:rgba(248,113,113,0.4);color:var(--red);"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><line x1="3" y1="3" x2="21" y2="21"/></svg></div>'
       :'<div class="avatar">'+initials(p.name)+'</div>';
     var customerHtml=isGhost
       ?'<div class="customer-name" style="font-size:12px;color:var(--red);">⚠ No profile</div><div class="customer-email">External payment · no email collected</div>'
