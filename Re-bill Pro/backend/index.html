@@ -178,20 +178,32 @@ textarea{resize:vertical;min-height:60px}
   #best-table .customer-cell{align-items:center;}
   .payment-card{align-items:center;}
 
-/* Payments v2 operations view */
-.payments-shell{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;align-items:start}
-.payments-main-card{background:linear-gradient(180deg,rgba(255,255,255,0.018),rgba(255,255,255,0.008)),var(--surface);border:1px solid var(--border);border-radius:13px;overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,0.22)}
-.payments-toolbar{display:grid;grid-template-columns:auto minmax(190px,240px) minmax(190px,260px) minmax(220px,1fr) auto;gap:10px;padding:16px;border-bottom:1px solid var(--border);align-items:center}
-.pay-status-tabs{display:flex;border:1px solid var(--border2);border-radius:9px;overflow:hidden;background:var(--surface2)}
-.pay-status-tab{height:38px;padding:0 13px;border:0;border-right:1px solid var(--border);background:transparent;color:var(--muted);font:600 12px var(--sans);cursor:pointer;display:flex;align-items:center;gap:8px}
-.pay-status-tab:last-child{border-right:0}.pay-status-tab:hover{color:var(--text)}.pay-status-tab.active{color:#fff;background:var(--accent-glow);box-shadow:inset 0 0 0 1px rgba(108,99,255,.5)}
-.pay-status-tab .count{font:500 11px var(--mono);background:rgba(255,255,255,.08);border:1px solid var(--border);border-radius:6px;padding:2px 5px;color:var(--muted)}
-.pay-control{height:38px;position:relative}.pay-control input,.pay-control select{height:38px;border-radius:8px;padding-left:34px;background:rgba(255,255,255,0.025);font-size:12px}.pay-control select{appearance:none;padding-right:30px}.pay-control svg{position:absolute;left:11px;top:12px;color:var(--muted);pointer-events:none}.pay-control .chev{left:auto;right:10px}.pay-search input{padding-right:40px}.kbd{position:absolute;right:10px;top:9px;border:1px solid var(--border2);background:var(--surface2);border-radius:5px;padding:1px 5px;font:600 10px var(--mono);color:var(--muted)}
-.payments-table-wrap{overflow:auto;min-height:600px}.payments-v2-table th{padding:13px 16px}.payments-v2-table td{padding:13px 16px;vertical-align:middle}.payments-v2-table tbody tr{cursor:pointer;transition:background .15s,box-shadow .15s}.payments-v2-table tbody tr:hover td{background:rgba(108,99,255,.05)}.payments-v2-table tbody tr.selected td{background:linear-gradient(90deg,rgba(108,99,255,.18),rgba(108,99,255,.06));box-shadow:inset 0 1px rgba(108,99,255,.45),inset 0 -1px rgba(108,99,255,.45)}.payments-v2-table tbody tr.selected td:first-child{box-shadow:inset 1px 0 rgba(108,99,255,.8),inset 0 1px rgba(108,99,255,.45),inset 0 -1px rgba(108,99,255,.45)}
-.payment-avatar{width:30px;height:30px;border-radius:7px;background:var(--accent-glow);border:1px solid rgba(108,99,255,.42);display:flex;align-items:center;justify-content:center;font:700 10.5px var(--mono);color:var(--accent);flex:0 0 auto}.payment-avatar.ghost{background:rgba(248,113,113,.12);border-color:rgba(248,113,113,.38);color:var(--red)}
-.pay-customer-name{font-size:13px;font-weight:700;letter-spacing:-.1px}.pay-customer-email{font:500 11px var(--mono);color:var(--muted);margin-top:2px}.payments-v2-table .payment-card{gap:7px}.payments-v2-table .payment-img,.detail-panel .payment-img{width:32px;height:21px}.payments-v2-table .btn-sm{height:25px;border-radius:7px;padding:0 10px;font-size:11px}.payment-date-main{font:600 12px var(--sans);white-space:nowrap}.payment-date-sub{font:500 10px var(--mono);color:var(--muted);margin-top:1px}.payments-footer{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-top:1px solid var(--border);color:var(--muted);font:500 11px var(--mono)}.pager{display:flex;align-items:center;gap:8px}.pager .btn{width:32px;height:32px;padding:0;justify-content:center}.per-page-select{width:96px;height:32px;padding:0 10px;font-size:11px}
-.detail-panel{background:linear-gradient(180deg,rgba(96,165,250,.045),rgba(255,255,255,.008)),var(--surface);border:1px solid var(--border2);border-radius:13px;min-height:600px;position:sticky;top:20px;overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,.25)}.detail-empty{height:600px;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--muted);font:500 12px var(--mono);padding:26px}.detail-head{padding:20px 18px 17px;border-bottom:1px solid var(--border)}.detail-close{float:right;background:none;border:0;color:var(--muted);font-size:24px;line-height:1;cursor:pointer}.detail-name{font-size:18px;font-weight:700;margin-top:18px}.detail-amount{font-size:24px;font-weight:700;margin-top:9px;letter-spacing:-.4px}.detail-time{font:500 11px var(--mono);color:var(--muted);margin-top:8px}.detail-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:18px}.detail-actions.single{grid-template-columns:1fr}.detail-body{padding:16px 18px 20px;display:flex;flex-direction:column;gap:18px}.detail-section-title{font-size:13px;font-weight:700;margin-bottom:10px}.detail-box{border:1px solid var(--border);border-radius:9px;background:rgba(255,255,255,.015);overflow:hidden}.detail-row{display:grid;grid-template-columns:105px minmax(0,1fr) 20px;gap:8px;padding:8px 10px;border-bottom:1px solid var(--border);align-items:center}.detail-row:last-child{border-bottom:0}.detail-label{font-size:11px;color:var(--muted)}.detail-value{font:500 11px var(--mono);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.copy-mini{border:0;background:transparent;color:var(--muted);cursor:pointer;padding:2px}.note-box{min-height:72px;border:1px solid var(--border);background:rgba(255,255,255,.015);border-radius:9px;padding:11px;color:var(--muted);font-size:12px;line-height:1.5}
-@media(max-width:1240px){.payments-shell{grid-template-columns:1fr}.detail-panel{position:relative;top:0}.payments-toolbar{grid-template-columns:1fr 1fr}.pay-status-tabs{grid-column:1/-1}.pay-search{grid-column:1/-1}}
+/* Payments page remake */
+.payments-shell{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start;transition:grid-template-columns .18s ease}
+.payments-shell.detail-open{grid-template-columns:minmax(760px,1fr) 360px}
+.payment-filters{display:flex;align-items:center;gap:10px;flex-wrap:nowrap;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:13px;margin-bottom:12px;overflow:visible;width:100%;box-sizing:border-box}
+.filter-tabs{display:flex;gap:6px;align-items:center;flex-wrap:nowrap;flex:0 0 auto}
+.pay-filter-tab{height:38px;display:inline-flex;align-items:center;gap:7px;padding:0 12px;border-radius:9px;border:1px solid var(--border2);background:var(--surface2);color:var(--muted);font-size:12px;font-weight:700;font-family:var(--sans);cursor:pointer;transition:all .15s;white-space:nowrap;flex:0 0 auto}
+.pay-filter-tab.active{border-color:var(--accent);background:var(--accent-glow);color:var(--text);box-shadow:0 0 0 1px rgba(108,99,255,.15) inset}
+.pay-filter-tab .count{font-family:var(--mono);font-size:10px;color:var(--muted);background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:6px;padding:2px 6px}
+.pay-filter-tab.success{color:var(--green)}.pay-filter-tab.failed{color:var(--red)}.pay-filter-tab.active.success,.pay-filter-tab.active.failed{color:var(--text)}
+.pay-filter-control{height:38px;background:var(--surface2);border:1px solid var(--border2);border-radius:9px;color:var(--text);padding:0 12px;font-size:12px;font-family:var(--sans);min-width:0}
+.pay-filter-control.date{flex:1 1 220px;max-width:280px}.pay-filter-control.account{flex:1 1 200px;max-width:260px}
+.pay-search-wrap{position:relative;flex:1.35 1 260px;min-width:210px}.pay-search-wrap input{height:38px;width:100%;padding-left:38px;padding-right:42px;border-radius:9px}.pay-search-wrap svg{position:absolute;left:13px;top:12px;color:var(--muted)}
+.pay-search-kbd{position:absolute;right:10px;top:9px;font-family:var(--mono);font-size:10px;color:var(--muted);border:1px solid var(--border);background:rgba(255,255,255,.04);border-radius:5px;padding:2px 6px;pointer-events:none}
+.pay-filter-button{height:38px;display:inline-flex;align-items:center;gap:8px;padding:0 14px;border-radius:9px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:12px;font-family:var(--sans);font-weight:700;cursor:pointer;flex:0 0 auto;white-space:nowrap}
+.pay-filter-button:hover{border-color:var(--accent);background:var(--accent-glow)}
+@media(max-width:1280px){.payment-filters{flex-wrap:wrap}.pay-filter-control.date,.pay-filter-control.account,.pay-search-wrap{flex:1 1 240px;max-width:none}}
+.pay-table-card{margin-bottom:0}.pay-table-card table{min-width:980px}.pay-table-card tr.payment-row{cursor:pointer}.pay-table-card tr.payment-row.selected td{background:var(--accent-glow);box-shadow:inset 0 1px rgba(108,99,255,.35),inset 0 -1px rgba(108,99,255,.35)}
+.pay-table-card tr.payment-row.selected td:first-child{box-shadow:inset 1px 0 rgba(108,99,255,.65),inset 0 1px rgba(108,99,255,.35),inset 0 -1px rgba(108,99,255,.35)}
+.payment-img{width:26px!important;height:15px!important;border-radius:3px!important;box-shadow:none!important;background:#fff}.payment-badge-fallback{width:26px!important;height:15px!important;font-size:6px!important}.payment-card{gap:6px}.payment-dots{font-size:10px;letter-spacing:2px}.payment-last4{font-size:11px}
+.pay-customer-click{display:flex;align-items:center;gap:9px;border:0;background:none;color:inherit;text-align:left;cursor:pointer;padding:0;font-family:var(--sans)}
+.pay-customer-click:hover .customer-name{text-decoration:underline;text-decoration-color:rgba(108,99,255,.7)}
+.pay-table-card .customer-name{font-size:13px;font-weight:700;letter-spacing:-.15px}.pay-table-card .customer-email{display:none!important}
+.pay-date-main{font-family:var(--mono);font-size:12px;white-space:nowrap}.pay-date-sub{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:1px}
+.payment-detail-panel{display:none;position:sticky;top:18px;background:linear-gradient(180deg,rgba(24,24,31,.98),rgba(17,17,24,.98));border:1px solid var(--border2);border-radius:14px;min-height:calc(100vh - 52px);max-height:calc(100vh - 48px);overflow:auto;box-shadow:0 18px 50px rgba(0,0,0,.28)}
+.payment-detail-panel.open{display:block}.detail-head{padding:20px 20px 14px;border-bottom:1px solid var(--border)}.detail-topline{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}.detail-title{font-size:21px;font-weight:700;letter-spacing:-.35px}.detail-amount{font-size:28px;font-weight:800;letter-spacing:-.7px;margin-top:12px}.detail-meta{font-size:12px;color:var(--muted);font-family:var(--mono);margin-top:4px}.detail-actions{display:flex;gap:8px;margin-top:18px}.detail-actions .btn{flex:1;justify-content:center;height:36px}.detail-close{width:30px;height:30px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);cursor:pointer;font-size:18px;line-height:1}.detail-section{padding:16px 18px;border-bottom:1px solid var(--border)}.detail-section h4{font-size:14px;margin-bottom:12px}.detail-box{border:1px solid var(--border);background:rgba(255,255,255,.02);border-radius:10px;overflow:hidden}.detail-row{display:grid;grid-template-columns:120px minmax(0,1fr);gap:10px;padding:10px 12px;border-bottom:1px solid var(--border);font-size:12px;align-items:center}.detail-row:last-child{border-bottom:none}.detail-label{color:var(--muted);font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.4px}.detail-value{text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.detail-note{min-height:64px;border:1px solid var(--border);border-radius:10px;background:rgba(255,255,255,.02);padding:12px;color:var(--muted);font-size:12px;line-height:1.45}.copy-mini{border:1px solid var(--border2);background:var(--surface2);color:var(--muted);border-radius:6px;padding:2px 5px;font-size:10px;cursor:pointer;margin-left:6px}
+@media(max-width:1200px){.payments-shell.detail-open{grid-template-columns:1fr}.payment-detail-panel{position:fixed;right:12px;top:12px;bottom:12px;width:min(390px,calc(100vw - 24px));z-index:450;min-height:0;max-height:none}.payments-shell.detail-open:before{content:'';position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:440}}
 
 /* OTP boxes */
 .otp-input{width:46px;height:52px;text-align:center;font-size:20px;font-weight:700;font-family:var(--mono);background:var(--surface2);border:1.5px solid var(--border2);border-radius:10px;color:var(--text);outline:none}
@@ -428,26 +440,29 @@ textarea{resize:vertical;min-height:60px}
     <div><h2>Payments</h2><p>Full payment history</p></div>
     <button class="btn" onclick="window.location='/api/payments/export'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export CSV</button>
   </div>
-  <div class="payments-shell">
-    <div class="payments-main-card">
-      <div class="payments-toolbar">
-        <div class="pay-status-tabs">
-          <button class="pay-status-tab active" data-status="" onclick="setPaymentStatusFilter('',this)">All <span class="count" id="pay-all-count">0</span></button>
-          <button class="pay-status-tab" data-status="succeeded" onclick="setPaymentStatusFilter('succeeded',this)">Succeeded <span class="count" id="pay-success-count">0</span></button>
-          <button class="pay-status-tab" data-status="failed" onclick="setPaymentStatusFilter('failed',this)">Failed <span class="count" id="pay-fail-count">0</span></button>
+  <div class="payments-shell" id="payments-shell">
+    <div>
+      <div class="payment-filters">
+        <div class="filter-tabs">
+          <button class="pay-filter-tab active" id="pay-tab-all" onclick="setPaymentStatusFilter('')">All <span class="count" id="pay-count-all">0</span></button>
+          <button class="pay-filter-tab success" id="pay-tab-succeeded" onclick="setPaymentStatusFilter('succeeded')">Succeeded <span class="count" id="pay-count-succeeded">0</span></button>
+          <button class="pay-filter-tab failed" id="pay-tab-failed" onclick="setPaymentStatusFilter('failed')">Failed <span class="count" id="pay-count-failed">0</span></button>
         </div>
-        <div class="pay-control"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><select id="pay-date-filter" onchange="filterPayments()"><option value="">All dates</option><option value="today">Today</option><option value="yesterday">Yesterday</option><option value="week">Last 7 days</option><option value="month">This month</option></select><svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></div>
-        <div class="pay-control"><select id="pay-account-filter" onchange="filterPayments()"><option value="">All Stripe Accounts</option></select><svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></div>
-        <div class="pay-control pay-search"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><input id="pay-search" oninput="filterPayments()" placeholder="Search by name, card or payment ID..."><span class="kbd">⌘K</span></div>
-        <button class="btn" onclick="toast('Filters are already applied above')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>Filters</button>
+        <select class="pay-filter-control date" id="pay-date-filter" onchange="filterPayments()">
+          <option value="">May 1, 2026 - May 21, 2026</option><option value="today">Today</option><option value="yesterday">Yesterday</option><option value="week">Last 7 days</option><option value="month">This month</option>
+        </select>
+        <select class="pay-filter-control account" id="pay-account-filter" onchange="filterPayments()"><option value="">All Stripe Accounts</option></select>
+        <div class="pay-search-wrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input id="pay-search" type="text" placeholder="Search by name, card or payment ID..." oninput="filterPayments()"><span class="pay-search-kbd">⌘K</span></div>
+        <button class="pay-filter-button" type="button" onclick="document.getElementById('pay-search').focus()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>Filters</button>
       </div>
-      <div class="payments-table-wrap"><table class="payments-v2-table">
+      <div class="card pay-table-card"><div class="scrollable"><table>
         <thead><tr><th>Customer</th><th>Amount</th><th>Card</th><th>Status</th><th>Failure Reason</th><th>Date</th><th>Reference</th><th>Actions</th></tr></thead>
         <tbody id="payments-table"><tr><td colspan="8" class="empty">Loading...</td></tr></tbody>
-      </table></div>
-      <div class="payments-footer"><span id="payments-page-info">Showing 0 payments</span><div class="pager"><button class="btn" onclick="changePaymentPage(-1)">‹</button><span id="payments-page-number" class="btn btn-primary" style="pointer-events:none;width:32px;height:32px;padding:0;justify-content:center;">1</span><button class="btn" onclick="changePaymentPage(1)">›</button><select id="payments-per-page" class="per-page-select" onchange="paymentPage=1;filterPayments()"><option value="15">15 / page</option><option value="25">25 / page</option><option value="50">50 / page</option></select></div></div>
+      </table></div></div>
     </div>
-    <aside class="detail-panel" id="payment-detail-panel"><div class="detail-empty">Select a payment to view details</div></aside>
+    <aside class="payment-detail-panel" id="payment-detail-panel">
+      <div class="empty" style="padding:28px 18px;">Select a payment</div>
+    </aside>
   </div>
 </div>
 
@@ -1272,102 +1287,111 @@ async function bulkPause(){if(!selectedSubs.size)return;if(!confirm('Pause '+sel
 async function bulkCancel(){if(!selectedSubs.size)return;if(!confirm('Cancel '+selectedSubs.size+' subscriptions? Cannot be undone.'))return;for(const id of selectedSubs){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'cancelled'})}).catch(()=>{});}toast('✓ '+selectedSubs.size+' cancelled');exitBulkMode();loadSubscriptions();loadStats();}
 function showEditAmount(subId,currentAmount){const container=document.getElementById('edit-'+subId);if(!container)return;const dollars=(currentAmount/100).toFixed(2);container.innerHTML='<div style="display:inline-flex;align-items:center;gap:4px;"><input type="number" id="new-amount-'+subId+'" value="'+dollars+'" step="0.01" min="0.50" style="width:75px;padding:3px 6px;font-size:12px;"><button class="btn btn-sm btn-primary" onclick="saveAmount('+subId+')">Save</button><button class="btn btn-sm" onclick="loadSubscriptions()">✕</button></div>';document.getElementById('new-amount-'+subId).focus();}
 async function saveAmount(subId){const input=document.getElementById('new-amount-'+subId);if(!input)return;const newCents=Math.round(parseFloat(input.value)*100);if(isNaN(newCents)||newCents<50){toast('Minimum $0.50','error');return;}const r=await api('/api/subscriptions/'+subId+'/amount',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:newCents})});if(r.success){toast('✓ Amount updated');loadSubscriptions();}else toast('Error','error');}
-var paymentPage=1,paymentPageSize=15,currentPaymentStatus='',filteredPaymentsCache=[],selectedPaymentId=null;
-async function loadPayments(){
-  try{
-    var results=await Promise.all([
-      api('/api/payments'),
-      allStripeAccounts&&allStripeAccounts.length?Promise.resolve(allStripeAccounts):api('/api/stripe-accounts').catch(function(){return[];}),
-      allCustomers&&allCustomers.length?Promise.resolve(allCustomers):api('/api/customers').catch(function(){return[];})
-    ]);
-    allPayments=results[0]||[];allStripeAccounts=results[1]||[];allCustomers=results[2]||[];
-    populatePaymentAccountFilter();renderPaymentSummary(allPayments);paymentPage=1;filterPayments();
-  }catch(e){console.error(e);}
-}
-function populatePaymentAccountFilter(){
-  var sel=document.getElementById('pay-account-filter');if(!sel)return;
-  var keep=sel.value||'';
-  sel.innerHTML='<option value="">All Stripe Accounts</option>'+((allStripeAccounts||[]).map(function(a){return '<option value="'+a.id+'">'+a.name+'</option>';}).join(''));
-  sel.value=keep;
-}
+async function loadPayments(){try{allPayments=await api('/api/payments');renderPaymentSummary(allPayments);populatePaymentAccountFilter(allPayments);filterPayments();}catch(e){}}
 function renderPaymentSummary(list){
-  var success=list.filter(p=>p.status==='succeeded').length,failed=list.filter(p=>p.status==='failed').length;
-  var ae=document.getElementById('pay-all-count');if(ae)ae.textContent=list.length;
+  var total=list.filter(p=>p.status==='succeeded').reduce((s,p)=>s+(parseInt(p.amount)||0),0);
+  var success=list.filter(p=>p.status==='succeeded').length;
+  var failed=list.filter(p=>p.status==='failed').length;
+  var te=document.getElementById('pay-total');if(te)te.textContent=fmt(total);
   var se=document.getElementById('pay-success-count');if(se)se.textContent=success;
   var fe=document.getElementById('pay-fail-count');if(fe)fe.textContent=failed;
+  var re=document.getElementById('pay-retry-count');if(re)re.textContent=failed;
+  var ca=document.getElementById('pay-count-all');if(ca)ca.textContent=list.length;
+  var cs=document.getElementById('pay-count-succeeded');if(cs)cs.textContent=success;
+  var cf=document.getElementById('pay-count-failed');if(cf)cf.textContent=failed;
 }
-function setPaymentStatusFilter(status,btn){currentPaymentStatus=status||'';document.querySelectorAll('.pay-status-tab').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');paymentPage=1;filterPayments();}
-function paymentCustomer(p){return (allCustomers||[]).find(c=>String(c.id)===String(p.customer_id))||{};}
-function paymentAccountId(p){var c=paymentCustomer(p);return p.stripe_account_id||c.stripe_account_id||'';}
-function paymentAccountName(p){var aid=paymentAccountId(p);var a=(allStripeAccounts||[]).find(x=>String(x.id)===String(aid));return a?a.name:'—';}
+function populatePaymentAccountFilter(list){
+  var sel=document.getElementById('pay-account-filter'); if(!sel) return;
+  var current=sel.value; var seen={};
+  list.forEach(function(p){var id=p.stripe_account_id||p.account_id||''; if(!id)return; seen[id]=p.account_name||('Account '+String(id).slice(-4));});
+  sel.innerHTML='<option value="">All Stripe Accounts</option>'+Object.keys(seen).map(function(id){return '<option value="'+id+'">'+seen[id]+'</option>';}).join('');
+  if(current && seen[current]) sel.value=current;
+}
+function setPaymentStatusFilter(status){
+  var hidden=document.getElementById('pay-status-filter');
+  if(!hidden){hidden=document.createElement('input');hidden.type='hidden';hidden.id='pay-status-filter';document.body.appendChild(hidden);}
+  hidden.value=status||'';
+  ['all','succeeded','failed'].forEach(function(k){var el=document.getElementById('pay-tab-'+k);if(el)el.classList.toggle('active',(status||'')===(k==='all'?'':k));});
+  filterPayments();
+}
 function filterPayments(){
   if(!allPayments)return;
   var q=(document.getElementById('pay-search')?.value||'').toLowerCase();
+  var status=document.getElementById('pay-status-filter')?.value||'';
   var dateFilter=document.getElementById('pay-date-filter')?.value||'';
-  var accountFilter=document.getElementById('pay-account-filter')?.value||'';
+  var account=document.getElementById('pay-account-filter')?.value||'';
   var now=new Date();
   var filtered=allPayments.filter(function(p){
-    var customer=paymentCustomer(p);
-    var searchable=[p.name,p.email,p.stripe_payment_intent,p.card_last4,p.card_brand,customer.stripe_customer_id].join(' ').toLowerCase();
-    var matchQ=!q||searchable.includes(q);
-    var matchS=!currentPaymentStatus||p.status===currentPaymentStatus;
-    var matchA=!accountFilter||String(paymentAccountId(p))===String(accountFilter);
+    var card=(p.card_brand||'')+' '+(p.card_last4||'');
+    var matchQ=!q||(p.name||'').toLowerCase().includes(q)||(p.email||'').toLowerCase().includes(q)||(p.stripe_payment_intent||'').toLowerCase().includes(q)||card.toLowerCase().includes(q);
+    var matchS=!status||p.status===status;
+    var matchA=!account||String(p.stripe_account_id||p.account_id||'')===String(account);
     var matchD=true;
     if(dateFilter){var d=new Date(p.created_at);if(dateFilter==='today')matchD=d.toDateString()===now.toDateString();else if(dateFilter==='yesterday'){var y=new Date(now);y.setDate(y.getDate()-1);matchD=d.toDateString()===y.toDateString();}else if(dateFilter==='week'){var w=new Date(now);w.setDate(w.getDate()-7);matchD=d>=w;}else if(dateFilter==='month'){matchD=d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();}}
-    return matchQ&&matchS&&matchD&&matchA;
+    return matchQ&&matchS&&matchA&&matchD;
   });
-  filteredPaymentsCache=filtered;renderPayments(filtered);
+  renderPayments(filtered);
 }
-var reasonLabels={'insufficient_funds':'Your card has insufficient funds.','card_declined':'Your card was declined.','expired_card':'Card expired','incorrect_cvc':'Wrong CVC','lost_card':'Card reported lost','stolen_card':'Reported stolen','do_not_honor':'Bank declined','processing_error':'Processing error','fraudulent':'Fraud suspected','generic_decline':'Generic decline','no_such_customer':'Customer not found','authentication_required':'Auth required'};
+var reasonLabels={'insufficient_funds':'Insufficient funds','card_declined':'Card declined','expired_card':'Card expired','incorrect_cvc':'Wrong CVC','lost_card':'Card reported lost','stolen_card':'Reported stolen','do_not_honor':'Bank declined','processing_error':'Processing error','fraudulent':'Fraud suspected','generic_decline':'Generic decline','no_such_customer':'Customer not found','authentication_required':'Auth required'};
+function paymentTimeParts(v){var d=new Date(v);if(isNaN(d))return{date:'—',time:''};return{date:d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),time:d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})};}
 function renderPayments(list){
   var isViewer=localStorage.getItem('subloop_readonly')==='1';
   var tb=document.getElementById('payments-table');
-  if(!tb)return;
-  if(!list.length){tb.innerHTML='<tr><td colspan="8" class="empty">No payments found</td></tr>';updatePaymentsFooter(0,0,0);renderPaymentDetail(null);return;}
-  paymentPageSize=parseInt(document.getElementById('payments-per-page')?.value||'15',10);
-  var pages=Math.max(1,Math.ceil(list.length/paymentPageSize));if(paymentPage>pages)paymentPage=pages;if(paymentPage<1)paymentPage=1;
-  var start=(paymentPage-1)*paymentPageSize;var pageItems=list.slice(start,start+paymentPageSize);
-  tb.innerHTML=pageItems.map(function(p){
+  if(!list.length){tb.innerHTML='<tr><td colspan="8" class="empty">No payments found</td></tr>';return;}
+  tb.innerHTML=list.map(function(p){
     var isGhost=((p.email||'').toLowerCase().endsWith('@stripe.local')||(p.name||'').startsWith('pi_')||(p.name||'').startsWith('external_'));
     var shortReason=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'';
-    var reasonHtml=shortReason?'<div style="font-size:12px;color:var(--red);max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+escapeHtml(p.failure_reason)+'">'+escapeHtml(shortReason)+'</div>':'<span style="color:var(--muted);font-size:12px;">—</span>';
+    var reasonHtml=shortReason?'<div style="font-size:12px;color:var(--red);max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+p.failure_reason+'">'+shortReason+'</div>':'<span style="color:var(--muted);font-size:12px;">—</span>';
     var refHtml=buildRefCell(p.stripe_payment_intent);
-    var actions='<div class="actions" onclick="event.stopPropagation()">';
+    var actions='<div style="display:flex;gap:4px;align-items:center;" onclick="event.stopPropagation()">';
     if(!isViewer&&p.status==='failed'&&!isGhost)actions+='<button class="btn btn-sm btn-success" onclick="retryPayment('+p.id+')">Retry</button>';
-    actions+='<button class="btn btn-sm" onclick="openPaymentNote('+p.id+')" title="'+escapeHtml(p.note||'Add note')+'">Note</button></div>';
-    var avatar=isGhost?'<div class="payment-avatar ghost">☹</div>':'<div class="payment-avatar">'+initials(p.name)+'</div>';
-    var cust=isGhost?'<div class="pay-customer-name" style="color:var(--red);">No profile</div><div class="pay-customer-email">External payment · no email collected</div>':'<div class="pay-customer-name">'+escapeHtml(p.name||'—')+'</div><div class="pay-customer-email">'+escapeHtml(p.email||'')+'</div>';
-    var d=new Date(p.created_at);
-    var dateHtml='<div class="payment-date-main">'+fmtDate(p.created_at)+'</div><div class="payment-date-sub">'+d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})+'</div>';
-    return '<tr class="'+(String(selectedPaymentId)===String(p.id)?'selected':'')+'" onclick="selectPayment('+p.id+')"><td><div class="customer-cell">'+avatar+'<div>'+cust+'</div></div></td><td class="mono" style="font-weight:700;">'+fmt(p.amount,p.currency)+'</td><td>'+cardBadge(p.card_brand,p.card_last4)+'</td><td>'+badge(p.status)+'</td><td>'+reasonHtml+'</td><td>'+dateHtml+'</td><td>'+refHtml+'</td><td>'+actions+'</td></tr>';
+    actions+='<button class="btn btn-sm" onclick="openPaymentNote('+p.id+')" title="'+(p.note||'Add note')+'">'+(p.note?'📝 Note':'Note')+'</button>';
+    actions+='</div>';
+    var rowBg=(p.status==='failed'||isGhost)?'background:rgba(248,113,113,0.035);':'';
+    var avatarHtml=isGhost
+      ?'<div class="avatar" style="background:rgba(248,113,113,0.15);border-color:rgba(248,113,113,0.4);color:var(--red);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>'
+      :'<div class="avatar">'+initials(p.name)+'</div>';
+    var nameHtml=isGhost
+      ?'<div class="customer-name" style="color:var(--red);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;margin-top:-1px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>No profile</div>'
+      :'<div class="customer-name">'+(p.name||'—')+'</div>';
+    var t=paymentTimeParts(p.created_at);
+    return '<tr class="payment-row" id="payment-row-'+p.id+'" style="'+rowBg+'" onclick="openPaymentDetail('+p.id+')"><td><button class="pay-customer-click" onclick="event.stopPropagation();openPaymentDetail('+p.id+')">'+avatarHtml+'<div>'+nameHtml+'</div></button></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+cardBadge(p.card_brand,p.card_last4)+'</td><td>'+badge(p.status)+'</td><td>'+reasonHtml+'</td><td><div class="pay-date-main">'+t.date+'</div><div class="pay-date-sub">'+t.time+'</div></td><td>'+refHtml+'</td><td>'+actions+'</td></tr>';
   }).join('');
-  updatePaymentsFooter(list.length,start,pageItems.length);
-  if(selectedPaymentId){var selected=list.find(x=>String(x.id)===String(selectedPaymentId));if(selected)renderPaymentDetail(selected);}
 }
-function updatePaymentsFooter(total,start,count){var info=document.getElementById('payments-page-info');if(info)info.textContent=total?('Showing '+(start+1)+' to '+(start+count)+' of '+total+' payments'):'Showing 0 payments';var pn=document.getElementById('payments-page-number');if(pn)pn.textContent=paymentPage;}
-function changePaymentPage(delta){paymentPage+=delta;renderPayments(filteredPaymentsCache||[]);}
-function selectPayment(id){selectedPaymentId=id;var p=(allPayments||[]).find(x=>String(x.id)===String(id));renderPaymentDetail(p);renderPayments(filteredPaymentsCache||allPayments||[]);}
-function truncateId(v){if(!v)return '—';v=String(v);return v.length>18?v.slice(0,8)+'...'+v.slice(-4):v;}
-function escapeHtml(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c];});}
-function copyText(v){if(!v||v==='—')return;navigator.clipboard&&navigator.clipboard.writeText(v);toast('Copied');}
-function detailRow(label,value,copy){value=value||'—';return '<div class="detail-row"><div class="detail-label">'+label+'</div><div class="detail-value" title="'+escapeHtml(value)+'">'+escapeHtml(value)+'</div>'+(copy&&value!=='—'?'<button class="copy-mini" onclick="copyText(\''+escapeHtml(value).replace(/'/g,'\\&#39;')+'\')">⧉</button>':'<span></span>')+'</div>';}
-function renderPaymentDetail(p){
-  var panel=document.getElementById('payment-detail-panel');if(!panel)return;
-  if(!p){panel.innerHTML='<div class="detail-empty">Select a payment to view details</div>';return;}
-  var isViewer=localStorage.getItem('subloop_readonly')==='1';var customer=paymentCustomer(p);var name=p.name||customer.name||'No profile';
-  var sameCustomer=(allPayments||[]).filter(x=>String(x.customer_id)===String(p.customer_id));
-  var totalPaid=sameCustomer.filter(x=>x.status==='succeeded').reduce((s,x)=>s+(parseInt(x.amount)||0),0);
-  var first=sameCustomer.slice().sort((a,b)=>new Date(a.created_at)-new Date(b.created_at))[0];
-  var fail=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'—';
-  var retryBtn=(!isViewer&&p.status==='failed')?'<button class="btn btn-success" onclick="retryPayment('+p.id+')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/></svg>Retry Payment</button>':'';
-  panel.innerHTML='<div class="detail-head"><button class="detail-close" onclick="selectedPaymentId=null;renderPaymentDetail(null);renderPayments(filteredPaymentsCache||allPayments||[])">×</button>'+badge(p.status)+'<div class="detail-name">'+escapeHtml(name)+'</div><div class="detail-amount">'+fmt(p.amount,p.currency)+'</div><div class="detail-time">'+fmtTime(p.created_at)+'</div><div class="detail-actions '+(retryBtn?'':'single')+'"><button class="btn" onclick="openPaymentNote('+p.id+')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Add Note</button>'+retryBtn+'</div></div>'+
-    '<div class="detail-body"><section><div class="detail-section-title">Payment overview</div><div class="detail-box">'+
-    detailRow('Payment ID',p.stripe_payment_intent,true)+detailRow('Invoice ID',p.stripe_invoice||'—',true)+detailRow('Subscription ID',p.subscription_id?('sub_'+p.subscription_id):'—',true)+detailRow('Stripe Account',paymentAccountName(p),false)+detailRow('Amount',fmt(p.amount,p.currency),false)+detailRow('Status',p.status,false)+
-    '<div class="detail-row"><div class="detail-label">Payment Method</div><div class="detail-value">'+cardBadge(p.card_brand,p.card_last4)+'</div><span></span></div>'+detailRow('Card Brand',p.card_brand||'—',false)+detailRow('Card Type',p.card_funding||'—',false)+detailRow('Country',p.card_country||'—',false)+detailRow('Failure Reason',fail,false)+'</div></section>'+
-    '<section><div class="detail-section-title">Customer information</div><div class="detail-box">'+detailRow('Customer ID',customer.stripe_customer_id||String(p.customer_id||'—'),true)+detailRow('Email',p.email||customer.email||'—',false)+detailRow('Name',name,false)+detailRow('Total Payments',String(sameCustomer.length),false)+detailRow('Total Paid',fmt(totalPaid,p.currency),false)+detailRow('First Payment',first?fmtDate(first.created_at):'—',false)+'</div></section>'+
-    '<section><div class="detail-section-title">Internal note</div><div class="note-box">'+(p.note?escapeHtml(p.note):'No note added yet.')+'</div><button class="btn" style="margin-top:9px;float:right" onclick="openPaymentNote('+p.id+')">Add Note</button></section></div>';
+function copyText(v){navigator.clipboard&&navigator.clipboard.writeText(v||'');toast('Copied');}
+function openPaymentDetail(id){
+  var p=(allPayments||[]).find(function(x){return String(x.id)===String(id);}); if(!p)return;
+  document.querySelectorAll('.payment-row').forEach(function(r){r.classList.remove('selected');}); var row=document.getElementById('payment-row-'+id);if(row)row.classList.add('selected');
+  var shell=document.getElementById('payments-shell'); if(shell)shell.classList.add('detail-open');
+  var panel=document.getElementById('payment-detail-panel'); if(!panel)return; panel.classList.add('open');
+  var isViewer=localStorage.getItem('subloop_readonly')==='1';
+  var isGhost=((p.email||'').toLowerCase().endsWith('@stripe.local')||(p.name||'').startsWith('pi_')||(p.name||'').startsWith('external_'));
+  var t=paymentTimeParts(p.created_at); var reason=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'—';
+  var retry=(!isViewer&&p.status==='failed'&&!isGhost)?'<button class="btn btn-success" onclick="retryPayment('+p.id+')">Retry Payment</button>':'';
+  var account=p.account_name||p.stripe_account_name||p.stripe_account_id||'—';
+  panel.innerHTML='<div class="detail-head"><div class="detail-topline">'+badge(p.status)+'<button class="detail-close" onclick="closePaymentDetail()">×</button></div><div class="detail-title">'+(p.name||'—')+'</div><div class="detail-amount">'+fmt(p.amount,p.currency)+'</div><div class="detail-meta">'+t.date+(t.time?' at '+t.time:'')+'</div><div class="detail-actions"><button class="btn" onclick="openPaymentNote('+p.id+')">Add Note</button>'+retry+'</div></div>'+
+    '<div class="detail-section"><h4>Payment overview</h4><div class="detail-box">'+
+      detailRow('Payment ID',shortId(p.stripe_payment_intent),p.stripe_payment_intent)+
+      detailRow('Invoice ID',shortId(p.stripe_invoice_id||p.invoice_id),p.stripe_invoice_id||p.invoice_id)+
+      detailRow('Subscription ID',shortId(p.stripe_subscription_id||p.subscription_id),p.stripe_subscription_id||p.subscription_id)+
+      detailRow('Stripe Account',account,p.stripe_account_id)+
+      detailRow('Amount',fmt(p.amount,p.currency))+
+      detailRow('Status',badge(p.status),null,true)+
+      detailRow('Payment Method',cardBadge(p.card_brand,p.card_last4),null,true)+
+      detailRow('Failure Reason',reason)+
+    '</div></div>'+
+    '<div class="detail-section"><h4>Customer information</h4><div class="detail-box">'+
+      detailRow('Customer ID',shortId(p.stripe_customer_id||p.customer_id),p.stripe_customer_id||p.customer_id)+
+      detailRow('Name',p.name||'—')+
+      detailRow('Email',p.email||'—')+
+      detailRow('Customer DB ID',p.customer_id||'—')+
+    '</div></div>'+
+    '<div class="detail-section"><h4>Internal note</h4><div class="detail-note">'+(p.note||'No note added yet.')+'</div><button class="btn btn-sm" style="margin-top:10px;width:100%;justify-content:center;" onclick="openPaymentNote('+p.id+')">Add Note</button></div>';
 }
-async function retryPayment(id){toast('Retrying…');try{const r=await api('/api/payments/'+id+'/retry',{method:'POST'});if(r.success){toast('✓ Succeeded');await loadPayments();loadStats();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
+function shortId(v){if(!v)return '—';v=String(v);return v.length>18?v.slice(0,10)+'…'+v.slice(-5):v;}
+function detailRow(label,value,copyValue,raw){return '<div class="detail-row"><div class="detail-label">'+label+'</div><div class="detail-value">'+(raw?value:(value||'—'))+(copyValue&&copyValue!=='—'?'<button class="copy-mini" onclick="copyText(\''+String(copyValue).replace(/'/g,"\\'")+'\')">Copy</button>':'')+'</div></div>';}
+function closePaymentDetail(){var shell=document.getElementById('payments-shell');if(shell)shell.classList.remove('detail-open');var panel=document.getElementById('payment-detail-panel');if(panel)panel.classList.remove('open');document.querySelectorAll('.payment-row').forEach(function(r){r.classList.remove('selected');});}
+async function retryPayment(id){toast('Retrying…');try{const r=await api('/api/payments/'+id+'/retry',{method:'POST'});if(r.success){toast('✓ Succeeded');loadPayments();loadStats();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
 async function loadWebhooks(){try{const list=await api('/api/webhook-logs');const tb=document.getElementById('webhook-table');if(!list.length){tb.innerHTML='<tr><td colspan="4" class="empty">No webhook events yet</td></tr>';return;}tb.innerHTML=list.map(w=>'<tr><td class="mono" style="font-size:12px;">'+w.event_type+'</td><td style="font-size:12px;color:var(--muted);">'+(w.account_name||'—')+'</td><td>'+badge(w.status||'ok')+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+fmtTime(w.created_at)+'</td></tr>').join('');}catch(e){}}
 async function loadSettings(){try{appSettings=await api('/api/settings');document.getElementById('setting-dunning').checked=appSettings.dunning_enabled==='true';document.getElementById('setting-dunning-days').value=appSettings.dunning_days||'3,7,14';document.getElementById('setting-auto-resume').checked=appSettings.pause_auto_resume==='true';document.getElementById('setting-proration').checked=appSettings.proration_enabled==='true';document.getElementById('setting-webhook-logs').checked=appSettings.webhook_logs_enabled==='true';}catch(e){}}
 async function saveSetting(key,value){await api('/api/settings',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({key,value:String(value)})});appSettings[key]=String(value);toast('✓ Setting saved');}
