@@ -123,7 +123,7 @@ tr:hover td{background:rgba(255,255,255,0.02)}
 .avatar{width:28px;height:28px;border-radius:6px;background:var(--accent-glow);border:1px solid rgba(108,99,255,0.3);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--accent);flex-shrink:0;font-family:var(--mono)}
 .customer-cell{display:flex;align-items:center;gap:8px}
 .customer-name{font-size:13px;font-weight:500}
-.customer-email{font-size:11px;color:var(--muted);font-family:var(--mono);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.customer-email{font-size:11px;color:var(--muted);font-family:var(--mono)}
 .actions{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
 .mono{font-family:var(--mono)}
 .scrollable{overflow-x:auto}
@@ -169,10 +169,10 @@ textarea{resize:vertical;min-height:60px}
 .rev-tab:hover{color:var(--text);border-color:var(--accent)}
 .rev-tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
 .payment-card{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;vertical-align:middle}
-.payment-img{width:24px;height:16px;border-radius:3px;object-fit:contain;display:block;box-shadow:0 1px 3px rgba(0,0,0,0.2)}
+.payment-img{width:30px;height:20px;border-radius:4px;object-fit:contain;display:block;box-shadow:0 1px 3px rgba(0,0,0,0.2)}
 .payment-dots{color:#8b8b98;letter-spacing:2px;font-weight:700;font-size:12px;font-family:var(--mono)}
 .payment-last4{color:#a1a1aa;font-weight:700;font-size:12px;font-family:var(--mono)}
-.payment-badge-fallback{width:24px;height:16px;border-radius:3px;background:#1f1f2a;border:1px solid #343442;display:inline-flex;align-items:center;justify-content:center;color:#9ca3af;font-size:7px;font-weight:700;font-family:var(--sans);flex-shrink:0}
+.payment-badge-fallback{width:30px;height:20px;border-radius:4px;background:#1f1f2a;border:1px solid #343442;display:inline-flex;align-items:center;justify-content:center;color:#9ca3af;font-size:8px;font-weight:700;font-family:var(--sans);flex-shrink:0}
 .no-card{color:#777783;font-weight:700;font-family:var(--mono)}
   #best-table td{vertical-align:middle;padding:10px 16px;}
   #best-table .customer-cell{align-items:center;}
@@ -1203,7 +1203,7 @@ function renderCustomers(list){
   tb.innerHTML=list.map(c=>{
     const dateLabel = c.last_payment_at ? fmtDate(c.last_payment_at) : '—';
     const dateTitle = c.last_payment_at ? 'Last successful payment date' : 'No successful payment yet';
-    return '<tr><td><div class="customer-cell"><div class="avatar">'+initials(c.name)+'</div><div><div class="customer-name">'+(c.name||'—')+'</div><div class="customer-email">'+(c.email||'')+'</div></div></div></td><td>'+cardBadge(c.card_brand,c.card_last4)+'</td><td style="font-size:12px;color:var(--muted);">'+(c.account_name||'—').replace(/_/g,' ')+'</td><td>'+badge(c.status)+'</td><td style="font-size:12px;color:var(--muted);font-family:var(--mono);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(c.note||'—')+'</td><td class="mono" style="font-size:12px;white-space:nowrap;" title="'+dateTitle+'">'+dateLabel+'</td><td class="mono">'+fmt(c.total_paid||0,c.payment_currency)+'</td><td><div class="actions"><button class="btn btn-sm" onclick="openNoteModal('+c.id+',\''+encodeURIComponent(c.note||'')+'\')">Note</button><button class="btn btn-sm" onclick="openPortal('+c.id+')">Card ↗</button>'+(c.status==='active'?'<button class="btn btn-sm btn-danger" onclick="setCustStatus('+c.id+',\'paused\')">Pause</button>':'')+(c.status==='paused'?'<button class="btn btn-sm" onclick="setCustStatus('+c.id+',\'active\')">Resume</button>':'')+'</div></td></tr>';
+    return '<tr><td><div class="customer-cell"><div class="avatar">'+initials(c.name)+'</div><div><div class="customer-name">'+(c.name||'—')+'</div><div class="customer-email">'+(c.email||'')+'</div></div></div></td><td>'+cardBadge(c.card_brand,c.card_last4)+'</td><td style="font-size:12px;color:var(--muted);">'+(c.account_name||'—')+'</td><td>'+badge(c.status)+'</td><td style="font-size:12px;color:var(--muted);font-family:var(--mono);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(c.note||'—')+'</td><td class="mono" style="font-size:12px;white-space:nowrap;" title="'+dateTitle+'">'+dateLabel+'</td><td class="mono">'+fmt(c.total_paid||0)+'</td><td><div class="actions"><button class="btn btn-sm" onclick="openNoteModal('+c.id+',\''+encodeURIComponent(c.note||'')+'\')">Note</button><button class="btn btn-sm" onclick="openPortal('+c.id+')">Card ↗</button>'+(c.status==='active'?'<button class="btn btn-sm btn-danger" onclick="setCustStatus('+c.id+',\'paused\')">Pause</button>':'')+(c.status==='paused'?'<button class="btn btn-sm" onclick="setCustStatus('+c.id+',\'active\')">Resume</button>':'')+'</div></td></tr>';
   }).join('');
 }
 function filterCustomers(){const q=document.getElementById('customer-search').value.toLowerCase();renderCustomers(allCustomers.filter(c=>(c.name||'').toLowerCase().includes(q)||(c.email||'').toLowerCase().includes(q)));}
@@ -1220,7 +1220,7 @@ function renderSubscriptions(list){
     var pauseBtn=s.status==='active'?'<button class="btn btn-sm" onclick="openPauseModal('+s.id+')">Pause</button>':'';
     var retryBtn=s.status==='dunning'?'<button class="btn btn-sm btn-success" onclick="chargeNow('+s.id+')">Retry now</button>':'';
     var cancelBtn='<button class="btn btn-sm btn-danger" onclick="cancelSub('+s.id+')">Cancel</button>';
-    var editSpan='<button class="btn btn-sm" onclick="showEditAmount('+s.id+','+s.amount+')">Edit price</button><span id="edit-'+s.id+'"></span>';
+    var editSpan='<button class="btn btn-sm" onclick="showEditAmount('+s.id+','+s.amount+')">Edit $</button><span id="edit-'+s.id+'"></span>';
     var dunningBadge=s.dunning_count>0?'<br><span style="font-size:10px;color:var(--amber);">Retry #'+s.dunning_count+'</span>':'';
     var resumeDate=s.resume_date?'<br><span style="font-size:10px;color:var(--blue);">Resumes '+fmtDate(s.resume_date)+'</span>':'';
     rows.push('<tr id="sub-row-'+s.id+'" style="'+bg+'"><td style="width:36px;display:'+cbDisplay+';"><input type="checkbox" class="sub-checkbox" data-id="'+s.id+'" '+cbChecked+' onchange="toggleSubSelect('+s.id+')" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;"></td><td><div class="customer-cell"><div class="avatar">'+initials(s.name)+'</div><div><div class="customer-name">'+(s.name||'—')+'</div><div class="customer-email">'+(s.email||'')+'</div></div></div></td><td class="mono">'+fmt(s.amount,s.currency)+'</td><td class="mono">'+(s.interval_days||30)+' days</td><td class="mono">'+fmtDate(s.next_billing_date)+resumeDate+'</td><td>'+badge(s.status)+dunningBadge+'</td><td><div class="actions">'+chargeBtn+editSpan+pauseBtn+resumeBtn+retryBtn+cancelBtn+'</div></td></tr>');
