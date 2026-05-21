@@ -124,6 +124,9 @@ tr:hover td{background:rgba(255,255,255,0.02)}
 .customer-cell{display:flex;align-items:center;gap:8px}
 .customer-name{font-size:13px;font-weight:500}
 .customer-email{font-size:11px;color:var(--muted);font-family:var(--mono)}
+.payments-customer-name{font-size:14px;font-weight:700;letter-spacing:-0.01em}
+.payment-detail-trigger{cursor:pointer}
+.payment-detail-trigger:hover .payments-customer-name{color:var(--accent)}
 .actions{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
 .mono{font-family:var(--mono)}
 .scrollable{overflow-x:auto}
@@ -168,11 +171,19 @@ textarea{resize:vertical;min-height:60px}
 .rev-tab{padding:4px 10px;border-radius:6px;font-size:11px;font-family:var(--mono);font-weight:500;cursor:pointer;border:1px solid var(--border2);background:var(--surface2);color:var(--muted);transition:all 0.15s;white-space:nowrap}
 .rev-tab:hover{color:var(--text);border-color:var(--accent)}
 .rev-tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
-.payment-card{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;vertical-align:middle}
-.payment-img{width:30px;height:20px;border-radius:4px;object-fit:contain;display:block;box-shadow:0 1px 3px rgba(0,0,0,0.2)}
-.payment-dots{color:#8b8b98;letter-spacing:2px;font-weight:700;font-size:12px;font-family:var(--mono)}
+.payment-card{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;vertical-align:middle}
+.payment-img{width:22px;height:14px;border-radius:3px;object-fit:contain;display:block;box-shadow:0 1px 2px rgba(0,0,0,0.18)}
+.payment-dots{color:#8b8b98;letter-spacing:2px;font-weight:700;font-size:11px;font-family:var(--mono)}
 .payment-last4{color:#a1a1aa;font-weight:700;font-size:12px;font-family:var(--mono)}
-.payment-badge-fallback{width:30px;height:20px;border-radius:4px;background:#1f1f2a;border:1px solid #343442;display:inline-flex;align-items:center;justify-content:center;color:#9ca3af;font-size:8px;font-weight:700;font-family:var(--sans);flex-shrink:0}
+.payment-badge-fallback{width:22px;height:14px;border-radius:3px;background:#1f1f2a;border:1px solid #343442;display:inline-flex;align-items:center;justify-content:center;color:#9ca3af;font-size:6px;font-weight:700;font-family:var(--sans);flex-shrink:0}
+.payment-details-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.payment-details-section{background:var(--surface2);border:1px solid var(--border2);border-radius:12px;padding:14px}
+.payment-details-section.full{grid-column:1/-1}
+.payment-detail-row{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--border)}
+.payment-detail-row:last-child{border-bottom:none}
+.payment-detail-label{font-size:11px;color:var(--muted);font-family:var(--mono);text-transform:uppercase}
+.payment-detail-value{font-size:12px;text-align:right;word-break:break-word}
+@media(max-width:760px){.payment-details-grid{grid-template-columns:1fr}}
 .no-card{color:#777783;font-weight:700;font-family:var(--mono)}
   #best-table td{vertical-align:middle;padding:10px 16px;}
   #best-table .customer-cell{align-items:center;}
@@ -765,6 +776,19 @@ textarea{resize:vertical;min-height:60px}
     <div class="modal-footer"><button class="btn" onclick="closeModal('payment-note-modal')">Cancel</button><button class="btn btn-primary" onclick="savePaymentNote()">Save</button></div>
   </div>
 </div>
+
+<div class="modal-bg" id="payment-details-modal">
+  <div class="modal" style="width:720px;">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+      <div>
+        <h3 id="payment-details-title">Payment details</h3>
+        <p id="payment-details-subtitle">Full payment and customer information</p>
+      </div>
+      <button class="btn btn-sm" onclick="closeModal('payment-details-modal')">✕</button>
+    </div>
+    <div id="payment-details-body"></div>
+  </div>
+</div>
 <div class="modal-bg" id="edit-account-modal">
   <div class="modal">
     <h3>Edit Stripe account</h3>
@@ -1275,10 +1299,41 @@ function renderPayments(list){
       ?'<div class="avatar" style="background:rgba(248,113,113,0.15);border-color:rgba(248,113,113,0.4);color:var(--red);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>'
       :'<div class="avatar">'+initials(p.name)+'</div>';
     var customerHtml=isGhost
-      ?'<div class="customer-name" style="font-size:12px;color:var(--red);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;margin-top:-1px;flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>No profile</div><div class="customer-email">External payment · no email collected</div>'
-      :'<div class="customer-name" style="font-size:12px;">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div>';
-    return '<tr style="'+rowBg+'"><td><div class="customer-cell">'+avatarHtml+'<div>'+customerHtml+'</div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+cardBadge(p.card_brand,p.card_last4)+'</td><td>'+badge(p.status)+'</td><td>'+reasonHtml+'</td><td class="mono" style="font-size:12px;white-space:nowrap;">'+fmtDate(p.created_at)+'</td><td>'+refHtml+'</td><td>'+actions+'</td></tr>';
+      ?'<div class="payments-customer-name" style="color:var(--red);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;margin-top:-1px;flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>No profile</div>'
+      :'<div class="payments-customer-name">'+escHtml(p.name||'—')+'</div>';
+    return '<tr style="'+rowBg+'"><td><div class="customer-cell payment-detail-trigger" onclick="openPaymentDetails('+p.id+')">'+avatarHtml+'<div>'+customerHtml+'</div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+cardBadge(p.card_brand,p.card_last4)+'</td><td>'+badge(p.status)+'</td><td>'+reasonHtml+'</td><td class="mono" style="font-size:12px;white-space:nowrap;">'+fmtDate(p.created_at)+'</td><td>'+refHtml+'</td><td>'+actions+'</td></tr>';
   }).join('');
+}
+function paymentDetailRow(label,value){return '<div class="payment-detail-row"><div class="payment-detail-label">'+escHtml(label)+'</div><div class="payment-detail-value">'+(value||'—')+'</div></div>';}
+function openPaymentDetails(id){
+  var p=(allPayments||[]).find(function(x){return String(x.id)===String(id);});
+  if(!p){toast('Payment not found','error');return;}
+  var isGhost=((p.email||'').toLowerCase().endsWith('@stripe.local')||(p.name||'').startsWith('pi_')||(p.name||'').startsWith('external_'));
+  document.getElementById('payment-details-title').textContent=p.name||'Payment details';
+  document.getElementById('payment-details-subtitle').textContent=fmt(p.amount,p.currency)+' · '+fmtTime(p.created_at);
+  var reason=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'—';
+  var card=(p.card_brand||p.card_last4)?cardBadge(p.card_brand,p.card_last4):'<span class="no-card">—</span>';
+  var customerEmail=isGhost?'External payment · no email collected':escHtml(p.email||'—');
+  var body='';
+  body+='<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:8px;padding-bottom:14px;border-bottom:1px solid var(--border);"><div><div style="font-size:28px;font-weight:800;letter-spacing:-0.03em;">'+fmt(p.amount,p.currency)+'</div><div style="margin-top:5px;">'+badge(p.status)+'</div></div><div class="actions"><button class="btn" onclick="openPaymentNote('+p.id+')">Add Note</button>'+(p.status==='failed'&&!isGhost?'<button class="btn btn-success" onclick="retryPayment('+p.id+')">Retry Payment</button>':'')+'</div></div>';
+  body+='<div class="payment-details-grid">';
+  body+='<div class="payment-details-section"><h3 style="font-size:13px;margin-bottom:10px;">Payment overview</h3>'+
+    paymentDetailRow('Payment ID',escHtml(p.stripe_payment_intent||'—'))+
+    paymentDetailRow('Amount',fmt(p.amount,p.currency))+
+    paymentDetailRow('Status',badge(p.status))+
+    paymentDetailRow('Card',card)+
+    paymentDetailRow('Failure reason',escHtml(reason))+
+    paymentDetailRow('Date',fmtTime(p.created_at))+'</div>';
+  body+='<div class="payment-details-section"><h3 style="font-size:13px;margin-bottom:10px;">Customer information</h3>'+
+    paymentDetailRow('Name',escHtml(p.name||'—'))+
+    paymentDetailRow('Email',customerEmail)+
+    paymentDetailRow('Customer ID',escHtml(p.stripe_customer_id||'—'))+
+    paymentDetailRow('Payment method',escHtml(p.stripe_payment_method||'—'))+
+    paymentDetailRow('Stripe account',escHtml(p.stripe_account_name||p.stripe_account_id||'—'))+'</div>';
+  body+='<div class="payment-details-section full"><h3 style="font-size:13px;margin-bottom:10px;">Internal note</h3><div style="font-size:13px;color:var(--muted);white-space:pre-wrap;">'+escHtml(p.note||'No note added yet.')+'</div></div>';
+  body+='</div>';
+  document.getElementById('payment-details-body').innerHTML=body;
+  openModal('payment-details-modal');
 }
 async function retryPayment(id){toast('Retrying…');try{const r=await api('/api/payments/'+id+'/retry',{method:'POST'});if(r.success){toast('✓ Succeeded');loadPayments();loadStats();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
 async function loadWebhooks(){try{const list=await api('/api/webhook-logs');const tb=document.getElementById('webhook-table');if(!list.length){tb.innerHTML='<tr><td colspan="4" class="empty">No webhook events yet</td></tr>';return;}tb.innerHTML=list.map(w=>'<tr><td class="mono" style="font-size:12px;">'+w.event_type+'</td><td style="font-size:12px;color:var(--muted);">'+(w.account_name||'—')+'</td><td>'+badge(w.status||'ok')+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+fmtTime(w.created_at)+'</td></tr>').join('');}catch(e){}}
