@@ -1010,17 +1010,20 @@ async function api(path,opts){
 function toast(msg,type){const t=document.getElementById('toast');t.textContent=msg;t.className='show '+(type||'success');setTimeout(()=>t.className='',2800);}
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
-function openPaymentModal(name,email,amount,cardHtml,statusHtml,reason,date,ref){
-  var initials=(name||'?').split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
+function openPaymentModal(id){
+  var p=allPayments.find(function(x){return x.id==id;});
+  if(!p)return;
+  var name=p.name||'—';
+  var initials=name.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
   document.getElementById('pdm-avatar').textContent=initials;
-  document.getElementById('pdm-name').textContent=name||'—';
-  document.getElementById('pdm-email').textContent=email||'No email';
-  document.getElementById('pdm-amount').textContent=amount;
-  document.getElementById('pdm-card').innerHTML=cardHtml||'—';
-  document.getElementById('pdm-status').innerHTML=statusHtml||'—';
-  document.getElementById('pdm-reason').textContent=(reason&&reason!=='—')?reason:'—';
-  document.getElementById('pdm-date').textContent=date||'—';
-  document.getElementById('pdm-ref').textContent=ref||'—';
+  document.getElementById('pdm-name').textContent=name;
+  document.getElementById('pdm-email').textContent=p.email||'No email';
+  document.getElementById('pdm-amount').textContent=fmt(p.amount,p.currency);
+  document.getElementById('pdm-card').innerHTML=cardBadge(p.card_brand,p.card_last4);
+  document.getElementById('pdm-status').innerHTML=badge(p.status);
+  document.getElementById('pdm-reason').textContent=p.failure_message||p.failure_reason||'—';
+  document.getElementById('pdm-date').textContent=fmtDate(p.created_at);
+  document.getElementById('pdm-ref').textContent=p.stripe_payment_intent_id||p.reference||'—';
   openModal('payment-detail-modal');
 }
 function cardBadge(brand,last4){
@@ -1310,7 +1313,7 @@ function renderPayments(list){
       :'<div class="avatar">'+initials(p.name)+'</div>';
     var customerHtml=isGhost
       ?'<div class="customer-name" style="font-size:12px;color:var(--red);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;margin-top:-1px;flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>No profile</div><div class="customer-email">External payment · no email collected</div>'
-      :(function(){var n=p.name||'—';var e=p.email||'';var a=fmt(p.amount,p.currency);var cb=cardBadge(p.card_brand,p.card_last4);var bs=badge(p.status);var fr=p.failure_message||p.failure_reason||'—';var dt=fmtDate(p.created_at);var rf=p.stripe_payment_intent_id||p.reference||'—';return '<div class="customer-name" style="font-size:12px;cursor:pointer;color:var(--accent);text-decoration:underline;text-underline-offset:2px;" onclick="openPaymentModal('+JSON.stringify(n)+','+JSON.stringify(e)+','+JSON.stringify(a)+','+JSON.stringify(cb)+','+JSON.stringify(bs)+','+JSON.stringify(fr)+','+JSON.stringify(dt)+','+JSON.stringify(rf)+')">'+n+'</div>';})();
+      :'<div class="customer-name" style="font-size:12px;cursor:pointer;color:var(--accent);text-decoration:underline;text-underline-offset:2px;" onclick="openPaymentModal('+p.id+')">"+(p.name||'—')+'</div>';
     return '<tr style="'+rowBg+'"><td><div class="customer-cell">'+avatarHtml+'<div>'+customerHtml+'</div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+cardBadge(p.card_brand,p.card_last4)+'</td><td>'+badge(p.status)+'</td><td>'+reasonHtml+'</td><td class="mono" style="font-size:12px;white-space:nowrap;">'+fmtDate(p.created_at)+'</td><td>'+refHtml+'</td><td>'+actions+'</td></tr>';
   }).join('');
 }
