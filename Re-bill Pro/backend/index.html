@@ -695,6 +695,27 @@ textarea{resize:vertical;min-height:60px}
     <div class="modal-footer"><button class="btn" onclick="closeModal('add-account-modal')">Cancel</button><button class="btn btn-primary" onclick="addAccount()">Save account</button></div>
   </div>
 </div>
+<div class="modal-bg" id="payment-detail-modal">
+  <div class="modal" style="width:420px;max-width:97vw;">
+    <h3>Transaction details</h3>
+    <div style="display:flex;align-items:center;gap:10px;margin:12px 0 16px;">
+      <div class="avatar" id="pdm-avatar" style="width:40px;height:40px;border-radius:50%;background:var(--accent-bg);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;flex-shrink:0;"></div>
+      <div>
+        <div style="font-weight:500;font-size:14px;" id="pdm-name"></div>
+        <div style="font-size:12px;color:var(--muted);font-family:var(--mono);" id="pdm-email"></div>
+      </div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <tr style="border-top:1px solid var(--border);"><td style="padding:8px 0;color:var(--muted);width:110px;">Amount</td><td style="padding:8px 0;font-family:var(--mono);font-weight:500;" id="pdm-amount"></td></tr>
+      <tr style="border-top:1px solid var(--border);"><td style="padding:8px 0;color:var(--muted);">Card</td><td style="padding:8px 0;" id="pdm-card"></td></tr>
+      <tr style="border-top:1px solid var(--border);"><td style="padding:8px 0;color:var(--muted);">Status</td><td style="padding:8px 0;" id="pdm-status"></td></tr>
+      <tr style="border-top:1px solid var(--border);"><td style="padding:8px 0;color:var(--muted);">Failure reason</td><td style="padding:8px 0;color:var(--red);font-size:12px;" id="pdm-reason"></td></tr>
+      <tr style="border-top:1px solid var(--border);"><td style="padding:8px 0;color:var(--muted);">Date</td><td style="padding:8px 0;font-family:var(--mono);font-size:12px;" id="pdm-date"></td></tr>
+      <tr style="border-top:1px solid var(--border);border-bottom:1px solid var(--border);"><td style="padding:8px 0;color:var(--muted);">Reference</td><td style="padding:8px 0;font-family:var(--mono);font-size:12px;" id="pdm-ref"></td></tr>
+    </table>
+    <div class="modal-footer"><button class="btn" onclick="closeModal('payment-detail-modal')">Close</button></div>
+  </div>
+</div>
 <div class="modal-bg" id="note-modal">
   <div class="modal">
     <h3>Customer note</h3><p>Add a private note about this customer</p>
@@ -989,6 +1010,19 @@ async function api(path,opts){
 function toast(msg,type){const t=document.getElementById('toast');t.textContent=msg;t.className='show '+(type||'success');setTimeout(()=>t.className='',2800);}
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
+function openPaymentModal(name,email,amount,cardHtml,statusHtml,reason,date,ref){
+  var initials=(name||'?').split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
+  document.getElementById('pdm-avatar').textContent=initials;
+  document.getElementById('pdm-name').textContent=name||'—';
+  document.getElementById('pdm-email').textContent=email||'No email';
+  document.getElementById('pdm-amount').textContent=amount;
+  document.getElementById('pdm-card').innerHTML=cardHtml||'—';
+  document.getElementById('pdm-status').innerHTML=statusHtml||'—';
+  document.getElementById('pdm-reason').textContent=(reason&&reason!=='—')?reason:'—';
+  document.getElementById('pdm-date').textContent=date||'—';
+  document.getElementById('pdm-ref').textContent=ref||'—';
+  openModal('payment-detail-modal');
+}
 function cardBadge(brand,last4){
   if(!brand&&!last4)return '<span class="no-card">—</span>';
   var raw=(brand||'').toLowerCase().trim();
@@ -1276,7 +1310,7 @@ function renderPayments(list){
       :'<div class="avatar">'+initials(p.name)+'</div>';
     var customerHtml=isGhost
       ?'<div class="customer-name" style="font-size:12px;color:var(--red);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;margin-top:-1px;flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>No profile</div><div class="customer-email">External payment · no email collected</div>'
-      :'<div class="customer-name" style="font-size:12px;">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div>';
+      :(function(){var n=p.name||'—';var e=p.email||'';var a=fmt(p.amount,p.currency);var cb=cardBadge(p.card_brand,p.card_last4);var bs=badge(p.status);var fr=p.failure_message||p.failure_reason||'—';var dt=fmtDate(p.created_at);var rf=p.stripe_payment_intent_id||p.reference||'—';return '<div class="customer-name" style="font-size:12px;cursor:pointer;color:var(--accent);text-decoration:underline;text-underline-offset:2px;" onclick="openPaymentModal('+JSON.stringify(n)+','+JSON.stringify(e)+','+JSON.stringify(a)+','+JSON.stringify(cb)+','+JSON.stringify(bs)+','+JSON.stringify(fr)+','+JSON.stringify(dt)+','+JSON.stringify(rf)+')">'+n+'</div>';})();
     return '<tr style="'+rowBg+'"><td><div class="customer-cell">'+avatarHtml+'<div>'+customerHtml+'</div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+cardBadge(p.card_brand,p.card_last4)+'</td><td>'+badge(p.status)+'</td><td>'+reasonHtml+'</td><td class="mono" style="font-size:12px;white-space:nowrap;">'+fmtDate(p.created_at)+'</td><td>'+refHtml+'</td><td>'+actions+'</td></tr>';
   }).join('');
 }
