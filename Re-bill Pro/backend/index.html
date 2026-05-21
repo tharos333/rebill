@@ -195,6 +195,9 @@ textarea{resize:vertical;min-height:60px}
 .pay-filter-button:hover{border-color:var(--accent);background:var(--accent-glow)}
 @media(max-width:1280px){.payment-filters{flex-wrap:wrap}.pay-filter-control.date,.pay-filter-control.account,.pay-search-wrap{flex:1 1 240px;max-width:none}}
 .pay-table-card{margin-bottom:0}.pay-table-card table{min-width:980px}.pay-table-card tr.payment-row{cursor:pointer}.pay-table-card tr.payment-row.selected td{background:var(--accent-glow);box-shadow:inset 0 1px rgba(108,99,255,.35),inset 0 -1px rgba(108,99,255,.35)}
+.pay-table-card td{padding-top:11px;padding-bottom:11px}.pay-table-card th{padding-top:11px;padding-bottom:11px}
+.pay-table-footer{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 18px;border-top:1px solid var(--border);background:rgba(255,255,255,.012);min-height:62px}
+.pay-table-showing{font-size:12px;color:var(--muted);font-family:var(--sans);white-space:nowrap}.pay-page-controls{display:flex;align-items:center;justify-content:center;gap:10px;flex:1}.pay-page-btn{min-width:42px;height:42px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:var(--sans);font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}.pay-page-btn:hover{border-color:var(--accent);background:var(--accent-glow)}.pay-page-btn.active{background:var(--accent-glow);border-color:var(--accent);box-shadow:0 0 0 1px rgba(108,99,255,.25) inset}.pay-page-btn:disabled{opacity:.45;cursor:not-allowed}.pay-page-ellipsis{color:var(--muted);font-family:var(--mono);padding:0 4px}.pay-page-size{height:42px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);padding:0 12px;font-family:var(--sans);font-weight:600;outline:none;min-width:120px}
 .pay-table-card tr.payment-row.selected td:first-child{box-shadow:inset 1px 0 rgba(108,99,255,.65),inset 0 1px rgba(108,99,255,.35),inset 0 -1px rgba(108,99,255,.35)}
 .payment-img{width:26px!important;height:15px!important;border-radius:3px!important;box-shadow:none!important;background:#fff}.payment-badge-fallback{width:26px!important;height:15px!important;font-size:6px!important}.payment-card{gap:6px}.payment-dots{font-size:10px;letter-spacing:2px}.payment-last4{font-size:11px}
 .pay-customer-click{display:flex;align-items:center;gap:9px;border:0;background:none;color:inherit;text-align:left;cursor:pointer;padding:0;font-family:var(--sans)}
@@ -458,7 +461,7 @@ textarea{resize:vertical;min-height:60px}
       <div class="card pay-table-card"><div class="scrollable"><table>
         <thead><tr><th>Customer</th><th>Amount</th><th>Card</th><th>Status</th><th>Failure Reason</th><th>Date</th><th>Reference</th><th>Actions</th></tr></thead>
         <tbody id="payments-table"><tr><td colspan="8" class="empty">Loading...</td></tr></tbody>
-      </table></div></div>
+      </table></div><div class="pay-table-footer" id="payments-pagination"></div></div>
     </div>
     <aside class="payment-detail-panel" id="payment-detail-panel">
       <div class="empty" style="padding:28px 18px;">Select a payment</div>
@@ -1330,15 +1333,25 @@ function filterPayments(){
     if(dateFilter){var d=new Date(p.created_at);if(dateFilter==='today')matchD=d.toDateString()===now.toDateString();else if(dateFilter==='yesterday'){var y=new Date(now);y.setDate(y.getDate()-1);matchD=d.toDateString()===y.toDateString();}else if(dateFilter==='week'){var w=new Date(now);w.setDate(w.getDate()-7);matchD=d>=w;}else if(dateFilter==='month'){matchD=d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();}}
     return matchQ&&matchS&&matchA&&matchD;
   });
+  paymentCurrentPage=1;
   renderPayments(filtered);
 }
+var paymentCurrentPage=1;var paymentPageSize=15;var paymentFilteredCache=[];
 var reasonLabels={'insufficient_funds':'Insufficient funds','card_declined':'Card declined','expired_card':'Card expired','incorrect_cvc':'Wrong CVC','lost_card':'Card reported lost','stolen_card':'Reported stolen','do_not_honor':'Bank declined','processing_error':'Processing error','fraudulent':'Fraud suspected','generic_decline':'Generic decline','no_such_customer':'Customer not found','authentication_required':'Auth required'};
 function paymentTimeParts(v){var d=new Date(v);if(isNaN(d))return{date:'—',time:''};return{date:d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),time:d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})};}
 function renderPayments(list){
   var isViewer=localStorage.getItem('subloop_readonly')==='1';
   var tb=document.getElementById('payments-table');
-  if(!list.length){tb.innerHTML='<tr><td colspan="8" class="empty">No payments found</td></tr>';return;}
-  tb.innerHTML=list.map(function(p){
+  paymentFilteredCache=list||[];
+  var total=paymentFilteredCache.length;
+  var totalPages=Math.max(1,Math.ceil(total/paymentPageSize));
+  if(paymentCurrentPage>totalPages)paymentCurrentPage=totalPages;
+  if(paymentCurrentPage<1)paymentCurrentPage=1;
+  var start=(paymentCurrentPage-1)*paymentPageSize;
+  var pageList=paymentFilteredCache.slice(start,start+paymentPageSize);
+  renderPaymentsPagination(total,start,pageList.length,totalPages);
+  if(!total){tb.innerHTML='<tr><td colspan="8" class="empty">No payments found</td></tr>';return;}
+  tb.innerHTML=pageList.map(function(p){
     var isGhost=((p.email||'').toLowerCase().endsWith('@stripe.local')||(p.name||'').startsWith('pi_')||(p.name||'').startsWith('external_'));
     var shortReason=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'';
     var reasonHtml=shortReason?'<div style="font-size:12px;color:var(--red);max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+p.failure_reason+'">'+shortReason+'</div>':'<span style="color:var(--muted);font-size:12px;">—</span>';
@@ -1358,6 +1371,23 @@ function renderPayments(list){
     return '<tr class="payment-row" id="payment-row-'+p.id+'" style="'+rowBg+'" onclick="openPaymentDetail('+p.id+')"><td><button class="pay-customer-click" onclick="event.stopPropagation();openPaymentDetail('+p.id+')">'+avatarHtml+'<div>'+nameHtml+'</div></button></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+cardBadge(p.card_brand,p.card_last4)+'</td><td>'+badge(p.status)+'</td><td>'+reasonHtml+'</td><td><div class="pay-date-main">'+t.date+'</div><div class="pay-date-sub">'+t.time+'</div></td><td>'+refHtml+'</td><td>'+actions+'</td></tr>';
   }).join('');
 }
+function renderPaymentsPagination(total,start,count,totalPages){
+  var el=document.getElementById('payments-pagination');if(!el)return;
+  var from=total?start+1:0;var to=total?start+count:0;
+  var pages=[];
+  function btn(page,label,active,disabled){return '<button class="pay-page-btn '+(active?'active':'')+'" '+(disabled?'disabled':'')+' onclick="setPaymentPage('+page+')">'+label+'</button>';}
+  pages.push(btn(Math.max(1,paymentCurrentPage-1),'‹',false,paymentCurrentPage===1));
+  pages.push(btn(1,'1',paymentCurrentPage===1,false));
+  if(paymentCurrentPage>3)pages.push('<span class="pay-page-ellipsis">…</span>');
+  var fromPage=Math.max(2,paymentCurrentPage-1);var toPage=Math.min(totalPages-1,paymentCurrentPage+1);
+  for(var i=fromPage;i<=toPage;i++)pages.push(btn(i,String(i),paymentCurrentPage===i,false));
+  if(paymentCurrentPage<totalPages-2)pages.push('<span class="pay-page-ellipsis">…</span>');
+  if(totalPages>1)pages.push(btn(totalPages,String(totalPages),paymentCurrentPage===totalPages,false));
+  pages.push(btn(Math.min(totalPages,paymentCurrentPage+1),'›',false,paymentCurrentPage===totalPages));
+  el.innerHTML='<div class="pay-table-showing">Showing '+from+' to '+to+' of '+total+' payments</div><div class="pay-page-controls">'+pages.join('')+'</div><select class="pay-page-size" onchange="setPaymentPageSize(this.value)"><option value="15" '+(paymentPageSize===15?'selected':'')+'>15 / page</option><option value="25" '+(paymentPageSize===25?'selected':'')+'>25 / page</option><option value="50" '+(paymentPageSize===50?'selected':'')+'>50 / page</option></select>';
+}
+function setPaymentPage(page){paymentCurrentPage=parseInt(page,10)||1;renderPayments(paymentFilteredCache);}
+function setPaymentPageSize(size){paymentPageSize=parseInt(size,10)||15;paymentCurrentPage=1;renderPayments(paymentFilteredCache);}
 function copyText(v){navigator.clipboard&&navigator.clipboard.writeText(v||'');toast('Copied');}
 function openPaymentDetail(id){
   var p=(allPayments||[]).find(function(x){return String(x.id)===String(id);}); if(!p)return;
