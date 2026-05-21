@@ -123,7 +123,7 @@ tr:hover td{background:rgba(255,255,255,0.02)}
 .avatar{width:28px;height:28px;border-radius:6px;background:var(--accent-glow);border:1px solid rgba(108,99,255,0.3);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--accent);flex-shrink:0;font-family:var(--mono)}
 .customer-cell{display:flex;align-items:center;gap:8px}
 .customer-name{font-size:13px;font-weight:500}
-.customer-email{font-size:11px;color:var(--muted);font-family:var(--mono);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.customer-email{font-size:11px;color:var(--muted);font-family:var(--mono)}
 .actions{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
 .mono{font-family:var(--mono)}
 .scrollable{overflow-x:auto}
@@ -169,10 +169,10 @@ textarea{resize:vertical;min-height:60px}
 .rev-tab:hover{color:var(--text);border-color:var(--accent)}
 .rev-tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
 .payment-card{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;vertical-align:middle}
-.payment-img{width:24px;height:16px;border-radius:3px;object-fit:contain;display:block;box-shadow:0 1px 3px rgba(0,0,0,0.2)}
+.payment-img{width:30px;height:20px;border-radius:4px;object-fit:contain;display:block;box-shadow:0 1px 3px rgba(0,0,0,0.2)}
 .payment-dots{color:#8b8b98;letter-spacing:2px;font-weight:700;font-size:12px;font-family:var(--mono)}
 .payment-last4{color:#a1a1aa;font-weight:700;font-size:12px;font-family:var(--mono)}
-.payment-badge-fallback{width:24px;height:16px;border-radius:3px;background:#1f1f2a;border:1px solid #343442;display:inline-flex;align-items:center;justify-content:center;color:#9ca3af;font-size:7px;font-weight:700;font-family:var(--sans);flex-shrink:0}
+.payment-badge-fallback{width:30px;height:20px;border-radius:4px;background:#1f1f2a;border:1px solid #343442;display:inline-flex;align-items:center;justify-content:center;color:#9ca3af;font-size:8px;font-weight:700;font-family:var(--sans);flex-shrink:0}
 .no-card{color:#777783;font-weight:700;font-family:var(--mono)}
   #best-table td{vertical-align:middle;padding:10px 16px;}
   #best-table .customer-cell{align-items:center;}
@@ -695,27 +695,6 @@ textarea{resize:vertical;min-height:60px}
     <div class="modal-footer"><button class="btn" onclick="closeModal('add-account-modal')">Cancel</button><button class="btn btn-primary" onclick="addAccount()">Save account</button></div>
   </div>
 </div>
-<div class="modal-bg" id="payment-detail-modal">
-  <div class="modal" style="width:420px;max-width:97vw;">
-    <h3>Transaction details</h3>
-    <div style="display:flex;align-items:center;gap:10px;margin:12px 0 16px;">
-      <div class="avatar" id="pdm-avatar" style="width:40px;height:40px;border-radius:50%;background:var(--accent-bg);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;flex-shrink:0;"></div>
-      <div>
-        <div style="font-weight:500;font-size:14px;" id="pdm-name"></div>
-        <div style="font-size:12px;color:var(--muted);font-family:var(--mono);" id="pdm-email"></div>
-      </div>
-    </div>
-    <table style="width:100%;border-collapse:collapse;font-size:13px;">
-      <tr style="border-top:1px solid var(--border);"><td style="padding:8px 0;color:var(--muted);width:110px;">Amount</td><td style="padding:8px 0;font-family:var(--mono);font-weight:500;" id="pdm-amount"></td></tr>
-      <tr style="border-top:1px solid var(--border);"><td style="padding:8px 0;color:var(--muted);">Card</td><td style="padding:8px 0;" id="pdm-card"></td></tr>
-      <tr style="border-top:1px solid var(--border);"><td style="padding:8px 0;color:var(--muted);">Status</td><td style="padding:8px 0;" id="pdm-status"></td></tr>
-      <tr style="border-top:1px solid var(--border);"><td style="padding:8px 0;color:var(--muted);">Failure reason</td><td style="padding:8px 0;color:var(--red);font-size:12px;" id="pdm-reason"></td></tr>
-      <tr style="border-top:1px solid var(--border);"><td style="padding:8px 0;color:var(--muted);">Date</td><td style="padding:8px 0;font-family:var(--mono);font-size:12px;" id="pdm-date"></td></tr>
-      <tr style="border-top:1px solid var(--border);border-bottom:1px solid var(--border);"><td style="padding:8px 0;color:var(--muted);">Reference</td><td style="padding:8px 0;font-family:var(--mono);font-size:12px;" id="pdm-ref"></td></tr>
-    </table>
-    <div class="modal-footer"><button class="btn" onclick="closeModal('payment-detail-modal')">Close</button></div>
-  </div>
-</div>
 <div class="modal-bg" id="note-modal">
   <div class="modal">
     <h3>Customer note</h3><p>Add a private note about this customer</p>
@@ -1010,22 +989,6 @@ async function api(path,opts){
 function toast(msg,type){const t=document.getElementById('toast');t.textContent=msg;t.className='show '+(type||'success');setTimeout(()=>t.className='',2800);}
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
-function openPaymentModal(id){
-  var p=allPayments.find(function(x){return x.id==id;});
-  if(!p)return;
-  var name=p.name||'—';
-  var initials=name.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
-  document.getElementById('pdm-avatar').textContent=initials;
-  document.getElementById('pdm-name').textContent=name;
-  document.getElementById('pdm-email').textContent=p.email||'No email';
-  document.getElementById('pdm-amount').textContent=fmt(p.amount,p.currency);
-  document.getElementById('pdm-card').innerHTML=cardBadge(p.card_brand,p.card_last4);
-  document.getElementById('pdm-status').innerHTML=badge(p.status);
-  document.getElementById('pdm-reason').textContent=p.failure_message||p.failure_reason||'—';
-  document.getElementById('pdm-date').textContent=fmtDate(p.created_at);
-  document.getElementById('pdm-ref').textContent=p.stripe_payment_intent_id||p.reference||'—';
-  openModal('payment-detail-modal');
-}
 function cardBadge(brand,last4){
   if(!brand&&!last4)return '<span class="no-card">—</span>';
   var raw=(brand||'').toLowerCase().trim();
@@ -1240,7 +1203,7 @@ function renderCustomers(list){
   tb.innerHTML=list.map(c=>{
     const dateLabel = c.last_payment_at ? fmtDate(c.last_payment_at) : '—';
     const dateTitle = c.last_payment_at ? 'Last successful payment date' : 'No successful payment yet';
-    return '<tr><td><div class="customer-cell"><div class="avatar">'+initials(c.name)+'</div><div><div class="customer-name">'+(c.name||'—')+'</div><div class="customer-email">'+(c.email||'')+'</div></div></div></td><td>'+cardBadge(c.card_brand,c.card_last4)+'</td><td style="font-size:12px;color:var(--muted);">'+(c.account_name||'—').replace(/_/g,' ')+'</td><td>'+badge(c.status)+'</td><td style="font-size:12px;color:var(--muted);font-family:var(--mono);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(c.note||'—')+'</td><td class="mono" style="font-size:12px;white-space:nowrap;" title="'+dateTitle+'">'+dateLabel+'</td><td class="mono">'+fmt(c.total_paid||0,c.payment_currency)+'</td><td><div class="actions"><button class="btn btn-sm" onclick="openNoteModal('+c.id+',\''+encodeURIComponent(c.note||'')+'\')">Note</button><button class="btn btn-sm" onclick="openPortal('+c.id+')">Card ↗</button>'+(c.status==='active'?'<button class="btn btn-sm btn-danger" onclick="setCustStatus('+c.id+',\'paused\')">Pause</button>':'')+(c.status==='paused'?'<button class="btn btn-sm" onclick="setCustStatus('+c.id+',\'active\')">Resume</button>':'')+'</div></td></tr>';
+    return '<tr><td><div class="customer-cell"><div class="avatar">'+initials(c.name)+'</div><div><div class="customer-name">'+(c.name||'—')+'</div><div class="customer-email">'+(c.email||'')+'</div></div></div></td><td>'+cardBadge(c.card_brand,c.card_last4)+'</td><td style="font-size:12px;color:var(--muted);">'+(c.account_name||'—')+'</td><td>'+badge(c.status)+'</td><td style="font-size:12px;color:var(--muted);font-family:var(--mono);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(c.note||'—')+'</td><td class="mono" style="font-size:12px;white-space:nowrap;" title="'+dateTitle+'">'+dateLabel+'</td><td class="mono">'+fmt(c.total_paid||0)+'</td><td><div class="actions"><button class="btn btn-sm" onclick="openNoteModal('+c.id+',\''+encodeURIComponent(c.note||'')+'\')">Note</button><button class="btn btn-sm" onclick="openPortal('+c.id+')">Card ↗</button>'+(c.status==='active'?'<button class="btn btn-sm btn-danger" onclick="setCustStatus('+c.id+',\'paused\')">Pause</button>':'')+(c.status==='paused'?'<button class="btn btn-sm" onclick="setCustStatus('+c.id+',\'active\')">Resume</button>':'')+'</div></td></tr>';
   }).join('');
 }
 function filterCustomers(){const q=document.getElementById('customer-search').value.toLowerCase();renderCustomers(allCustomers.filter(c=>(c.name||'').toLowerCase().includes(q)||(c.email||'').toLowerCase().includes(q)));}
@@ -1257,7 +1220,7 @@ function renderSubscriptions(list){
     var pauseBtn=s.status==='active'?'<button class="btn btn-sm" onclick="openPauseModal('+s.id+')">Pause</button>':'';
     var retryBtn=s.status==='dunning'?'<button class="btn btn-sm btn-success" onclick="chargeNow('+s.id+')">Retry now</button>':'';
     var cancelBtn='<button class="btn btn-sm btn-danger" onclick="cancelSub('+s.id+')">Cancel</button>';
-    var editSpan='<button class="btn btn-sm" onclick="showEditAmount('+s.id+','+s.amount+')">Edit price</button><span id="edit-'+s.id+'"></span>';
+    var editSpan='<button class="btn btn-sm" onclick="showEditAmount('+s.id+','+s.amount+')">Edit $</button><span id="edit-'+s.id+'"></span>';
     var dunningBadge=s.dunning_count>0?'<br><span style="font-size:10px;color:var(--amber);">Retry #'+s.dunning_count+'</span>':'';
     var resumeDate=s.resume_date?'<br><span style="font-size:10px;color:var(--blue);">Resumes '+fmtDate(s.resume_date)+'</span>':'';
     rows.push('<tr id="sub-row-'+s.id+'" style="'+bg+'"><td style="width:36px;display:'+cbDisplay+';"><input type="checkbox" class="sub-checkbox" data-id="'+s.id+'" '+cbChecked+' onchange="toggleSubSelect('+s.id+')" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;"></td><td><div class="customer-cell"><div class="avatar">'+initials(s.name)+'</div><div><div class="customer-name">'+(s.name||'—')+'</div><div class="customer-email">'+(s.email||'')+'</div></div></div></td><td class="mono">'+fmt(s.amount,s.currency)+'</td><td class="mono">'+(s.interval_days||30)+' days</td><td class="mono">'+fmtDate(s.next_billing_date)+resumeDate+'</td><td>'+badge(s.status)+dunningBadge+'</td><td><div class="actions">'+chargeBtn+editSpan+pauseBtn+resumeBtn+retryBtn+cancelBtn+'</div></td></tr>');
@@ -1313,7 +1276,7 @@ function renderPayments(list){
       :'<div class="avatar">'+initials(p.name)+'</div>';
     var customerHtml=isGhost
       ?'<div class="customer-name" style="font-size:12px;color:var(--red);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;margin-top:-1px;flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>No profile</div><div class="customer-email">External payment · no email collected</div>'
-      :'<div class="customer-name" style="font-size:12px;cursor:pointer;color:var(--accent);text-decoration:underline;text-underline-offset:2px;" onclick="openPaymentModal('+p.id+')">"+(p.name||'—')+'</div>';
+      :'<div class="customer-name" style="font-size:12px;">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div>';
     return '<tr style="'+rowBg+'"><td><div class="customer-cell">'+avatarHtml+'<div>'+customerHtml+'</div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+cardBadge(p.card_brand,p.card_last4)+'</td><td>'+badge(p.status)+'</td><td>'+reasonHtml+'</td><td class="mono" style="font-size:12px;white-space:nowrap;">'+fmtDate(p.created_at)+'</td><td>'+refHtml+'</td><td>'+actions+'</td></tr>';
   }).join('');
 }
