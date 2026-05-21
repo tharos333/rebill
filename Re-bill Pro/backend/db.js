@@ -164,7 +164,8 @@ const customers = {
         customer_id,
         COALESCE(SUM(CASE WHEN status='succeeded' THEN amount ELSE 0 END), 0) as total_paid,
         MAX(CASE WHEN status='succeeded' THEN created_at END) as last_payment_at,
-        MAX(created_at) as last_any_payment_at
+        MAX(created_at) as last_any_payment_at,
+        (SELECT currency FROM payments p2 WHERE p2.customer_id=payments.customer_id AND p2.status='succeeded' ORDER BY p2.created_at DESC LIMIT 1) as currency
       FROM payments
       GROUP BY customer_id
     )
@@ -173,6 +174,7 @@ const customers = {
       sa.name as account_name,
       COALESCE(s.active_subs, 0) as active_subs,
       COALESCE(p.total_paid, 0) as total_paid,
+      p.currency as payment_currency,
       p.last_payment_at,
       p.last_any_payment_at,
       COALESCE(p.last_payment_at, c.created_at) as sort_date
