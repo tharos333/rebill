@@ -925,7 +925,7 @@ app.post('/api/subscriptions/:id/charge', async (req, res) => {
 app.delete('/api/subscriptions/:id', async (req, res) => { try { await subscriptions.updateStatus(req.params.id, 'cancelled'); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
 
 // ── Payments ──────────────────────────────────────────────────────────────────
-app.get('/api/payments', async (req, res) => { try { res.json(await payments.recent(200)); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.get('/api/payments', async (req, res) => { try { res.json(await payments.recent(1000)); } catch(err) { res.status(500).json({ error: err.message }); } });
 app.post('/api/payments/:id/retry', async (req, res) => {
   try {
     const r = await pool.query('SELECT p.*, c.stripe_customer_id, c.stripe_payment_method, c.stripe_account_id, c.email, c.name FROM payments p JOIN customers c ON c.id=p.customer_id WHERE p.id=$1', [req.params.id]);
