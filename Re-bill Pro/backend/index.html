@@ -412,16 +412,25 @@ textarea{resize:vertical;min-height:60px}
     <div><h2>Payments</h2><p>Full payment history</p></div>
     <button class="btn" onclick="window.location='/api/payments/export'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export CSV</button>
   </div>
-  <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
-    <select id="pay-status-filter" onchange="payCurrentPage=1;filterPayments();" style="padding:7px 12px;font-size:12px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer;min-width:140px;">
-      <option value="">All Statuses</option>
-      <option value="succeeded">Succeeded</option>
-      <option value="failed">Failed</option>
-    </select>
-    <select id="pay-account-filter" onchange="payCurrentPage=1;filterPayments();" style="padding:7px 12px;font-size:12px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer;min-width:180px;">
-      <option value="">All Stripe Accounts</option>
-    </select>
-    <span id="pay-filter-count" style="font-size:12px;color:var(--muted);margin-left:4px;"></span>
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:10px;">
+    <!-- Status pill buttons -->
+    <div style="display:flex;align-items:center;gap:2px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:3px;">
+      <button id="pay-btn-all" onclick="setPayStatus('')" style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:6px;border:none;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;">All <span id="pay-count-all" style="background:rgba(255,255,255,0.25);border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700;">0</span></button>
+      <button id="pay-btn-succeeded" onclick="setPayStatus('succeeded')" style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:6px;border:none;background:transparent;color:var(--green,#4ade80);font-size:12px;font-weight:500;cursor:pointer;">Succeeded <span id="pay-count-succeeded" style="background:rgba(74,222,128,0.15);color:var(--green,#4ade80);border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700;">0</span></button>
+      <button id="pay-btn-failed" onclick="setPayStatus('failed')" style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:6px;border:none;background:transparent;color:var(--red);font-size:12px;font-weight:500;cursor:pointer;">Failed <span id="pay-count-failed" style="background:rgba(248,113,113,0.15);color:var(--red);border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700;">0</span></button>
+    </div>
+    <!-- Stripe account dropdown -->
+    <div style="position:relative;display:flex;align-items:center;">
+      <select id="pay-account-filter" onchange="payCurrentPage=1;filterPayments();" style="padding:7px 32px 7px 12px;font-size:12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;appearance:none;-webkit-appearance:none;min-width:170px;">
+        <option value="">All Stripe Accounts</option>
+      </select>
+      <svg style="position:absolute;right:10px;pointer-events:none;color:var(--muted);" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <!-- Search -->
+    <div style="position:relative;display:flex;align-items:center;flex:1;min-width:200px;">
+      <svg style="position:absolute;left:10px;color:var(--muted);flex-shrink:0;" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input id="pay-search" type="text" placeholder="Search by name, card or payment ID..." oninput="payCurrentPage=1;filterPayments();" style="width:100%;padding:7px 12px 7px 32px;font-size:12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);">
+    </div>
   </div>
   <div class="card"><div class="scrollable"><table>
     <thead><tr><th>Customer</th><th>Amount</th><th>Card</th><th>Status</th><th>Failure Reason</th><th>Date</th><th>Reference</th><th>Action</th></tr></thead>
@@ -1281,17 +1290,44 @@ async function loadPayments(){
 function renderPaymentSummary(list){var total=list.filter(p=>p.status==='succeeded').reduce((s,p)=>s+(parseInt(p.amount)||0),0);var success=list.filter(p=>p.status==='succeeded').length;var failed=list.filter(p=>p.status==='failed').length;var te=document.getElementById('pay-total');if(te)te.textContent=fmt(total);var se=document.getElementById('pay-success-count');if(se)se.textContent=success;var fe=document.getElementById('pay-fail-count');if(fe)fe.textContent=failed;var re=document.getElementById('pay-retry-count');if(re)re.textContent=failed;}
 var payCurrentPage=1;
 var PAY_PER_PAGE=35;
+var payStatusFilter='';
+function setPayStatus(s){
+  payStatusFilter=s;
+  payCurrentPage=1;
+  // update pill button styles
+  ['all','succeeded','failed'].forEach(function(k){
+    var btn=document.getElementById('pay-btn-'+k);
+    if(!btn)return;
+    var isActive=(k==='all'&&s==='')||(k===s);
+    if(isActive){
+      btn.style.background=k==='succeeded'?'rgba(74,222,128,0.15)':k==='failed'?'rgba(248,113,113,0.15)':'var(--accent)';
+      btn.style.color=k==='succeeded'?'var(--green,#4ade80)':k==='failed'?'var(--red)':'#fff';
+      btn.style.fontWeight='600';
+    } else {
+      btn.style.background='transparent';
+      btn.style.color=k==='succeeded'?'var(--green,#4ade80)':k==='failed'?'var(--red)':'var(--muted)';
+      btn.style.fontWeight='500';
+    }
+  });
+  filterPayments();
+}
 function filterPayments(){
   if(!allPayments)return;
-  var status=document.getElementById('pay-status-filter')?.value||'';
   var account=document.getElementById('pay-account-filter')?.value||'';
+  var q=(document.getElementById('pay-search')?.value||'').toLowerCase();
+  // update counts
+  var allC=allPayments.length;
+  var sucC=allPayments.filter(function(p){return p.status==='succeeded';}).length;
+  var failC=allPayments.filter(function(p){return p.status==='failed';}).length;
+  var ca=document.getElementById('pay-count-all');if(ca)ca.textContent=allC;
+  var cs=document.getElementById('pay-count-succeeded');if(cs)cs.textContent=sucC;
+  var cf=document.getElementById('pay-count-failed');if(cf)cf.textContent=failC;
   var filtered=allPayments.filter(function(p){
-    var matchS=!status||p.status===status;
+    var matchS=!payStatusFilter||p.status===payStatusFilter;
     var matchA=!account||(p.account_name||'')=== account;
-    return matchS&&matchA;
+    var matchQ=!q||(p.name||'').toLowerCase().includes(q)||(p.email||'').toLowerCase().includes(q)||(p.stripe_payment_intent||'').toLowerCase().includes(q)||(p.card_last4||'').includes(q);
+    return matchS&&matchA&&matchQ;
   });
-  var countEl=document.getElementById('pay-filter-count');
-  if(countEl)countEl.textContent=filtered.length+' payment'+(filtered.length!==1?'s':'');
   var total=filtered.length;
   var totalPages=Math.max(1,Math.ceil(total/PAY_PER_PAGE));
   if(payCurrentPage>totalPages)payCurrentPage=totalPages;
