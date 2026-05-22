@@ -753,12 +753,12 @@ html.light .pay-filter-count{color:#666678!important;}
   </div>
 </div>
 <div class="modal-bg" id="payment-detail-modal">
-  <div class="modal" style="max-width:480px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-      <h3 style="margin:0;">Payment Details</h3>
-      <button class="btn btn-sm" onclick="closeModal('payment-detail-modal')" style="padding:4px 8px;">✕</button>
+  <div class="modal" style="max-width:480px;padding:0;overflow:hidden;border-radius:14px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);">
+      <span style="font-size:13px;font-weight:600;">Payment details</span>
+      <button class="btn btn-sm" onclick="closeModal('payment-detail-modal')" style="padding:3px 8px;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;">✕</button>
     </div>
-    <div id="payment-detail-body"></div>
+    <div id="payment-detail-body" style="padding:16px 18px;"></div>
   </div>
 </div>
 <div class="modal-bg" id="note-modal">
@@ -1429,29 +1429,79 @@ function openPaymentModal(p){
   var isGhost=((p.email||'').toLowerCase().endsWith('@stripe.local')||(p.name||'').startsWith('pi_')||(p.name||'').startsWith('external_'));
   var fullReason=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'—';
   var isViewer=localStorage.getItem('subloop_readonly')==='1';
-  var retryBtn=(!isViewer&&p.status==='failed'&&!isGhost)?'<button class="btn btn-success" onclick="closeModal(\'payment-detail-modal\');retryPayment('+p.id+')">Retry Payment</button>':'';
-  var noteBtn='<button class="btn" onclick="closeModal(\'payment-detail-modal\');openPaymentNote('+p.id+')">'+(p.note?'📝 Edit Note':'Add Note')+'</button>';
-  var avatar=isGhost
-    ?'<div class="avatar" style="width:44px;height:44px;font-size:16px;background:rgba(248,113,113,0.15);border-color:rgba(248,113,113,0.4);color:var(--red);">!</div>'
-    :'<div class="avatar" style="width:44px;height:44px;font-size:16px;">'+initials(p.name)+'</div>';
+  var d=new Date(p.created_at);
+  var dateStr=fmtDate(p.created_at);
+  var timeStr=d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+' UTC';
+
+  // avatar — rounded square
+  var avatarBg=isGhost?'background:rgba(248,113,113,0.15);color:var(--red);':'background:var(--accent-bg,rgba(108,99,255,0.15));color:var(--accent);';
+  var avatarTxt=isGhost?'!':initials(p.name);
+  var avatarHtml='<div style="width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;flex-shrink:0;'+avatarBg+'">'+avatarTxt+'</div>';
+
+  // name + email
   var nameHtml=isGhost
-    ?'<div style="font-size:15px;font-weight:600;color:var(--red);">No profile</div><div style="font-size:12px;color:var(--muted);">External payment · no email collected</div>'
-    :'<div style="font-size:15px;font-weight:600;">'+(p.name||'—')+'</div><div style="font-size:12px;color:var(--muted);">'+(p.email||'')+'</div>';
-  var rows=[
-    ['Amount', '<span class="mono" style="font-size:14px;font-weight:600;">'+fmt(p.amount,p.currency)+'</span>'],
-    ['Status', badge(p.status)],
-    ['Card', cardBadge(p.card_brand,p.card_last4)||'<span style="color:var(--muted);">—</span>'],
-    ['Failure Reason', p.failure_reason?'<span style="color:var(--red);font-size:12px;">'+fullReason+'</span>':'<span style="color:var(--muted);">—</span>'],
-    ['Date', '<span class="mono" style="font-size:12px;">'+fmtDate(p.created_at)+'</span>'],
-    ['Reference', '<span class="mono" style="font-size:11px;word-break:break-all;">'+(p.stripe_payment_intent||'—')+'</span>'],
-    ['Stripe Account', '<span style="font-size:12px;">'+(p.account_name||'—')+'</span>'],
-    ['Note', '<span style="font-size:12px;color:var(--muted);">'+(p.note||'—')+'</span>'],
-  ];
-  var tableRows=rows.map(function(r){return '<tr><td style="padding:8px 0;font-size:12px;color:var(--muted);width:130px;vertical-align:top;">'+r[0]+'</td><td style="padding:8px 0;">'+r[1]+'</td></tr>';}).join('');
+    ?'<div style="font-size:14px;font-weight:600;color:var(--red);">No profile</div><div style="font-size:12px;color:var(--muted);">External · no email</div>'
+    :'<div style="font-size:14px;font-weight:600;">'+(p.name||'—')+'</div><div style="font-size:12px;color:var(--muted);">'+(p.email||'')+'</div>';
+
+  // status badge
+  var statusBadgeHtml=badge(p.status);
+
+  // amount card
+  var amountCard='<div style="background:var(--surface2);border-radius:12px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;margin:14px 0;">'+
+    '<div><div style="font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.06em;">Total charged</div>'+
+    '<div style="font-size:26px;font-weight:600;font-family:var(--mono);">'+fmt(p.amount,p.currency)+'</div></div>'+
+    '<div style="text-align:right;"><div style="font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.06em;">Date & time</div>'+
+    '<div style="font-size:13px;font-weight:500;">'+dateStr+'</div>'+
+    '<div style="font-size:11px;color:var(--muted);margin-top:2px;">'+timeStr+'</div></div>'+
+  '</div>';
+
+  // detail rows
+  var detailRow=function(icon,label,val){
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);">'+
+      '<span style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:7px;">'+icon+label+'</span>'+
+      '<span style="font-size:12px;color:var(--text);font-weight:500;text-align:right;max-width:240px;">'+val+'</span></div>';
+  };
+
+  var iconCard='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>';
+  var iconBank='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><line x1="3" y1="22" x2="21" y2="22"/><line x1="6" y1="18" x2="6" y2="11"/><line x1="10" y1="18" x2="10" y2="11"/><line x1="14" y1="18" x2="14" y2="11"/><line x1="18" y1="18" x2="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg>';
+  var iconAlert='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+  var iconNote='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+
+  var cardVal=cardBadge(p.card_brand,p.card_last4)||'<span style="color:var(--muted)">—</span>';
+  var failVal=p.failure_reason?'<span style="color:var(--red)">'+fullReason+'</span>':'<span style="color:var(--muted)">—</span>';
+  var noteVal='<span style="color:var(--muted)">'+(p.note||'No note added')+'</span>';
+
+  // payment ID row with copy
+  var pidRow='<div style="padding:10px 14px;border-bottom:1px solid var(--border);">'+
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">'+
+    '<span style="font-size:12px;color:var(--muted);">&#35; Payment ID</span>'+
+    '<span style="font-size:11px;color:var(--accent);cursor:pointer;" onclick="navigator.clipboard.writeText(''+p.stripe_payment_intent+'');toast('Copied!')">⧉ Copy</span></div>'+
+    '<span style="font-family:var(--mono);font-size:11px;color:var(--text);word-break:break-all;">'+(p.stripe_payment_intent||'—')+'</span></div>';
+
+  var detailsBox='<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:14px;">'+
+    detailRow(iconCard,'Card',cardVal)+
+    detailRow(iconBank,'Stripe account','<span style="font-size:11px;">'+(p.account_name||'—')+'</span>')+
+    detailRow(iconAlert,'Failure reason',failVal)+
+    pidRow+
+    '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;">'+
+    '<span style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:7px;">'+iconNote+'Note</span>'+
+    noteVal+'</div></div>';
+
+  // buttons
+  var retryBtn=(!isViewer&&p.status==='failed'&&!isGhost)
+    ?'<button class="btn btn-success" style="flex:1;" onclick="closeModal('payment-detail-modal');retryPayment('+p.id+')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Retry payment</button>'
+    :'';
+  var noteBtn='<button class="btn" style="flex:1;" onclick="closeModal('payment-detail-modal');openPaymentNote('+p.id+')">'+(p.note?'Edit note':'Add note')+'</button>';
+
   document.getElementById('payment-detail-body').innerHTML=
-    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--border);">'+avatar+'<div>'+nameHtml+'</div></div>'+
-    '<table style="width:100%;border-collapse:collapse;">'+tableRows+'</table>'+
-    '<div style="display:flex;gap:8px;margin-top:18px;padding-top:16px;border-top:1px solid var(--border);">'+retryBtn+noteBtn+'</div>';
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;">'+
+      '<div style="display:flex;align-items:center;gap:11px;">'+avatarHtml+'<div>'+nameHtml+'</div></div>'+
+      statusBadgeHtml+
+    '</div>'+
+    amountCard+
+    detailsBox+
+    '<div style="display:flex;gap:8px;">'+noteBtn+retryBtn+'</div>';
+
   openModal('payment-detail-modal');
 }
 async function retryPayment(id){toast('Retrying…');try{const r=await api('/api/payments/'+id+'/retry',{method:'POST'});if(r.success){toast('✓ Succeeded');loadPayments();loadStats();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
