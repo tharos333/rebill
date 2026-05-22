@@ -473,7 +473,7 @@ textarea{resize:vertical;min-height:60px}
       <div class="pay-pagination-footer" id="pay-pagination-footer">
         <div class="pay-pagination-info" id="pay-pagination-info">Showing 0 to 0 of 0 payments</div>
         <div class="pay-pagination-center" id="pay-pagination-center"></div>
-        <div class="pay-pagination-right"><select class="pay-page-size" id="pay-page-size" onchange="setPaymentPageSize(this.value)"><option value="30" selected>30 / page</option><option value="25">25 / page</option><option value="50">50 / page</option></select></div>
+        <div class="pay-pagination-right"><select class="pay-page-size" id="pay-page-size" onchange="setPaymentPageSize(this.value)"><option value="15" selected>15 / page</option><option value="25">25 / page</option><option value="50">50 / page</option></select></div>
       </div></div>
     </div>
     <aside class="payment-detail-panel" id="payment-detail-panel">
@@ -896,7 +896,7 @@ textarea{resize:vertical;min-height:60px}
 <div id="toast"></div>
 <script>
 let currentLink=null,allCustomers=[],allSubscriptions=[],allPayments=[],allStripeAccounts=[],allAdminUsers=[],appSettings={},selectedSubs=new Set(),currentRevPeriod='month',bulkMode=false;
-let currentPaymentPage=1,currentPaymentPageSize=30,currentPaymentFiltered=[];
+let currentPaymentPage=1,currentPaymentPageSize=15,currentPaymentFiltered=[];
 function toggleTheme(){const isLight=document.documentElement.classList.toggle('light');localStorage.setItem('subloop_theme',isLight?'light':'dark');document.getElementById('theme-label').textContent=isLight?'Light mode':'Dark mode';updateLogos(isLight);}
 function updateLogos(isLight){const src=isLight?'https://i.ibb.co/6cD50Q6H/2.png':'https://i.ibb.co/xq0HVT9G/1.png';['sidebar-logo','login-logo'].forEach(id=>{const el=document.getElementById(id);if(el)el.src=src;});}
 function initTheme(){const isLight=localStorage.getItem('subloop_theme')==='light';if(isLight){document.documentElement.classList.add('light');const l=document.getElementById('theme-label');if(l)l.textContent='Light mode';}updateLogos(isLight);}
@@ -1349,7 +1349,7 @@ function setPaymentStatusFilter(status){
   currentPaymentPage=1;
   filterPayments();
 }
-function setPaymentPageSize(v){currentPaymentPageSize=parseInt(v)||30;currentPaymentPage=1;renderPayments(currentPaymentFiltered||[]);}
+function setPaymentPageSize(v){currentPaymentPageSize=parseInt(v)||15;currentPaymentPage=1;renderPayments(currentPaymentFiltered||[]);}
 function goPaymentPage(n){currentPaymentPage=Math.max(1,parseInt(n)||1);renderPayments(currentPaymentFiltered||[]);}
 function renderPaymentPagination(total){
   var totalPages=Math.max(1,Math.ceil(total/currentPaymentPageSize));
