@@ -174,6 +174,25 @@ textarea{resize:vertical;min-height:60px}
 .payment-last4{color:#a1a1aa;font-weight:700;font-size:12px;font-family:var(--mono)}
 .payment-badge-fallback{width:24px;height:16px;border-radius:3px;background:#1f1f2a;border:1px solid #343442;display:inline-flex;align-items:center;justify-content:center;color:#9ca3af;font-size:8px;font-weight:700;font-family:var(--sans);flex-shrink:0}
 .no-card{color:#777783;font-weight:700;font-family:var(--mono)}
+.payment-modal{max-width:760px;width:92vw;padding:0;overflow:hidden;background:var(--surface);border-color:var(--border2);box-shadow:0 22px 60px rgba(0,0,0,.50)}
+.payment-modal-head{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--border);background:var(--surface)}
+.payment-modal-head h3{margin:0;font-size:17px;font-weight:600;font-family:var(--sans);letter-spacing:0}
+.payment-modal-head p{margin:4px 0 0;color:var(--muted);font-size:12px;font-family:var(--sans)}
+.payment-close{width:30px;height:30px;padding:0!important;border-radius:9px;justify-content:center;font-size:18px;line-height:1;color:var(--muted)}
+.payment-modal-body{padding:18px 22px 20px}
+.pay-grid{display:grid;grid-template-columns:1fr 1.12fr;gap:18px}
+.pay-panel{border:1px solid var(--border);background:var(--surface2);border-radius:12px;padding:14px;margin-bottom:12px}
+.pay-panel.soft{background:rgba(255,255,255,.018)}
+.pay-customer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.pay-name{font-size:14px;font-weight:600;color:var(--text);font-family:var(--sans)}
+.pay-sub{font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px}
+.pay-amount-box{border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--surface)}
+.pay-label{font-size:10px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:.5px}
+.pay-amount{display:flex;align-items:flex-end;justify-content:space-between;margin-top:5px}.pay-amount .value{font-size:28px;font-weight:600;color:var(--text);font-family:var(--sans);letter-spacing:-.02em}.pay-amount .cur{font-size:11px;color:var(--muted);font-family:var(--mono)}
+.pay-section-title{font-size:13px;font-weight:600;color:var(--text);font-family:var(--sans);margin-bottom:10px}.pay-method-row{display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:10px;padding:9px 10px;background:var(--surface)}.pay-method-meta{font-size:11px;color:var(--muted);font-family:var(--mono);line-height:1.4}.pay-info{border-left:1px solid var(--border);padding-left:18px}.pay-info-row{display:grid;grid-template-columns:18px 96px 1fr;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px}.pay-info-row .icon{color:var(--accent);font-family:var(--mono);font-size:11px}.pay-info-row .label{color:var(--muted);font-family:var(--sans)}.pay-info-row .val{text-align:right;word-break:break-word;font-family:var(--sans)}.pay-copy{padding:2px 6px!important;margin-left:6px;opacity:.7}.pay-timeline-item{display:flex;gap:10px;align-items:flex-start;margin:10px 0}.pay-timeline-dot{width:20px;height:20px;border-radius:999px;background:var(--accent-glow);border:1px solid rgba(108,99,255,.35);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--accent);font-family:var(--mono);flex-shrink:0}.pay-timeline-dot.good{background:var(--green-bg);border-color:rgba(34,197,94,.35);color:var(--green)}.pay-timeline-title{font-size:12px;font-weight:600;color:var(--text);font-family:var(--sans)}.pay-note-box{margin-top:14px;padding:11px;border:1px solid var(--border);border-radius:10px;background:var(--surface2)}
+.card-logo{width:24px;height:16px;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;background:#fff;border:1px solid rgba(255,255,255,.15);overflow:hidden;flex-shrink:0}.card-logo svg{width:24px;height:16px;display:block}.card-logo-text{font-size:7px;font-weight:800;color:#1a1f71;font-family:Arial,sans-serif;letter-spacing:-.2px}.card-logo-fallback{background:var(--surface);border-color:var(--border2);color:var(--muted);font-size:7px;font-weight:700;font-family:var(--mono)}
+@media(max-width:760px){.pay-grid{grid-template-columns:1fr}.pay-info{border-left:0;padding-left:0}.payment-modal{width:96vw}}
+
   #best-table td{vertical-align:middle;padding:10px 16px;}
   #best-table .customer-cell{align-items:center;}
   .payment-card{align-items:center;}
@@ -1060,371 +1079,25 @@ function cardBadge(brand,last4){
   if(!brand&&!last4)return '<span class="no-card">—</span>';
   var raw=(brand||'').toLowerCase().trim();
   var b=raw.replace(/[\s-]+/g,'_');
-  var aliases={
-    'american_express':'amex',
-    'diners_club':'diners',
-    'master_card':'mastercard',
-    'carte_bancaire':'cartes_bancaires',
-    'cb':'cartes_bancaires'
-  };
+  var aliases={american_express:'amex',master_card:'mastercard',cb:'cartes_bancaires'};
   b=aliases[b]||b;
-  var icons={
-    visa:'visa.svg',
-    mastercard:'mastercard.svg',
-    amex:'american-express.svg',
-    discover:'discover.svg',
-    diners:'diners.svg',
-    jcb:'jcb.svg',
-    unionpay:'unionpay.svg',
-    cartes_bancaires:'cartes-bancaires.svg',
-    dankort:'dankort.svg',
-    elo:'elo.svg',
-    hipercard:'hipercard.svg',
-    maestro:'maestro.svg',
-    uatp:'uatp.svg',
-    vpay:'vpay.svg'
-  };
-  var labels={visa:'Visa',mastercard:'Mastercard',amex:'American Express',discover:'Discover',diners:'Diners Club',jcb:'JCB',unionpay:'UnionPay',cartes_bancaires:'Cartes Bancaires',dankort:'Dankort',elo:'Elo',hipercard:'Hipercard',maestro:'Maestro',uatp:'UATP',vpay:'V Pay'};
-  var src=icons[b]?'/icons/'+icons[b]:null;
-  var label=labels[b]||((b||'card').replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();}));
-  var img=src?'<img src="'+src+'" class="payment-img" alt="'+label+'" title="'+label+'">'
-    :'<div class="payment-badge-fallback" title="'+label+'">'+((b||'card').slice(0,4).toUpperCase())+'</div>';
+  var labelMap={visa:'Visa',mastercard:'Mastercard',amex:'Amex',discover:'Discover',diners:'Diners',jcb:'JCB',unionpay:'UnionPay',cartes_bancaires:'CB'};
+  var label=labelMap[b]||((b||'card').replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();}));
+  var logo='';
+  if(b==='mastercard'){
+    logo='<span class="card-logo" title="Mastercard"><svg viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="32" rx="5" fill="#fff"/><circle cx="19" cy="16" r="8" fill="#EB001B"/><circle cx="29" cy="16" r="8" fill="#F79E1B" fill-opacity=".92"/></svg></span>';
+  }else if(b==='visa'){
+    logo='<span class="card-logo" title="Visa"><svg viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="32" rx="5" fill="#fff"/><text x="24" y="20" text-anchor="middle" font-size="11" font-family="Arial,sans-serif" font-weight="800" fill="#1A1F71">VISA</text></svg></span>';
+  }else if(b==='amex'){
+    logo='<span class="card-logo" title="American Express"><svg viewBox="0 0 48 32" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="32" rx="5" fill="#2E77BB"/><text x="24" y="20" text-anchor="middle" font-size="8" font-family="Arial,sans-serif" font-weight="800" fill="#fff">AMEX</text></svg></span>';
+  }else{
+    logo='<span class="card-logo card-logo-fallback" title="'+label+'">'+label.slice(0,4).toUpperCase()+'</span>';
+  }
   var dots=last4?'<span class="payment-dots">••••</span>':'';
   var num=last4?'<span class="payment-last4">'+last4+'</span>':'';
-  return '<div class="payment-card">'+img+dots+num+'</div>'; 
+  return '<div class="payment-card">'+logo+dots+num+'</div>'; 
 }
-function initApp(){
-  var username=localStorage.getItem('subloop_username');
-  if(username){
-    api('/api/auth/check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:username})})
-    .then(function(r){
-      if(!r.valid){forceLogout();return;}
-      localStorage.setItem('subloop_role',r.role||'admin');
-      localStorage.setItem('subloop_permissions',JSON.stringify(r.permissions||[]));
-      localStorage.removeItem('subloop_readonly');
-      if(r.role==='viewer')localStorage.setItem('subloop_readonly','1');
-      applyAccessControl();
-      loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();
-      api('/api/settings').then(s=>{appSettings=s;}).catch(()=>{});
-    }).catch(function(){
-      applyAccessControl();
-      loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();
-      api('/api/settings').then(s=>{appSettings=s;}).catch(()=>{});
-    });
-  } else {
-    applyAccessControl();
-    loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();
-    api('/api/settings').then(s=>{appSettings=s;}).catch(()=>{});
-  }
-}
-function forceLogout(){
-  localStorage.removeItem('subloop_auth');localStorage.removeItem('subloop_role');localStorage.removeItem('subloop_permissions');localStorage.removeItem('subloop_username');localStorage.removeItem('subloop_readonly');
-  document.getElementById('app-screen').classList.add('hidden');
-  document.getElementById('login-screen').classList.remove('hidden');
-  document.getElementById('login-step-1').style.display='block';
-  document.getElementById('login-step-2').style.display='none';
-  document.getElementById('login-error').classList.remove('visible');
-  toast('Your access has been revoked. Please log in again.','error');
-}
-function disconnectApp(){
-  localStorage.removeItem('subloop_auth');
-  localStorage.removeItem('subloop_role');
-  localStorage.removeItem('subloop_permissions');
-  localStorage.removeItem('subloop_username');
-  localStorage.removeItem('subloop_readonly');
-  var app=document.getElementById('app-screen');
-  var login=document.getElementById('login-screen');
-  if(app)app.classList.add('hidden');
-  if(login)login.classList.remove('hidden');
-  var step1=document.getElementById('login-step-1');
-  var step2=document.getElementById('login-step-2');
-  if(step1)step1.style.display='block';
-  if(step2)step2.style.display='none';
-  var pass=document.getElementById('login-pass');
-  if(pass)pass.value='';
-  setTimeout(function(){var user=document.getElementById('login-user');if(user)user.focus();},80);
-}
-function toggleNotifications(e){
-  if(e)e.stopPropagation();
-  var menu=document.getElementById('notification-menu');
-  if(menu)menu.classList.toggle('open');
-}
-function escHtml(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
-function goToActivityFromNotifications(){
-  var menu=document.getElementById('notification-menu');
-  if(menu)menu.classList.remove('open');
-  var nav=[].slice.call(document.querySelectorAll('.nav-item')).find(function(b){return (b.textContent||'').trim()==='Activity';});
-  showPage('activity',nav||null);
-}
-async function updateNotifications(stats){
-  var list=document.getElementById('notification-list');
-  var count=document.getElementById('notification-count');
-  var btn=document.getElementById('notification-btn');
-  if(!list||!count||!btn)return;
-  try{
-    var activity=await api('/api/activity');
-    if(!Array.isArray(activity)) activity=[];
-    var total=activity.length;
-    var shown=activity.slice(0,7);
-    if(shown.length){
-      list.innerHTML=shown.map(function(a){
-        return '<div class="notification-item"><strong>'+escHtml(a.description||'Activity update')+'</strong><div class="notification-time">'+fmtTime(a.created_at)+'</div></div>';
-      }).join('') + (total>7 ? '<div class="notification-footer"><button class="notification-view-all" onclick="goToActivityFromNotifications()">View all activity →</button></div>' : '');
-      count.textContent=total>7?'7+':String(total);
-      btn.classList.add('has-alert');
-    }else{
-      list.innerHTML='<div class="notification-item">No activity yet.</div>';
-      count.textContent='0';
-      btn.classList.remove('has-alert');
-    }
-  }catch(e){
-    var items=[];
-    var failed=Number(stats&&stats.failed_payments||0);
-    var success=Number(stats&&stats.payment_success_rate||0);
-    var newCustomers=Number(stats&&stats.new_customers_30d||0);
-    if(failed>0){items.push('<div class="notification-item"><strong>'+failed+' failed payment'+(failed>1?'s':'')+'</strong><br>Check failed payments and retry when needed.</div>');}
-    if(success>0&&success<80){items.push('<div class="notification-item"><strong>Low success rate: '+success+'%</strong><br>Review recovery and failed payment reasons.</div>');}
-    if(newCustomers>0){items.push('<div class="notification-item"><strong>'+newCustomers+' new customer'+(newCustomers>1?'s':'')+' this month</strong><br>Your customer list has new activity.</div>');}
-    if(items.length){list.innerHTML=items.join('');count.textContent=items.length;btn.classList.add('has-alert');}
-    else{list.innerHTML='<div class="notification-item">No new notifications.</div>';count.textContent='0';btn.classList.remove('has-alert');}
-  }
-}
-document.addEventListener('click',function(e){var menu=document.getElementById('notification-menu');if(menu&&!e.target.closest('.top-action-wrap'))menu.classList.remove('open');});
-async function loadStats(){
-  try{
-    const s=await api('/api/stats');
-    document.getElementById('stat-mrr').textContent=fmtCompactMoney(s.mrr||0);
-    document.getElementById('stat-subs').textContent=s.active_subscriptions||0;
-    document.getElementById('stat-customers').textContent=s.total_customers||0;
-    document.getElementById('stat-new-customers').textContent='+'+(s.new_customers_30d||0)+' this month';
-    document.getElementById('stat-cards').textContent=s.saved_cards||0;
-    document.getElementById('stat-failed').textContent=s.failed_payments||0;
-    document.getElementById('stat-revenue').textContent=fmtCompactMoney(s.total_revenue||0);
-    document.getElementById('stat-revenue-sub').textContent=fmtCompactMoney(s.revenue_30d||0)+' this month';
-    document.getElementById('stat-churn').textContent=(s.churn_rate||0)+'%';
-    document.getElementById('stat-success').textContent=(s.payment_success_rate||100)+'%';
-    document.getElementById('stat-ltv').textContent=fmtCompactMoney(s.avg_ltv||0);
-    updateNotifications(s);
-    document.getElementById('server-status').textContent='● connected';
-    document.getElementById('server-status').style.color='var(--green)';
-  }catch(e){document.getElementById('server-status').textContent='● offline';document.getElementById('server-status').style.color='var(--red)';}
-}
-function setRevPeriod(period){currentRevPeriod=period;document.querySelectorAll('.rev-tab').forEach(t=>t.classList.remove('active'));document.getElementById('rev-tab-'+period).classList.add('active');loadChart();}
-async function loadChart(){
-  try{
-    const data=await api('/api/revenue-chart');const wrap=document.getElementById('revenue-summary');const now=new Date();let filtered;
-    if(currentRevPeriod==='today'){const t=now.toISOString().split('T')[0];filtered=data.filter(d=>d.day&&d.day.startsWith(t));}
-    else if(currentRevPeriod==='yesterday'){const y=new Date(now);y.setDate(y.getDate()-1);const ys=y.toISOString().split('T')[0];filtered=data.filter(d=>d.day&&d.day.startsWith(ys));}
-    else if(currentRevPeriod==='week'){const w=new Date(now);w.setDate(w.getDate()-7);filtered=data.filter(d=>d.day&&new Date(d.day)>=w);}
-    else{filtered=data;}
-    const total=filtered.reduce((s,d)=>s+(parseInt(d.revenue)||0),0);
-    const totalCount=filtered.reduce((s,d)=>s+(parseInt(d.count)||0),0);
-    const avg=totalCount>0?Math.round(total/totalCount):0;
-    const active=filtered.filter(d=>parseInt(d.revenue)>0);
-    const best=active.length?active.reduce((a,b)=>(parseInt(b.revenue)||0)>=(parseInt(a.revenue)||0)?b:a):null;
-    const bestDay=best?new Date(best.day).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}):'—';
-    const cards=[{label:'Total Revenue',value:fmt(total),sub:'period total'},{label:'Payments',value:totalCount,sub:'successful'},{label:'Avg Payment',value:fmt(avg),sub:'per transaction'},{label:'Best Day',value:fmt(parseInt(best?.revenue)||0),sub:bestDay}];
-    let html='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">';
-    cards.forEach(c=>{html+='<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;"><div style="font-size:10px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">'+c.label+'</div><div style="font-size:18px;font-weight:700;letter-spacing:-0.5px;margin-bottom:3px;">'+c.value+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+c.sub+'</div></div>';});
-    html+='</div>';wrap.innerHTML=html;
-  }catch(e){}
-}
-async function loadUpcoming(){
-  try{
-    const subs=await api('/api/subscriptions');const tb=document.getElementById('upcoming-table');
-    if(!subs.length){tb.innerHTML='<tr><td colspan="5" class="empty">No subscriptions yet.</td></tr>';return;}
-    tb.innerHTML=subs.slice(0,10).map(s=>'<tr><td><div class="customer-cell"><div class="avatar">'+initials(s.name)+'</div><div><div class="customer-name">'+(s.name||'—')+'</div><div class="customer-email">'+(s.email||'')+'</div></div></div></td><td class="mono">'+fmt(s.amount,s.currency)+'</td><td class="mono">'+fmtDate(s.next_billing_date)+'</td><td>'+badge(s.status)+'</td><td><div class="actions">'+(s.status==='active'?'<button class="btn btn-sm" onclick="chargeNow('+s.id+')">Charge</button>':'')+(s.status==='active'?'<button class="btn btn-sm" onclick="openPauseModal('+s.id+')">Pause</button>':'')+(s.status==='paused'?'<button class="btn btn-sm" onclick="setSubStatus('+s.id+',\'active\')">Resume</button>':'')+'</div></td></tr>').join('');
-  }catch(e){}
-}
-async function loadRecentPayments(){
-  try{
-    const pmts=await api('/api/payments');const tb=document.getElementById('recent-payments-table');
-    if(!pmts.length){tb.innerHTML='<tr><td colspan="5" class="empty">No payments yet</td></tr>';return;}
-    tb.innerHTML=pmts.slice(0,8).map(function(p){
-      var isGhost=((p.email||'').toLowerCase().endsWith('@stripe.local')||(p.name||'').startsWith('pi_')||(p.name||'').startsWith('external_'));
-      var rowBg=(p.status==='failed'||isGhost)?'background:rgba(248,113,113,0.04);':'';
-      var avatarHtml=isGhost
-        ?'<div class="avatar" style="background:rgba(248,113,113,0.15);border-color:rgba(248,113,113,0.4);color:var(--red);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>'
-        :'<div class="avatar">'+initials(p.name)+'</div>';
-      var customerHtml=isGhost
-        ?'<div class="customer-name" style="color:var(--red);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;margin-top:-1px;flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>No profile</div><div class="customer-email">External payment · no email collected</div>'
-        :'<div class="customer-name">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div>';
-      return '<tr style="'+rowBg+'"><td><div class="customer-cell">'+avatarHtml+'<div>'+customerHtml+'</div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+cardBadge(p.card_brand,p.card_last4)+'</td><td>'+badge(p.status)+'</td><td class="mono">'+fmtDate(p.created_at)+'</td></tr>';
-    }).join('');
-  }catch(e){}
-}
-async function loadActivity(){
-  try{
-    var list=await api('/api/activity');var wrap=document.getElementById('activity-list');
-    var isViewer=localStorage.getItem('subloop_readonly')==='1';
-    if(isViewer)list=list.filter(function(a){return['payment','failed','retry','charge','dunning','proration','resume'].includes(a.type);});
-    if(!list.length){wrap.innerHTML='<div class="empty">'+(isViewer?'No payment activity yet':'No activity yet')+'</div>';return;}
-    var colors={payment:'var(--green)',failed:'var(--red)',charge:'var(--accent)',dunning:'var(--amber)',resume:'var(--blue)',retry:'var(--green)',proration:'var(--accent)'};
-    wrap.innerHTML=list.map(function(a){return '<div class="activity-item"><div class="activity-dot" style="background:'+(colors[a.type]||'var(--muted)')+'"></div><div style="flex:1;"><div style="font-size:13px;">'+a.description+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;">'+fmtTime(a.created_at)+'</div></div></div>';}).join('');
-  }catch(e){}
-}
-async function loadCustomers(){try{allCustomers=await api('/api/customers');renderCustomers(allCustomers);}catch(e){}}
-function renderCustomers(list){
-  const tb=document.getElementById('customers-table');
-  if(!list.length){tb.innerHTML='<tr><td colspan="8" class="empty">No customers yet</td></tr>';return;}
-  tb.innerHTML=list.map(c=>{
-    const dateLabel = c.last_payment_at ? fmtDate(c.last_payment_at) : '—';
-    const dateTitle = c.last_payment_at ? 'Last successful payment date' : 'No successful payment yet';
-    return '<tr><td><div class="customer-cell"><div class="avatar">'+initials(c.name)+'</div><div><div class="customer-name">'+(c.name||'—')+'</div><div class="customer-email">'+(c.email||'')+'</div></div></div></td><td>'+cardBadge(c.card_brand,c.card_last4)+'</td><td style="font-size:12px;color:var(--muted);">'+(c.account_name||'—')+'</td><td>'+badge(c.status)+'</td><td style="font-size:12px;color:var(--muted);font-family:var(--mono);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(c.note||'—')+'</td><td class="mono" style="font-size:12px;white-space:nowrap;" title="'+dateTitle+'">'+dateLabel+'</td><td class="mono">'+fmt(c.total_paid||0)+'</td><td><div class="actions"><button class="btn btn-sm" onclick="openNoteModal('+c.id+',\''+encodeURIComponent(c.note||'')+'\')">Note</button><button class="btn btn-sm" onclick="openPortal('+c.id+')">Card ↗</button>'+(c.status==='active'?'<button class="btn btn-sm btn-danger" onclick="setCustStatus('+c.id+',\'paused\')">Pause</button>':'')+(c.status==='paused'?'<button class="btn btn-sm" onclick="setCustStatus('+c.id+',\'active\')">Resume</button>':'')+'</div></td></tr>';
-  }).join('');
-}
-function filterCustomers(){const q=document.getElementById('customer-search').value.toLowerCase();renderCustomers(allCustomers.filter(c=>(c.name||'').toLowerCase().includes(q)||(c.email||'').toLowerCase().includes(q)));}
-async function loadSubscriptions(){try{allSubscriptions=await api('/api/subscriptions');renderSubscriptions(allSubscriptions);}catch(e){}}
-function renderSubscriptions(list){
-  var tb=document.getElementById('subscriptions-table');
-  if(!list.length){tb.innerHTML='<tr><td colspan="7" class="empty">No subscriptions yet</td></tr>';return;}
-  var rows=[];
-  list.forEach(function(s){
-    var sel=bulkMode&&selectedSubs.has(s.id);var bg=sel?'background:var(--accent-glow);':'';
-    var cbDisplay=bulkMode?'table-cell':'none';var cbChecked=sel?'checked':'';
-    var resumeBtn=s.status==='paused'?'<button class="btn btn-sm" onclick="resumeSub('+s.id+')">Resume</button>':'';
-    var chargeBtn=s.status==='active'?'<button class="btn btn-sm" onclick="chargeNow('+s.id+')">Charge</button>':'';
-    var pauseBtn=s.status==='active'?'<button class="btn btn-sm" onclick="openPauseModal('+s.id+')">Pause</button>':'';
-    var retryBtn=s.status==='dunning'?'<button class="btn btn-sm btn-success" onclick="chargeNow('+s.id+')">Retry now</button>':'';
-    var cancelBtn='<button class="btn btn-sm btn-danger" onclick="cancelSub('+s.id+')">Cancel</button>';
-    var editSpan='<button class="btn btn-sm" onclick="showEditAmount('+s.id+','+s.amount+')">Edit $</button><span id="edit-'+s.id+'"></span>';
-    var dunningBadge=s.dunning_count>0?'<br><span style="font-size:10px;color:var(--amber);">Retry #'+s.dunning_count+'</span>':'';
-    var resumeDate=s.resume_date?'<br><span style="font-size:10px;color:var(--blue);">Resumes '+fmtDate(s.resume_date)+'</span>':'';
-    rows.push('<tr id="sub-row-'+s.id+'" style="'+bg+'"><td style="width:36px;display:'+cbDisplay+';"><input type="checkbox" class="sub-checkbox" data-id="'+s.id+'" '+cbChecked+' onchange="toggleSubSelect('+s.id+')" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;"></td><td><div class="customer-cell"><div class="avatar">'+initials(s.name)+'</div><div><div class="customer-name">'+(s.name||'—')+'</div><div class="customer-email">'+(s.email||'')+'</div></div></div></td><td class="mono">'+fmt(s.amount,s.currency)+'</td><td class="mono">'+(s.interval_days||30)+' days</td><td class="mono">'+fmtDate(s.next_billing_date)+resumeDate+'</td><td>'+badge(s.status)+dunningBadge+'</td><td><div class="actions">'+chargeBtn+editSpan+pauseBtn+resumeBtn+retryBtn+cancelBtn+'</div></td></tr>');
-  });
-  tb.innerHTML=rows.join('');
-}
-function filterSubscriptions(){const q=document.getElementById('sub-search').value.toLowerCase();renderSubscriptions(allSubscriptions.filter(s=>(s.name||'').toLowerCase().includes(q)||(s.email||'').toLowerCase().includes(q)));}
-function enterBulkMode(){bulkMode=true;selectedSubs.clear();document.getElementById('sub-default-btn').style.display='none';document.getElementById('sub-bulk-btns').style.display='flex';document.getElementById('bulk-cb-header').style.display='table-cell';renderSubscriptions(allSubscriptions);updateBulkBar();}
-function exitBulkMode(){bulkMode=false;selectedSubs.clear();document.getElementById('sub-default-btn').style.display='block';document.getElementById('sub-bulk-btns').style.display='none';document.getElementById('bulk-cb-header').style.display='none';var cb=document.getElementById('select-all-checkbox');if(cb)cb.checked=false;renderSubscriptions(allSubscriptions);}
-function toggleSubSelect(id){if(selectedSubs.has(id))selectedSubs.delete(id);else selectedSubs.add(id);var row=document.getElementById('sub-row-'+id);if(row)row.style.background=selectedSubs.has(id)?'var(--accent-glow)':'';updateBulkBar();}
-function toggleSelectAll(){var cbs=document.querySelectorAll('.sub-checkbox');var allChecked=selectedSubs.size===cbs.length&&cbs.length>0;selectedSubs.clear();if(!allChecked){cbs.forEach(function(cb){selectedSubs.add(parseInt(cb.dataset.id));});}cbs.forEach(function(cb){cb.checked=!allChecked;var row=document.getElementById('sub-row-'+cb.dataset.id);if(row)row.style.background=(!allChecked)?'var(--accent-glow)':'';});updateBulkBar();}
-function updateBulkBar(){var n=selectedSubs.size;var countEl=document.getElementById('bulk-count');if(countEl)countEl.textContent=n>0?n+' selected':'';['bulk-charge-btn','bulk-pause-btn','bulk-cancel-btn'].forEach(function(id){var el=document.getElementById(id);if(el){el.disabled=n===0;el.style.opacity=n===0?'0.4':'1';}});var cb=document.getElementById('select-all-checkbox');var total=document.querySelectorAll('.sub-checkbox').length;if(cb)cb.checked=n>0&&n===total;}
-function clearSelection(){selectedSubs.clear();document.querySelectorAll('.sub-checkbox').forEach(function(cb){cb.checked=false;});document.querySelectorAll('[id^="sub-row-"]').forEach(function(row){row.style.background='';});var cb=document.getElementById('select-all-checkbox');if(cb)cb.checked=false;updateBulkBar();}
-async function bulkCharge(){if(!selectedSubs.size)return;if(!confirm('Charge '+selectedSubs.size+' subscriptions now?'))return;toast('Charging '+selectedSubs.size+' subscriptions…');let ok=0,fail=0;for(const id of selectedSubs){try{const r=await api('/api/subscriptions/'+id+'/charge',{method:'POST'});if(r.success)ok++;else fail++;}catch(e){fail++;}}toast('✓ '+ok+' charged'+(fail?' — '+fail+' failed':''));exitBulkMode();loadStats();loadSubscriptions();}
-async function bulkPause(){if(!selectedSubs.size)return;if(!confirm('Pause '+selectedSubs.size+' subscriptions?'))return;for(const id of selectedSubs){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'paused'})}).catch(()=>{});}toast('✓ '+selectedSubs.size+' paused');exitBulkMode();loadSubscriptions();}
-async function bulkCancel(){if(!selectedSubs.size)return;if(!confirm('Cancel '+selectedSubs.size+' subscriptions? Cannot be undone.'))return;for(const id of selectedSubs){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'cancelled'})}).catch(()=>{});}toast('✓ '+selectedSubs.size+' cancelled');exitBulkMode();loadSubscriptions();loadStats();}
-function showEditAmount(subId,currentAmount){const container=document.getElementById('edit-'+subId);if(!container)return;const dollars=(currentAmount/100).toFixed(2);container.innerHTML='<div style="display:inline-flex;align-items:center;gap:4px;"><input type="number" id="new-amount-'+subId+'" value="'+dollars+'" step="0.01" min="0.50" style="width:75px;padding:3px 6px;font-size:12px;"><button class="btn btn-sm btn-primary" onclick="saveAmount('+subId+')">Save</button><button class="btn btn-sm" onclick="loadSubscriptions()">✕</button></div>';document.getElementById('new-amount-'+subId).focus();}
-async function saveAmount(subId){const input=document.getElementById('new-amount-'+subId);if(!input)return;const newCents=Math.round(parseFloat(input.value)*100);if(isNaN(newCents)||newCents<50){toast('Minimum $0.50','error');return;}const r=await api('/api/subscriptions/'+subId+'/amount',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:newCents})});if(r.success){toast('✓ Amount updated');loadSubscriptions();}else toast('Error','error');}
-async function loadPayments(){
-  try{
-    allPayments=await api('/api/payments');
-    renderPaymentSummary(allPayments);
-    // populate stripe account dropdown from payment data
-    var sel=document.getElementById('pay-account-filter');
-    if(sel){
-      var seen=new Set();var opts='<option value="">All Stripe Accounts</option>';
-      allPayments.forEach(function(p){
-        var n=p.account_name||'';
-        if(n&&!seen.has(n)){seen.add(n);opts+='<option value="'+n+'">'+n+'</option>';}
-      });
-      sel.innerHTML=opts;
-    }
-    payCurrentPage=1;
-    filterPayments();
-  }catch(e){}
-}
-function renderPaymentSummary(list){var total=list.filter(p=>p.status==='succeeded').reduce((s,p)=>s+(parseInt(p.amount)||0),0);var success=list.filter(p=>p.status==='succeeded').length;var failed=list.filter(p=>p.status==='failed').length;var te=document.getElementById('pay-total');if(te)te.textContent=fmt(total);var se=document.getElementById('pay-success-count');if(se)se.textContent=success;var fe=document.getElementById('pay-fail-count');if(fe)fe.textContent=failed;var re=document.getElementById('pay-retry-count');if(re)re.textContent=failed;}
-var payCurrentPage=1;
-var PAY_PER_PAGE=35;
-var payStatusFilter='';
-function setPayStatus(s){
-  payStatusFilter=s;
-  payCurrentPage=1;
-  ['all','succeeded','failed'].forEach(function(k){
-    var btn=document.getElementById('pay-btn-'+k);
-    if(!btn)return;
-    var isActive=(k==='all'&&s==='')||(k===s);
-    btn.classList.toggle('active',isActive);
-    if(isActive){
-      btn.style.border='1px solid #6D5EF8';
-      btn.style.background='rgba(109,94,248,0.18)';
-      btn.style.boxShadow='0 0 12px rgba(109,94,248,0.25),inset 0 1px 0 rgba(255,255,255,0.08)';
-      btn.style.color=k==='succeeded'?'#00C773':k==='failed'?'#FF5F6D':'#F5F5F7';
-    } else {
-      btn.style.border='1px solid #2A2A38';
-      btn.style.background='#14141d';
-      btn.style.boxShadow='inset 0 1px 0 rgba(255,255,255,0.04)';
-      btn.style.color=k==='succeeded'?'#00C773':k==='failed'?'#FF5F6D':'#8B8B99';
-    }
-  });
-  filterPayments();
-}
-function filterPayments(){
-  if(!allPayments)return;
-  var account=document.getElementById('pay-account-filter')?.value||'';
-  var q=(document.getElementById('pay-search')?.value||'').toLowerCase();
-  // update counts
-  var allC=allPayments.length;
-  var sucC=allPayments.filter(function(p){return p.status==='succeeded';}).length;
-  var failC=allPayments.filter(function(p){return p.status==='failed';}).length;
-  var ca=document.getElementById('pay-count-all');if(ca)ca.textContent=allC;
-  var cs=document.getElementById('pay-count-succeeded');if(cs)cs.textContent=sucC;
-  var cf=document.getElementById('pay-count-failed');if(cf)cf.textContent=failC;
-  var dateF=document.getElementById('pay-date-filter')?.value||'';
-  var now=new Date();
-  var filtered=allPayments.filter(function(p){
-    var matchS=!payStatusFilter||p.status===payStatusFilter;
-    var matchA=!account||(p.account_name||'')=== account;
-    var matchQ=!q||(p.name||'').toLowerCase().includes(q)||(p.email||'').toLowerCase().includes(q)||(p.stripe_payment_intent||'').toLowerCase().includes(q)||(p.card_last4||'').includes(q);
-    var matchD=true;
-    if(dateF){var d=new Date(p.created_at);if(dateF==='today')matchD=d.toDateString()===now.toDateString();else if(dateF==='yesterday'){var y=new Date(now);y.setDate(y.getDate()-1);matchD=d.toDateString()===y.toDateString();}else if(dateF==='week'){var w=new Date(now);w.setDate(w.getDate()-7);matchD=d>=w;}else if(dateF==='month'){matchD=d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();}else if(dateF==='custom'){var from=document.getElementById('pay-date-from')?.value;var to=document.getElementById('pay-date-to')?.value;if(from)matchD=matchD&&d>=new Date(from);if(to){var toD=new Date(to);toD.setHours(23,59,59,999);matchD=matchD&&d<=toD;}}}
-    return matchS&&matchA&&matchQ&&matchD;
-  });
-  var total=filtered.length;
-  var totalPages=Math.max(1,Math.ceil(total/PAY_PER_PAGE));
-  if(payCurrentPage>totalPages)payCurrentPage=totalPages;
-  var start=(payCurrentPage-1)*PAY_PER_PAGE;
-  var page=filtered.slice(start,start+PAY_PER_PAGE);
-  renderPayments(page);
-  renderPayPagination(total,totalPages);
-}
-function toggleCustomDate(){
-  var v=document.getElementById('pay-date-filter')?.value;
-  var el=document.getElementById('pay-custom-date');
-  if(el)el.style.display=v==='custom'?'flex':'none';
-}
-function renderPayPagination(total,totalPages){
-  var el=document.getElementById('pay-pagination');
-  if(!el)return;
-  if(totalPages<=1){el.innerHTML='';return;}
-  var html='<span style="font-size:12px;color:var(--muted);">Page '+payCurrentPage+' of '+totalPages+'</span>';
-  html+='<button class="btn btn-sm" onclick="payCurrentPage=Math.max(1,payCurrentPage-1);filterPayments();" '+(payCurrentPage===1?'disabled':'')+'>← Prev</button>';
-  // page number buttons (show max 7)
-  var start=Math.max(1,payCurrentPage-3),end=Math.min(totalPages,payCurrentPage+3);
-  for(var i=start;i<=end;i++){
-    var active=i===payCurrentPage;
-    html+='<button class="btn btn-sm'+(active?' btn-primary':'')+'" onclick="payCurrentPage='+i+';filterPayments();">'+i+'</button>';
-  }
-  html+='<button class="btn btn-sm" onclick="payCurrentPage=Math.min('+totalPages+',payCurrentPage+1);filterPayments();" '+(payCurrentPage===totalPages?'disabled':'')+'> Next →</button>';
-  el.innerHTML=html;
-}
-var reasonLabels={'insufficient_funds':'Insufficient funds','card_declined':'Card declined','expired_card':'Card expired','incorrect_cvc':'Wrong CVC','lost_card':'Card reported lost','stolen_card':'Reported stolen','do_not_honor':'Bank declined','processing_error':'Processing error','fraudulent':'Fraud suspected','generic_decline':'Generic decline','no_such_customer':'Customer not found','authentication_required':'Auth required'};
-function renderPayments(list){
-  var isViewer=localStorage.getItem('subloop_readonly')==='1';
-  var tb=document.getElementById('payments-table');
-  if(!list.length){tb.innerHTML='<tr><td colspan="8" class="empty">No payments found</td></tr>';return;}
-  tb.innerHTML=list.map(function(p){
-    var isGhost=((p.email||'').toLowerCase().endsWith('@stripe.local')||(p.name||'').startsWith('pi_')||(p.name||'').startsWith('external_'));
-    var shortReason=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'';
-    var reasonHtml=shortReason?'<div style="font-size:12px;color:var(--red);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+p.failure_reason+'">'+shortReason+'</div>':'<span style="color:var(--muted);font-size:12px;">—</span>';
-    var refHtml=buildRefCell(p.stripe_payment_intent);
-    var actions='<div style="display:flex;gap:4px;align-items:center;">';
-    if(!isViewer&&p.status==='failed'&&!isGhost)actions+='<button class="btn btn-sm btn-success" onclick="event.stopPropagation();retryPayment('+p.id+')">Retry</button>';
-    actions+='<button class="btn btn-sm" onclick="event.stopPropagation();openPaymentNote('+p.id+')" title="'+(p.note||'Add note')+'">'+(p.note?'📝 Note':'Note')+'</button>';
-    actions+='</div>';
-    var rowBg=(p.status==='failed'||isGhost)?'background:rgba(248,113,113,0.04);':'';
-    var avatarHtml=isGhost
-      ?'<div class="avatar" style="background:rgba(248,113,113,0.15);border-color:rgba(248,113,113,0.4);color:var(--red);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>'
-      :'<div class="avatar">'+initials(p.name)+'</div>';
-    var customerHtml=isGhost
-      ?'<div class="customer-name" style="font-size:13px;color:var(--red);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;margin-top:-1px;flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>No profile</div>'
-      :'<div class="customer-name" style="font-size:13px;">'+(p.name||'—')+'</div>';
-    var pJson=encodeURIComponent(JSON.stringify(p));
-    return '<tr style="'+rowBg+'cursor:pointer;" onclick="openPaymentModal(decodePaymentData(this))" data-payment="'+pJson+'"><td><div class="customer-cell">'+avatarHtml+'<div>'+customerHtml+'</div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+cardBadge(p.card_brand,p.card_last4)+'</td><td>'+badge(p.status)+'</td><td>'+reasonHtml+'</td><td class="mono" style="font-size:12px;white-space:nowrap;">'+fmtDate(p.created_at)+'</td><td>'+refHtml+'</td><td>'+actions+'</td></tr>';
-  }).join('');
-}
-function decodePaymentData(row){try{return JSON.parse(decodeURIComponent(row.getAttribute('data-payment')));}catch(e){return {};}}
+
 async function openPaymentModal(p){
   if(!p||!p.id)return;
   var isGhost=((p.email||'').toLowerCase().endsWith('@stripe.local')||(p.name||'').startsWith('pi_')||(p.name||'').startsWith('external_'));
@@ -1451,24 +1124,24 @@ async function openPaymentModal(p){
   var exp=(p.card_exp_month&&p.card_exp_year)?'Expires '+String(p.card_exp_month).padStart(2,'0')+'/'+String(p.card_exp_year).slice(-2):'Expiry not available';
   var copyIcon='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
   function row(icon,label,val,copyVal){
-    var cp=copyVal?'<button class="btn btn-sm" onclick="event.stopPropagation();copyText(\''+String(copyVal).replace(/'/g,'\\\'')+'\')" style="padding:3px 6px;margin-left:6px;opacity:.8;">'+copyIcon+'</button>':'';
-    return '<div style="display:grid;grid-template-columns:22px 105px 1fr;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.055);font-size:12px;"><span style="color:#8b7cff;">'+icon+'</span><span style="color:var(--muted);">'+label+'</span><span style="text-align:right;word-break:break-word;">'+val+cp+'</span></div>';
+    var cp=copyVal?'<button class="btn btn-sm" onclick="event.stopPropagation();copyText(\''+String(copyVal).replace(/'/g,'\\\'')+'\')" class="pay-copy">'+copyIcon+'</button>':'';
+    return '<div class="pay-info-row"><span class="icon">'+icon+'</span><span class="label">'+label+'</span><span class="val">'+val+cp+'</span></div>';
   }
-  function timeline(title,date,good){return '<div style="display:flex;gap:10px;align-items:flex-start;margin:10px 0;"><div style="width:22px;height:22px;border-radius:999px;background:'+(good?'rgba(16,185,129,.18)':'rgba(109,94,248,.18)')+';border:1px solid '+(good?'rgba(16,185,129,.35)':'rgba(109,94,248,.35)')+';display:flex;align-items:center;justify-content:center;font-size:11px;color:'+(good?'var(--green)':'#9b8cff')+';">'+(good?'✓':'•')+'</div><div><div style="font-size:12px;font-weight:700;">'+title+'</div><div class="mono" style="font-size:11px;color:var(--muted);margin-top:2px;">'+fmtTime(date)+'</div></div></div>';}
+  function timeline(title,date,good){return '<div class="pay-timeline-item"><div class="pay-timeline-dot '+(good?'good':'')+'">'+(good?'✓':'•')+'</div><div><div class="pay-timeline-title">'+title+'</div><div class="mono" style="font-size:11px;color:var(--muted);margin-top:2px;">'+fmtTime(date)+'</div></div></div>';}
   var statusGood=p.status==='succeeded';
   var body=
-    '<div style="display:grid;grid-template-columns:1fr 1.18fr;gap:18px;">'+
+    '<div class="pay-grid">'+
       '<div>'+ 
-        '<div style="border:1px solid var(--border);background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.015));border-radius:16px;padding:14px;margin-bottom:12px;">'+
-          '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;"><div style="display:flex;align-items:center;gap:11px;">'+avatar+'<div><div style="font-size:14px;font-weight:800;">'+customerTitle+'</div><div style="font-size:12px;color:var(--muted);">'+customerSub+'</div></div></div>'+badge(p.status)+'</div>'+ 
-          '<div style="border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:13px;background:rgba(0,0,0,.12);"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;">Amount</div><div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:5px;"><div class="mono" style="font-size:30px;font-weight:900;color:var(--text);">'+fmt(p.amount,p.currency)+'</div><div class="mono" style="font-size:12px;color:var(--muted);">'+String(p.currency||'').toUpperCase()+'</div></div></div>'+ 
+        '<div class="pay-panel">'+
+          '<div class="pay-customer"><div style="display:flex;align-items:center;gap:11px;">'+avatar+'<div><div class="pay-name">'+customerTitle+'</div><div class="pay-sub">'+customerSub+'</div></div></div>'+badge(p.status)+'</div>'+ 
+          '<div class="pay-amount-box"><div class="pay-label">Amount</div><div class="pay-amount"><div class="value">'+fmt(p.amount,p.currency)+'</div><div class="cur">'+String(p.currency||'').toUpperCase()+'</div></div></div>'+ 
         '</div>'+ 
-        '<div style="border:1px solid var(--border);border-radius:16px;padding:14px;margin-bottom:12px;background:rgba(255,255,255,.018);"><div style="font-size:13px;font-weight:800;margin-bottom:10px;">Payment Method</div><div style="display:flex;align-items:center;gap:10px;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:10px;background:rgba(0,0,0,.10);"><div style="transform:scale(.92);transform-origin:left center;">'+cardLine+'</div><div style="font-size:12px;color:var(--muted);">'+escHtml(exp)+' · '+escHtml(p.card_country||'Country —')+' · '+escHtml(p.card_funding||'Funding —')+'</div></div></div>'+ 
-        '<div style="border:1px solid var(--border);border-radius:16px;padding:14px;background:rgba(255,255,255,.018);"><div style="font-size:13px;font-weight:800;margin-bottom:10px;">Timeline</div>'+timeline('Order placed',p.created_at,false)+timeline(statusGood?'Payment succeeded':'Payment failed',p.created_at,statusGood)+(p.note?timeline('Internal note added',p.created_at,false):'')+'</div>'+ 
+        '<div class="pay-panel soft"><div class="pay-section-title">Payment Method</div><div class="pay-method-row">'+cardLine+'<div class="pay-method-meta">'+escHtml(exp)+' · '+escHtml(p.card_country||'Country —')+' · '+escHtml(p.card_funding||'Funding —')+'</div></div></div>'+ 
+        '<div class="pay-panel soft"><div class="pay-section-title">Timeline</div>'+timeline('Order placed',p.created_at,false)+timeline(statusGood?'Payment succeeded':'Payment failed',p.created_at,statusGood)+(p.note?timeline('Internal note added',p.created_at,false):'')+'</div>'+ 
       '</div>'+ 
-      '<div style="border-left:1px solid var(--border);padding-left:18px;">'+
-        '<div style="font-size:13px;font-weight:800;margin-bottom:10px;">Payment Information</div>'+ 
-        row('●','Status',badge(p.status),'')+
+      '<div class="pay-info">'+
+        '<div class="pay-section-title">Payment Information</div>'+ 
+        row('•','Status',badge(p.status),'')+
         row('↳','Payment ID','<span class="mono" style="font-size:11px;">'+escHtml(p.stripe_payment_intent||'—')+'</span>',p.stripe_payment_intent||'')+
         row('◷','Order time','<span class="mono">'+fmtTime(p.created_at)+'</span>','')+
         row('£','Gross',fmt(p.amount,p.currency),'')+
@@ -1478,7 +1151,7 @@ async function openPaymentModal(p){
         row('♢','Invoice','<span class="mono" style="font-size:11px;">'+escHtml(p.stripe_invoice_id||'—')+'</span>',p.stripe_invoice_id||'')+
         row('⛓','Subscription','<span class="mono" style="font-size:11px;">'+escHtml(p.stripe_subscription_id||'—')+'</span>',p.stripe_subscription_id||'')+
         row('!','Failure reason',p.failure_reason?'<span style="color:var(--red);">'+escHtml(fullReason)+'</span>':'<span style="color:var(--muted);">—</span>','')+
-        '<div style="margin-top:14px;padding:12px;border:1px solid rgba(255,255,255,.07);border-radius:14px;background:rgba(0,0,0,.10);"><div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Note</div><div style="font-size:12px;color:'+(p.note?'var(--text)':'var(--muted)')+';">'+escHtml(p.note||'No internal note yet')+'</div></div>'+ 
+        '<div class="pay-note-box"><div class="pay-label" style="margin-bottom:6px;">Note</div><div style="font-size:12px;color:'+(p.note?'var(--text)':'var(--muted)')+';">'+escHtml(p.note||'No internal note yet')+'</div></div>'+ 
       '</div>'+ 
     '</div>'+ 
     '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px;padding-top:16px;border-top:1px solid var(--border);">'+retryBtn+noteBtn+'</div>';
