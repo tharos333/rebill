@@ -1489,9 +1489,9 @@ function openPaymentModal(p){
 
   // buttons
   var retryBtn=(!isViewer&&p.status==='failed'&&!isGhost)
-    ?'<button class="btn btn-success" style="flex:1;" onclick="closeModal('payment-detail-modal');retryPayment('+p.id+')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Retry payment</button>'
+    ?'<button class="btn btn-success" style="flex:1;" onclick="closeModal(&apos;payment-detail-modal&apos;);retryPayment('+p.id+')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Retry payment</button>'
     :'';
-  var noteBtn='<button class="btn" style="flex:1;" onclick="closeModal('payment-detail-modal');openPaymentNote('+p.id+')">'+(p.note?'Edit note':'Add note')+'</button>';
+  var noteBtn='<button class="btn" style="flex:1;" onclick="closeModal(&apos;payment-detail-modal&apos;);openPaymentNote('+p.id+')">'+(p.note?'Edit note':'Add note')+'</button>';
 
   document.getElementById('payment-detail-body').innerHTML=
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;">'+
