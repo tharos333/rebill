@@ -753,10 +753,10 @@ html.light .pay-filter-count{color:#666678!important;}
   </div>
 </div>
 <div class="modal-bg" id="payment-detail-modal">
-  <div class="modal" style="max-width:480px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-      <h3 style="margin:0;">Payment Details</h3>
-      <button class="btn btn-sm" onclick="closeModal('payment-detail-modal')" style="padding:4px 8px;">✕</button>
+  <div class="modal" style="max-width:500px;padding:0;overflow:hidden;border-radius:16px;background:#13131e;border:1px solid #21212f;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid #21212f;">
+      <span style="font-size:13px;font-weight:500;color:#f5f5f7;display:flex;align-items:center;gap:7px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#666680" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>Payment details</span>
+      <button onclick="closeModal('payment-detail-modal')" style="width:26px;height:26px;border-radius:7px;border:1px solid #21212f;background:#1c1c2a;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#666680;font-size:11px;">✕</button>
     </div>
     <div id="payment-detail-body"></div>
   </div>
@@ -1427,31 +1427,75 @@ function decodePaymentData(row){try{return JSON.parse(decodeURIComponent(row.get
 function openPaymentModal(p){
   if(!p||!p.id)return;
   var isGhost=((p.email||'').toLowerCase().endsWith('@stripe.local')||(p.name||'').startsWith('pi_')||(p.name||'').startsWith('external_'));
-  var fullReason=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'—';
   var isViewer=localStorage.getItem('subloop_readonly')==='1';
-  var retryBtn=(!isViewer&&p.status==='failed'&&!isGhost)?'<button class="btn btn-success" onclick="closeModal(\'payment-detail-modal\');retryPayment('+p.id+')">Retry Payment</button>':'';
-  var noteBtn='<button class="btn" onclick="closeModal(\'payment-detail-modal\');openPaymentNote('+p.id+')">'+(p.note?'📝 Edit Note':'Add Note')+'</button>';
-  var avatar=isGhost
-    ?'<div class="avatar" style="width:44px;height:44px;font-size:16px;background:rgba(248,113,113,0.15);border-color:rgba(248,113,113,0.4);color:var(--red);">!</div>'
-    :'<div class="avatar" style="width:44px;height:44px;font-size:16px;">'+initials(p.name)+'</div>';
-  var nameHtml=isGhost
-    ?'<div style="font-size:15px;font-weight:600;color:var(--red);">No profile</div><div style="font-size:12px;color:var(--muted);">External payment · no email collected</div>'
-    :'<div style="font-size:15px;font-weight:600;">'+(p.name||'—')+'</div><div style="font-size:12px;color:var(--muted);">'+(p.email||'')+'</div>';
-  var rows=[
-    ['Amount', '<span class="mono" style="font-size:14px;font-weight:600;">'+fmt(p.amount,p.currency)+'</span>'],
-    ['Status', badge(p.status)],
-    ['Card', cardBadge(p.card_brand,p.card_last4)||'<span style="color:var(--muted);">—</span>'],
-    ['Failure Reason', p.failure_reason?'<span style="color:var(--red);font-size:12px;">'+fullReason+'</span>':'<span style="color:var(--muted);">—</span>'],
-    ['Date', '<span class="mono" style="font-size:12px;">'+fmtDate(p.created_at)+'</span>'],
-    ['Reference', '<span class="mono" style="font-size:11px;word-break:break-all;">'+(p.stripe_payment_intent||'—')+'</span>'],
-    ['Stripe Account', '<span style="font-size:12px;">'+(p.account_name||'—')+'</span>'],
-    ['Note', '<span style="font-size:12px;color:var(--muted);">'+(p.note||'—')+'</span>'],
-  ];
-  var tableRows=rows.map(function(r){return '<tr><td style="padding:8px 0;font-size:12px;color:var(--muted);width:130px;vertical-align:top;">'+r[0]+'</td><td style="padding:8px 0;">'+r[1]+'</td></tr>';}).join('');
-  document.getElementById('payment-detail-body').innerHTML=
-    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--border);">'+avatar+'<div>'+nameHtml+'</div></div>'+
-    '<table style="width:100%;border-collapse:collapse;">'+tableRows+'</table>'+
-    '<div style="display:flex;gap:8px;margin-top:18px;padding-top:16px;border-top:1px solid var(--border);">'+retryBtn+noteBtn+'</div>';
+  var fullReason=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'';
+  var d=new Date(p.created_at);
+  var timeStr=d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+' UTC';
+  var dateStr=fmtDate(p.created_at)+' \u00b7 '+timeStr;
+  var pid=p.stripe_payment_intent||'';
+  window._pmid=pid;
+
+  var statusHtml=p.status==='succeeded'
+    ?'<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:4px 10px;border-radius:8px;background:rgba(0,199,115,0.1);color:#00c773;border:1px solid rgba(0,199,115,0.15);"><span style="width:5px;height:5px;border-radius:50%;background:currentColor;display:inline-block;"></span>Succeeded</span>'
+    :'<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:4px 10px;border-radius:8px;background:rgba(255,95,109,0.1);color:#ff5f6d;border:1px solid rgba(255,95,109,0.15);"><span style="width:5px;height:5px;border-radius:50%;background:currentColor;display:inline-block;"></span>Failed</span>';
+
+  var avatarColor=isGhost?'background:rgba(248,113,113,0.15);color:var(--red)':'background:#2d2860;color:#9d8ff7';
+  var avatarTxt=isGhost?'!':initials(p.name);
+  var nameHtml=isGhost?'No profile':'<span style="font-size:13px;font-weight:500;color:#f5f5f7;">'+(p.name||'Unknown')+'</span>';
+  var emailHtml=isGhost?'External payment':'<span style="font-size:11px;color:#666680;">'+(p.email||'')+'</span>';
+
+  var cardHtml='<span style="color:#666680;font-size:12px;">—</span>';
+  if(p.card_brand&&p.card_last4){
+    var isMC=(p.card_brand||'').toLowerCase().includes('master');
+    var logoHtml=isMC
+      ?'<svg width="30" height="19" viewBox="0 0 32 22"><circle cx="12" cy="11" r="8" fill="#EB001B"/><circle cx="20" cy="11" r="8" fill="#F79E1B"/><path d="M16 5.5a8 8 0 0 1 0 11A8 8 0 0 1 16 5.5z" fill="#FF5F00"/></svg>'
+      :'<span style="background:#1a1f71;color:#fff;font-size:8px;font-weight:700;padding:2px 5px;border-radius:2px;letter-spacing:.03em;">VISA</span>';
+    cardHtml='<div style="display:flex;align-items:center;gap:8px;"><div style="width:38px;height:24px;background:#fff;border-radius:4px;display:flex;align-items:center;justify-content:center;">'+logoHtml+'</div><span style="font-size:13px;font-weight:500;color:#e0e0f0;">'+(p.card_brand)+' \u2022\u2022\u2022\u2022 '+p.card_last4+'</span></div>';
+  }
+
+  var row=function(label,val){
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #1a1a26;">'+
+      '<span style="font-size:12px;color:#666680;">'+label+'</span>'+
+      '<span style="font-size:12px;color:#e0e0f0;font-weight:500;display:flex;align-items:center;gap:6px;">'+val+'</span></div>';
+  };
+  var monoVal=function(v){return '<span style="font-family:var(--mono);font-size:11px;color:#a0a0c0;">'+v+'</span>';};
+  var copyBtn='<span style="color:#444460;cursor:pointer;font-size:13px;" onclick="navigator.clipboard&&navigator.clipboard.writeText(window._pmid);toast(\'Copied!\')">&#10697;</span>';
+  var muted=function(v){return '<span style="color:#555570;">'+v+'</span>';};
+
+  var html='';
+  // Hero
+  html+='<div style="padding:18px 20px;border-bottom:1px solid #21212f;background:#0e0e18;">';
+  html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">';
+  html+='<div style="display:flex;align-items:center;gap:10px;">';
+  html+='<div style="width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;'+avatarColor+'">'+avatarTxt+'</div>';
+  html+='<div>'+nameHtml+'<br>'+emailHtml+'</div></div>';
+  html+=statusHtml+'</div>';
+  html+='<div style="font-size:34px;font-weight:700;color:#ffffff;letter-spacing:-1px;line-height:1;">'+fmt(p.amount,p.currency)+'</div>';
+  html+='<div style="font-size:11px;color:#555570;margin-top:6px;">'+dateStr+'</div></div>';
+
+  // Card row
+  html+='<div style="display:flex;align-items:center;justify-content:space-between;padding:13px 20px;border-bottom:1px solid #21212f;">';
+  html+='<span style="font-size:12px;color:#666680;">Payment method</span>'+cardHtml+'</div>';
+
+  // Detail rows
+  html+='<div style="padding:4px 20px;">';
+  html+=row('Payment ID',monoVal(pid||'—')+copyBtn);
+  html+=row('Amount',fmt(p.amount,p.currency));
+  html+=row('Stripe account','<span style="font-size:11px;">'+(p.account_name||muted('—'))+'</span>');
+  html+=row('Failure reason',fullReason?('<span style="color:#ff5f6d;font-size:12px;">'+fullReason+'</span>'):muted('—'));
+  html+=row('Note',p.note?('<span style="font-size:12px;">'+p.note+'</span>'):muted('No note added'));
+  // last row no border
+  html+='</div>';
+
+  // Footer
+  html+='<div style="padding:13px 20px;display:flex;gap:8px;border-top:1px solid #21212f;">';
+  html+='<button class="btn" style="flex:1;" onclick="closeModal(\'payment-detail-modal\');openPaymentNote('+p.id+')">'+(p.note?'Edit note':'Add note')+'</button>';
+  if(!isViewer&&p.status==='failed'&&!isGhost){
+    html+='<button class="btn btn-success" style="flex:1;" onclick="closeModal(\'payment-detail-modal\');retryPayment('+p.id+')">Retry payment</button>';
+  }
+  html+='</div>';
+
+  document.getElementById('payment-detail-body').innerHTML=html;
   openModal('payment-detail-modal');
 }
 async function retryPayment(id){toast('Retrying…');try{const r=await api('/api/payments/'+id+'/retry',{method:'POST'});if(r.success){toast('✓ Succeeded');loadPayments();loadStats();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
