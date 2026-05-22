@@ -182,7 +182,7 @@ textarea{resize:vertical;min-height:60px}
 .otp-input:focus{border-color:var(--accent)}
 
 /* ── Pay filter bar light mode ── */
-html.light .pay-filter-bar{background:#ffffff!important;border-color:rgba(0,0,0,0.1)!important;}
+html.light .pay-filter-bar{background:var(--surface)!important;border-color:var(--border)!important;}
 html.light .pay-filter-btn{background:#f4f4f8!important;border-color:rgba(0,0,0,0.1)!important;color:#111118!important;box-shadow:none!important;}
 html.light .pay-filter-btn-succeeded{color:#00a85a!important;}
 html.light .pay-filter-btn-failed{color:#d93025!important;}
@@ -424,7 +424,7 @@ html.light .pay-filter-count{color:#666678!important;}
     <div><h2>Payments</h2><p>Full payment history</p></div>
     <button class="btn" onclick="window.location='/api/payments/export'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export CSV</button>
   </div>
-  <div class="pay-filter-bar" style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;padding:8px 12px;background:#181822;border:1px solid #2A2A38;border-radius:10px;">
+  <div class="pay-filter-bar" style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;">
     <!-- Status pill buttons -->
     <div style="display:flex;align-items:center;gap:5px;">
       <button id="pay-btn-all" class="pay-filter-btn active" onclick="setPayStatus('')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #6D5EF8;background:rgba(109,94,248,0.18);color:#F5F5F7;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:0 0 12px rgba(109,94,248,0.25),inset 0 1px 0 rgba(255,255,255,0.08);">All <span id="pay-count-all" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>
