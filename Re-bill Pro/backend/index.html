@@ -753,12 +753,12 @@ html.light .pay-filter-count{color:#666678!important;}
   </div>
 </div>
 <div class="modal-bg" id="payment-detail-modal">
-  <div class="modal" style="max-width:480px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-      <h3 style="margin:0;">Payment Details</h3>
-      <button class="btn btn-sm" onclick="closeModal('payment-detail-modal')" style="padding:4px 8px;">✕</button>
+  <div class="modal" style="max-width:760px;width:92vw;padding:0;overflow:hidden;border-color:rgba(109,94,248,0.22);box-shadow:0 24px 70px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.03);">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--border);background:linear-gradient(135deg,rgba(109,94,248,.16),rgba(20,20,29,.92));">
+      <div><h3 style="margin:0;font-size:18px;">Payment Details</h3><p style="margin:4px 0 0;color:var(--muted);font-size:12px;">Customer, order time, Stripe fee and technical payment data</p></div>
+      <button class="btn btn-sm" onclick="closeModal('payment-detail-modal')" style="padding:6px 10px;border-radius:10px;">✕</button>
     </div>
-    <div id="payment-detail-body"></div>
+    <div id="payment-detail-body" style="padding:20px 22px 22px;"></div>
   </div>
 </div>
 <div class="modal-bg" id="note-modal">
@@ -1053,6 +1053,7 @@ async function api(path,opts){
   return r.json();
 }
 function toast(msg,type){const t=document.getElementById('toast');t.textContent=msg;t.className='show '+(type||'success');setTimeout(()=>t.className='',2800);}
+function copyText(v){navigator.clipboard&&navigator.clipboard.writeText(String(v||''));toast('Copied');}
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 function cardBadge(brand,last4){
@@ -1424,36 +1425,66 @@ function renderPayments(list){
   }).join('');
 }
 function decodePaymentData(row){try{return JSON.parse(decodeURIComponent(row.getAttribute('data-payment')));}catch(e){return {};}}
-function openPaymentModal(p){
+async function openPaymentModal(p){
   if(!p||!p.id)return;
   var isGhost=((p.email||'').toLowerCase().endsWith('@stripe.local')||(p.name||'').startsWith('pi_')||(p.name||'').startsWith('external_'));
-  var fullReason=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'—';
   var isViewer=localStorage.getItem('subloop_readonly')==='1';
+  var loading='<div style="padding:26px;text-align:center;color:var(--muted);">Loading payment details…</div>';
+  document.getElementById('payment-detail-body').innerHTML=loading;
+  openModal('payment-detail-modal');
+  try{
+    var d=await api('/api/payments/'+p.id+'/details');
+    if(d&&d.id)p=Object.assign({},p,d);
+  }catch(e){}
+  isGhost=((p.email||'').toLowerCase().endsWith('@stripe.local')||(p.name||'').startsWith('pi_')||(p.name||'').startsWith('external_'));
+  var fullReason=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'—';
   var retryBtn=(!isViewer&&p.status==='failed'&&!isGhost)?'<button class="btn btn-success" onclick="closeModal(\'payment-detail-modal\');retryPayment('+p.id+')">Retry Payment</button>':'';
   var noteBtn='<button class="btn" onclick="closeModal(\'payment-detail-modal\');openPaymentNote('+p.id+')">'+(p.note?'📝 Edit Note':'Add Note')+'</button>';
   var avatar=isGhost
-    ?'<div class="avatar" style="width:44px;height:44px;font-size:16px;background:rgba(248,113,113,0.15);border-color:rgba(248,113,113,0.4);color:var(--red);">!</div>'
-    :'<div class="avatar" style="width:44px;height:44px;font-size:16px;">'+initials(p.name)+'</div>';
-  var nameHtml=isGhost
-    ?'<div style="font-size:15px;font-weight:600;color:var(--red);">No profile</div><div style="font-size:12px;color:var(--muted);">External payment · no email collected</div>'
-    :'<div style="font-size:15px;font-weight:600;">'+(p.name||'—')+'</div><div style="font-size:12px;color:var(--muted);">'+(p.email||'')+'</div>';
-  var rows=[
-    ['Amount', '<span class="mono" style="font-size:14px;font-weight:600;">'+fmt(p.amount,p.currency)+'</span>'],
-    ['Status', badge(p.status)],
-    ['Card', cardBadge(p.card_brand,p.card_last4)||'<span style="color:var(--muted);">—</span>'],
-    ['Failure Reason', p.failure_reason?'<span style="color:var(--red);font-size:12px;">'+fullReason+'</span>':'<span style="color:var(--muted);">—</span>'],
-    ['Date', '<span class="mono" style="font-size:12px;">'+fmtDate(p.created_at)+'</span>'],
-    ['Reference', '<span class="mono" style="font-size:11px;word-break:break-all;">'+(p.stripe_payment_intent||'—')+'</span>'],
-    ['Stripe Account', '<span style="font-size:12px;">'+(p.account_name||'—')+'</span>'],
-    ['Note', '<span style="font-size:12px;color:var(--muted);">'+(p.note||'—')+'</span>'],
-  ];
-  var tableRows=rows.map(function(r){return '<tr><td style="padding:8px 0;font-size:12px;color:var(--muted);width:130px;vertical-align:top;">'+r[0]+'</td><td style="padding:8px 0;">'+r[1]+'</td></tr>';}).join('');
-  document.getElementById('payment-detail-body').innerHTML=
-    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--border);">'+avatar+'<div>'+nameHtml+'</div></div>'+
-    '<table style="width:100%;border-collapse:collapse;">'+tableRows+'</table>'+
-    '<div style="display:flex;gap:8px;margin-top:18px;padding-top:16px;border-top:1px solid var(--border);">'+retryBtn+noteBtn+'</div>';
-  openModal('payment-detail-modal');
+    ?'<div class="avatar" style="width:42px;height:42px;font-size:16px;background:rgba(248,113,113,0.15);border-color:rgba(248,113,113,0.4);color:var(--red);">!</div>'
+    :'<div class="avatar" style="width:42px;height:42px;font-size:16px;">'+initials(p.name)+'</div>';
+  var customerTitle=isGhost?'No profile':escHtml(p.name||'—');
+  var customerSub=isGhost?'External payment · no email collected':escHtml(p.email||'No email');
+  var feeHtml=(p.stripe_fee_amount!=null)?fmt(p.stripe_fee_amount,p.stripe_fee_currency||p.currency):'<span style="color:var(--muted);">Not synced</span>';
+  var netHtml=(p.net_amount!=null)?fmt(p.net_amount,p.net_currency||p.currency):'<span style="color:var(--muted);">Not synced</span>';
+  var cardLine=cardBadge(p.card_brand,p.card_last4)||'<span style="color:var(--muted);font-size:12px;">No card data</span>';
+  var exp=(p.card_exp_month&&p.card_exp_year)?'Expires '+String(p.card_exp_month).padStart(2,'0')+'/'+String(p.card_exp_year).slice(-2):'Expiry not available';
+  var copyIcon='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+  function row(icon,label,val,copyVal){
+    var cp=copyVal?'<button class="btn btn-sm" onclick="event.stopPropagation();copyText(\''+String(copyVal).replace(/'/g,'\\\'')+'\')" style="padding:3px 6px;margin-left:6px;opacity:.8;">'+copyIcon+'</button>':'';
+    return '<div style="display:grid;grid-template-columns:22px 105px 1fr;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.055);font-size:12px;"><span style="color:#8b7cff;">'+icon+'</span><span style="color:var(--muted);">'+label+'</span><span style="text-align:right;word-break:break-word;">'+val+cp+'</span></div>';
+  }
+  function timeline(title,date,good){return '<div style="display:flex;gap:10px;align-items:flex-start;margin:10px 0;"><div style="width:22px;height:22px;border-radius:999px;background:'+(good?'rgba(16,185,129,.18)':'rgba(109,94,248,.18)')+';border:1px solid '+(good?'rgba(16,185,129,.35)':'rgba(109,94,248,.35)')+';display:flex;align-items:center;justify-content:center;font-size:11px;color:'+(good?'var(--green)':'#9b8cff')+';">'+(good?'✓':'•')+'</div><div><div style="font-size:12px;font-weight:700;">'+title+'</div><div class="mono" style="font-size:11px;color:var(--muted);margin-top:2px;">'+fmtTime(date)+'</div></div></div>';}
+  var statusGood=p.status==='succeeded';
+  var body=
+    '<div style="display:grid;grid-template-columns:1fr 1.18fr;gap:18px;">'+
+      '<div>'+ 
+        '<div style="border:1px solid var(--border);background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.015));border-radius:16px;padding:14px;margin-bottom:12px;">'+
+          '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;"><div style="display:flex;align-items:center;gap:11px;">'+avatar+'<div><div style="font-size:14px;font-weight:800;">'+customerTitle+'</div><div style="font-size:12px;color:var(--muted);">'+customerSub+'</div></div></div>'+badge(p.status)+'</div>'+ 
+          '<div style="border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:13px;background:rgba(0,0,0,.12);"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;">Amount</div><div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:5px;"><div class="mono" style="font-size:30px;font-weight:900;color:var(--text);">'+fmt(p.amount,p.currency)+'</div><div class="mono" style="font-size:12px;color:var(--muted);">'+String(p.currency||'').toUpperCase()+'</div></div></div>'+ 
+        '</div>'+ 
+        '<div style="border:1px solid var(--border);border-radius:16px;padding:14px;margin-bottom:12px;background:rgba(255,255,255,.018);"><div style="font-size:13px;font-weight:800;margin-bottom:10px;">Payment Method</div><div style="display:flex;align-items:center;gap:10px;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:10px;background:rgba(0,0,0,.10);"><div style="transform:scale(.92);transform-origin:left center;">'+cardLine+'</div><div style="font-size:12px;color:var(--muted);">'+escHtml(exp)+' · '+escHtml(p.card_country||'Country —')+' · '+escHtml(p.card_funding||'Funding —')+'</div></div></div>'+ 
+        '<div style="border:1px solid var(--border);border-radius:16px;padding:14px;background:rgba(255,255,255,.018);"><div style="font-size:13px;font-weight:800;margin-bottom:10px;">Timeline</div>'+timeline('Order placed',p.created_at,false)+timeline(statusGood?'Payment succeeded':'Payment failed',p.created_at,statusGood)+(p.note?timeline('Internal note added',p.created_at,false):'')+'</div>'+ 
+      '</div>'+ 
+      '<div style="border-left:1px solid var(--border);padding-left:18px;">'+
+        '<div style="font-size:13px;font-weight:800;margin-bottom:10px;">Payment Information</div>'+ 
+        row('●','Status',badge(p.status),'')+
+        row('↳','Payment ID','<span class="mono" style="font-size:11px;">'+escHtml(p.stripe_payment_intent||'—')+'</span>',p.stripe_payment_intent||'')+
+        row('◷','Order time','<span class="mono">'+fmtTime(p.created_at)+'</span>','')+
+        row('£','Gross',fmt(p.amount,p.currency),'')+
+        row('−','Stripe fee',feeHtml,'')+
+        row('=','Net received',netHtml,'')+
+        row('▣','Stripe account',escHtml(p.account_name||'—'),'')+
+        row('♢','Invoice','<span class="mono" style="font-size:11px;">'+escHtml(p.stripe_invoice_id||'—')+'</span>',p.stripe_invoice_id||'')+
+        row('⛓','Subscription','<span class="mono" style="font-size:11px;">'+escHtml(p.stripe_subscription_id||'—')+'</span>',p.stripe_subscription_id||'')+
+        row('!','Failure reason',p.failure_reason?'<span style="color:var(--red);">'+escHtml(fullReason)+'</span>':'<span style="color:var(--muted);">—</span>','')+
+        '<div style="margin-top:14px;padding:12px;border:1px solid rgba(255,255,255,.07);border-radius:14px;background:rgba(0,0,0,.10);"><div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Note</div><div style="font-size:12px;color:'+(p.note?'var(--text)':'var(--muted)')+';">'+escHtml(p.note||'No internal note yet')+'</div></div>'+ 
+      '</div>'+ 
+    '</div>'+ 
+    '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px;padding-top:16px;border-top:1px solid var(--border);">'+retryBtn+noteBtn+'</div>';
+  document.getElementById('payment-detail-body').innerHTML=body;
 }
+
 async function retryPayment(id){toast('Retrying…');try{const r=await api('/api/payments/'+id+'/retry',{method:'POST'});if(r.success){toast('✓ Succeeded');loadPayments();loadStats();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
 async function loadWebhooks(){try{const list=await api('/api/webhook-logs');const tb=document.getElementById('webhook-table');if(!list.length){tb.innerHTML='<tr><td colspan="4" class="empty">No webhook events yet</td></tr>';return;}tb.innerHTML=list.map(w=>'<tr><td class="mono" style="font-size:12px;">'+w.event_type+'</td><td style="font-size:12px;color:var(--muted);">'+(w.account_name||'—')+'</td><td>'+badge(w.status||'ok')+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+fmtTime(w.created_at)+'</td></tr>').join('');}catch(e){}}
 async function loadSettings(){try{appSettings=await api('/api/settings');document.getElementById('setting-dunning').checked=appSettings.dunning_enabled==='true';document.getElementById('setting-dunning-days').value=appSettings.dunning_days||'3,7,14';document.getElementById('setting-auto-resume').checked=appSettings.pause_auto_resume==='true';document.getElementById('setting-proration').checked=appSettings.proration_enabled==='true';document.getElementById('setting-webhook-logs').checked=appSettings.webhook_logs_enabled==='true';}catch(e){}}

@@ -925,6 +925,53 @@ app.post('/api/subscriptions/:id/charge', async (req, res) => {
 app.delete('/api/subscriptions/:id', async (req, res) => { try { await subscriptions.updateStatus(req.params.id, 'cancelled'); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
 
 // ── Payments ──────────────────────────────────────────────────────────────────
+
+app.get('/api/payments/:id/details', async (req, res) => {
+  try {
+    await ensureWebhookColumns();
+    const r = await pool.query(`
+      SELECT p.*, c.email, c.name, COALESCE(p.card_brand,c.card_brand) AS card_brand, COALESCE(p.card_last4,c.card_last4) AS card_last4,
+             sa.name AS account_name, sa.secret_key, s.stripe_subscription_id
+      FROM payments p
+      JOIN customers c ON c.id=p.customer_id
+      LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id
+      LEFT JOIN subscriptions s ON s.id=p.subscription_id
+      WHERE p.id=$1
+      LIMIT 1`, [req.params.id]);
+    const pmt = r.rows[0];
+    if (!pmt) return res.status(404).json({ error: 'Payment not found' });
+    let out = { ...pmt };
+    delete out.secret_key;
+
+    if (pmt.secret_key && pmt.stripe_payment_intent) {
+      try {
+        const stripe = new Stripe(pmt.secret_key);
+        const pi = await stripe.paymentIntents.retrieve(pmt.stripe_payment_intent, { expand: ['latest_charge.balance_transaction', 'invoice', 'payment_method'] });
+        const ch = pi.latest_charge && typeof pi.latest_charge === 'object' ? pi.latest_charge : null;
+        const bt = ch && ch.balance_transaction && typeof ch.balance_transaction === 'object' ? ch.balance_transaction : null;
+        out.stripe_fee_amount = bt ? bt.fee : null;
+        out.stripe_fee_currency = bt ? bt.currency : null;
+        out.net_amount = bt ? bt.net : null;
+        out.net_currency = bt ? bt.currency : null;
+        out.stripe_invoice_id = out.stripe_invoice_id || (typeof pi.invoice === 'string' ? pi.invoice : pi.invoice?.id || null);
+        out.receipt_url = ch?.receipt_url || null;
+        if (pi.payment_method && typeof pi.payment_method === 'object' && pi.payment_method.card) {
+          const c = pi.payment_method.card;
+          out.card_brand = out.card_brand || c.brand;
+          out.card_last4 = out.card_last4 || c.last4;
+          out.card_exp_month = out.card_exp_month || c.exp_month;
+          out.card_exp_year = out.card_exp_year || c.exp_year;
+          out.card_country = out.card_country || c.country;
+          out.card_funding = out.card_funding || c.funding;
+        }
+      } catch (e) {
+        out.stripe_detail_error = e.message;
+      }
+    }
+    res.json(out);
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
 app.get('/api/payments', async (req, res) => { try { res.json(await payments.recent(1000)); } catch(err) { res.status(500).json({ error: err.message }); } });
 app.post('/api/payments/:id/retry', async (req, res) => {
   try {
