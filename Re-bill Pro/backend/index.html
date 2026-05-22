@@ -148,7 +148,6 @@ textarea{resize:vertical;min-height:60px}
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:500;align-items:center;justify-content:center}
 .modal-bg.open{display:flex}
 .modal{background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:26px;width:460px;max-width:95vw;max-height:90vh;overflow-y:auto}
-#payment-detail-modal .modal{background:var(--surface)!important;border:1px solid var(--border2)!important;padding:0!important;width:460px!important;border-radius:16px!important;font-family:var(--sans)!important;}
 .modal h3{font-size:16px;font-weight:600;margin-bottom:4px}
 .modal p{font-size:13px;color:var(--muted);margin-bottom:18px}
 .modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
@@ -753,8 +752,12 @@ html.light .pay-filter-count{color:#666678!important;}
     <div class="modal-footer"><button class="btn" onclick="closeModal('add-account-modal')">Cancel</button><button class="btn btn-primary" onclick="addAccount()">Save account</button></div>
   </div>
 </div>
-<div class="modal-bg" id="payment-detail-modal" onclick="if(event.target===this)closeModal('payment-detail-modal')">
-  <div class="modal" style="max-width:460px;padding:0;overflow:hidden;border-radius:16px;">
+<div class="modal-bg" id="payment-detail-modal">
+  <div class="modal" style="max-width:480px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+      <h3 style="margin:0;">Payment Details</h3>
+      <button class="btn btn-sm" onclick="closeModal('payment-detail-modal')" style="padding:4px 8px;">✕</button>
+    </div>
     <div id="payment-detail-body"></div>
   </div>
 </div>
@@ -1424,98 +1427,31 @@ function decodePaymentData(row){try{return JSON.parse(decodeURIComponent(row.get
 function openPaymentModal(p){
   if(!p||!p.id)return;
   var isGhost=((p.email||'').toLowerCase().endsWith('@stripe.local')||(p.name||'').startsWith('pi_')||(p.name||'').startsWith('external_'));
+  var fullReason=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'—';
   var isViewer=localStorage.getItem('subloop_readonly')==='1';
-  var fullReason=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'';
-  var isFailed=p.status==='failed';
-  var d=new Date(p.created_at);
-  var dateStr=d.toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
-  var timeStr=d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+' UTC';
-  var pid=p.stripe_payment_intent||'';
-  window._pmid=pid;
-
-  var heroColor=isFailed?'#5a1010':'#0f3320';
-  var amtColor=isFailed?'#f87171':'#4ade80';
-  var tagColor=isFailed?'rgba(248,113,113,0.6)':'rgba(74,222,128,0.6)';
-  var tagText=isFailed?'PAYMENT FAILED':'PAYMENT SUCCESSFUL';
-  var nameColor=isFailed?'#f87171':'#4ade80';
-  var avatarBg=isFailed?'rgba(248,113,113,0.2)':'rgba(74,222,128,0.2)';
-
-  var isMC=(p.card_brand||'').toLowerCase().includes('master');
-  var cardBadgeHtml='—';
-  if(p.card_brand&&p.card_last4){
-    cardBadgeHtml=isMC
-      ?'<svg width="26" height="17" viewBox="0 0 32 22" style="vertical-align:middle;margin-right:6px"><circle cx="12" cy="11" r="8" fill="#EB001B"/><circle cx="20" cy="11" r="8" fill="#F79E1B"/><path d="M16 5.5a8 8 0 0 1 0 11A8 8 0 0 1 16 5.5z" fill="#FF5F00"/></svg>•••• '+p.card_last4
-      :'<span style="background:#1a1f71;color:#fff;font-size:8px;font-weight:700;padding:2px 5px;border-radius:2px;letter-spacing:.03em;margin-right:6px;vertical-align:middle;">VISA</span>•••• '+p.card_last4;
-  }
-
-  var failCell=isFailed
-    ?'<div style="color:#f87171;font-size:13px;font-weight:600;margin-top:6px;">'+fullReason+'</div>'
-    :'<div style="color:#444;font-size:20px;margin-top:2px;">—</div>';
-
-  var h='';
-
-  // Hero
-  h+='<div style="background:'+heroColor+';padding:26px 22px 22px;border-bottom:1px solid rgba(255,255,255,0.06);">';
-  h+='<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;">';
-  h+='<div style="font-size:10px;font-weight:700;letter-spacing:.14em;color:'+tagColor+';font-family:var(--sans);">'+tagText+'</div>';
-  h+='<button onclick="closeModal(\'payment-detail-modal\')" style="width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,0.25);border:none;cursor:pointer;color:rgba(255,255,255,0.45);font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>';
-  h+='</div>';
-  h+='<div style="font-size:40px;font-weight:800;color:'+amtColor+';letter-spacing:-2px;line-height:1;margin-bottom:'+(isFailed?'8px':'12px')+';font-family:var(--sans);">'+fmt(p.amount,p.currency)+'</div>';
-  if(isFailed&&fullReason){
-    h+='<div style="font-size:13px;color:rgba(248,113,113,0.7);margin-bottom:14px;">'+fullReason+'</div>';
-  }
-  h+='<div style="display:flex;align-items:center;gap:10px;">';
-  h+='<div style="width:34px;height:34px;border-radius:50%;background:'+avatarBg+';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:'+amtColor+';flex-shrink:0;">'+initials(isGhost?'?':p.name)+'</div>';
-  h+='<div><div style="font-size:13px;font-weight:700;color:'+nameColor+';">'+(isGhost?'No profile':p.name||'—')+'</div>';
-  h+='<div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:2px;">'+(p.email||'')+'</div></div></div></div>';
-
-  // 2x2 grid
-  h+='<div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--border2);">';
-  h+='<div style="padding:14px 18px;border-right:1px solid var(--border2);">';
-  h+='<div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;">Date</div>';
-  h+='<div style="font-size:14px;font-weight:700;color:var(--text);">'+dateStr+'</div></div>';
-  h+='<div style="padding:14px 18px;">';
-  h+='<div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;">Time</div>';
-  h+='<div style="font-size:14px;font-weight:700;color:var(--text);">'+timeStr+'</div></div>';
-  h+='</div>';
-  h+='<div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--border2);">';
-  h+='<div style="padding:14px 18px;border-right:1px solid var(--border2);">';
-  h+='<div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;">Card</div>';
-  h+='<div style="font-size:14px;font-weight:700;color:var(--text);display:flex;align-items:center;">'+cardBadgeHtml+'</div></div>';
-  h+='<div style="padding:14px 18px;">';
-  h+='<div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;">Failure Reason</div>';
-  h+=failCell+'</div></div>';
-
-  // Payment ID
-  h+='<div style="padding:14px 18px;border-bottom:1px solid var(--border2);display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">';
-  h+='<div style="flex:1;min-width:0;"><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px;">Payment ID</div>';
-  h+='<div style="background:var(--surface2);border-radius:9px;padding:9px 13px;font-family:var(--mono);font-size:11px;color:var(--muted);word-break:break-all;">'+(pid||'—')+'</div></div>';
-  h+='<button onclick="navigator.clipboard&&navigator.clipboard.writeText(window._pmid);toast(\'Copied!\')" style="margin-top:26px;width:34px;height:34px;border-radius:8px;background:var(--surface2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);font-size:13px;flex-shrink:0;">&#10697;</button>';
-  h+='</div>';
-
-  // Stripe Account
-  h+='<div style="padding:14px 18px;border-bottom:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between;gap:10px;">';
-  h+='<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;">Stripe Account</div>';
-  h+='<div style="font-size:13px;font-weight:600;color:var(--text);">'+(p.account_name||'—')+'</div></div>';
-  h+='<div style="width:34px;height:34px;border-radius:8px;background:var(--surface2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;flex-shrink:0;">&#9776;</div>';
-  h+='</div>';
-
-  // Note
-  h+='<div style="padding:14px 18px;border-bottom:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between;gap:10px;">';
-  h+='<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;">Note</div>';
-  h+='<div style="font-size:13px;color:'+(p.note?'var(--text)':'#444')+';font-weight:'+(p.note?'500':'400')+'">'+(p.note||'No note added')+'</div></div>';
-  h+='<button onclick="closeModal(\'payment-detail-modal\');openPaymentNote('+p.id+')" style="width:34px;height:34px;border-radius:8px;background:var(--surface2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);font-size:13px;flex-shrink:0;">&#9998;</button>';
-  h+='</div>';
-
-  // Footer buttons
-  h+='<div style="display:grid;grid-template-columns:1fr'+((!isViewer&&isFailed&&!isGhost)?' 1fr':'')+';">';
-  h+='<button class="btn" onclick="closeModal(\'payment-detail-modal\');openPaymentNote('+p.id+')" style="padding:14px;border-radius:0;border:none;border-right:'+((!isViewer&&isFailed&&!isGhost)?'1px solid var(--border2)':'none')+';font-size:13px;font-weight:600;">&#9998; '+(p.note?'Edit note':'Add note')+'</button>';
-  if(!isViewer&&isFailed&&!isGhost){
-    h+='<button onclick="closeModal(\'payment-detail-modal\');retryPayment('+p.id+')" style="padding:14px;border-radius:0;border:none;background:#16a34a;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--sans);">&#8635; Retry</button>';
-  }
-  h+='</div>';
-
-  document.getElementById('payment-detail-body').innerHTML=h;
+  var retryBtn=(!isViewer&&p.status==='failed'&&!isGhost)?'<button class="btn btn-success" onclick="closeModal(\'payment-detail-modal\');retryPayment('+p.id+')">Retry Payment</button>':'';
+  var noteBtn='<button class="btn" onclick="closeModal(\'payment-detail-modal\');openPaymentNote('+p.id+')">'+(p.note?'📝 Edit Note':'Add Note')+'</button>';
+  var avatar=isGhost
+    ?'<div class="avatar" style="width:44px;height:44px;font-size:16px;background:rgba(248,113,113,0.15);border-color:rgba(248,113,113,0.4);color:var(--red);">!</div>'
+    :'<div class="avatar" style="width:44px;height:44px;font-size:16px;">'+initials(p.name)+'</div>';
+  var nameHtml=isGhost
+    ?'<div style="font-size:15px;font-weight:600;color:var(--red);">No profile</div><div style="font-size:12px;color:var(--muted);">External payment · no email collected</div>'
+    :'<div style="font-size:15px;font-weight:600;">'+(p.name||'—')+'</div><div style="font-size:12px;color:var(--muted);">'+(p.email||'')+'</div>';
+  var rows=[
+    ['Amount', '<span class="mono" style="font-size:14px;font-weight:600;">'+fmt(p.amount,p.currency)+'</span>'],
+    ['Status', badge(p.status)],
+    ['Card', cardBadge(p.card_brand,p.card_last4)||'<span style="color:var(--muted);">—</span>'],
+    ['Failure Reason', p.failure_reason?'<span style="color:var(--red);font-size:12px;">'+fullReason+'</span>':'<span style="color:var(--muted);">—</span>'],
+    ['Date', '<span class="mono" style="font-size:12px;">'+fmtDate(p.created_at)+'</span>'],
+    ['Reference', '<span class="mono" style="font-size:11px;word-break:break-all;">'+(p.stripe_payment_intent||'—')+'</span>'],
+    ['Stripe Account', '<span style="font-size:12px;">'+(p.account_name||'—')+'</span>'],
+    ['Note', '<span style="font-size:12px;color:var(--muted);">'+(p.note||'—')+'</span>'],
+  ];
+  var tableRows=rows.map(function(r){return '<tr><td style="padding:8px 0;font-size:12px;color:var(--muted);width:130px;vertical-align:top;">'+r[0]+'</td><td style="padding:8px 0;">'+r[1]+'</td></tr>';}).join('');
+  document.getElementById('payment-detail-body').innerHTML=
+    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--border);">'+avatar+'<div>'+nameHtml+'</div></div>'+
+    '<table style="width:100%;border-collapse:collapse;">'+tableRows+'</table>'+
+    '<div style="display:flex;gap:8px;margin-top:18px;padding-top:16px;border-top:1px solid var(--border);">'+retryBtn+noteBtn+'</div>';
   openModal('payment-detail-modal');
 }
 async function retryPayment(id){toast('Retrying…');try{const r=await api('/api/payments/'+id+'/retry',{method:'POST'});if(r.success){toast('✓ Succeeded');loadPayments();loadStats();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
