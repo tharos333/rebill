@@ -412,10 +412,22 @@ textarea{resize:vertical;min-height:60px}
     <div><h2>Payments</h2><p>Full payment history</p></div>
     <button class="btn" onclick="window.location='/api/payments/export'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export CSV</button>
   </div>
+  <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
+    <select id="pay-status-filter" onchange="payCurrentPage=1;filterPayments();" style="padding:7px 12px;font-size:12px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer;min-width:140px;">
+      <option value="">All Statuses</option>
+      <option value="succeeded">Succeeded</option>
+      <option value="failed">Failed</option>
+    </select>
+    <select id="pay-account-filter" onchange="payCurrentPage=1;filterPayments();" style="padding:7px 12px;font-size:12px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer;min-width:180px;">
+      <option value="">All Stripe Accounts</option>
+    </select>
+    <span id="pay-filter-count" style="font-size:12px;color:var(--muted);margin-left:4px;"></span>
+  </div>
   <div class="card"><div class="scrollable"><table>
     <thead><tr><th>Customer</th><th>Amount</th><th>Card</th><th>Status</th><th>Failure Reason</th><th>Date</th><th>Reference</th><th>Action</th></tr></thead>
     <tbody id="payments-table"><tr><td colspan="8" class="empty">Loading...</td></tr></tbody>
   </table></div></div>
+  <div id="pay-pagination" style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap;"></div>
 </div>
 
 <!-- Payment Links -->
@@ -693,6 +705,15 @@ textarea{resize:vertical;min-height:60px}
     <div class="form-group"><label>Secret key (sk_live_...)</label><input type="password" id="acc-key" placeholder="sk_live_..."></div>
     <div class="form-group"><label>Webhook secret (whsec_...) — optional</label><input type="text" id="acc-webhook" placeholder="whsec_..."></div>
     <div class="modal-footer"><button class="btn" onclick="closeModal('add-account-modal')">Cancel</button><button class="btn btn-primary" onclick="addAccount()">Save account</button></div>
+  </div>
+</div>
+<div class="modal-bg" id="payment-detail-modal">
+  <div class="modal" style="max-width:480px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+      <h3 style="margin:0;">Payment Details</h3>
+      <button class="btn btn-sm" onclick="closeModal('payment-detail-modal')" style="padding:4px 8px;">✕</button>
+    </div>
+    <div id="payment-detail-body"></div>
   </div>
 </div>
 <div class="modal-bg" id="note-modal">
@@ -1239,22 +1260,60 @@ async function bulkPause(){if(!selectedSubs.size)return;if(!confirm('Pause '+sel
 async function bulkCancel(){if(!selectedSubs.size)return;if(!confirm('Cancel '+selectedSubs.size+' subscriptions? Cannot be undone.'))return;for(const id of selectedSubs){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'cancelled'})}).catch(()=>{});}toast('✓ '+selectedSubs.size+' cancelled');exitBulkMode();loadSubscriptions();loadStats();}
 function showEditAmount(subId,currentAmount){const container=document.getElementById('edit-'+subId);if(!container)return;const dollars=(currentAmount/100).toFixed(2);container.innerHTML='<div style="display:inline-flex;align-items:center;gap:4px;"><input type="number" id="new-amount-'+subId+'" value="'+dollars+'" step="0.01" min="0.50" style="width:75px;padding:3px 6px;font-size:12px;"><button class="btn btn-sm btn-primary" onclick="saveAmount('+subId+')">Save</button><button class="btn btn-sm" onclick="loadSubscriptions()">✕</button></div>';document.getElementById('new-amount-'+subId).focus();}
 async function saveAmount(subId){const input=document.getElementById('new-amount-'+subId);if(!input)return;const newCents=Math.round(parseFloat(input.value)*100);if(isNaN(newCents)||newCents<50){toast('Minimum $0.50','error');return;}const r=await api('/api/subscriptions/'+subId+'/amount',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:newCents})});if(r.success){toast('✓ Amount updated');loadSubscriptions();}else toast('Error','error');}
-async function loadPayments(){try{allPayments=await api('/api/payments');renderPaymentSummary(allPayments);filterPayments();}catch(e){}}
+async function loadPayments(){
+  try{
+    allPayments=await api('/api/payments');
+    renderPaymentSummary(allPayments);
+    // populate stripe account dropdown from payment data
+    var sel=document.getElementById('pay-account-filter');
+    if(sel){
+      var seen=new Set();var opts='<option value="">All Stripe Accounts</option>';
+      allPayments.forEach(function(p){
+        var n=p.account_name||'';
+        if(n&&!seen.has(n)){seen.add(n);opts+='<option value="'+n+'">'+n+'</option>';}
+      });
+      sel.innerHTML=opts;
+    }
+    payCurrentPage=1;
+    filterPayments();
+  }catch(e){}
+}
 function renderPaymentSummary(list){var total=list.filter(p=>p.status==='succeeded').reduce((s,p)=>s+(parseInt(p.amount)||0),0);var success=list.filter(p=>p.status==='succeeded').length;var failed=list.filter(p=>p.status==='failed').length;var te=document.getElementById('pay-total');if(te)te.textContent=fmt(total);var se=document.getElementById('pay-success-count');if(se)se.textContent=success;var fe=document.getElementById('pay-fail-count');if(fe)fe.textContent=failed;var re=document.getElementById('pay-retry-count');if(re)re.textContent=failed;}
+var payCurrentPage=1;
+var PAY_PER_PAGE=35;
 function filterPayments(){
   if(!allPayments)return;
-  var q=(document.getElementById('pay-search')?.value||'').toLowerCase();
   var status=document.getElementById('pay-status-filter')?.value||'';
-  var dateFilter=document.getElementById('pay-date-filter')?.value||'';
-  var now=new Date();
+  var account=document.getElementById('pay-account-filter')?.value||'';
   var filtered=allPayments.filter(function(p){
-    var matchQ=!q||(p.name||'').toLowerCase().includes(q)||(p.email||'').toLowerCase().includes(q)||(p.stripe_payment_intent||'').toLowerCase().includes(q);
     var matchS=!status||p.status===status;
-    var matchD=true;
-    if(dateFilter){var d=new Date(p.created_at);if(dateFilter==='today')matchD=d.toDateString()===now.toDateString();else if(dateFilter==='yesterday'){var y=new Date(now);y.setDate(y.getDate()-1);matchD=d.toDateString()===y.toDateString();}else if(dateFilter==='week'){var w=new Date(now);w.setDate(w.getDate()-7);matchD=d>=w;}else if(dateFilter==='month'){matchD=d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();}}
-    return matchQ&&matchS&&matchD;
+    var matchA=!account||(p.account_name||'')=== account;
+    return matchS&&matchA;
   });
-  renderPayments(filtered);
+  var countEl=document.getElementById('pay-filter-count');
+  if(countEl)countEl.textContent=filtered.length+' payment'+(filtered.length!==1?'s':'');
+  var total=filtered.length;
+  var totalPages=Math.max(1,Math.ceil(total/PAY_PER_PAGE));
+  if(payCurrentPage>totalPages)payCurrentPage=totalPages;
+  var start=(payCurrentPage-1)*PAY_PER_PAGE;
+  var page=filtered.slice(start,start+PAY_PER_PAGE);
+  renderPayments(page);
+  renderPayPagination(total,totalPages);
+}
+function renderPayPagination(total,totalPages){
+  var el=document.getElementById('pay-pagination');
+  if(!el)return;
+  if(totalPages<=1){el.innerHTML='';return;}
+  var html='<span style="font-size:12px;color:var(--muted);">Page '+payCurrentPage+' of '+totalPages+'</span>';
+  html+='<button class="btn btn-sm" onclick="payCurrentPage=Math.max(1,payCurrentPage-1);filterPayments();" '+(payCurrentPage===1?'disabled':'')+'>← Prev</button>';
+  // page number buttons (show max 7)
+  var start=Math.max(1,payCurrentPage-3),end=Math.min(totalPages,payCurrentPage+3);
+  for(var i=start;i<=end;i++){
+    var active=i===payCurrentPage;
+    html+='<button class="btn btn-sm'+(active?' btn-primary':'')+'" onclick="payCurrentPage='+i+';filterPayments();">'+i+'</button>';
+  }
+  html+='<button class="btn btn-sm" onclick="payCurrentPage=Math.min('+totalPages+',payCurrentPage+1);filterPayments();" '+(payCurrentPage===totalPages?'disabled':'')+'> Next →</button>';
+  el.innerHTML=html;
 }
 var reasonLabels={'insufficient_funds':'Insufficient funds','card_declined':'Card declined','expired_card':'Card expired','incorrect_cvc':'Wrong CVC','lost_card':'Card reported lost','stolen_card':'Reported stolen','do_not_honor':'Bank declined','processing_error':'Processing error','fraudulent':'Fraud suspected','generic_decline':'Generic decline','no_such_customer':'Customer not found','authentication_required':'Auth required'};
 function renderPayments(list){
@@ -1267,18 +1326,50 @@ function renderPayments(list){
     var reasonHtml=shortReason?'<div style="font-size:12px;color:var(--red);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+p.failure_reason+'">'+shortReason+'</div>':'<span style="color:var(--muted);font-size:12px;">—</span>';
     var refHtml=buildRefCell(p.stripe_payment_intent);
     var actions='<div style="display:flex;gap:4px;align-items:center;">';
-    if(!isViewer&&p.status==='failed'&&!isGhost)actions+='<button class="btn btn-sm btn-success" onclick="retryPayment('+p.id+')">Retry</button>';
-    actions+='<button class="btn btn-sm" onclick="openPaymentNote('+p.id+')" title="'+(p.note||'Add note')+'">'+(p.note?'📝 Note':'Note')+'</button>';
+    if(!isViewer&&p.status==='failed'&&!isGhost)actions+='<button class="btn btn-sm btn-success" onclick="event.stopPropagation();retryPayment('+p.id+')">Retry</button>';
+    actions+='<button class="btn btn-sm" onclick="event.stopPropagation();openPaymentNote('+p.id+')" title="'+(p.note||'Add note')+'">'+(p.note?'📝 Note':'Note')+'</button>';
     actions+='</div>';
     var rowBg=(p.status==='failed'||isGhost)?'background:rgba(248,113,113,0.04);':'';
     var avatarHtml=isGhost
       ?'<div class="avatar" style="background:rgba(248,113,113,0.15);border-color:rgba(248,113,113,0.4);color:var(--red);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>'
       :'<div class="avatar">'+initials(p.name)+'</div>';
     var customerHtml=isGhost
-      ?'<div class="customer-name" style="font-size:13px;color:var(--red);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;margin-top:-1px;flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>No profile</div><div class="customer-email">External payment · no email collected</div>'
-      :'<div class="customer-name" style="font-size:13px;">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div>';
-    return '<tr style="'+rowBg+'"><td><div class="customer-cell">'+avatarHtml+'<div>'+customerHtml+'</div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+cardBadge(p.card_brand,p.card_last4)+'</td><td>'+badge(p.status)+'</td><td>'+reasonHtml+'</td><td class="mono" style="font-size:12px;white-space:nowrap;">'+fmtDate(p.created_at)+'</td><td>'+refHtml+'</td><td>'+actions+'</td></tr>';
+      ?'<div class="customer-name" style="font-size:13px;color:var(--red);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;margin-top:-1px;flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>No profile</div>'
+      :'<div class="customer-name" style="font-size:13px;">'+(p.name||'—')+'</div>';
+    var pJson=encodeURIComponent(JSON.stringify(p));
+    return '<tr style="'+rowBg+'cursor:pointer;" onclick="openPaymentModal(decodePaymentData(this))" data-payment="'+pJson+'"><td><div class="customer-cell">'+avatarHtml+'<div>'+customerHtml+'</div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+cardBadge(p.card_brand,p.card_last4)+'</td><td>'+badge(p.status)+'</td><td>'+reasonHtml+'</td><td class="mono" style="font-size:12px;white-space:nowrap;">'+fmtDate(p.created_at)+'</td><td>'+refHtml+'</td><td>'+actions+'</td></tr>';
   }).join('');
+}
+function decodePaymentData(row){try{return JSON.parse(decodeURIComponent(row.getAttribute('data-payment')));}catch(e){return {};}}
+function openPaymentModal(p){
+  if(!p||!p.id)return;
+  var isGhost=((p.email||'').toLowerCase().endsWith('@stripe.local')||(p.name||'').startsWith('pi_')||(p.name||'').startsWith('external_'));
+  var fullReason=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'—';
+  var isViewer=localStorage.getItem('subloop_readonly')==='1';
+  var retryBtn=(!isViewer&&p.status==='failed'&&!isGhost)?'<button class="btn btn-success" onclick="closeModal(\'payment-detail-modal\');retryPayment('+p.id+')">Retry Payment</button>':'';
+  var noteBtn='<button class="btn" onclick="closeModal(\'payment-detail-modal\');openPaymentNote('+p.id+')">'+(p.note?'📝 Edit Note':'Add Note')+'</button>';
+  var avatar=isGhost
+    ?'<div class="avatar" style="width:44px;height:44px;font-size:16px;background:rgba(248,113,113,0.15);border-color:rgba(248,113,113,0.4);color:var(--red);">!</div>'
+    :'<div class="avatar" style="width:44px;height:44px;font-size:16px;">'+initials(p.name)+'</div>';
+  var nameHtml=isGhost
+    ?'<div style="font-size:15px;font-weight:600;color:var(--red);">No profile</div><div style="font-size:12px;color:var(--muted);">External payment · no email collected</div>'
+    :'<div style="font-size:15px;font-weight:600;">'+(p.name||'—')+'</div><div style="font-size:12px;color:var(--muted);">'+(p.email||'')+'</div>';
+  var rows=[
+    ['Amount', '<span class="mono" style="font-size:14px;font-weight:600;">'+fmt(p.amount,p.currency)+'</span>'],
+    ['Status', badge(p.status)],
+    ['Card', cardBadge(p.card_brand,p.card_last4)||'<span style="color:var(--muted);">—</span>'],
+    ['Failure Reason', p.failure_reason?'<span style="color:var(--red);font-size:12px;">'+fullReason+'</span>':'<span style="color:var(--muted);">—</span>'],
+    ['Date', '<span class="mono" style="font-size:12px;">'+fmtDate(p.created_at)+'</span>'],
+    ['Reference', '<span class="mono" style="font-size:11px;word-break:break-all;">'+(p.stripe_payment_intent||'—')+'</span>'],
+    ['Stripe Account', '<span style="font-size:12px;">'+(p.account_name||'—')+'</span>'],
+    ['Note', '<span style="font-size:12px;color:var(--muted);">'+(p.note||'—')+'</span>'],
+  ];
+  var tableRows=rows.map(function(r){return '<tr><td style="padding:8px 0;font-size:12px;color:var(--muted);width:130px;vertical-align:top;">'+r[0]+'</td><td style="padding:8px 0;">'+r[1]+'</td></tr>';}).join('');
+  document.getElementById('payment-detail-body').innerHTML=
+    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--border);">'+avatar+'<div>'+nameHtml+'</div></div>'+
+    '<table style="width:100%;border-collapse:collapse;">'+tableRows+'</table>'+
+    '<div style="display:flex;gap:8px;margin-top:18px;padding-top:16px;border-top:1px solid var(--border);">'+retryBtn+noteBtn+'</div>';
+  openModal('payment-detail-modal');
 }
 async function retryPayment(id){toast('Retrying…');try{const r=await api('/api/payments/'+id+'/retry',{method:'POST'});if(r.success){toast('✓ Succeeded');loadPayments();loadStats();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
 async function loadWebhooks(){try{const list=await api('/api/webhook-logs');const tb=document.getElementById('webhook-table');if(!list.length){tb.innerHTML='<tr><td colspan="4" class="empty">No webhook events yet</td></tr>';return;}tb.innerHTML=list.map(w=>'<tr><td class="mono" style="font-size:12px;">'+w.event_type+'</td><td style="font-size:12px;color:var(--muted);">'+(w.account_name||'—')+'</td><td>'+badge(w.status||'ok')+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+fmtTime(w.created_at)+'</td></tr>').join('');}catch(e){}}
