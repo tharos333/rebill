@@ -414,10 +414,10 @@ textarea{resize:vertical;min-height:60px}
   </div>
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:10px;">
     <!-- Status pill buttons -->
-    <div style="display:flex;align-items:center;gap:2px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:3px;">
-      <button id="pay-btn-all" onclick="setPayStatus('')" style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:6px;border:none;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;">All <span id="pay-count-all" style="background:rgba(255,255,255,0.25);border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700;">0</span></button>
-      <button id="pay-btn-succeeded" onclick="setPayStatus('succeeded')" style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:6px;border:none;background:transparent;color:var(--green,#4ade80);font-size:12px;font-weight:500;cursor:pointer;">Succeeded <span id="pay-count-succeeded" style="background:rgba(74,222,128,0.15);color:var(--green,#4ade80);border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700;">0</span></button>
-      <button id="pay-btn-failed" onclick="setPayStatus('failed')" style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:6px;border:none;background:transparent;color:var(--red);font-size:12px;font-weight:500;cursor:pointer;">Failed <span id="pay-count-failed" style="background:rgba(248,113,113,0.15);color:var(--red);border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700;">0</span></button>
+    <div style="display:flex;align-items:center;gap:6px;">
+      <button id="pay-btn-all" onclick="setPayStatus('')" style="display:flex;align-items:center;gap:8px;padding:7px 14px;border-radius:8px;border:1px solid var(--accent);background:rgba(99,102,241,0.08);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;">All <span id="pay-count-all" style="color:var(--muted);font-size:12px;font-weight:500;">0</span></button>
+      <button id="pay-btn-succeeded" onclick="setPayStatus('succeeded')" style="display:flex;align-items:center;gap:8px;padding:7px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--green,#4ade80);font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;">Succeeded <span id="pay-count-succeeded" style="color:var(--muted);font-size:12px;font-weight:500;">0</span></button>
+      <button id="pay-btn-failed" onclick="setPayStatus('failed')" style="display:flex;align-items:center;gap:8px;padding:7px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--red);font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;">Failed <span id="pay-count-failed" style="color:var(--muted);font-size:12px;font-weight:500;">0</span></button>
     </div>
     <!-- Stripe account dropdown -->
     <div style="position:relative;display:flex;align-items:center;">
@@ -1294,19 +1294,16 @@ var payStatusFilter='';
 function setPayStatus(s){
   payStatusFilter=s;
   payCurrentPage=1;
-  // update pill button styles
   ['all','succeeded','failed'].forEach(function(k){
     var btn=document.getElementById('pay-btn-'+k);
     if(!btn)return;
     var isActive=(k==='all'&&s==='')||(k===s);
     if(isActive){
-      btn.style.background=k==='succeeded'?'rgba(74,222,128,0.15)':k==='failed'?'rgba(248,113,113,0.15)':'var(--accent)';
-      btn.style.color=k==='succeeded'?'var(--green,#4ade80)':k==='failed'?'var(--red)':'#fff';
-      btn.style.fontWeight='600';
+      btn.style.border='1px solid var(--accent)';
+      btn.style.background='rgba(99,102,241,0.08)';
     } else {
-      btn.style.background='transparent';
-      btn.style.color=k==='succeeded'?'var(--green,#4ade80)':k==='failed'?'var(--red)':'var(--muted)';
-      btn.style.fontWeight='500';
+      btn.style.border='1px solid var(--border)';
+      btn.style.background='var(--bg)';
     }
   });
   filterPayments();
