@@ -180,6 +180,19 @@ textarea{resize:vertical;min-height:60px}
 /* OTP boxes */
 .otp-input{width:46px;height:52px;text-align:center;font-size:20px;font-weight:700;font-family:var(--mono);background:var(--surface2);border:1.5px solid var(--border2);border-radius:10px;color:var(--text);outline:none}
 .otp-input:focus{border-color:var(--accent)}
+
+/* ── Pay filter bar light mode ── */
+html.light .pay-filter-bar{background:var(--surface)!important;border-color:var(--border)!important;}
+html.light .pay-filter-btn{background:#f4f4f8!important;border-color:rgba(0,0,0,0.1)!important;color:#111118!important;box-shadow:none!important;}
+html.light .pay-filter-btn-succeeded{color:#00a85a!important;}
+html.light .pay-filter-btn-failed{color:#d93025!important;}
+html.light .pay-filter-btn.active{background:rgba(108,99,255,0.08)!important;border-color:#6c63ff!important;color:#5b52cc!important;box-shadow:none!important;}
+html.light .pay-filter-select,html.light .pay-filter-input{background:#f4f4f8!important;border-color:rgba(0,0,0,0.1)!important;color:#111118!important;box-shadow:none!important;}
+html.light .pay-filter-input:focus{border-color:#6c63ff!important;box-shadow:0 0 0 3px rgba(108,99,255,0.12)!important;}
+html.light .pay-filter-divider{background:rgba(0,0,0,0.1)!important;}
+html.light .pay-filter-kbd{background:#ededf2!important;border-color:rgba(0,0,0,0.1)!important;color:#666678!important;}
+html.light #pay-date-from,html.light #pay-date-to{background:#f4f4f8!important;border-color:rgba(0,0,0,0.1)!important;color:#111118!important;}
+html.light .pay-filter-count{color:#666678!important;}
 </style>
 </head>
 <body>
@@ -412,16 +425,48 @@ textarea{resize:vertical;min-height:60px}
     <div><h2>Payments</h2><p>Full payment history</p></div>
     <button class="btn" onclick="window.location='/api/payments/export'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export CSV</button>
   </div>
-  <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
-    <select id="pay-status-filter" onchange="payCurrentPage=1;filterPayments();" style="padding:7px 12px;font-size:12px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer;min-width:140px;">
-      <option value="">All Statuses</option>
-      <option value="succeeded">Succeeded</option>
-      <option value="failed">Failed</option>
-    </select>
-    <select id="pay-account-filter" onchange="payCurrentPage=1;filterPayments();" style="padding:7px 12px;font-size:12px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer;min-width:180px;">
-      <option value="">All Stripe Accounts</option>
-    </select>
-    <span id="pay-filter-count" style="font-size:12px;color:var(--muted);margin-left:4px;"></span>
+  <div class="pay-filter-bar" style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;">
+    <!-- Status pill buttons -->
+    <div style="display:flex;align-items:center;gap:5px;">
+      <button id="pay-btn-all" class="pay-filter-btn active" onclick="setPayStatus('')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #6D5EF8;background:rgba(109,94,248,0.18);color:#F5F5F7;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:0 0 12px rgba(109,94,248,0.25),inset 0 1px 0 rgba(255,255,255,0.08);">All <span id="pay-count-all" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>
+      <button id="pay-btn-succeeded" class="pay-filter-btn pay-filter-btn-succeeded" onclick="setPayStatus('succeeded')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#00C773;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">Succeeded <span id="pay-count-succeeded" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>
+      <button id="pay-btn-failed" class="pay-filter-btn pay-filter-btn-failed" onclick="setPayStatus('failed')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#FF5F6D;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">Failed <span id="pay-count-failed" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>
+    </div>
+    <!-- Divider -->
+    <div class="pay-filter-divider" style="width:1px;height:28px;background:#2A2A38;margin:0 2px;"></div>
+    <!-- Date range -->
+    <div style="position:relative;display:flex;align-items:center;">
+      <svg style="position:absolute;left:10px;pointer-events:none;color:#8B8B99;" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <select id="pay-date-filter" class="pay-filter-select" onchange="payCurrentPage=1;toggleCustomDate();filterPayments();" style="padding:6px 32px 6px 30px;font-size:12px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#F5F5F7;cursor:pointer;appearance:none;-webkit-appearance:none;min-width:175px;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">
+        <option value="">All time</option>
+        <option value="today">Today</option>
+        <option value="yesterday">Yesterday</option>
+        <option value="week">Last 7 days</option>
+        <option value="month">This month</option>
+        <option value="custom">Custom range...</option>
+      </select>
+      <div id="pay-custom-date" style="display:none;align-items:center;gap:6px;margin-left:4px;">
+        <input type="date" id="pay-date-from" onchange="payCurrentPage=1;filterPayments();" style="padding:5px 8px;font-size:12px;border-radius:10px;border:1px solid #2A2A38;background:#14141d;color:#F5F5F7;font-family:var(--sans);cursor:pointer;">
+        <span style="color:#8B8B99;font-size:12px;">→</span>
+        <input type="date" id="pay-date-to" onchange="payCurrentPage=1;filterPayments();" style="padding:5px 8px;font-size:12px;border-radius:10px;border:1px solid #2A2A38;background:#14141d;color:#F5F5F7;font-family:var(--sans);cursor:pointer;">
+      </div>
+      <svg style="position:absolute;right:10px;pointer-events:none;color:#8B8B99;" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <!-- Stripe account dropdown -->
+    <div style="position:relative;display:flex;align-items:center;">
+      <select id="pay-account-filter" class="pay-filter-select" onchange="payCurrentPage=1;filterPayments();" style="padding:6px 32px 6px 12px;font-size:12px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#F5F5F7;cursor:pointer;appearance:none;-webkit-appearance:none;min-width:165px;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">
+        <option value="">All Stripe Accounts</option>
+      </select>
+      <svg style="position:absolute;right:10px;pointer-events:none;color:#8B8B99;" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <!-- Search -->
+    <div style="position:relative;display:flex;align-items:center;flex:1;min-width:190px;">
+      <svg style="position:absolute;left:10px;color:#8B8B99;flex-shrink:0;" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input id="pay-search" class="pay-filter-input" type="text" placeholder="Search by name, card or payment ID..." oninput="payCurrentPage=1;filterPayments();" style="width:100%;padding:6px 42px 6px 32px;font-size:12px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#F5F5F7;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);outline:none;transition:border-color 0.18s,box-shadow 0.18s;" onfocus="this.style.borderColor='#6D5EF8';this.style.boxShadow='0 0 0 3px rgba(109,94,248,0.18),inset 0 1px 0 rgba(255,255,255,0.04)';" onblur="this.style.borderColor='#2A2A38';this.style.boxShadow='inset 0 1px 0 rgba(255,255,255,0.04)';">
+      <span class="pay-filter-kbd" style="position:absolute;right:10px;font-size:10px;color:#8B8B99;background:#14141d;border:1px solid #2A2A38;border-radius:4px;padding:1px 5px;pointer-events:none;">⌘K</span>
+    </div>
+    <!-- Filters button -->
+    <button onclick="" class="btn btn-primary" style="display:flex;align-items:center;gap:6px;padding:6px 13px;border-radius:12px;font-size:12px;font-weight:600;white-space:nowrap;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>Filters</button>
   </div>
   <div class="card"><div class="scrollable"><table>
     <thead><tr><th>Customer</th><th>Amount</th><th>Card</th><th>Status</th><th>Failure Reason</th><th>Date</th><th>Reference</th><th>Action</th></tr></thead>
@@ -850,100 +895,6 @@ textarea{resize:vertical;min-height:60px}
   </div>
 </div>
 
-
-<!-- Customer Detail Modal -->
-<div class="modal-bg" id="customer-detail-modal" style="align-items:center;justify-content:center;">
-  <div id="customer-detail-inner" style="background:var(--surface);border:1px solid var(--border2);border-radius:20px;width:720px;max-width:97vw;max-height:93vh;overflow:hidden;display:flex;flex-direction:column;position:relative;box-shadow:0 24px 80px rgba(0,0,0,0.5);">
-    <!-- Loading state -->
-    <div id="cd-loading" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;gap:14px;">
-      <div style="width:36px;height:36px;border-radius:50%;border:3px solid var(--border2);border-top-color:var(--accent);animation:spin 0.8s linear infinite;"></div>
-      <div style="font-size:13px;color:var(--muted);font-family:var(--mono);">Loading customer…</div>
-    </div>
-    <!-- Content -->
-    <div id="cd-content" style="display:none;flex-direction:column;overflow:hidden;height:100%;">
-      <!-- Header -->
-      <div id="cd-header" style="padding:22px 26px 18px;border-bottom:1px solid var(--border);flex-shrink:0;">
-        <div style="display:flex;align-items:center;gap:16px;">
-          <div id="cd-avatar" style="width:52px;height:52px;border-radius:14px;background:var(--accent-glow);border:1px solid rgba(108,99,255,0.3);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:var(--accent);font-family:var(--mono);flex-shrink:0;"></div>
-          <div style="flex:1;min-width:0;">
-            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-              <div id="cd-name" style="font-size:18px;font-weight:700;letter-spacing:-0.3px;"></div>
-              <div id="cd-status-badge"></div>
-              <div id="cd-delinquent-badge" style="display:none;"><span class="badge badge-red">delinquent</span></div>
-            </div>
-            <div id="cd-email" style="font-size:13px;color:var(--muted);font-family:var(--mono);margin-top:3px;"></div>
-            <div id="cd-meta-line" style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:4px;display:flex;gap:14px;flex-wrap:wrap;"></div>
-          </div>
-          <button onclick="closeModal('customer-detail-modal')" style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;width:30px;height:30px;cursor:pointer;color:var(--muted);font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>
-        </div>
-        <!-- KPI row -->
-        <div id="cd-kpi-row" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:16px;"></div>
-      </div>
-      <!-- Tabs -->
-      <div style="display:flex;gap:0;border-bottom:1px solid var(--border);flex-shrink:0;padding:0 26px;">
-        <button class="cd-tab active" onclick="cdTab('overview',this)" style="padding:10px 16px;font-size:12px;font-family:var(--mono);background:none;border:none;border-bottom:2px solid var(--accent);color:var(--text);cursor:pointer;font-weight:600;margin-bottom:-1px;">Overview</button>
-        <button class="cd-tab" onclick="cdTab('payments',this)" style="padding:10px 16px;font-size:12px;font-family:var(--mono);background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer;font-weight:500;margin-bottom:-1px;">Payments</button>
-        <button class="cd-tab" onclick="cdTab('subscriptions',this)" style="padding:10px 16px;font-size:12px;font-family:var(--mono);background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer;font-weight:500;margin-bottom:-1px;">Subscriptions</button>
-      </div>
-      <!-- Tab body (scrollable) -->
-      <div id="cd-body" style="flex:1;overflow-y:auto;padding:20px 26px 24px;">
-        <!-- Overview tab -->
-        <div id="cdtab-overview">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-            <!-- Profile card -->
-            <div id="cd-profile-card" style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;"></div>
-            <!-- Card / Billing info -->
-            <div id="cd-billing-card" style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;"></div>
-          </div>
-          <div style="margin-top:14px;">
-            <!-- Financial summary -->
-            <div id="cd-finance-card" style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;"></div>
-          </div>
-          <!-- Note -->
-          <div id="cd-note-section" style="margin-top:14px;display:none;">
-            <div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:10px;padding:12px 16px;">
-              <div style="font-size:10px;color:var(--amber);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Internal note</div>
-              <div id="cd-note-text" style="font-size:13px;color:var(--text);line-height:1.5;"></div>
-            </div>
-          </div>
-        </div>
-        <!-- Payments tab -->
-        <div id="cdtab-payments" style="display:none;">
-          <div id="cd-payments-list"></div>
-        </div>
-        <!-- Subscriptions tab -->
-        <div id="cdtab-subscriptions" style="display:none;">
-          <div id="cd-subs-list"></div>
-        </div>
-      </div>
-      <!-- Footer actions -->
-      <div style="padding:14px 26px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0;background:var(--surface);">
-        <button id="cd-btn-portal" class="btn btn-primary" onclick="openPortalFromDetail()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>Update Card</button>
-        <button id="cd-btn-invoice" class="btn" onclick="openInvoiceFromDetail()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Manual Invoice</button>
-        <button id="cd-btn-note" class="btn" onclick="openNoteFromDetail()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Edit Note</button>
-        <div style="flex:1;"></div>
-        <div id="cd-stripe-link-wrap" style="display:none;">
-          <a id="cd-stripe-link" href="#" target="_blank" style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);font-family:var(--mono);text-decoration:none;padding:6px 10px;border:1px solid var(--border2);border-radius:7px;" title="Open in Stripe Dashboard">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-            Stripe ↗
-          </a>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-<style>
-@keyframes spin{to{transform:rotate(360deg)}}
-.cd-tab:hover{color:var(--text)!important}
-.cd-tab.active{color:var(--text)!important;border-bottom-color:var(--accent)!important}
-.cd-row{display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);}
-.cd-row:last-child{border-bottom:none;}
-.cd-row-label{font-size:11px;color:var(--muted);font-family:var(--mono);width:120px;flex-shrink:0;padding-top:1px;}
-.cd-row-val{font-size:13px;color:var(--text);flex:1;word-break:break-word;}
-.cdfin-item{flex:1;min-width:0;text-align:center;padding:12px 8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;}
-.cdfin-label{font-size:10px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;}
-.cdfin-val{font-size:16px;font-weight:700;letter-spacing:-0.3px;}
-</style>
 <div id="toast"></div>
 <script>
 let currentLink=null,allCustomers=[],allSubscriptions=[],allPayments=[],allStripeAccounts=[],allAdminUsers=[],appSettings={},selectedSubs=new Set(),currentRevPeriod='month',bulkMode=false;
@@ -1318,7 +1269,7 @@ function renderCustomers(list){
   tb.innerHTML=list.map(c=>{
     const dateLabel = c.last_payment_at ? fmtDate(c.last_payment_at) : '—';
     const dateTitle = c.last_payment_at ? 'Last successful payment date' : 'No successful payment yet';
-    return '<tr style="cursor:pointer;" onclick="openCustomerDetail('+c.id+')"><td><div class="customer-cell"><div class="avatar">'+initials(c.name)+'</div><div><div class="customer-name" style="color:var(--accent)">'+(c.name||'—')+'</div><div class="customer-email">'+(c.email||'')+'</div></div></div></td><td>'+cardBadge(c.card_brand,c.card_last4)+'</td><td style="font-size:12px;color:var(--muted);">'+(c.account_name||'—')+'</td><td>'+badge(c.status)+'</td><td style="font-size:12px;color:var(--muted);font-family:var(--mono);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(c.note||'—')+'</td><td class="mono" style="font-size:12px;white-space:nowrap;" title="'+dateTitle+'">'+dateLabel+'</td><td class="mono">'+fmt(c.total_paid||0)+'</td><td><div class="actions" onclick="event.stopPropagation()"><button class="btn btn-sm" onclick="openNoteModal('+c.id+',\''+encodeURIComponent(c.note||'')+'\')">Note</button><button class="btn btn-sm" onclick="openPortal('+c.id+')">Card ↗</button>'+(c.status==='active'?'<button class="btn btn-sm btn-danger" onclick="setCustStatus('+c.id+',\'paused\')">Pause</button>':'')+(c.status==='paused'?'<button class="btn btn-sm" onclick="setCustStatus('+c.id+',\'active\')">Resume</button>':'')+'</div></td></tr>';
+    return '<tr><td><div class="customer-cell"><div class="avatar">'+initials(c.name)+'</div><div><div class="customer-name">'+(c.name||'—')+'</div><div class="customer-email">'+(c.email||'')+'</div></div></div></td><td>'+cardBadge(c.card_brand,c.card_last4)+'</td><td style="font-size:12px;color:var(--muted);">'+(c.account_name||'—')+'</td><td>'+badge(c.status)+'</td><td style="font-size:12px;color:var(--muted);font-family:var(--mono);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(c.note||'—')+'</td><td class="mono" style="font-size:12px;white-space:nowrap;" title="'+dateTitle+'">'+dateLabel+'</td><td class="mono">'+fmt(c.total_paid||0)+'</td><td><div class="actions"><button class="btn btn-sm" onclick="openNoteModal('+c.id+',\''+encodeURIComponent(c.note||'')+'\')">Note</button><button class="btn btn-sm" onclick="openPortal('+c.id+')">Card ↗</button>'+(c.status==='active'?'<button class="btn btn-sm btn-danger" onclick="setCustStatus('+c.id+',\'paused\')">Pause</button>':'')+(c.status==='paused'?'<button class="btn btn-sm" onclick="setCustStatus('+c.id+',\'active\')">Resume</button>':'')+'</div></td></tr>';
   }).join('');
 }
 function filterCustomers(){const q=document.getElementById('customer-search').value.toLowerCase();renderCustomers(allCustomers.filter(c=>(c.name||'').toLowerCase().includes(q)||(c.email||'').toLowerCase().includes(q)));}
@@ -1375,17 +1326,50 @@ async function loadPayments(){
 function renderPaymentSummary(list){var total=list.filter(p=>p.status==='succeeded').reduce((s,p)=>s+(parseInt(p.amount)||0),0);var success=list.filter(p=>p.status==='succeeded').length;var failed=list.filter(p=>p.status==='failed').length;var te=document.getElementById('pay-total');if(te)te.textContent=fmt(total);var se=document.getElementById('pay-success-count');if(se)se.textContent=success;var fe=document.getElementById('pay-fail-count');if(fe)fe.textContent=failed;var re=document.getElementById('pay-retry-count');if(re)re.textContent=failed;}
 var payCurrentPage=1;
 var PAY_PER_PAGE=35;
+var payStatusFilter='';
+function setPayStatus(s){
+  payStatusFilter=s;
+  payCurrentPage=1;
+  ['all','succeeded','failed'].forEach(function(k){
+    var btn=document.getElementById('pay-btn-'+k);
+    if(!btn)return;
+    var isActive=(k==='all'&&s==='')||(k===s);
+    btn.classList.toggle('active',isActive);
+    if(isActive){
+      btn.style.border='1px solid #6D5EF8';
+      btn.style.background='rgba(109,94,248,0.18)';
+      btn.style.boxShadow='0 0 12px rgba(109,94,248,0.25),inset 0 1px 0 rgba(255,255,255,0.08)';
+      btn.style.color=k==='succeeded'?'#00C773':k==='failed'?'#FF5F6D':'#F5F5F7';
+    } else {
+      btn.style.border='1px solid #2A2A38';
+      btn.style.background='#14141d';
+      btn.style.boxShadow='inset 0 1px 0 rgba(255,255,255,0.04)';
+      btn.style.color=k==='succeeded'?'#00C773':k==='failed'?'#FF5F6D':'#8B8B99';
+    }
+  });
+  filterPayments();
+}
 function filterPayments(){
   if(!allPayments)return;
-  var status=document.getElementById('pay-status-filter')?.value||'';
   var account=document.getElementById('pay-account-filter')?.value||'';
+  var q=(document.getElementById('pay-search')?.value||'').toLowerCase();
+  // update counts
+  var allC=allPayments.length;
+  var sucC=allPayments.filter(function(p){return p.status==='succeeded';}).length;
+  var failC=allPayments.filter(function(p){return p.status==='failed';}).length;
+  var ca=document.getElementById('pay-count-all');if(ca)ca.textContent=allC;
+  var cs=document.getElementById('pay-count-succeeded');if(cs)cs.textContent=sucC;
+  var cf=document.getElementById('pay-count-failed');if(cf)cf.textContent=failC;
+  var dateF=document.getElementById('pay-date-filter')?.value||'';
+  var now=new Date();
   var filtered=allPayments.filter(function(p){
-    var matchS=!status||p.status===status;
+    var matchS=!payStatusFilter||p.status===payStatusFilter;
     var matchA=!account||(p.account_name||'')=== account;
-    return matchS&&matchA;
+    var matchQ=!q||(p.name||'').toLowerCase().includes(q)||(p.email||'').toLowerCase().includes(q)||(p.stripe_payment_intent||'').toLowerCase().includes(q)||(p.card_last4||'').includes(q);
+    var matchD=true;
+    if(dateF){var d=new Date(p.created_at);if(dateF==='today')matchD=d.toDateString()===now.toDateString();else if(dateF==='yesterday'){var y=new Date(now);y.setDate(y.getDate()-1);matchD=d.toDateString()===y.toDateString();}else if(dateF==='week'){var w=new Date(now);w.setDate(w.getDate()-7);matchD=d>=w;}else if(dateF==='month'){matchD=d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();}else if(dateF==='custom'){var from=document.getElementById('pay-date-from')?.value;var to=document.getElementById('pay-date-to')?.value;if(from)matchD=matchD&&d>=new Date(from);if(to){var toD=new Date(to);toD.setHours(23,59,59,999);matchD=matchD&&d<=toD;}}}
+    return matchS&&matchA&&matchQ&&matchD;
   });
-  var countEl=document.getElementById('pay-filter-count');
-  if(countEl)countEl.textContent=filtered.length+' payment'+(filtered.length!==1?'s':'');
   var total=filtered.length;
   var totalPages=Math.max(1,Math.ceil(total/PAY_PER_PAGE));
   if(payCurrentPage>totalPages)payCurrentPage=totalPages;
@@ -1393,6 +1377,11 @@ function filterPayments(){
   var page=filtered.slice(start,start+PAY_PER_PAGE);
   renderPayments(page);
   renderPayPagination(total,totalPages);
+}
+function toggleCustomDate(){
+  var v=document.getElementById('pay-date-filter')?.value;
+  var el=document.getElementById('pay-custom-date');
+  if(el)el.style.display=v==='custom'?'flex':'none';
 }
 function renderPayPagination(total,totalPages){
   var el=document.getElementById('pay-pagination');
@@ -1735,256 +1724,6 @@ function clearAllEditPerms(){document.querySelectorAll('#edit-perms-list input[t
 function openEditAccess(id){var a=(allAdminUsers||[]).find(function(x){return x.id===id;});if(!a)return;document.getElementById('edit-access-id').value=id;document.getElementById('edit-access-subtitle').textContent='Editing access for: '+a.username;document.getElementById('edit-access-role').value=a.role||'admin';document.getElementById('edit-access-error').style.display='none';buildEditPermsList();var currentPerms=a.permissions||[];setTimeout(function(){document.querySelectorAll('#edit-perms-list input[type=checkbox]').forEach(function(cb){var checked=currentPerms.includes(cb.value);cb.checked=checked;cb.dispatchEvent(new Event('change'));});},50);toggleEditCustomPerms();openModal('edit-access-modal');}
 async function saveEditAccess(){var id=document.getElementById('edit-access-id').value;var role=document.getElementById('edit-access-role').value;var errEl=document.getElementById('edit-access-error');errEl.style.display='none';var permissions=[];if(role==='custom'){document.querySelectorAll('#edit-perms-list input[type=checkbox]:checked').forEach(function(cb){permissions.push(cb.value);});if(!permissions.length){errEl.textContent='Select at least one section for custom access';errEl.style.display='block';return;}}try{var r=await api('/api/admin-users/'+id+'/permissions',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({role,permissions})});if(r.success){toast('✓ Access updated');closeModal('edit-access-modal');loadAdmins();}else{errEl.textContent=r.error||'Failed to update';errEl.style.display='block';}}catch(e){errEl.textContent='Server error';errEl.style.display='block';}}
 document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
-
-// ── Customer Detail Modal ─────────────────────────────────────────────────────
-var _cdCustomerId = null;
-var _cdData = null;
-
-async function openCustomerDetail(id) {
-  _cdCustomerId = id;
-  _cdData = null;
-  document.getElementById('cd-loading').style.display = 'flex';
-  document.getElementById('cd-content').style.display = 'none';
-  openModal('customer-detail-modal');
-  try {
-    _cdData = await api('/api/customers/' + id + '/detail');
-    renderCustomerDetail(_cdData);
-  } catch(e) {
-    document.getElementById('cd-loading').innerHTML = '<div style="color:var(--red);font-size:13px;font-family:var(--mono);">Failed to load customer. <button class=\'btn btn-sm\' onclick=\'openCustomerDetail('+id+')\''>Retry</button></div>';
-  }
-}
-
-function renderCustomerDetail(d) {
-  var c = d.customer;
-  var s = d.stripe;
-  var pm = d.payment_method;
-  var payments = d.payments || [];
-  var subs = d.subscriptions || [];
-
-  // Avatar & header
-  document.getElementById('cd-avatar').textContent = initials(c.name);
-  document.getElementById('cd-name').textContent = c.name || '—';
-  document.getElementById('cd-status-badge').innerHTML = badge(c.status);
-  document.getElementById('cd-email').textContent = c.email || '—';
-  if (s && s.delinquent) document.getElementById('cd-delinquent-badge').style.display = 'block';
-  else document.getElementById('cd-delinquent-badge').style.display = 'none';
-
-  // Meta line
-  var metaParts = [];
-  if (s && s.created) metaParts.push('Customer since ' + fmtDate(new Date(s.created * 1000).toISOString()));
-  if (c.account_name) metaParts.push('Stripe: ' + c.account_name);
-  if (s && s.currency) metaParts.push(s.currency.toUpperCase());
-  document.getElementById('cd-meta-line').textContent = metaParts.join('  ·  ');
-
-  // Stripe dashboard link
-  if (c.stripe_customer_id) {
-    var linkWrap = document.getElementById('cd-stripe-link-wrap');
-    var linkEl = document.getElementById('cd-stripe-link');
-    linkWrap.style.display = 'block';
-    var isLive = (c.stripe_customer_id || '').indexOf('cus_') === 0;
-    linkEl.href = 'https://dashboard.stripe.com/customers/' + c.stripe_customer_id;
-  }
-
-  // KPI row
-  var totalPaid = payments.filter(p => p.status === 'succeeded').reduce((s, p) => s + (parseInt(p.amount) || 0), 0);
-  var totalFees = payments.filter(p => p.stripe_fee != null).reduce((s, p) => s + (parseInt(p.stripe_fee) || 0), 0);
-  var totalNet = payments.filter(p => p.net != null).reduce((s, p) => s + (parseInt(p.net) || 0), 0);
-  var successCount = payments.filter(p => p.status === 'succeeded').length;
-  var failCount = payments.filter(p => p.status === 'failed').length;
-  var activeSubs = subs.filter(s => s.status === 'active').length;
-
-  var hasFees = payments.some(p => p.stripe_fee != null);
-  var currency = (payments[0] && payments[0].currency) || 'usd';
-
-  var kpiItems = [
-    { label: 'Total Paid', value: fmt(totalPaid, currency), color: 'var(--green)' },
-    { label: 'Stripe Fees', value: hasFees ? fmt(totalFees, currency) : '—', color: 'var(--red)' },
-    { label: 'Net Revenue', value: hasFees ? fmt(totalNet > 0 ? totalNet : totalPaid - totalFees, currency) : '—', color: 'var(--accent)' },
-    { label: 'Payments', value: successCount + ' ok / ' + failCount + ' failed', color: failCount > 0 ? 'var(--amber)' : 'var(--green)' },
-  ];
-  document.getElementById('cd-kpi-row').innerHTML = kpiItems.map(k =>
-    '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;">' +
-    '<div style="font-size:10px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">' + k.label + '</div>' +
-    '<div style="font-size:16px;font-weight:700;color:' + k.color + ';letter-spacing:-0.3px;">' + k.value + '</div>' +
-    '</div>'
-  ).join('');
-
-  // Profile card
-  var address = (pm && pm.billing_details && pm.billing_details.address) || (s && s.address) || {};
-  var phone = (pm && pm.billing_details && pm.billing_details.phone) || (s && s.phone) || null;
-  var country = address.country || (pm && pm.card && pm.card.country) || null;
-  var countryName = country ? (new Intl.DisplayNames(['en'], { type: 'region' })).of(country) : null;
-
-  function addrLine() {
-    var parts = [];
-    if (address.line1) parts.push(address.line1);
-    if (address.line2) parts.push(address.line2);
-    if (address.city || address.state || address.postal_code) {
-      var city = [address.city, address.state, address.postal_code].filter(Boolean).join(', ');
-      parts.push(city);
-    }
-    if (countryName) parts.push(countryName);
-    return parts.length ? parts.join('<br>') : '—';
-  }
-
-  var metadata = (s && s.metadata) ? Object.entries(s.metadata) : [];
-  var flagEmoji = country ? String.fromCodePoint(...[...country].map(c => c.charCodeAt(0) + 127397)) : '';
-
-  var profileRows = [
-    ['Stripe ID', '<span class="mono" style="font-size:11px;">' + (c.stripe_customer_id || '—') + '</span>'],
-    ['Phone', phone || '—'],
-    ['Country', country ? flagEmoji + ' ' + countryName : '—'],
-    ['Address', addrLine()],
-    ['Created', fmtDate(c.created_at)],
-    ['Description', (s && s.description) || '—'],
-  ];
-  if (metadata.length) {
-    metadata.slice(0, 4).forEach(([k, v]) => profileRows.push([k, String(v)]));
-  }
-
-  document.getElementById('cd-profile-card').innerHTML =
-    '<div style="font-size:11px;font-weight:600;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Profile</div>' +
-    profileRows.map(r => '<div class="cd-row"><div class="cd-row-label">' + r[0] + '</div><div class="cd-row-val">' + r[1] + '</div></div>').join('');
-
-  // Billing card
-  var expStr = (c.card_exp_month && c.card_exp_year) ? String(c.card_exp_month).padStart(2,'0') + '/' + c.card_exp_year : '—';
-  var cardFunding = (pm && pm.card && pm.card.funding) || '—';
-  var cardCountry = (pm && pm.card && pm.card.country) || '—';
-  var fingerprint = (pm && pm.card && pm.card.fingerprint) || '—';
-  var cardChecks = pm && pm.card && pm.card.checks;
-  var cvcOk = cardChecks && cardChecks.cvc_check === 'pass';
-  var zipOk = cardChecks && cardChecks.address_postal_code_check === 'pass';
-
-  document.getElementById('cd-billing-card').innerHTML =
-    '<div style="font-size:11px;font-weight:600;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Payment Method</div>' +
-    '<div class="cd-row"><div class="cd-row-label">Card</div><div class="cd-row-val">' + cardBadge(c.card_brand, c.card_last4) + '</div></div>' +
-    '<div class="cd-row"><div class="cd-row-label">Expires</div><div class="cd-row-val mono">' + expStr + '</div></div>' +
-    '<div class="cd-row"><div class="cd-row-label">Funding</div><div class="cd-row-val mono">' + cardFunding + '</div></div>' +
-    '<div class="cd-row"><div class="cd-row-label">Card country</div><div class="cd-row-val">' + (cardCountry !== '—' ? (String.fromCodePoint(...[...cardCountry].map(c=>c.charCodeAt(0)+127397)) + ' ' + cardCountry) : '—') + '</div></div>' +
-    (fingerprint !== '—' ? '<div class="cd-row"><div class="cd-row-label">Fingerprint</div><div class="cd-row-val mono" style="font-size:10px;">' + fingerprint + '</div></div>' : '') +
-    '<div class="cd-row"><div class="cd-row-label">CVC check</div><div class="cd-row-val">' + (cardChecks ? '<span class="badge ' + (cvcOk ? 'badge-green' : 'badge-amber') + '">' + (cvcOk ? 'pass' : (cardChecks.cvc_check || 'unknown')) + '</span>' : '—') + '</div></div>' +
-    '<div class="cd-row"><div class="cd-row-label">Zip check</div><div class="cd-row-val">' + (cardChecks ? '<span class="badge ' + (zipOk ? 'badge-green' : 'badge-amber') + '">' + (zipOk ? 'pass' : (cardChecks.address_postal_code_check || 'unknown')) + '</span>' : '—') + '</div></div>' +
-    '<div class="cd-row"><div class="cd-row-label">Active subs</div><div class="cd-row-val">' + activeSubs + ' active</div></div>';
-
-  // Finance card
-  var avgPayment = successCount > 0 ? Math.round(totalPaid / successCount) : 0;
-  document.getElementById('cd-finance-card').innerHTML =
-    '<div style="font-size:11px;font-weight:600;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Financial Summary</div>' +
-    '<div style="display:flex;gap:10px;flex-wrap:wrap;">' +
-    [
-      { label: 'Gross', value: fmt(totalPaid, currency), color: 'var(--text)' },
-      { label: 'Stripe Fees', value: hasFees ? '−' + fmt(totalFees, currency) : '—', color: 'var(--red)' },
-      { label: 'Net', value: hasFees ? fmt(totalNet > 0 ? totalNet : totalPaid - totalFees, currency) : '—', color: 'var(--green)' },
-      { label: 'Avg Payment', value: fmt(avgPayment, currency), color: 'var(--accent)' },
-      { label: 'Succeeded', value: successCount, color: 'var(--green)' },
-      { label: 'Failed', value: failCount, color: failCount > 0 ? 'var(--red)' : 'var(--muted)' },
-    ].map(item =>
-      '<div class="cdfin-item"><div class="cdfin-label">' + item.label + '</div><div class="cdfin-val" style="color:' + item.color + ';">' + item.value + '</div></div>'
-    ).join('') +
-    '</div>';
-
-  // Note section
-  if (c.note) {
-    document.getElementById('cd-note-section').style.display = 'block';
-    document.getElementById('cd-note-text').textContent = c.note;
-  } else {
-    document.getElementById('cd-note-section').style.display = 'none';
-  }
-
-  // Payments tab
-  renderCdPayments(payments);
-
-  // Subscriptions tab
-  renderCdSubs(subs);
-
-  document.getElementById('cd-loading').style.display = 'none';
-  document.getElementById('cd-content').style.display = 'flex';
-}
-
-function renderCdPayments(payments) {
-  var el = document.getElementById('cd-payments-list');
-  if (!payments.length) { el.innerHTML = '<div class="empty">No payments yet</div>'; return; }
-  var html = '<table style="width:100%;border-collapse:collapse;">';
-  html += '<thead><tr>' +
-    '<th style="text-align:left;padding:6px 10px;font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:0.5px;text-transform:uppercase;border-bottom:1px solid var(--border);">Date</th>' +
-    '<th style="text-align:left;padding:6px 10px;font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:0.5px;text-transform:uppercase;border-bottom:1px solid var(--border);">Amount</th>' +
-    '<th style="text-align:left;padding:6px 10px;font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:0.5px;text-transform:uppercase;border-bottom:1px solid var(--border);">Stripe Fee</th>' +
-    '<th style="text-align:left;padding:6px 10px;font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:0.5px;text-transform:uppercase;border-bottom:1px solid var(--border);">Net</th>' +
-    '<th style="text-align:left;padding:6px 10px;font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:0.5px;text-transform:uppercase;border-bottom:1px solid var(--border);">Card</th>' +
-    '<th style="text-align:left;padding:6px 10px;font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:0.5px;text-transform:uppercase;border-bottom:1px solid var(--border);">Status</th>' +
-    '<th style="text-align:left;padding:6px 10px;font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:0.5px;text-transform:uppercase;border-bottom:1px solid var(--border);">Ref</th>' +
-    '</tr></thead><tbody>';
-  payments.forEach(function(p) {
-    var bgColor = p.status === 'failed' ? 'background:rgba(248,113,113,0.04);' : '';
-    var feeStr = p.stripe_fee != null ? '<span style="color:var(--red);">−' + fmt(p.stripe_fee, p.currency) + '</span>' : '<span style="color:var(--muted);">—</span>';
-    var netStr = p.net != null ? '<span style="color:var(--green);">' + fmt(p.net, p.currency) + '</span>' : '<span style="color:var(--muted);">—</span>';
-    var shortRef = p.stripe_payment_intent ? (p.stripe_payment_intent.slice(0,12) + '…') : '—';
-    html += '<tr style="' + bgColor + '">' +
-      '<td style="padding:9px 10px;font-size:12px;font-family:var(--mono);border-bottom:1px solid var(--border);white-space:nowrap;">' + fmtDate(p.created_at) + '</td>' +
-      '<td style="padding:9px 10px;font-size:13px;font-weight:600;font-family:var(--mono);border-bottom:1px solid var(--border);">' + fmt(p.amount, p.currency) + '</td>' +
-      '<td style="padding:9px 10px;font-size:12px;border-bottom:1px solid var(--border);">' + feeStr + '</td>' +
-      '<td style="padding:9px 10px;font-size:12px;border-bottom:1px solid var(--border);">' + netStr + '</td>' +
-      '<td style="padding:9px 10px;border-bottom:1px solid var(--border);">' + cardBadge(p.card_brand, p.card_last4) + '</td>' +
-      '<td style="padding:9px 10px;border-bottom:1px solid var(--border);">' + badge(p.status) + '</td>' +
-      '<td style="padding:9px 10px;font-size:10px;font-family:var(--mono);color:var(--muted);border-bottom:1px solid var(--border);">' + shortRef + '</td>' +
-      '</tr>';
-  });
-  html += '</tbody></table>';
-  el.innerHTML = html;
-}
-
-function renderCdSubs(subs) {
-  var el = document.getElementById('cd-subs-list');
-  if (!subs.length) { el.innerHTML = '<div class="empty">No subscriptions yet</div>'; return; }
-  var html = '<div style="display:flex;flex-direction:column;gap:10px;">';
-  subs.forEach(function(s) {
-    var statusColor = { active: 'var(--green)', paused: 'var(--amber)', cancelled: 'var(--red)', dunning: 'var(--amber)' }[s.status] || 'var(--muted)';
-    html += '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;">' +
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">' +
-      '<div style="display:flex;align-items:center;gap:10px;">' +
-      badge(s.status) +
-      '<span style="font-size:15px;font-weight:700;letter-spacing:-0.3px;">' + fmt(s.amount, s.currency) + '</span>' +
-      '<span style="font-size:12px;color:var(--muted);font-family:var(--mono);">every ' + (s.interval_days || 30) + ' days</span>' +
-      '</div>' +
-      '</div>' +
-      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">' +
-      '<div style="font-size:11px;"><div style="color:var(--muted);font-family:var(--mono);margin-bottom:2px;">Next billing</div><div style="font-weight:500;">' + fmtDate(s.next_billing_date) + '</div></div>' +
-      '<div style="font-size:11px;"><div style="color:var(--muted);font-family:var(--mono);margin-bottom:2px;">Created</div><div style="font-weight:500;">' + fmtDate(s.created_at) + '</div></div>' +
-      (s.resume_date ? '<div style="font-size:11px;"><div style="color:var(--muted);font-family:var(--mono);margin-bottom:2px;">Resumes</div><div style="font-weight:500;color:var(--blue);">' + fmtDate(s.resume_date) + '</div></div>' : '') +
-      (s.dunning_count > 0 ? '<div style="font-size:11px;"><div style="color:var(--muted);font-family:var(--mono);margin-bottom:2px;">Retries</div><div style="font-weight:500;color:var(--amber);">' + s.dunning_count + ' attempts</div></div>' : '') +
-      '</div>' +
-      '</div>';
-  });
-  html += '</div>';
-  el.innerHTML = html;
-}
-
-function cdTab(name, el) {
-  document.querySelectorAll('.cd-tab').forEach(function(t) {
-    t.classList.remove('active');
-    t.style.borderBottomColor = 'transparent';
-    t.style.color = 'var(--muted)';
-  });
-  el.classList.add('active');
-  el.style.borderBottomColor = 'var(--accent)';
-  el.style.color = 'var(--text)';
-  document.querySelectorAll('[id^="cdtab-"]').forEach(function(d) { d.style.display = 'none'; });
-  document.getElementById('cdtab-' + name).style.display = 'block';
-}
-
-function openPortalFromDetail() {
-  if (_cdCustomerId) { closeModal('customer-detail-modal'); openPortal(_cdCustomerId); }
-}
-function openInvoiceFromDetail() {
-  if (_cdCustomerId) { closeModal('customer-detail-modal'); openInvoiceModal(_cdCustomerId); }
-}
-function openNoteFromDetail() {
-  if (!_cdData) return;
-  closeModal('customer-detail-modal');
-  var c = _cdData.customer;
-  openNoteModal(c.id, encodeURIComponent(c.note || ''));
-}
-
 </script>
 </body>
 </html>
