@@ -32,6 +32,7 @@ html.light .nav-item:hover{background:rgba(0,0,0,0.04)}
 html.light .nav-item.active{background:rgba(108,99,255,0.08)}
 html.light tr:hover td{background:rgba(0,0,0,0.02)}
 body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;display:flex}
+body.modal-lock{overflow:hidden}
 /* Login */
 .login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000}
 .login-screen.hidden{display:none}
@@ -148,7 +149,9 @@ textarea{resize:vertical;min-height:60px}
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:500;align-items:center;justify-content:center}
 .modal-bg.open{display:flex}
 .modal{background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:26px;width:460px;max-width:95vw;max-height:90vh;overflow-y:auto}
-#payment-detail-modal .modal{background:transparent!important;border:none!important;padding:0!important;width:920px!important;max-width:calc(100vw - 32px)!important;border-radius:18px!important;font-family:var(--sans)!important;box-shadow:none!important;overflow:visible!important;}
+#payment-detail-modal{background:rgba(0,0,0,.58);align-items:stretch;justify-content:flex-end;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);}
+#payment-detail-modal .modal{background:transparent!important;border:none!important;padding:0!important;width:430px!important;max-width:min(430px,calc(100vw - 18px))!important;max-height:100vh!important;height:100vh!important;border-radius:0!important;font-family:var(--sans)!important;box-shadow:none!important;overflow:visible!important;transform:translateX(18px);opacity:0;transition:transform .18s ease,opacity .18s ease;}
+#payment-detail-modal.open .modal{transform:translateX(0);opacity:1;}
 .modal h3{font-size:16px;font-weight:600;margin-bottom:4px}
 .modal p{font-size:13px;color:var(--muted);margin-bottom:18px}
 .modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
@@ -170,9 +173,12 @@ textarea{resize:vertical;min-height:60px}
 .rev-tab:hover{color:var(--text);border-color:var(--accent)}
 .rev-tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
 
-.payment-detail-shell{width:100%;max-height:calc(100vh - 36px);overflow:auto;background:linear-gradient(180deg,rgba(29,29,39,.98),rgba(18,18,25,.99));border:1px solid rgba(255,255,255,.14);border-radius:18px;box-shadow:0 28px 70px rgba(0,0,0,.58);padding:16px;color:var(--text);font-family:var(--sans)}
-.payment-detail-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}.payment-detail-chips{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.payment-chip{height:28px;display:inline-flex;align-items:center;gap:8px;padding:0 12px;border-radius:999px;border:1px solid var(--border2);background:rgba(255,255,255,.035);font-size:12px;font-weight:600;color:var(--muted);line-height:1}.payment-chip-success{color:var(--green);border-color:rgba(34,197,94,.34);background:rgba(34,197,94,.09)}.payment-chip-failed{color:var(--red);border-color:rgba(248,113,113,.34);background:rgba(248,113,113,.09)}.payment-chip-dot{width:8px;height:8px;border-radius:99px;background:currentColor;box-shadow:0 0 0 4px rgba(34,197,94,.09)}.payment-detail-close{width:36px;height:36px;border-radius:999px;border:1px solid var(--border2);background:rgba(255,255,255,.04);color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;font-family:var(--sans);transition:.15s}.payment-detail-close:hover{color:var(--text);border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.08)}
-.payment-detail-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:12px}.pd-card{background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.018));border:1px solid var(--border2);border-radius:14px;overflow:hidden}.pd-section{padding:15px 16px}.pd-title{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#a4a4b2;font-weight:700;margin-bottom:13px}.pd-summary-amount{font-size:38px;line-height:1;font-weight:800;letter-spacing:-1.5px;color:#e8e8f0;margin-bottom:18px}.pd-summary-amount.success{color:var(--green)}.pd-summary-amount.failed{color:var(--red)}.pd-person{display:flex;align-items:center;gap:12px}.pd-avatar{width:42px;height:42px;border-radius:13px;background:rgba(108,99,255,.22);border:1px solid rgba(108,99,255,.38);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:15px;flex-shrink:0}.pd-name{font-size:17px;font-weight:700;letter-spacing:-.2px;color:var(--text)}.pd-email{font-size:12px;color:var(--muted);margin-top:3px}.pd-money{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.pd-money-box{border:1px solid var(--border);background:rgba(0,0,0,.12);border-radius:11px;padding:13px}.pd-label{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:700}.pd-value{margin-top:7px;font-size:16px;font-weight:700;color:var(--text);letter-spacing:-.2px}.pd-value.green{color:var(--green)}.pd-value.red{color:var(--red)}.pd-muted{color:var(--muted)!important}.pd-subtle{color:#6f6f7d!important}.pd-row-grid{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--border)}.pd-row-grid:first-of-type{border-top:none}.pd-field{padding:13px 16px;border-right:1px solid var(--border);min-width:0}.pd-field:nth-child(2n){border-right:none}.pd-card-line{display:flex;align-items:center;gap:10px}.pd-card-brand{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:700}.pd-list{display:flex;flex-direction:column}.pd-list-row{display:grid;grid-template-columns:132px minmax(0,1fr) 34px;align-items:center;gap:12px;padding:13px 16px;border-top:1px solid var(--border)}.pd-list-row:first-child{border-top:none}.pd-list-value{font-size:13px;font-weight:600;color:var(--text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pd-list-value.green{color:var(--green)}.pd-list-value.red{color:var(--red)}.pd-copy{width:30px;height:30px;border-radius:8px;border:1px solid var(--border2);background:rgba(255,255,255,.035);color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer}.pd-copy:hover{color:var(--text);border-color:rgba(255,255,255,.24);background:rgba(255,255,255,.07)}.pd-note-box{min-height:72px;border:1px solid var(--border);background:rgba(0,0,0,.12);border-radius:10px;padding:13px;color:var(--muted);font-size:13px}.pd-actions{display:flex;gap:8px;margin-top:11px}.pd-action-btn{height:34px;padding:0 12px;border-radius:9px;border:1px solid var(--border2);background:rgba(255,255,255,.04);color:var(--text);font-family:var(--sans);font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:7px}.pd-action-btn:hover{border-color:rgba(255,255,255,.24);background:rgba(255,255,255,.075)}.pd-action-danger{color:var(--red);border-color:rgba(248,113,113,.25);background:rgba(248,113,113,.06)}.pd-action-danger:hover{border-color:rgba(248,113,113,.45);background:rgba(248,113,113,.1)}.pd-sync-note{font-size:10.5px;color:var(--muted);font-family:var(--mono);margin-top:6px}.pd-fail-box{margin-top:11px;border:1px solid rgba(248,113,113,.25);background:rgba(248,113,113,.08);border-radius:10px;padding:10px 12px;color:var(--red);font-size:12px;font-weight:600}.pd-section-border{border-top:1px solid var(--border)}@media(max-width:860px){#payment-detail-modal .modal{width:calc(100vw - 18px)!important}.payment-detail-grid{grid-template-columns:1fr}.pd-money{grid-template-columns:1fr}.pd-list-row{grid-template-columns:112px minmax(0,1fr) 34px}.pd-summary-amount{font-size:34px}.payment-detail-shell{padding:12px}}
+
+.payment-detail-shell{height:100vh;width:100%;background:#0d0d12;border-left:1px solid rgba(255,255,255,.11);box-shadow:-22px 0 70px rgba(0,0,0,.55);color:var(--text);font-family:var(--sans);display:flex;flex-direction:column;overflow:hidden}
+.payment-detail-scroll{flex:1;overflow-y:auto;padding:26px 24px 22px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.22) transparent}.payment-detail-scroll::-webkit-scrollbar{width:7px}.payment-detail-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.18);border-radius:999px}.payment-detail-top{position:sticky;top:0;z-index:2;display:flex;justify-content:flex-end;padding:16px 16px 0;background:linear-gradient(180deg,#0d0d12 75%,rgba(13,13,18,0))}.payment-detail-close{width:38px;height:38px;border-radius:11px;border:1px solid rgba(255,255,255,.11);background:rgba(255,255,255,.035);color:#a2a2ad;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:20px;font-family:var(--sans);transition:.15s}.payment-detail-close:hover{color:var(--text);border-color:rgba(255,255,255,.22);background:rgba(255,255,255,.07)}
+.pd-hero{text-align:center;padding:12px 0 20px}.pd-hero-icon{width:54px;height:54px;border-radius:14px;border:1px solid rgba(34,197,94,.25);background:rgba(34,197,94,.08);color:var(--green);display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px}.pd-hero-title{font-size:18px;font-weight:700;letter-spacing:-.2px;color:var(--text)}.pd-hero-amount{font-size:34px;line-height:1.08;font-weight:800;letter-spacing:-1.2px;margin-top:7px;color:var(--text)}.pd-hero-amount.success{color:var(--text)}.pd-hero-amount.failed{color:var(--red)}.pd-hero-sub{font-size:13px;color:var(--muted);margin-top:5px}.pd-status-row{height:48px;border:1px solid rgba(255,255,255,.1);border-radius:11px;background:rgba(255,255,255,.025);display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:8px;padding:0 12px;margin-bottom:18px}.pd-date-chip{display:flex;align-items:center;gap:8px;min-width:0;color:#d8d8df;font-size:13px}.pd-date-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pd-tz-chip{height:28px;padding:0 10px;border-radius:7px;border:1px solid rgba(255,255,255,.11);background:rgba(255,255,255,.035);display:inline-flex;align-items:center;gap:5px;color:#d6d6df;font-size:12px;font-family:var(--sans);font-weight:600}.pd-status-pill{height:30px;padding:0 12px;border-radius:8px;display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:700;border:1px solid transparent}.pd-status-pill.success{color:var(--green);background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.16)}.pd-status-pill.failed{color:var(--red);background:rgba(248,113,113,.1);border-color:rgba(248,113,113,.16)}.pd-dot{width:7px;height:7px;border-radius:99px;background:currentColor}.pd-tabs{display:flex;gap:22px;border-bottom:1px solid rgba(255,255,255,.09);margin-bottom:2px}.pd-tab{position:relative;padding:0 0 12px;font-size:13px;font-weight:700;color:var(--muted)}.pd-tab.active{color:var(--text)}.pd-tab.active:after{content:'';position:absolute;height:2px;left:0;right:0;bottom:-1px;background:rgba(255,255,255,.82);border-radius:99px}.pd-section-list{border:1px solid rgba(255,255,255,.09);border-radius:10px;overflow:hidden;margin-top:0;background:rgba(255,255,255,.015)}.pd-row{min-height:44px;display:grid;grid-template-columns:132px minmax(0,1fr) 28px;align-items:center;gap:10px;padding:10px 10px 10px 12px;border-bottom:1px solid rgba(255,255,255,.075)}.pd-row:last-child{border-bottom:none}.pd-label{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:#9999a6;font-weight:700}.pd-value{font-size:13px;font-weight:600;color:var(--text);text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pd-value.green{color:var(--green)}.pd-value.red{color:var(--red)}.pd-value.muted{color:var(--muted)}.pd-value .payment-card{justify-content:flex-end}.pd-copy{width:28px;height:28px;border-radius:7px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.025);color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer}.pd-copy:hover{color:var(--text);border-color:rgba(255,255,255,.2);background:rgba(255,255,255,.065)}.pd-copy-placeholder{width:28px;height:28px}.pd-divider{height:1px;background:rgba(255,255,255,.1);margin:0}.pd-customer-value{display:flex;justify-content:flex-end;align-items:center;gap:9px;min-width:0}.pd-avatar-sm{width:27px;height:27px;border-radius:8px;background:rgba(108,99,255,.2);border:1px solid rgba(108,99,255,.35);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:11px;flex:0 0 auto}.pd-note-row{margin-top:0}.pd-note-value{color:var(--muted);font-weight:500}.pd-edit-btn{border:none;background:none;color:var(--muted);width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer}.pd-edit-btn:hover{background:rgba(255,255,255,.06);color:var(--text)}.pd-fail-box{margin:14px 0;border:1px solid rgba(248,113,113,.22);background:rgba(248,113,113,.08);border-radius:10px;padding:10px 12px;color:var(--red);font-size:12px;font-weight:600}.pd-sync-note{font-size:10.5px;color:var(--muted);font-family:var(--mono);margin:7px 0 12px}.pd-retry-btn{margin-top:14px;width:100%;height:38px;border-radius:9px;border:1px solid rgba(248,113,113,.28);background:rgba(248,113,113,.08);color:var(--red);font-family:var(--sans);font-weight:700;cursor:pointer}.pd-retry-btn:hover{background:rgba(248,113,113,.12);border-color:rgba(248,113,113,.45)}
+html.light #payment-detail-modal{background:rgba(16,16,22,.34)}html.light .payment-detail-shell{background:#fff;border-left-color:rgba(0,0,0,.09)}html.light .payment-detail-top{background:linear-gradient(180deg,#fff 75%,rgba(255,255,255,0))}html.light .pd-section-list{background:rgba(0,0,0,.01);border-color:rgba(0,0,0,.09)}html.light .pd-row{border-color:rgba(0,0,0,.07)}
+@media(max-width:760px){#payment-detail-modal .modal{width:100vw!important;max-width:100vw!important}.payment-detail-scroll{padding:20px 16px}.pd-row{grid-template-columns:116px minmax(0,1fr) 28px}.pd-status-row{grid-template-columns:1fr;gap:8px;height:auto;padding:10px}.pd-status-pill,.pd-tz-chip{width:max-content}.pd-hero-amount{font-size:31px}}
 
 .payment-card{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;vertical-align:middle}
 .payment-img{width:24px;height:16px;border-radius:3px;object-fit:contain;display:block;box-shadow:0 1px 3px rgba(0,0,0,0.2)}
@@ -758,8 +764,8 @@ html.light .pay-filter-count{color:#666678!important;}
     <div class="modal-footer"><button class="btn" onclick="closeModal('add-account-modal')">Cancel</button><button class="btn btn-primary" onclick="addAccount()">Save account</button></div>
   </div>
 </div>
-<div class="modal-bg" id="payment-detail-modal" onclick="if(event.target===this)closeModal('payment-detail-modal')">
-  <div class="modal" style="max-width:460px;padding:0;overflow:hidden;border-radius:16px;">
+<div class="modal-bg" id="payment-detail-modal">
+  <div class="modal">
     <div id="payment-detail-body"></div>
   </div>
 </div>
@@ -1055,8 +1061,8 @@ async function api(path,opts){
   return r.json();
 }
 function toast(msg,type){const t=document.getElementById('toast');t.textContent=msg;t.className='show '+(type||'success');setTimeout(()=>t.className='',2800);}
-function openModal(id){document.getElementById(id).classList.add('open');}
-function closeModal(id){document.getElementById(id).classList.remove('open');}
+function openModal(id){var el=document.getElementById(id);if(!el)return;el.classList.add('open');if(id==='payment-detail-modal')document.body.classList.add('modal-lock');}
+function closeModal(id){var el=document.getElementById(id);if(!el)return;el.classList.remove('open');if(id==='payment-detail-modal'||!document.querySelector('.modal-bg.open'))document.body.classList.remove('modal-lock');}
 function cardBadge(brand,last4){
   if(!brand&&!last4)return '<span class="no-card">—</span>';
   var raw=(brand||'').toLowerCase().trim();
@@ -1450,6 +1456,13 @@ function paymentAgeLabel(d){
 function formatPdDate(d){return d?new Date(d).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}):'—';}
 function formatPdLocalTime(d){return d?new Date(d).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'}):'—';}
 function formatPdUtcTime(d){return d?new Date(d).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit',timeZone:'UTC',hour12:false})+' UTC':'—';}
+
+function pdMoneyCurrency(p){return (p.financial_currency||p.balance_currency||p.currency||'usd').toLowerCase();}
+function pdMoney(c,cur){return (c===undefined||c===null)?'—':fmt(c,cur||'usd');}
+function pdCopyButton(value){
+  if(!value)return '<div class="pd-copy-placeholder"></div>';
+  return '<button class="pd-copy" title="Copy" onclick="event.stopPropagation();copyPdValue(\''+escHtml(String(value)).replace(/'/g,'&#39;')+'\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
+}
 function renderPaymentDetailModal(p, syncing){
   if(!p||!p.id)return;
   var isGhost=((p.email||'').toLowerCase().endsWith('@stripe.local')||(p.name||'').startsWith('pi_')||(p.name||'').startsWith('external_'));
@@ -1458,75 +1471,66 @@ function renderPaymentDetailModal(p, syncing){
   var isFailed=p.status==='failed';
   var isSucceeded=p.status==='succeeded';
   var typeLabel=paymentTypeLabel(p);
-  var statusLabel=isFailed?'Payment failed':(isSucceeded?'Payment successful':(p.status||'Payment'));
-  var statusClass=isFailed?'payment-chip-failed':'payment-chip-success';
-  var amountClass=isFailed?'failed':'success';
-  var fee=(p.stripe_fee!==undefined&&p.stripe_fee!==null)?fmt(p.stripe_fee,p.currency):(syncing?'Syncing…':'—');
-  var net=(p.net_amount!==undefined&&p.net_amount!==null)?fmt(p.net_amount,p.currency):(syncing?'Syncing…':'—');
-  var netClass=(p.net_amount!==undefined&&p.net_amount!==null)?'green':'pd-muted';
+  var statusTitle=isFailed?'Payment failed':(isSucceeded?'Payment successful':'Payment details');
+  var statusPill=isFailed?'Failed':(isSucceeded?'Succeeded':(p.status||'Unknown'));
+  var statusClass=isFailed?'failed':'success';
   var pid=p.stripe_payment_intent||'';
   var invoice=p.stripe_invoice_id||'';
   var account=p.account_name||'—';
   var brand=(p.card_brand||'card');
   var brandLabel=brand.replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();});
-  var cardHtml=(p.card_brand&&p.card_last4)?cardBadge(p.card_brand,p.card_last4):'<span class="pd-subtle">—</span>';
+  var cardHtml=(p.card_brand&&p.card_last4)?cardBadge(p.card_brand,p.card_last4):'<span class="pd-value muted">—</span>';
   var exp=(p.card_exp_month&&p.card_exp_year)?String(p.card_exp_month).padStart(2,'0')+'/'+String(p.card_exp_year).slice(-2):'—';
-  var reference=(p.card_last4||p.id||'—');
+  var reference=(p.id||p.card_last4||'—');
+  var finCur=pdMoneyCurrency(p);
+  var chargeCur=(p.currency||finCur||'usd').toLowerCase();
+  var fee=(p.stripe_fee!==undefined&&p.stripe_fee!==null)?pdMoney(p.stripe_fee,finCur):(syncing?'Syncing…':'—');
+  var net=(p.net_amount!==undefined&&p.net_amount!==null)?pdMoney(p.net_amount,finCur):(syncing?'Syncing…':'—');
+  var netClass=(p.net_amount!==undefined&&p.net_amount!==null)?'green':'muted';
+  var feeLabel=(finCur&&chargeCur&&finCur!==chargeCur)?'Stripe fee ('+finCur.toUpperCase()+')':'Stripe fee';
+  var netLabel=(finCur&&chargeCur&&finCur!==chargeCur)?'Net received ('+finCur.toUpperCase()+')':'Net received';
+  var customerName=isGhost?'No profile':(p.name||'—');
+  var emailText=p.email||'External payment · no email collected';
   var h='';
   h+='<div class="payment-detail-shell">';
-  h+='<div class="payment-detail-top"><div class="payment-detail-chips">';
-  h+='<span class="payment-chip '+statusClass+'"><span class="payment-chip-dot"></span>'+escHtml(statusLabel)+'</span>';
-  h+='<span class="payment-chip">'+escHtml(typeLabel)+'</span>';
-  h+='</div><button class="payment-detail-close" onclick="closeModal(\'payment-detail-modal\')">×</button></div>';
-  h+='<div class="payment-detail-grid">';
-
-  h+='<div class="pd-left">';
-  h+='<div class="pd-card pd-section"><div class="pd-title">Payment summary</div>';
-  h+='<div class="pd-summary-amount '+amountClass+'">'+fmt(p.amount,p.currency)+'</div>';
-  h+='<div class="pd-person"><div class="pd-avatar">'+escHtml(initials(isGhost?'?':p.name))+'</div><div><div class="pd-name">'+escHtml(isGhost?'No profile':(p.name||'—'))+'</div><div class="pd-email">'+escHtml(p.email||'External payment · no email collected')+'</div></div></div>';
+  h+='<div class="payment-detail-top"><button class="payment-detail-close" onclick="closeModal(\'payment-detail-modal\')">×</button></div>';
+  h+='<div class="payment-detail-scroll">';
+  h+='<div class="pd-hero"><div class="pd-hero-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg></div>';
+  h+='<div class="pd-hero-title">'+escHtml(statusTitle)+'</div><div class="pd-hero-amount '+statusClass+'">'+fmt(p.amount,p.currency)+'</div><div class="pd-hero-sub">'+escHtml(typeLabel)+' card payment</div></div>';
+  h+='<div class="pd-status-row"><div class="pd-date-chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span>'+formatPdDate(p.created_at)+', '+formatPdLocalTime(p.created_at)+'</span></div><div class="pd-tz-chip">Local⌄</div><div class="pd-status-pill '+statusClass+'"><span class="pd-dot"></span>'+escHtml(statusPill)+'</div></div>';
+  h+='<div class="pd-tabs"><div class="pd-tab active">Details</div><div class="pd-tab">Notes</div></div>';
   if(isFailed&&fullReason){h+='<div class="pd-fail-box">'+escHtml(fullReason)+'</div>';}
+  if(syncing){h+='<div class="pd-sync-note">Fetching real Stripe fee/net…</div>';}
+  h+='<div class="pd-section-list">';
+  h+='<div class="pd-row"><div class="pd-label">Payment intent</div><div class="pd-value mono">'+escHtml(pid||'—')+'</div>'+pdCopyButton(pid)+'</div>';
+  h+='<div class="pd-row"><div class="pd-label">Customer</div><div class="pd-value pd-customer-value"><span class="pd-avatar-sm">'+escHtml(initials(customerName))+'</span><span>'+escHtml(customerName)+'</span></div>'+pdCopyButton(customerName==='—'?'':customerName)+'</div>';
+  h+='<div class="pd-row"><div class="pd-label">Email</div><div class="pd-value">'+escHtml(emailText)+'</div>'+pdCopyButton(p.email||'')+'</div>';
+  h+='<div class="pd-row"><div class="pd-label">Method</div><div class="pd-value">'+(p.card_last4?'<span style="margin-right:6px">'+escHtml(brandLabel)+'</span>':'')+cardHtml+'</div><div class="pd-copy-placeholder"></div></div>';
+  h+='<div class="pd-row"><div class="pd-label">Funding</div><div class="pd-value">'+escHtml(p.card_funding?p.card_funding.charAt(0).toUpperCase()+p.card_funding.slice(1):'—')+'</div><div class="pd-copy-placeholder"></div></div>';
+  h+='<div class="pd-row"><div class="pd-label">Card country</div><div class="pd-value">'+escHtml(p.card_country||'—')+'</div><div class="pd-copy-placeholder"></div></div>';
+  h+='<div class="pd-row"><div class="pd-label">Expiry</div><div class="pd-value">'+escHtml(exp)+'</div><div class="pd-copy-placeholder"></div></div>';
+  h+='<div class="pd-row"><div class="pd-label">Gross</div><div class="pd-value">'+fmt(p.amount,p.currency)+'</div><div class="pd-copy-placeholder"></div></div>';
+  h+='<div class="pd-row"><div class="pd-label">'+escHtml(feeLabel)+'</div><div class="pd-value '+((p.stripe_fee!==undefined&&p.stripe_fee!==null)?'':'muted')+'">'+fee+'</div><div class="pd-copy-placeholder"></div></div>';
+  h+='<div class="pd-row"><div class="pd-label">'+escHtml(netLabel)+'</div><div class="pd-value '+netClass+'">'+net+'</div><div class="pd-copy-placeholder"></div></div>';
+  h+='<div class="pd-row"><div class="pd-label">Stripe account</div><div class="pd-value">'+escHtml(account)+'</div>'+pdCopyButton(account==='—'?'':account)+'</div>';
+  h+='<div class="pd-row"><div class="pd-label">Invoice</div><div class="pd-value mono">'+escHtml(invoice||'—')+'</div>'+pdCopyButton(invoice)+'</div>';
+  h+='<div class="pd-row"><div class="pd-label">Payment type</div><div class="pd-value">'+escHtml(typeLabel)+'</div><div class="pd-copy-placeholder"></div></div>';
+  h+='<div class="pd-row"><div class="pd-label">Currency</div><div class="pd-value mono">'+escHtml((p.currency||'').toUpperCase())+'</div><div class="pd-copy-placeholder"></div></div>';
+  h+='<div class="pd-row"><div class="pd-label">Reference</div><div class="pd-value mono">'+escHtml(reference)+'</div>'+pdCopyButton(reference)+'</div>';
+  h+='<div class="pd-row"><div class="pd-label">Date</div><div class="pd-value">'+formatPdDate(p.created_at)+'</div><div class="pd-copy-placeholder"></div></div>';
+  h+='<div class="pd-row"><div class="pd-label">Local time</div><div class="pd-value">'+formatPdLocalTime(p.created_at)+'</div><div class="pd-copy-placeholder"></div></div>';
+  h+='<div class="pd-row"><div class="pd-label">UTC time</div><div class="pd-value">'+formatPdUtcTime(p.created_at)+'</div><div class="pd-copy-placeholder"></div></div>';
+  h+='<div class="pd-row"><div class="pd-label">Age</div><div class="pd-value muted">'+paymentAgeLabel(p.created_at)+'</div><div class="pd-copy-placeholder"></div></div>';
+  h+='<div class="pd-row pd-note-row"><div class="pd-label">Note</div><div class="pd-value pd-note-value">'+escHtml(p.note||'No note')+'</div><button class="pd-edit-btn" title="Edit note" onclick="closeModal(\'payment-detail-modal\');openPaymentNote('+p.id+')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></button></div>';
   h+='</div>';
-
-  h+='<div class="pd-card pd-section" style="margin-top:10px"><div class="pd-title">Money breakdown</div><div class="pd-money">';
-  h+='<div class="pd-money-box"><div class="pd-label">Gross</div><div class="pd-value">'+fmt(p.amount,p.currency)+'</div></div>';
-  h+='<div class="pd-money-box"><div class="pd-label">Stripe fee</div><div class="pd-value '+((p.stripe_fee!==undefined&&p.stripe_fee!==null)?'':'pd-muted')+'">'+fee+'</div></div>';
-  h+='<div class="pd-money-box"><div class="pd-label">Net received</div><div class="pd-value '+netClass+'">'+net+'</div></div>';
-  h+='</div>'+(syncing?'<div class="pd-sync-note">Fetching real fee/net from Stripe…</div>':'')+'</div>';
-
-  h+='<div class="pd-card" style="margin-top:10px"><div class="pd-section"><div class="pd-title" style="margin-bottom:0">Payment method</div></div>';
-  h+='<div class="pd-row-grid"><div class="pd-field"><div class="pd-label">Card</div><div class="pd-value pd-card-line"><span style="font-size:13px;color:var(--text);font-weight:700">'+(p.card_last4?escHtml(brandLabel):'')+'</span>'+cardHtml+'</div></div><div class="pd-field"><div class="pd-label">Funding</div><div class="pd-value">'+escHtml(p.card_funding?p.card_funding.charAt(0).toUpperCase()+p.card_funding.slice(1):'—')+'</div></div></div>';
-  h+='<div class="pd-row-grid"><div class="pd-field"><div class="pd-label">Card country</div><div class="pd-value">'+escHtml(p.card_country||'—')+'</div></div><div class="pd-field"><div class="pd-label">Expiry</div><div class="pd-value">'+escHtml(exp)+'</div></div></div>';
-  h+='</div>';
-
-  h+='<div class="pd-card" style="margin-top:10px"><div class="pd-section"><div class="pd-title" style="margin-bottom:0">Timing</div></div>';
-  h+='<div class="pd-row-grid"><div class="pd-field"><div class="pd-label">Date</div><div class="pd-value">'+formatPdDate(p.created_at)+'</div></div><div class="pd-field"><div class="pd-label">Local time</div><div class="pd-value">'+formatPdLocalTime(p.created_at)+'</div></div></div>';
-  h+='<div class="pd-row-grid"><div class="pd-field"><div class="pd-label">UTC time</div><div class="pd-value">'+formatPdUtcTime(p.created_at)+'</div></div><div class="pd-field"><div class="pd-label">Age</div><div class="pd-value pd-muted">'+paymentAgeLabel(p.created_at)+'</div></div></div>';
+  if(!isViewer&&isFailed&&!isGhost){h+='<button class="pd-retry-btn" onclick="closeModal(\'payment-detail-modal\');retryPayment('+p.id+')">↻ Retry payment</button>';}
   h+='</div></div>';
-
-  h+='<div class="pd-right">';
-  h+='<div class="pd-card"><div class="pd-section"><div class="pd-title" style="margin-bottom:0">Transaction details</div></div><div class="pd-list">';
-  h+='<div class="pd-list-row"><div class="pd-label">Payment intent</div><div class="pd-list-value mono">'+escHtml(pid||'—')+'</div>'+pdCopyButton(pid)+'</div>';
-  h+='<div class="pd-list-row"><div class="pd-label">Invoice</div><div class="pd-list-value mono">'+escHtml(invoice||'—')+'</div>'+pdCopyButton(invoice)+'</div>';
-  h+='<div class="pd-list-row"><div class="pd-label">Stripe account</div><div class="pd-list-value">'+escHtml(account)+'</div>'+pdCopyButton(account==='—'?'':account)+'</div>';
-  h+='</div></div>';
-
-  h+='<div class="pd-card" style="margin-top:10px"><div class="pd-section"><div class="pd-title" style="margin-bottom:0">Payment meta</div></div><div class="pd-list">';
-  h+='<div class="pd-list-row"><div class="pd-label">Payment type</div><div class="pd-list-value">'+escHtml(typeLabel)+'</div><div></div></div>';
-  h+='<div class="pd-list-row"><div class="pd-label">Status</div><div class="pd-list-value '+(isFailed?'red':'green')+'">'+(isFailed?'• Failed':'• Succeeded')+'</div><div></div></div>';
-  h+='<div class="pd-list-row"><div class="pd-label">Currency</div><div class="pd-list-value mono">'+escHtml((p.currency||'').toUpperCase())+'</div><div></div></div>';
-  h+='<div class="pd-list-row"><div class="pd-label">Reference</div><div class="pd-list-value mono">'+escHtml(reference)+'</div>'+pdCopyButton(reference)+'</div>';
-  h+='</div></div>';
-
-  h+='<div class="pd-card pd-section" style="margin-top:10px"><div class="pd-title">Admin note</div><div class="pd-note-box">'+escHtml(p.note||'No note added')+'</div><div class="pd-actions">';
-  h+='<button class="pd-action-btn" onclick="closeModal(\'payment-detail-modal\');openPaymentNote('+p.id+')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>'+(p.note?'Edit note':'Add note')+'</button>';
-  if(!isViewer&&isFailed&&!isGhost){h+='<button class="pd-action-btn pd-action-danger" onclick="closeModal(\'payment-detail-modal\');retryPayment('+p.id+')">↻ Retry payment</button>';}
-  h+='</div></div>';
-  h+='</div></div></div>';
   document.getElementById('payment-detail-body').innerHTML=h;
 }
+
 function openPaymentModal(p){
   if(!p||!p.id)return;
-  var needsFinancialSync=p.status==='succeeded'&&p.stripe_payment_intent&&(p.stripe_fee===undefined||p.stripe_fee===null||p.net_amount===undefined||p.net_amount===null);
+  var needsFinancialSync=p.status==='succeeded'&&p.stripe_payment_intent&&(p.stripe_fee===undefined||p.stripe_fee===null||p.net_amount===undefined||p.net_amount===null||!p.financial_currency);
   renderPaymentDetailModal(p, needsFinancialSync);
   openModal('payment-detail-modal');
   if(needsFinancialSync){
@@ -1809,7 +1813,7 @@ function selectAllEditPerms(){document.querySelectorAll('#edit-perms-list input[
 function clearAllEditPerms(){document.querySelectorAll('#edit-perms-list input[type=checkbox]').forEach(function(cb){cb.checked=false;cb.dispatchEvent(new Event('change'));});}
 function openEditAccess(id){var a=(allAdminUsers||[]).find(function(x){return x.id===id;});if(!a)return;document.getElementById('edit-access-id').value=id;document.getElementById('edit-access-subtitle').textContent='Editing access for: '+a.username;document.getElementById('edit-access-role').value=a.role||'admin';document.getElementById('edit-access-error').style.display='none';buildEditPermsList();var currentPerms=a.permissions||[];setTimeout(function(){document.querySelectorAll('#edit-perms-list input[type=checkbox]').forEach(function(cb){var checked=currentPerms.includes(cb.value);cb.checked=checked;cb.dispatchEvent(new Event('change'));});},50);toggleEditCustomPerms();openModal('edit-access-modal');}
 async function saveEditAccess(){var id=document.getElementById('edit-access-id').value;var role=document.getElementById('edit-access-role').value;var errEl=document.getElementById('edit-access-error');errEl.style.display='none';var permissions=[];if(role==='custom'){document.querySelectorAll('#edit-perms-list input[type=checkbox]:checked').forEach(function(cb){permissions.push(cb.value);});if(!permissions.length){errEl.textContent='Select at least one section for custom access';errEl.style.display='block';return;}}try{var r=await api('/api/admin-users/'+id+'/permissions',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({role,permissions})});if(r.success){toast('✓ Access updated');closeModal('edit-access-modal');loadAdmins();}else{errEl.textContent=r.error||'Failed to update';errEl.style.display='block';}}catch(e){errEl.textContent='Server error';errEl.style.display='block';}}
-document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m&&m.id!=='payment-detail-modal')closeModal(m.id);}));
 </script>
 </body>
 </html>
