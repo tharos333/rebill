@@ -664,6 +664,108 @@ html.light #customer-detail-modal{
   color:var(--muted)!important;
 }
 
+
+/* Compact info boxes: payment + customer drawers */
+#payment-detail-modal .pd-sections-stack{
+  gap:10px!important;
+}
+#payment-detail-modal .pd-section-list{
+  border-radius:10px!important;
+}
+#payment-detail-modal .pd-section-title{
+  height:28px!important;
+  padding:0 12px!important;
+  font-size:10px!important;
+}
+#payment-detail-modal .pd-row{
+  height:48px!important;
+  min-height:48px!important;
+  padding:0 12px!important;
+  gap:12px!important;
+  grid-template-columns:142px minmax(0,1fr)!important;
+}
+#payment-detail-modal .pd-label{
+  font-size:10px!important;
+}
+#payment-detail-modal .pd-value{
+  font-size:13px!important;
+}
+#payment-detail-modal .pd-fail-box{
+  margin:0 0 10px!important;
+}
+
+#customer-detail-modal .customer-drawer-sections,
+#customer-detail-modal .customer-panels-stack{
+  gap:10px!important;
+}
+#customer-detail-modal .customer-panel{
+  margin-top:10px!important;
+  border-radius:10px!important;
+}
+#customer-detail-modal .customer-panel-title{
+  height:28px!important;
+  padding:0 12px!important;
+  font-size:10px!important;
+}
+#customer-detail-modal .customer-detail-row{
+  height:48px!important;
+  min-height:48px!important;
+  padding:0 12px!important;
+  gap:12px!important;
+  grid-template-columns:142px minmax(0,1fr)!important;
+}
+#customer-detail-modal .customer-detail-label{
+  font-size:10px!important;
+}
+#customer-detail-modal .customer-detail-value{
+  font-size:13px!important;
+}
+#customer-detail-modal .customer-activity-head{
+  height:28px!important;
+  padding:0 12px!important;
+}
+#customer-detail-modal .customer-activity-row{
+  height:44px!important;
+  min-height:44px!important;
+  padding:0 12px!important;
+}
+#customer-detail-modal .customer-detail-empty{
+  padding:14px 12px!important;
+}
+
+@media(max-width:760px){
+  #payment-detail-modal .pd-sections-stack{gap:8px!important;}
+  #payment-detail-modal .pd-row{
+    height:46px!important;
+    min-height:46px!important;
+    padding:0 10px!important;
+    gap:10px!important;
+    grid-template-columns:120px minmax(0,1fr)!important;
+  }
+  #payment-detail-modal .pd-section-title{
+    height:26px!important;
+    padding:0 10px!important;
+  }
+  #customer-detail-modal .customer-panel{margin-top:8px!important;}
+  #customer-detail-modal .customer-detail-row{
+    height:46px!important;
+    min-height:46px!important;
+    padding:0 10px!important;
+    gap:10px!important;
+    grid-template-columns:120px minmax(0,1fr)!important;
+  }
+  #customer-detail-modal .customer-panel-title,
+  #customer-detail-modal .customer-activity-head{
+    height:26px!important;
+    padding:0 10px!important;
+  }
+  #customer-detail-modal .customer-activity-row{
+    height:42px!important;
+    min-height:42px!important;
+    padding:0 10px!important;
+  }
+}
+
 </style>
 </head>
 <body>
