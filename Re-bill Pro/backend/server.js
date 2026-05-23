@@ -926,6 +926,43 @@ app.delete('/api/subscriptions/:id', async (req, res) => { try { await subscript
 
 // ── Payments ──────────────────────────────────────────────────────────────────
 app.get('/api/payments', async (req, res) => { try { res.json(await payments.recent(1000)); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.get('/api/payment/:id/details', async (req, res) => {
+  try {
+    const paymentId = parseInt(req.params.id);
+    // get payment + stripe account key
+    const r = await pool.query(
+      `SELECT p.stripe_payment_intent, p.amount, sa.secret_key, c.stripe_customer_id, c.card_exp_month, c.card_exp_year
+       FROM payments p
+       JOIN customers c ON c.id=p.customer_id
+       LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id
+       WHERE p.id=$1`, [paymentId]
+    );
+    if(!r.rows.length) return res.status(404).json({ error: 'Not found' });
+    const row = r.rows[0];
+    if(!row.secret_key || !row.stripe_payment_intent) return res.json({});
+    const stripe = Stripe(row.secret_key);
+    // retrieve payment intent with charge expanded
+    const pi = await stripe.paymentIntents.retrieve(row.stripe_payment_intent, {
+      expand: ['latest_charge.balance_transaction', 'latest_charge.payment_method_details']
+    });
+    const charge = pi.latest_charge;
+    const bt = charge?.balance_transaction;
+    const billing = charge?.billing_details;
+    const pmd = charge?.payment_method_details?.card;
+    res.json({
+      fee: bt?.fee || null,
+      net: bt?.net || null,
+      currency: bt?.currency || null,
+      billing_country: billing?.address?.country || pmd?.country || null,
+      card_exp_month: pmd?.exp_month || row.card_exp_month || null,
+      card_exp_year: pmd?.exp_year || row.card_exp_year || null,
+      stripe_customer_id: row.stripe_customer_id || null,
+      receipt_url: charge?.receipt_url || null,
+      charge_id: charge?.id || null,
+    });
+  } catch(err) { res.json({}); }
+});
+
 app.post('/api/payments/:id/retry', async (req, res) => {
   try {
     const r = await pool.query('SELECT p.*, c.stripe_customer_id, c.stripe_payment_method, c.stripe_account_id, c.email, c.name FROM payments p JOIN customers c ON c.id=p.customer_id WHERE p.id=$1', [req.params.id]);
