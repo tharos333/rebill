@@ -582,69 +582,77 @@ html.light #customer-detail-modal{
 }
 
 
-/* Payment drawer table text matches customer drawer box */
-#payment-detail-modal .pd-section-title{
-  height:32px!important;
-  display:flex!important;
-  align-items:center!important;
-  padding:0 14px!important;
+
+/* Info boxes font only: payment + customer drawers */
+#payment-detail-modal .pd-section-title,
+#customer-detail-modal .customer-panel-title{
   font-family:var(--mono)!important;
   font-size:11px!important;
   line-height:1!important;
   text-transform:uppercase!important;
   letter-spacing:.10em!important;
+  font-weight:500!important;
   color:var(--muted)!important;
-  font-weight:700!important;
 }
-#payment-detail-modal .pd-row{
-  min-height:54px!important;
-  height:54px!important;
-  display:grid!important;
-  grid-template-columns:152px minmax(0,1fr)!important;
-  gap:14px!important;
-  align-items:center!important;
-  padding:0 14px!important;
-}
-#payment-detail-modal .pd-row-label{
+#payment-detail-modal .pd-label,
+#customer-detail-modal .customer-detail-label{
   font-family:var(--mono)!important;
   font-size:11px!important;
   line-height:1!important;
   text-transform:uppercase!important;
   letter-spacing:.09em!important;
+  font-weight:500!important;
   color:var(--muted)!important;
-  font-weight:700!important;
-  white-space:nowrap!important;
-  overflow:hidden!important;
-  text-overflow:ellipsis!important;
 }
-#payment-detail-modal .pd-row-value{
+#payment-detail-modal .pd-value,
+#customer-detail-modal .customer-detail-value{
   font-family:var(--sans)!important;
-  font-size:16px!important;
+  font-size:15px!important;
   line-height:1.15!important;
+  font-weight:500!important;
   color:var(--text)!important;
-  font-weight:700!important;
-  text-align:right!important;
-  min-width:0!important;
-  white-space:nowrap!important;
-  overflow:hidden!important;
-  text-overflow:ellipsis!important;
 }
-#payment-detail-modal .pd-row-value .payment-card{
-  justify-content:flex-end!important;
+#payment-detail-modal .pd-value.mono,
+#customer-detail-modal .customer-detail-value.mono{
+  font-family:var(--sans)!important;
 }
-#payment-detail-modal .pd-row-value.value-green{
+#payment-detail-modal .pd-value.green,
+#payment-detail-modal .pd-value.value-green,
+#customer-detail-modal .customer-detail-value.value-green{
   color:var(--green)!important;
+  font-weight:500!important;
 }
-@media(max-width:760px){
-  #payment-detail-modal .pd-row{
-    grid-template-columns:128px minmax(0,1fr)!important;
-    height:52px!important;
-    min-height:52px!important;
-    padding:0 12px!important;
-  }
-  #payment-detail-modal .pd-row-value{
-    font-size:15px!important;
-  }
+#payment-detail-modal .pd-value.red,
+#customer-detail-modal .customer-detail-value.value-red{
+  color:var(--red)!important;
+  font-weight:500!important;
+}
+#payment-detail-modal .payment-card,
+#customer-detail-modal .payment-card{
+  font-family:var(--sans)!important;
+  font-size:15px!important;
+  font-weight:500!important;
+}
+#payment-detail-modal .payment-last4,
+#customer-detail-modal .payment-last4,
+#payment-detail-modal .payment-dots,
+#customer-detail-modal .payment-dots{
+  font-family:var(--sans)!important;
+  font-size:13px!important;
+  font-weight:500!important;
+}
+#customer-detail-modal .customer-activity-head,
+#customer-detail-modal .customer-activity-row,
+#customer-detail-modal .customer-activity-money,
+#customer-detail-modal .customer-activity-status{
+  font-family:var(--sans)!important;
+  font-weight:500!important;
+}
+#customer-detail-modal .customer-activity-head{
+  font-family:var(--mono)!important;
+  font-size:11px!important;
+  letter-spacing:.10em!important;
+  color:var(--muted)!important;
 }
 
 </style>
@@ -1982,20 +1990,27 @@ function renderPaymentDetailModal(p, syncing){
   if(syncing){h+='<div class="pd-sync-note">Fetching real Stripe fee/net…</div>';}
   h+='</div>';
   h+='<div class="pd-details-scroll">';
+  h+='<div class="pd-sections-stack">';
   h+='<div class="pd-section-list">';
   h+='<div class="pd-section-title">Payment identity</div>';
   h+='<div class="pd-row"><div class="pd-label">Payment intent</div><div class="pd-value mono">'+escHtml(pid||'—')+'</div></div>';
   h+='<div class="pd-row"><div class="pd-label">Customer</div><div class="pd-value pd-customer-value">'+escHtml(customerName)+'</div></div>';
   h+='<div class="pd-row"><div class="pd-label">Email</div><div class="pd-value">'+escHtml(emailText)+'</div></div>';
+  h+='</div>';
+  h+='<div class="pd-section-list">';
   h+='<div class="pd-section-title">Card details</div>';
   h+='<div class="pd-row"><div class="pd-label">Method</div><div class="pd-value">'+(p.card_last4?'<span style="margin-right:6px">'+escHtml(brandLabel)+'</span>':'')+cardHtml+'</div></div>';
   h+='<div class="pd-row"><div class="pd-label">Funding</div><div class="pd-value">'+escHtml(p.card_funding?p.card_funding.charAt(0).toUpperCase()+p.card_funding.slice(1):'—')+'</div></div>';
   h+='<div class="pd-row"><div class="pd-label">Card country</div><div class="pd-value">'+escHtml(p.card_country||'—')+'</div></div>';
   h+='<div class="pd-row"><div class="pd-label">Expiry</div><div class="pd-value">'+escHtml(exp)+'</div></div>';
+  h+='</div>';
+  h+='<div class="pd-section-list">';
   h+='<div class="pd-section-title">Amount breakdown</div>';
   h+='<div class="pd-row"><div class="pd-label">Gross</div><div class="pd-value">'+fmt(p.amount,p.currency)+'</div></div>';
   h+='<div class="pd-row"><div class="pd-label">'+escHtml(feeLabel)+'</div><div class="pd-value '+((p.stripe_fee!==undefined&&p.stripe_fee!==null)?'':'muted')+'">'+fee+'</div></div>';
   h+='<div class="pd-row"><div class="pd-label">'+escHtml(netLabel)+'</div><div class="pd-value '+netClass+'">'+net+'</div></div>';
+  h+='</div>';
+  h+='<div class="pd-section-list">';
   h+='<div class="pd-section-title">Metadata</div>';
   h+='<div class="pd-row"><div class="pd-label">Stripe account</div><div class="pd-value">'+escHtml(account)+'</div></div>';
   h+='<div class="pd-row"><div class="pd-label">Invoice</div><div class="pd-value mono">'+escHtml(invoice||'—')+'</div></div>';
@@ -2007,6 +2022,7 @@ function renderPaymentDetailModal(p, syncing){
   h+='<div class="pd-row"><div class="pd-label">UTC time</div><div class="pd-value">'+formatPdUtcTime(p.created_at)+'</div></div>';
   h+='<div class="pd-row"><div class="pd-label">Age</div><div class="pd-value muted">'+paymentAgeLabel(p.created_at)+'</div></div>';
   h+='<div class="pd-row pd-note-row" onclick="closeModal(\'payment-detail-modal\');openPaymentNote('+p.id+')"><div class="pd-label">Note</div><div class="pd-value pd-note-value">'+escHtml(p.note||'No note')+'</div></div>';
+  h+='</div>';
   h+='</div>';
   if(!isViewer&&isFailed&&!isGhost){h+='<button class="pd-retry-btn" onclick="closeModal(\'payment-detail-modal\');retryPayment('+p.id+')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg><span>Retry payment</span></button>';}
   h+='</div></div>';
