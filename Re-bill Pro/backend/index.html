@@ -2818,5 +2818,41 @@ function openEditAccess(id){var a=(allAdminUsers||[]).find(function(x){return x.
 async function saveEditAccess(){var id=document.getElementById('edit-access-id').value;var role=document.getElementById('edit-access-role').value;var errEl=document.getElementById('edit-access-error');errEl.style.display='none';var permissions=[];if(role==='custom'){document.querySelectorAll('#edit-perms-list input[type=checkbox]:checked').forEach(function(cb){permissions.push(cb.value);});if(!permissions.length){errEl.textContent='Select at least one section for custom access';errEl.style.display='block';return;}}try{var r=await api('/api/admin-users/'+id+'/permissions',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({role,permissions})});if(r.success){toast('✓ Access updated');closeModal('edit-access-modal');loadAdmins();}else{errEl.textContent=r.error||'Failed to update';errEl.style.display='block';}}catch(e){errEl.textContent='Server error';errEl.style.display='block';}}
 document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m&&m.id!=='payment-detail-modal')closeModal(m.id);}));
 </script>
+
+<script>
+(function(){
+  function closeWhenBackdropClicked(modalId, closeFn){
+    var modal = document.getElementById(modalId);
+    if(!modal || modal.__backdropCloseBound) return;
+    modal.__backdropCloseBound = true;
+    modal.addEventListener('mousedown', function(e){
+      if(e.target === modal){
+        if(typeof closeFn === 'function') closeFn();
+      }
+    });
+  }
+
+  function setupDrawerBackdropClose(){
+    closeWhenBackdropClicked('payment-detail-modal', function(){
+      if(typeof closeModal === 'function') closeModal('payment-detail-modal');
+    });
+
+    closeWhenBackdropClicked('customer-detail-modal', function(){
+      if(typeof closeCustomerDrawer === 'function'){
+        closeCustomerDrawer();
+      }else if(typeof closeModal === 'function'){
+        closeModal('customer-detail-modal');
+      }
+    });
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', setupDrawerBackdropClose);
+  }else{
+    setupDrawerBackdropClose();
+  }
+})();
+</script>
+
 </body>
 </html>
