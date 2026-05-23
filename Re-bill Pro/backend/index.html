@@ -148,57 +148,7 @@ textarea{resize:vertical;min-height:60px}
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:500;align-items:center;justify-content:center}
 .modal-bg.open{display:flex}
 .modal{background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:26px;width:460px;max-width:95vw;max-height:90vh;overflow-y:auto}
-#payment-detail-modal .modal{background:var(--surface)!important;border:1px solid var(--border2)!important;padding:0!important;width:460px!important;border-radius:16px!important;font-family:var(--sans)!important;}
-/* Professional payment detail modal */
-#payment-detail-modal .modal{width:640px!important;max-width:96vw!important;border-radius:22px!important;overflow:hidden!important;box-shadow:0 28px 90px rgba(0,0,0,.55)!important;background:var(--surface)!important;}
-.payment-pro{background:var(--surface);color:var(--text);}
-.payment-pro-hero{position:relative;padding:22px 24px 20px;border-bottom:1px solid var(--border);overflow:hidden;background:linear-gradient(135deg,rgba(108,99,255,.20),rgba(17,17,24,.92) 42%,rgba(34,197,94,.13));}
-.payment-pro-hero.failed{background:linear-gradient(135deg,rgba(248,113,113,.20),rgba(17,17,24,.92) 42%,rgba(251,191,36,.08));}
-.payment-pro-hero:before{content:'';position:absolute;right:-70px;top:-110px;width:230px;height:230px;border-radius:50%;background:var(--accent-glow);filter:blur(2px);opacity:.9;}
-.payment-pro-top{position:relative;display:flex;justify-content:space-between;align-items:flex-start;gap:14px;}
-.payment-status-pill{display:inline-flex;align-items:center;gap:8px;padding:7px 10px;border-radius:999px;background:rgba(34,197,94,.10);border:1px solid rgba(34,197,94,.24);color:var(--green);font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;font-family:var(--mono);}
-.payment-status-pill.failed{background:rgba(248,113,113,.10);border-color:rgba(248,113,113,.26);color:var(--red);}
-.payment-status-dot{width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 0 4px rgba(34,197,94,.10);}
-.payment-status-pill.failed .payment-status-dot{box-shadow:0 0 0 4px rgba(248,113,113,.12);}
-.payment-close{width:34px;height:34px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--muted);cursor:pointer;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;}
-.payment-close:hover{color:var(--text);border-color:rgba(255,255,255,.24);background:rgba(255,255,255,.10);}
-.payment-amount-row{position:relative;display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-top:24px;}
-.payment-amount-main{font-size:48px;font-weight:800;letter-spacing:-2.8px;line-height:.95;color:var(--text);}
-.payment-amount-main.success{color:#4ade80}.payment-amount-main.failed{color:var(--red)}
-.payment-type-chip{padding:7px 10px;border-radius:10px;background:rgba(255,255,255,.055);border:1px solid var(--border2);font-size:11px;color:var(--muted);font-family:var(--mono);white-space:nowrap;}
-.payment-customer{position:relative;margin-top:18px;display:flex;align-items:center;gap:12px;min-width:0;}
-.payment-avatar{width:42px;height:42px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:var(--accent-glow);border:1px solid rgba(255,255,255,.11);font-size:13px;font-weight:800;color:var(--text);flex-shrink:0;}
-.payment-customer-name{font-size:16px;font-weight:700;line-height:1.1;}
-.payment-customer-email{font-size:12px;color:var(--muted);margin-top:4px;word-break:break-all;}
-.payment-pro-body{padding:16px;background:linear-gradient(180deg,rgba(255,255,255,.018),transparent);}
-.money-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;}
-.money-card{border:1px solid var(--border);background:var(--surface2);border-radius:14px;padding:13px;min-width:0;}
-.money-label{font-size:9px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px;}
-.money-value{font-size:17px;font-weight:800;letter-spacing:-.4px;white-space:nowrap;}
-.money-value.green{color:var(--green)}.money-value.red{color:var(--red)}
-.detail-section{border:1px solid var(--border);background:rgba(255,255,255,.018);border-radius:16px;overflow:hidden;margin-top:12px;}
-.detail-section-title{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid var(--border);font-size:10px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:.12em;font-weight:800;}
-.detail-grid{display:grid;grid-template-columns:1fr 1fr;}
-.detail-item{padding:13px 14px;border-bottom:1px solid var(--border);min-width:0;}
-.detail-item:nth-child(odd){border-right:1px solid var(--border);}
-.detail-item.no-border{border-bottom:none;}
-.detail-label{font-size:9px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:.11em;margin-bottom:7px;font-weight:700;}
-.detail-value{font-size:13px;color:var(--text);font-weight:650;min-height:18px;word-break:break-word;}
-.detail-value.muted{color:var(--muted);font-weight:500;}.detail-value.mono{font-family:var(--mono);font-size:11px;font-weight:500;}
-.card-line{display:flex;align-items:center;gap:8px;}
-.brand-mark{display:inline-flex;align-items:center;height:18px;}
-.ref-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--border);}
-.ref-row:last-child{border-bottom:none;}
-.ref-box{background:var(--surface2);border:1px solid var(--border);border-radius:11px;padding:10px 12px;font-family:var(--mono);font-size:11px;color:var(--muted);word-break:break-all;}
-.copy-mini{width:36px;height:36px;border-radius:11px;background:var(--surface2);border:1px solid var(--border2);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;}
-.copy-mini:hover{border-color:var(--accent);color:var(--text);}
-.note-box{padding:13px 14px;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;}
-.payment-actions{display:grid;grid-template-columns:1fr;gap:0;border-top:1px solid var(--border);background:var(--surface2);}
-.payment-actions.two{grid-template-columns:1fr 1fr;}
-.payment-action-btn{border:0;border-right:1px solid var(--border);background:transparent;color:var(--text);padding:14px;font-family:var(--sans);font-size:13px;font-weight:700;cursor:pointer;}
-.payment-action-btn:last-child{border-right:0}.payment-action-btn:hover{background:rgba(255,255,255,.04)}.payment-action-btn.retry{background:rgba(34,197,94,.14);color:var(--green)}
-@media(max-width:620px){.money-grid,.detail-grid{grid-template-columns:1fr}.detail-item:nth-child(odd){border-right:0}.payment-amount-main{font-size:38px}.payment-amount-row{align-items:flex-start;flex-direction:column}.payment-actions.two{grid-template-columns:1fr}}
-
+#payment-detail-modal .modal{background:transparent!important;border:none!important;padding:0!important;width:920px!important;max-width:calc(100vw - 32px)!important;border-radius:18px!important;font-family:var(--sans)!important;box-shadow:none!important;overflow:visible!important;}
 .modal h3{font-size:16px;font-weight:600;margin-bottom:4px}
 .modal p{font-size:13px;color:var(--muted);margin-bottom:18px}
 .modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
@@ -219,6 +169,11 @@ textarea{resize:vertical;min-height:60px}
 .rev-tab{padding:4px 10px;border-radius:6px;font-size:11px;font-family:var(--mono);font-weight:500;cursor:pointer;border:1px solid var(--border2);background:var(--surface2);color:var(--muted);transition:all 0.15s;white-space:nowrap}
 .rev-tab:hover{color:var(--text);border-color:var(--accent)}
 .rev-tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+
+.payment-detail-shell{width:100%;max-height:calc(100vh - 36px);overflow:auto;background:linear-gradient(180deg,rgba(29,29,39,.98),rgba(18,18,25,.99));border:1px solid rgba(255,255,255,.14);border-radius:18px;box-shadow:0 28px 70px rgba(0,0,0,.58);padding:16px;color:var(--text);font-family:var(--sans)}
+.payment-detail-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}.payment-detail-chips{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.payment-chip{height:28px;display:inline-flex;align-items:center;gap:8px;padding:0 12px;border-radius:999px;border:1px solid var(--border2);background:rgba(255,255,255,.035);font-size:12px;font-weight:600;color:var(--muted);line-height:1}.payment-chip-success{color:var(--green);border-color:rgba(34,197,94,.34);background:rgba(34,197,94,.09)}.payment-chip-failed{color:var(--red);border-color:rgba(248,113,113,.34);background:rgba(248,113,113,.09)}.payment-chip-dot{width:8px;height:8px;border-radius:99px;background:currentColor;box-shadow:0 0 0 4px rgba(34,197,94,.09)}.payment-detail-close{width:36px;height:36px;border-radius:999px;border:1px solid var(--border2);background:rgba(255,255,255,.04);color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;font-family:var(--sans);transition:.15s}.payment-detail-close:hover{color:var(--text);border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.08)}
+.payment-detail-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:12px}.pd-card{background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.018));border:1px solid var(--border2);border-radius:14px;overflow:hidden}.pd-section{padding:15px 16px}.pd-title{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#a4a4b2;font-weight:700;margin-bottom:13px}.pd-summary-amount{font-size:38px;line-height:1;font-weight:800;letter-spacing:-1.5px;color:#e8e8f0;margin-bottom:18px}.pd-summary-amount.success{color:var(--green)}.pd-summary-amount.failed{color:var(--red)}.pd-person{display:flex;align-items:center;gap:12px}.pd-avatar{width:42px;height:42px;border-radius:13px;background:rgba(108,99,255,.22);border:1px solid rgba(108,99,255,.38);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:15px;flex-shrink:0}.pd-name{font-size:17px;font-weight:700;letter-spacing:-.2px;color:var(--text)}.pd-email{font-size:12px;color:var(--muted);margin-top:3px}.pd-money{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.pd-money-box{border:1px solid var(--border);background:rgba(0,0,0,.12);border-radius:11px;padding:13px}.pd-label{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:700}.pd-value{margin-top:7px;font-size:16px;font-weight:700;color:var(--text);letter-spacing:-.2px}.pd-value.green{color:var(--green)}.pd-value.red{color:var(--red)}.pd-muted{color:var(--muted)!important}.pd-subtle{color:#6f6f7d!important}.pd-row-grid{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--border)}.pd-row-grid:first-of-type{border-top:none}.pd-field{padding:13px 16px;border-right:1px solid var(--border);min-width:0}.pd-field:nth-child(2n){border-right:none}.pd-card-line{display:flex;align-items:center;gap:10px}.pd-card-brand{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:700}.pd-list{display:flex;flex-direction:column}.pd-list-row{display:grid;grid-template-columns:132px minmax(0,1fr) 34px;align-items:center;gap:12px;padding:13px 16px;border-top:1px solid var(--border)}.pd-list-row:first-child{border-top:none}.pd-list-value{font-size:13px;font-weight:600;color:var(--text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pd-list-value.green{color:var(--green)}.pd-list-value.red{color:var(--red)}.pd-copy{width:30px;height:30px;border-radius:8px;border:1px solid var(--border2);background:rgba(255,255,255,.035);color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer}.pd-copy:hover{color:var(--text);border-color:rgba(255,255,255,.24);background:rgba(255,255,255,.07)}.pd-note-box{min-height:72px;border:1px solid var(--border);background:rgba(0,0,0,.12);border-radius:10px;padding:13px;color:var(--muted);font-size:13px}.pd-actions{display:flex;gap:8px;margin-top:11px}.pd-action-btn{height:34px;padding:0 12px;border-radius:9px;border:1px solid var(--border2);background:rgba(255,255,255,.04);color:var(--text);font-family:var(--sans);font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:7px}.pd-action-btn:hover{border-color:rgba(255,255,255,.24);background:rgba(255,255,255,.075)}.pd-action-danger{color:var(--red);border-color:rgba(248,113,113,.25);background:rgba(248,113,113,.06)}.pd-action-danger:hover{border-color:rgba(248,113,113,.45);background:rgba(248,113,113,.1)}.pd-sync-note{font-size:10.5px;color:var(--muted);font-family:var(--mono);margin-top:6px}.pd-fail-box{margin-top:11px;border:1px solid rgba(248,113,113,.25);background:rgba(248,113,113,.08);border-radius:10px;padding:10px 12px;color:var(--red);font-size:12px;font-weight:600}.pd-section-border{border-top:1px solid var(--border)}@media(max-width:860px){#payment-detail-modal .modal{width:calc(100vw - 18px)!important}.payment-detail-grid{grid-template-columns:1fr}.pd-money{grid-template-columns:1fr}.pd-list-row{grid-template-columns:112px minmax(0,1fr) 34px}.pd-summary-amount{font-size:34px}.payment-detail-shell{padding:12px}}
+
 .payment-card{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;vertical-align:middle}
 .payment-img{width:24px;height:16px;border-radius:3px;object-fit:contain;display:block;box-shadow:0 1px 3px rgba(0,0,0,0.2)}
 .payment-dots{color:#8b8b98;letter-spacing:2px;font-weight:700;font-size:12px;font-family:var(--mono)}
@@ -1471,114 +1426,120 @@ function renderPayments(list){
   }).join('');
 }
 function decodePaymentData(row){try{return JSON.parse(decodeURIComponent(row.getAttribute('data-payment')));}catch(e){return {};}}
-function openPaymentModal(p){
-  var isGhost=(!p.customer_id||(p.email||'').startsWith('imported+pi_')||(p.stripe_customer_id||'').startsWith('local_')||(p.name||'').startsWith('pi_')||(p.name||'').startsWith('external_'));
-  var isViewer=localStorage.getItem('subloop_readonly')==='1';
-  var isFailed=p.status==='failed';
-  var fullReason=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'';
-  var d=new Date(p.created_at);
-  var dateStr=isNaN(d)?'—':d.toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'});
-  var localTimeStr=isNaN(d)?'—':d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  var utcTimeStr=isNaN(d)?'—':d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit',timeZone:'UTC'})+' UTC';
-  var relativeStr=isNaN(d)?'—':timeAgo(d);
-  var pid=p.stripe_payment_intent||'';
-  var invoiceId=p.stripe_invoice_id||'';
-  var subId=p.stripe_subscription_id||p.subscription_stripe_id||'';
-  var stripeCustomerId=p.stripe_customer_id||'';
-  var gross=Number(p.amount||0);
-  var fee=(p.stripe_fee!==undefined&&p.stripe_fee!==null)?Number(p.stripe_fee):null;
-  var net=(p.net_amount!==undefined&&p.net_amount!==null)?Number(p.net_amount):(fee!==null?gross-fee:null);
-  var paymentType=subId||p.subscription_id?'Subscription':(invoiceId?'Invoice / one-time':'One-time');
-  var cardBrand=(p.card_brand||'').toLowerCase();
-  var funding=p.card_funding?String(p.card_funding).charAt(0).toUpperCase()+String(p.card_funding).slice(1):'—';
-  var country=p.card_country||p.customer_country||'—';
-  var exp=(p.card_exp_month&&p.card_exp_year)?String(p.card_exp_month).padStart(2,'0')+'/'+String(p.card_exp_year).slice(-2):'—';
-  var cardBadgeHtml=paymentCardBrandHtml(p.card_brand,p.card_last4);
-  window._pmcopy={pid:pid,invoice:invoiceId,sub:subId,cus:stripeCustomerId};
-
-  var h='';
-  h+='<div class="payment-pro">';
-  h+='<div class="payment-pro-hero '+(isFailed?'failed':'')+'">';
-  h+='<div class="payment-pro-top"><div class="payment-status-pill '+(isFailed?'failed':'')+'"><span class="payment-status-dot"></span>'+(isFailed?'Payment failed':'Payment successful')+'</div>';
-  h+='<button class="payment-close" onclick="closeModal(\'payment-detail-modal\')">×</button></div>';
-  h+='<div class="payment-amount-row"><div class="payment-amount-main '+(isFailed?'failed':'success')+'">'+fmt(p.amount,p.currency)+'</div><div class="payment-type-chip">'+paymentType+'</div></div>';
-  h+='<div class="payment-customer"><div class="payment-avatar">'+initials(isGhost?'?':p.name)+'</div><div style="min-width:0"><div class="payment-customer-name">'+escapeHtml(isGhost?'No profile':(p.name||'—'))+'</div><div class="payment-customer-email">'+escapeHtml(p.email||'No email')+'</div></div></div>';
-  h+='</div>';
-
-  h+='<div class="payment-pro-body">';
-  h+='<div class="money-grid">';
-  h+='<div class="money-card"><div class="money-label">Gross</div><div class="money-value">'+fmt(gross,p.currency)+'</div></div>';
-  h+='<div class="money-card"><div class="money-label">Stripe fee</div><div class="money-value red">'+(fee!==null?fmt(fee,p.currency):'—')+'</div></div>';
-  h+='<div class="money-card"><div class="money-label">Net received</div><div class="money-value green">'+(net!==null?fmt(net,p.currency):'—')+'</div></div>';
-  h+='</div>';
-
-  h+='<div class="detail-section"><div class="detail-section-title">Payment method</div><div class="detail-grid">';
-  h+='<div class="detail-item"><div class="detail-label">Card</div><div class="detail-value"><span class="card-line">'+cardBadgeHtml+'</span></div></div>';
-  h+='<div class="detail-item"><div class="detail-label">Funding</div><div class="detail-value">'+escapeHtml(funding)+'</div></div>';
-  h+='<div class="detail-item no-border"><div class="detail-label">Card country</div><div class="detail-value">'+escapeHtml(country)+'</div></div>';
-  h+='<div class="detail-item no-border"><div class="detail-label">Expiry</div><div class="detail-value">'+escapeHtml(exp)+'</div></div>';
-  h+='</div></div>';
-
-  h+='<div class="detail-section"><div class="detail-section-title">Timing</div><div class="detail-grid">';
-  h+='<div class="detail-item"><div class="detail-label">Date</div><div class="detail-value">'+dateStr+'</div></div>';
-  h+='<div class="detail-item"><div class="detail-label">Local time</div><div class="detail-value">'+localTimeStr+'</div></div>';
-  h+='<div class="detail-item no-border"><div class="detail-label">UTC time</div><div class="detail-value">'+utcTimeStr+'</div></div>';
-  h+='<div class="detail-item no-border"><div class="detail-label">Age</div><div class="detail-value muted">'+relativeStr+'</div></div>';
-  h+='</div></div>';
-
-  if(isFailed || fullReason){
-    h+='<div class="detail-section"><div class="detail-section-title">Failure / risk</div><div class="detail-grid">';
-    h+='<div class="detail-item no-border" style="grid-column:1/-1"><div class="detail-label">Reason</div><div class="detail-value" style="color:var(--red)">'+escapeHtml(fullReason||'No failure reason received from Stripe')+'</div></div>';
-    h+='</div></div>';
-  }
-
-  h+='<div class="detail-section"><div class="detail-section-title">Stripe references</div>';
-  h+=refRow('Payment Intent',pid,'pid');
-  h+=refRow('Invoice',invoiceId,'invoice');
-  h+=refRow('Subscription',subId,'sub');
-  h+=refRow('Stripe Customer',stripeCustomerId,'cus');
-  h+='<div class="ref-row"><div><div class="detail-label">Stripe account</div><div class="detail-value">'+escapeHtml(p.account_name||'—')+'</div></div><div></div></div>';
-  h+='</div>';
-
-  h+='<div class="detail-section"><div class="detail-section-title">Admin note</div><div class="note-box"><div><div class="detail-value '+(p.note?'':'muted')+'">'+escapeHtml(p.note||'No note added')+'</div></div><button class="copy-mini" onclick="closeModal(\'payment-detail-modal\');openPaymentNote('+p.id+')">✎</button></div></div>';
-  h+='</div>';
-
-  h+='<div class="payment-actions '+((!isViewer&&isFailed&&!isGhost)?'two':'')+'">';
-  h+='<button class="payment-action-btn" onclick="closeModal(\'payment-detail-modal\');openPaymentNote('+p.id+')">✎ '+(p.note?'Edit note':'Add note')+'</button>';
-  if(!isViewer&&isFailed&&!isGhost){h+='<button class="payment-action-btn retry" onclick="closeModal(\'payment-detail-modal\');retryPayment('+p.id+')">↻ Retry payment</button>';}
-  h+='</div></div>';
-
-  document.getElementById('payment-detail-body').innerHTML=h;
-  openModal('payment-detail-modal');
+function copyPdValue(v){
+  if(!v||v==='—')return;
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(v);toast('Copied!');}
 }
-function refRow(label,value,key){
-  return '<div class="ref-row"><div><div class="detail-label">'+label+'</div><div class="ref-box">'+escapeHtml(value||'—')+'</div></div><button class="copy-mini" onclick="copyPaymentRef(\''+key+'\')">⧉</button></div>';
+function pdCopyButton(v){
+  var safe=escHtml(v||'');
+  return '<button class="pd-copy" title="Copy" onclick="copyPdValue(\''+String(safe).replace(/'/g,'&#39;')+'\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
 }
-function copyPaymentRef(key){
-  var val=(window._pmcopy&&window._pmcopy[key])||'';
-  if(!val){toast('Nothing to copy','error');return;}
-  if(navigator.clipboard)navigator.clipboard.writeText(val);
-  toast('Copied!');
+function paymentTypeLabel(p){
+  if(p.subscription_id||p.stripe_invoice_id)return 'Subscription';
+  return 'One-time';
 }
-function timeAgo(date){
-  var diff=Math.max(0,Date.now()-date.getTime());
+function paymentAgeLabel(d){
+  if(!d)return '—';
+  var diff=Math.max(0,Date.now()-new Date(d).getTime());
   var mins=Math.floor(diff/60000), hrs=Math.floor(mins/60), days=Math.floor(hrs/24);
   if(days>0)return days+' day'+(days>1?'s':'')+' ago';
   if(hrs>0)return hrs+' hour'+(hrs>1?'s':'')+' ago';
-  if(mins>0)return mins+' min ago';
-  return 'Just now';
+  if(mins>0)return mins+' minute'+(mins>1?'s':'')+' ago';
+  return 'just now';
 }
-function escapeHtml(v){return String(v==null?'':v).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
-function paymentCardBrandHtml(brand,last4){
-  if(!brand&&!last4)return '—';
-  var b=String(brand||'card').toLowerCase();
-  var name=b.charAt(0).toUpperCase()+b.slice(1);
-  if(b.includes('master'))return '<span class="brand-mark"><svg width="28" height="18" viewBox="0 0 32 22"><circle cx="12" cy="11" r="8" fill="#EB001B"/><circle cx="20" cy="11" r="8" fill="#F79E1B"/><path d="M16 5.5a8 8 0 0 1 0 11A8 8 0 0 1 16 5.5z" fill="#FF5F00"/></svg></span><span>•••• '+escapeHtml(last4||'')+'</span>';
-  if(b.includes('visa'))return '<span style="background:#1a1f71;color:#fff;font-size:8px;font-weight:800;padding:3px 6px;border-radius:4px;letter-spacing:.04em;">VISA</span><span>•••• '+escapeHtml(last4||'')+'</span>';
-  if(b.includes('amex')||b.includes('american'))return '<span style="background:#2e77bc;color:#fff;font-size:8px;font-weight:800;padding:3px 6px;border-radius:4px;letter-spacing:.04em;">AMEX</span><span>•••• '+escapeHtml(last4||'')+'</span>';
-  return '<span style="background:var(--surface2);border:1px solid var(--border2);font-size:8px;font-weight:800;padding:3px 6px;border-radius:4px;letter-spacing:.04em;">'+escapeHtml(name)+'</span><span>•••• '+escapeHtml(last4||'')+'</span>';
-}
+function formatPdDate(d){return d?new Date(d).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}):'—';}
+function formatPdLocalTime(d){return d?new Date(d).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'}):'—';}
+function formatPdUtcTime(d){return d?new Date(d).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit',timeZone:'UTC',hour12:false})+' UTC':'—';}
+function renderPaymentDetailModal(p, syncing){
+  if(!p||!p.id)return;
+  var isGhost=((p.email||'').toLowerCase().endsWith('@stripe.local')||(p.name||'').startsWith('pi_')||(p.name||'').startsWith('external_'));
+  var isViewer=localStorage.getItem('subloop_readonly')==='1';
+  var fullReason=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'';
+  var isFailed=p.status==='failed';
+  var isSucceeded=p.status==='succeeded';
+  var typeLabel=paymentTypeLabel(p);
+  var statusLabel=isFailed?'Payment failed':(isSucceeded?'Payment successful':(p.status||'Payment'));
+  var statusClass=isFailed?'payment-chip-failed':'payment-chip-success';
+  var amountClass=isFailed?'failed':'success';
+  var fee=(p.stripe_fee!==undefined&&p.stripe_fee!==null)?fmt(p.stripe_fee,p.currency):(syncing?'Syncing…':'—');
+  var net=(p.net_amount!==undefined&&p.net_amount!==null)?fmt(p.net_amount,p.currency):(syncing?'Syncing…':'—');
+  var netClass=(p.net_amount!==undefined&&p.net_amount!==null)?'green':'pd-muted';
+  var pid=p.stripe_payment_intent||'';
+  var invoice=p.stripe_invoice_id||'';
+  var account=p.account_name||'—';
+  var brand=(p.card_brand||'card');
+  var brandLabel=brand.replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();});
+  var cardHtml=(p.card_brand&&p.card_last4)?cardBadge(p.card_brand,p.card_last4):'<span class="pd-subtle">—</span>';
+  var exp=(p.card_exp_month&&p.card_exp_year)?String(p.card_exp_month).padStart(2,'0')+'/'+String(p.card_exp_year).slice(-2):'—';
+  var reference=(p.card_last4||p.id||'—');
+  var h='';
+  h+='<div class="payment-detail-shell">';
+  h+='<div class="payment-detail-top"><div class="payment-detail-chips">';
+  h+='<span class="payment-chip '+statusClass+'"><span class="payment-chip-dot"></span>'+escHtml(statusLabel)+'</span>';
+  h+='<span class="payment-chip">'+escHtml(typeLabel)+'</span>';
+  h+='</div><button class="payment-detail-close" onclick="closeModal(\'payment-detail-modal\')">×</button></div>';
+  h+='<div class="payment-detail-grid">';
 
+  h+='<div class="pd-left">';
+  h+='<div class="pd-card pd-section"><div class="pd-title">Payment summary</div>';
+  h+='<div class="pd-summary-amount '+amountClass+'">'+fmt(p.amount,p.currency)+'</div>';
+  h+='<div class="pd-person"><div class="pd-avatar">'+escHtml(initials(isGhost?'?':p.name))+'</div><div><div class="pd-name">'+escHtml(isGhost?'No profile':(p.name||'—'))+'</div><div class="pd-email">'+escHtml(p.email||'External payment · no email collected')+'</div></div></div>';
+  if(isFailed&&fullReason){h+='<div class="pd-fail-box">'+escHtml(fullReason)+'</div>';}
+  h+='</div>';
+
+  h+='<div class="pd-card pd-section" style="margin-top:10px"><div class="pd-title">Money breakdown</div><div class="pd-money">';
+  h+='<div class="pd-money-box"><div class="pd-label">Gross</div><div class="pd-value">'+fmt(p.amount,p.currency)+'</div></div>';
+  h+='<div class="pd-money-box"><div class="pd-label">Stripe fee</div><div class="pd-value '+((p.stripe_fee!==undefined&&p.stripe_fee!==null)?'':'pd-muted')+'">'+fee+'</div></div>';
+  h+='<div class="pd-money-box"><div class="pd-label">Net received</div><div class="pd-value '+netClass+'">'+net+'</div></div>';
+  h+='</div>'+(syncing?'<div class="pd-sync-note">Fetching real fee/net from Stripe…</div>':'')+'</div>';
+
+  h+='<div class="pd-card" style="margin-top:10px"><div class="pd-section"><div class="pd-title" style="margin-bottom:0">Payment method</div></div>';
+  h+='<div class="pd-row-grid"><div class="pd-field"><div class="pd-label">Card</div><div class="pd-value pd-card-line"><span style="font-size:13px;color:var(--text);font-weight:700">'+(p.card_last4?escHtml(brandLabel):'')+'</span>'+cardHtml+'</div></div><div class="pd-field"><div class="pd-label">Funding</div><div class="pd-value">'+escHtml(p.card_funding?p.card_funding.charAt(0).toUpperCase()+p.card_funding.slice(1):'—')+'</div></div></div>';
+  h+='<div class="pd-row-grid"><div class="pd-field"><div class="pd-label">Card country</div><div class="pd-value">'+escHtml(p.card_country||'—')+'</div></div><div class="pd-field"><div class="pd-label">Expiry</div><div class="pd-value">'+escHtml(exp)+'</div></div></div>';
+  h+='</div>';
+
+  h+='<div class="pd-card" style="margin-top:10px"><div class="pd-section"><div class="pd-title" style="margin-bottom:0">Timing</div></div>';
+  h+='<div class="pd-row-grid"><div class="pd-field"><div class="pd-label">Date</div><div class="pd-value">'+formatPdDate(p.created_at)+'</div></div><div class="pd-field"><div class="pd-label">Local time</div><div class="pd-value">'+formatPdLocalTime(p.created_at)+'</div></div></div>';
+  h+='<div class="pd-row-grid"><div class="pd-field"><div class="pd-label">UTC time</div><div class="pd-value">'+formatPdUtcTime(p.created_at)+'</div></div><div class="pd-field"><div class="pd-label">Age</div><div class="pd-value pd-muted">'+paymentAgeLabel(p.created_at)+'</div></div></div>';
+  h+='</div></div>';
+
+  h+='<div class="pd-right">';
+  h+='<div class="pd-card"><div class="pd-section"><div class="pd-title" style="margin-bottom:0">Transaction details</div></div><div class="pd-list">';
+  h+='<div class="pd-list-row"><div class="pd-label">Payment intent</div><div class="pd-list-value mono">'+escHtml(pid||'—')+'</div>'+pdCopyButton(pid)+'</div>';
+  h+='<div class="pd-list-row"><div class="pd-label">Invoice</div><div class="pd-list-value mono">'+escHtml(invoice||'—')+'</div>'+pdCopyButton(invoice)+'</div>';
+  h+='<div class="pd-list-row"><div class="pd-label">Stripe account</div><div class="pd-list-value">'+escHtml(account)+'</div>'+pdCopyButton(account==='—'?'':account)+'</div>';
+  h+='</div></div>';
+
+  h+='<div class="pd-card" style="margin-top:10px"><div class="pd-section"><div class="pd-title" style="margin-bottom:0">Payment meta</div></div><div class="pd-list">';
+  h+='<div class="pd-list-row"><div class="pd-label">Payment type</div><div class="pd-list-value">'+escHtml(typeLabel)+'</div><div></div></div>';
+  h+='<div class="pd-list-row"><div class="pd-label">Status</div><div class="pd-list-value '+(isFailed?'red':'green')+'">'+(isFailed?'• Failed':'• Succeeded')+'</div><div></div></div>';
+  h+='<div class="pd-list-row"><div class="pd-label">Currency</div><div class="pd-list-value mono">'+escHtml((p.currency||'').toUpperCase())+'</div><div></div></div>';
+  h+='<div class="pd-list-row"><div class="pd-label">Reference</div><div class="pd-list-value mono">'+escHtml(reference)+'</div>'+pdCopyButton(reference)+'</div>';
+  h+='</div></div>';
+
+  h+='<div class="pd-card pd-section" style="margin-top:10px"><div class="pd-title">Admin note</div><div class="pd-note-box">'+escHtml(p.note||'No note added')+'</div><div class="pd-actions">';
+  h+='<button class="pd-action-btn" onclick="closeModal(\'payment-detail-modal\');openPaymentNote('+p.id+')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>'+(p.note?'Edit note':'Add note')+'</button>';
+  if(!isViewer&&isFailed&&!isGhost){h+='<button class="pd-action-btn pd-action-danger" onclick="closeModal(\'payment-detail-modal\');retryPayment('+p.id+')">↻ Retry payment</button>';}
+  h+='</div></div>';
+  h+='</div></div></div>';
+  document.getElementById('payment-detail-body').innerHTML=h;
+}
+function openPaymentModal(p){
+  if(!p||!p.id)return;
+  var needsFinancialSync=p.status==='succeeded'&&p.stripe_payment_intent&&(p.stripe_fee===undefined||p.stripe_fee===null||p.net_amount===undefined||p.net_amount===null);
+  renderPaymentDetailModal(p, needsFinancialSync);
+  openModal('payment-detail-modal');
+  if(needsFinancialSync){
+    api('/api/payments/'+p.id+'/financials').then(function(updated){
+      var merged=Object.assign({},p,updated||{});
+      renderPaymentDetailModal(merged,false);
+      if(Array.isArray(allPayments)){
+        var idx=allPayments.findIndex(function(x){return String(x.id)===String(p.id);});
+        if(idx>=0)allPayments[idx]=Object.assign({},allPayments[idx],updated||{});
+      }
+    }).catch(function(){renderPaymentDetailModal(p,false);});
+  }
+}
 async function retryPayment(id){toast('Retrying…');try{const r=await api('/api/payments/'+id+'/retry',{method:'POST'});if(r.success){toast('✓ Succeeded');loadPayments();loadStats();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
 async function loadWebhooks(){try{const list=await api('/api/webhook-logs');const tb=document.getElementById('webhook-table');if(!list.length){tb.innerHTML='<tr><td colspan="4" class="empty">No webhook events yet</td></tr>';return;}tb.innerHTML=list.map(w=>'<tr><td class="mono" style="font-size:12px;">'+w.event_type+'</td><td style="font-size:12px;color:var(--muted);">'+(w.account_name||'—')+'</td><td>'+badge(w.status||'ok')+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+fmtTime(w.created_at)+'</td></tr>').join('');}catch(e){}}
 async function loadSettings(){try{appSettings=await api('/api/settings');document.getElementById('setting-dunning').checked=appSettings.dunning_enabled==='true';document.getElementById('setting-dunning-days').value=appSettings.dunning_days||'3,7,14';document.getElementById('setting-auto-resume').checked=appSettings.pause_auto_resume==='true';document.getElementById('setting-proration').checked=appSettings.proration_enabled==='true';document.getElementById('setting-webhook-logs').checked=appSettings.webhook_logs_enabled==='true';}catch(e){}}

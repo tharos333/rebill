@@ -71,13 +71,13 @@ async function ensureWebhookColumns() {
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_exp_year INT').catch(()=>{});
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_country TEXT').catch(()=>{});
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_funding TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS stripe_fee INT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS net_amount INT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS balance_transaction_id TEXT').catch(()=>{});
   await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT').catch(()=>{});
   await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_price_id TEXT').catch(()=>{});
   await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_invoice_id TEXT').catch(()=>{});
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS stripe_invoice_id TEXT').catch(()=>{});
-  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS stripe_fee INT').catch(()=>{});
-  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS net_amount INT').catch(()=>{});
-  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS balance_transaction_id TEXT').catch(()=>{});
   await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS subscriptions_stripe_subscription_uidx ON subscriptions(stripe_subscription_id) WHERE stripe_subscription_id IS NOT NULL').catch(()=>{});
   await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS payments_stripe_payment_intent_uidx ON payments(stripe_payment_intent) WHERE stripe_payment_intent IS NOT NULL').catch(()=>{});
 }
@@ -294,7 +294,7 @@ function normalizeCardBrand(brand) {
 }
 
 async function getCardDetailsFromPaymentIntent(stripe, pi) {
-  const details = { brand: null, last4: null, exp_month: null, exp_year: null, country: null, funding: null, billing_name: null, billing_email: null, stripe_fee: null, net_amount: null, balance_transaction_id: null };
+  const details = { brand: null, last4: null, exp_month: null, exp_year: null, country: null, funding: null, billing_name: null, billing_email: null };
 
   try {
     if ((!pi.latest_charge || typeof pi.latest_charge === 'string') || !pi.payment_method) {
@@ -311,20 +311,10 @@ async function getCardDetailsFromPaymentIntent(stripe, pi) {
   let card = null;
   try {
     let charge = pi.latest_charge;
-    if (charge && typeof charge === 'string') charge = await stripe.charges.retrieve(charge, { expand: ['balance_transaction'] });
-    if (charge && typeof charge.balance_transaction === 'string') {
-      try { charge.balance_transaction = await stripe.balanceTransactions.retrieve(charge.balance_transaction); } catch(_) {}
-    }
+    if (charge && typeof charge === 'string') charge = await stripe.charges.retrieve(charge);
     card = charge?.payment_method_details?.card || null;
     details.billing_name = charge?.billing_details?.name || null;
     details.billing_email = cleanEmail(charge?.billing_details?.email) || null;
-    if (charge?.balance_transaction && typeof charge.balance_transaction === 'object') {
-      details.stripe_fee = charge.balance_transaction.fee ?? null;
-      details.net_amount = charge.balance_transaction.net ?? null;
-      details.balance_transaction_id = charge.balance_transaction.id || null;
-    } else if (typeof charge?.balance_transaction === 'string') {
-      details.balance_transaction_id = charge.balance_transaction;
-    }
   } catch(e) {
     console.log('[payment] could not retrieve charge card details:', e.message);
   }
@@ -350,6 +340,32 @@ async function getCardDetailsFromPaymentIntent(stripe, pi) {
     details.funding = card.funding || null;
   }
   return details;
+}
+
+
+async function getFinancialsFromPaymentIntent(stripe, pi) {
+  const out = { stripe_fee: null, net_amount: null, balance_transaction_id: null, amount: null, currency: null };
+  try {
+    if (!pi?.id && typeof pi === 'string') {
+      pi = await stripe.paymentIntents.retrieve(pi, { expand: ['latest_charge.balance_transaction'] });
+    } else if (pi?.id && (!pi.latest_charge || typeof pi.latest_charge === 'string' || !pi.latest_charge.balance_transaction)) {
+      pi = await stripe.paymentIntents.retrieve(pi.id, { expand: ['latest_charge.balance_transaction'] });
+    }
+    let charge = pi.latest_charge;
+    if (charge && typeof charge === 'string') charge = await stripe.charges.retrieve(charge, { expand: ['balance_transaction'] });
+    let bt = charge?.balance_transaction || null;
+    if (bt && typeof bt === 'string') bt = await stripe.balanceTransactions.retrieve(bt);
+    if (bt) {
+      out.stripe_fee = typeof bt.fee === 'number' ? bt.fee : null;
+      out.net_amount = typeof bt.net === 'number' ? bt.net : null;
+      out.balance_transaction_id = bt.id || null;
+      out.amount = typeof bt.amount === 'number' ? bt.amount : null;
+      out.currency = bt.currency || null;
+    }
+  } catch(e) {
+    console.log('[payment] could not retrieve balance transaction:', e.message);
+  }
+  return out;
 }
 
 function subscriptionIdFromInvoice(invoice) {
@@ -409,8 +425,9 @@ async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null, f
 
   const status = forcedStatus || (pi.status === 'succeeded' ? 'succeeded' : (pi.status || 'failed'));
   const failureReason = pi.last_payment_error?.message || pi.cancellation_reason || null;
-  const amount = pi.amount_received || pi.amount || 0;
-  const currency = pi.currency || 'usd';
+  const financials = await getFinancialsFromPaymentIntent(stripe, pi);
+  const amount = pi.amount_received || financials.amount || pi.amount || 0;
+  const currency = pi.currency || financials.currency || 'usd';
 
   const existingPayment = await pool.query('SELECT id FROM payments WHERE stripe_payment_intent=$1', [pi.id]);
   if (existingPayment.rows[0]) {
@@ -419,7 +436,7 @@ async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null, f
       card_exp_month=COALESCE($10,card_exp_month), card_exp_year=COALESCE($11,card_exp_year), card_country=COALESCE($12,card_country), card_funding=COALESCE($13,card_funding),
       stripe_fee=COALESCE($14,stripe_fee), net_amount=COALESCE($15,net_amount), balance_transaction_id=COALESCE($16,balance_transaction_id)
       WHERE id=$17`,
-      [localCustomer.id, localSubId, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, cardDetails.stripe_fee, cardDetails.net_amount, cardDetails.balance_transaction_id, existingPayment.rows[0].id]);
+      [localCustomer.id, localSubId, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, existingPayment.rows[0].id]);
     console.log('[external-import] updated payment:', pi.id, 'customer:', localCustomer.email);
     return existingPayment.rows[0].id;
   }
@@ -427,7 +444,7 @@ async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null, f
   const ins = await pool.query(
     `INSERT INTO payments (customer_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,stripe_invoice_id,card_brand,card_last4,card_exp_month,card_exp_year,card_country,card_funding,stripe_fee,net_amount,balance_transaction_id)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING id`,
-    [localCustomer.id, localSubId, pi.id, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, cardDetails.stripe_fee, cardDetails.net_amount, cardDetails.balance_transaction_id]
+    [localCustomer.id, localSubId, pi.id, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, financials.stripe_fee, financials.net_amount, financials.balance_transaction_id]
   );
   console.log('[external-import] saved payment:', pi.id, 'row id:', ins.rows[0].id, 'customer:', localCustomer.email);
   await activityLog.add('payment', `Payment ${status} for ${localCustomer.email}`, localCustomer.id, amount).catch(()=>{});
@@ -940,6 +957,37 @@ app.delete('/api/subscriptions/:id', async (req, res) => { try { await subscript
 
 // ── Payments ──────────────────────────────────────────────────────────────────
 app.get('/api/payments', async (req, res) => { try { res.json(await payments.recent(1000)); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.get('/api/payments/:id/financials', async (req, res) => {
+  try {
+    await ensureWebhookColumns();
+    const r = await pool.query(`SELECT p.*, c.stripe_account_id, sa.secret_key, sa.name AS account_name
+      FROM payments p
+      JOIN customers c ON c.id=p.customer_id
+      LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id
+      WHERE p.id=$1`, [req.params.id]);
+    const payment = r.rows[0];
+    if (!payment) return res.status(404).json({ error: 'Payment not found' });
+    if (!payment.stripe_payment_intent) return res.json(payment);
+    if (!payment.secret_key) return res.status(400).json({ error: 'Stripe account secret key not found for this payment' });
+    const stripe = require('stripe')(payment.secret_key);
+    const pi = await stripe.paymentIntents.retrieve(payment.stripe_payment_intent, { expand: ['latest_charge.balance_transaction', 'payment_method', 'invoice'] });
+    const financials = await getFinancialsFromPaymentIntent(stripe, pi);
+    const cardDetails = await getCardDetailsFromPaymentIntent(stripe, pi);
+    const invoice = await getInvoiceFromPaymentIntent(stripe, pi);
+    const invoiceId = typeof invoice === 'string' ? invoice : invoice?.id || payment.stripe_invoice_id || null;
+    await pool.query(`UPDATE payments SET
+      stripe_fee=COALESCE($1,stripe_fee), net_amount=COALESCE($2,net_amount), balance_transaction_id=COALESCE($3,balance_transaction_id),
+      stripe_invoice_id=COALESCE($4,stripe_invoice_id), card_brand=COALESCE($5,card_brand), card_last4=COALESCE($6,card_last4),
+      card_exp_month=COALESCE($7,card_exp_month), card_exp_year=COALESCE($8,card_exp_year), card_country=COALESCE($9,card_country), card_funding=COALESCE($10,card_funding)
+      WHERE id=$11`, [financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, payment.id]);
+    const updated = await pool.query(`SELECT p.*, c.email, c.name, COALESCE(p.card_brand,c.card_brand) AS card_brand, COALESCE(p.card_last4,c.card_last4) AS card_last4, sa.name AS account_name
+      FROM payments p JOIN customers c ON c.id=p.customer_id LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id WHERE p.id=$1`, [payment.id]);
+    res.json(updated.rows[0] || payment);
+  } catch(err) {
+    console.error('[payment-financials] ERROR:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 app.post('/api/payments/:id/retry', async (req, res) => {
   try {
     const r = await pool.query('SELECT p.*, c.stripe_customer_id, c.stripe_payment_method, c.stripe_account_id, c.email, c.name FROM payments p JOIN customers c ON c.id=p.customer_id WHERE p.id=$1', [req.params.id]);
