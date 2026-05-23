@@ -361,11 +361,7 @@ html.light .customer-drawer{background:var(--surface)}
 @media(max-width:760px){.customer-drawer{width:100vw}.customer-detail-row{grid-template-columns:128px minmax(0,1fr);height:52px;padding:0 12px}.customer-drawer-scroll{padding:0 16px 20px}.customer-activity-head,.customer-activity-row{grid-template-columns:minmax(0,1fr) 82px 92px;gap:8px;padding:0 12px}.customer-activity-row{height:46px}.customer-activity-status{font-size:12px}}.customer-activity-row{height:52px}}
 
 
-/* Final customer drawer recent activity layout fix */
-#customer-detail-modal .customer-activity-head,
-#customer-detail-modal .customer-activity-row{
-  display:grid!important;
-  grid-template-columns:minmax(0,1fr) 96px 112px!important;
+max(0,1fr) 96px 112px!important;
   gap:14px!important;
   align-items:center!important;
   padding:0 14px!important;
@@ -427,6 +423,79 @@ html.light .customer-drawer{background:var(--surface)}
   }
   #customer-detail-modal .customer-activity-row{height:46px!important;min-height:46px!important;}
   #customer-detail-modal .customer-activity-status{font-size:12px!important;}
+}
+
+
+/* Customer drawer recent activity: clean 2-column layout */
+#customer-detail-modal .customer-activity-head,
+#customer-detail-modal .customer-activity-row{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) 128px!important;
+  gap:14px!important;
+  align-items:center!important;
+  padding:0 14px!important;
+}
+#customer-detail-modal .customer-activity-head{
+  height:32px!important;
+  background:var(--surface2)!important;
+  border-bottom:1px solid var(--border)!important;
+  font-family:var(--mono)!important;
+  font-size:10px!important;
+  text-transform:uppercase!important;
+  letter-spacing:.09em!important;
+  color:var(--muted)!important;
+  font-weight:600!important;
+}
+#customer-detail-modal .customer-activity-row{
+  min-height:54px!important;
+  height:54px!important;
+  border-bottom:1px solid var(--border)!important;
+  font-size:13.5px!important;
+  font-weight:500!important;
+  color:var(--text)!important;
+}
+#customer-detail-modal .customer-activity-head > div:first-child,
+#customer-detail-modal .customer-activity-row > div:first-child{
+  text-align:left!important;
+  min-width:0!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+}
+#customer-detail-modal .customer-activity-head > div:last-child,
+#customer-detail-modal .customer-activity-row > div:last-child{
+  text-align:right!important;
+}
+#customer-detail-modal .customer-activity-amount{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:flex-end!important;
+  justify-content:center!important;
+  gap:4px!important;
+  min-width:0!important;
+}
+#customer-detail-modal .customer-activity-money{
+  color:var(--text)!important;
+  font-size:13.5px!important;
+  font-weight:500!important;
+  line-height:1!important;
+  white-space:nowrap!important;
+}
+#customer-detail-modal .customer-activity-status{
+  font-size:11px!important;
+  font-weight:500!important;
+  line-height:1!important;
+  white-space:nowrap!important;
+}
+#customer-detail-modal .customer-activity-status.value-green{color:var(--green)!important;}
+#customer-detail-modal .customer-activity-status.value-red{color:var(--red)!important;}
+@media(max-width:760px){
+  #customer-detail-modal .customer-activity-head,
+  #customer-detail-modal .customer-activity-row{
+    grid-template-columns:minmax(0,1fr) 112px!important;
+    gap:10px!important;
+    padding:0 12px!important;
+  }
 }
 
 </style>
@@ -1845,10 +1914,10 @@ function customerPauseStatus(c){return c.status==='paused'?'Paused':'Active';}
 function customerDetailRow(label,value,cls){return '<div class="customer-detail-row"><div class="customer-detail-label">'+label+'</div><div class="customer-detail-value '+(cls||'')+'">'+(value==null||value===''?'—':value)+'</div></div>';}
 function customerActivityRows(rows){
   if(!rows||!rows.length)return '<div class="customer-detail-empty">No recent payments</div>';
-  return '<div class="customer-activity-head"><div>Date</div><div>Amount</div><div>Status</div></div>'+rows.map(function(r){
+  return '<div class="customer-activity-head"><div>Date</div><div>Amount</div></div>'+rows.map(function(r){
     var statusText=(r.status||'—');
     statusText=statusText.charAt(0).toUpperCase()+statusText.slice(1);
-    return '<div class="customer-activity-row"><div>'+fmtDate(r.created_at)+'</div><div>'+fmt(r.amount,r.currency)+'</div><div class="customer-activity-status '+customerValueClass(r.status)+'">'+escapeCustomerHtml(statusText)+'</div></div>';
+    return '<div class="customer-activity-row"><div>'+fmtDate(r.created_at)+'</div><div class="customer-activity-amount"><span class="customer-activity-money">'+fmt(r.amount,r.currency)+'</span><span class="customer-activity-status '+customerValueClass(r.status)+'">'+escapeCustomerHtml(statusText)+'</span></div></div>';
   }).join('');
 }
 function buildCustomerDrawer(data){
