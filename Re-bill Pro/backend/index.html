@@ -1043,6 +1043,27 @@ html.light #customer-detail-modal .customer-drawer-close:hover{
   border-color:rgba(17,17,24,.24)!important;
 }
 
+
+/* Make only the X glyph a little longer on payment + customer drawers */
+#payment-detail-modal .payment-detail-close,
+#customer-detail-modal .customer-drawer-close{
+  width:38px!important;
+  height:38px!important;
+  min-width:38px!important;
+  min-height:38px!important;
+  padding:0!important;
+  font-size:23px!important;
+  font-weight:400!important;
+  line-height:1!important;
+  letter-spacing:0!important;
+}
+#payment-detail-modal .payment-detail-close{
+  transform:scaleX(1.10)!important;
+}
+#customer-detail-modal .customer-drawer-close{
+  transform:scaleX(1.10)!important;
+}
+
 </style>
 </head>
 <body>
