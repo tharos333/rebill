@@ -149,7 +149,7 @@ textarea{resize:vertical;min-height:60px}
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:500;align-items:center;justify-content:center}
 .modal-bg.open{display:flex}
 .modal{background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:26px;width:460px;max-width:95vw;max-height:90vh;overflow-y:auto}
-#payment-detail-modal{background:rgba(0,0,0,.58);align-items:stretch;justify-content:flex-end;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);}
+#payment-detail-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);z-index:600;justify-content:flex-end}
 #payment-detail-modal .modal{background:transparent!important;border:none!important;padding:0!important;width:500px!important;max-width:min(500px,calc(100vw - 18px))!important;max-height:100vh!important;height:100vh!important;border-radius:0!important;font-family:var(--sans)!important;box-shadow:none!important;overflow:visible!important;transform:translateX(18px);opacity:0;transition:transform .18s ease,opacity .18s ease;}
 #payment-detail-modal.open .modal{transform:translateX(0);opacity:1;}
 .modal h3{font-size:16px;font-weight:600;margin-bottom:4px}
@@ -554,6 +554,14 @@ html.light #customer-detail-modal .customer-drawer-sections::-webkit-scrollbar-t
 @media(max-width:760px){
   #customer-detail-modal .customer-drawer-scroll{padding:0 16px 20px!important}
   #customer-detail-modal .customer-drawer-title{max-width:calc(100vw - 120px)}
+}
+
+
+/* Payment drawer blur background matched to customer drawer */
+html.light #payment-detail-modal{
+  background:rgba(16,16,22,.34)!important;
+  backdrop-filter:blur(10px)!important;
+  -webkit-backdrop-filter:blur(10px)!important;
 }
 
 </style>
