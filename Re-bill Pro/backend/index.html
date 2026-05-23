@@ -1938,7 +1938,7 @@ function customerPauseStatus(c){return c.status==='paused'?'Paused':'Active';}
 function customerNoteRow(c){
   const safeNote = escapeCustomerHtml(c.note || 'No note added');
   const encodedNote = encodeURIComponent(c.note || '');
-  return '<div class="customer-detail-row customer-note-row" onclick="openNoteModal('+c.id+',\''+encodedNote+'\')"><div class="customer-detail-label">Note</div><div class="customer-detail-value customer-note-value"><span>'+safeNote+'</span><span class="customer-note-edit">Edit</span></div></div>';
+  return '<div class="customer-detail-row customer-note-row" onclick="closeCustomerDrawer();openNoteModal('+c.id+',\''+encodedNote+'\')"><div class="customer-detail-label">Note</div><div class="customer-detail-value customer-note-value"><span>'+safeNote+'</span><span class="customer-note-edit">Edit</span></div></div>';
 }
 function customerDetailRow(label,value,cls){return '<div class="customer-detail-row"><div class="customer-detail-label">'+label+'</div><div class="customer-detail-value '+(cls||'')+'">'+(value==null||value===''?'—':value)+'</div></div>';}
 function customerActivityRows(rows){
@@ -2029,7 +2029,7 @@ async function addCustomer(){
   try{const r=await api('/api/customers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(r.success){toast('✓ Customer added');closeModal('add-customer-modal');loadCustomers();}else toast('Error: '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}
 }
 function openNoteModal(id,note){document.getElementById('note-customer-id').value=id;document.getElementById('note-text').value=decodeURIComponent(note);openModal('note-modal');}
-async function saveNote(){const id=document.getElementById('note-customer-id').value,note=document.getElementById('note-text').value;await api('/api/customers/'+id+'/note',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({note})});toast('✓ Note saved');closeModal('note-modal');loadCustomers();if(typeof currentCustomerDrawerId!=='undefined' && String(currentCustomerDrawerId)===String(id)){openCustomerDrawer(id);}}
+async function saveNote(){const id=document.getElementById('note-customer-id').value,note=document.getElementById('note-text').value;await api('/api/customers/'+id+'/note',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({note})});toast('✓ Note saved');closeModal('note-modal');loadCustomers();}
 async function createPaymentLink(){
   const btn=document.getElementById('create-link-btn');btn.textContent='Creating…';btn.disabled=true;
   try{const r=await api('/api/payment-links',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:document.getElementById('link-name').value,amount:Math.round(parseFloat(document.getElementById('link-amount').value)*100),currency:document.getElementById('link-currency').value,interval_days:parseInt(document.getElementById('link-interval').value),stripe_account_id:document.getElementById('link-account').value||null})});if(r.url){currentLink=r.url;document.getElementById('link-url').textContent=r.url;document.getElementById('link-result').classList.add('visible');toast('✓ Link created');}else toast('Error: '+(r.error||'Unknown'),'error');}catch(e){toast('Server error','error');}
