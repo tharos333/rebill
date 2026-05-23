@@ -56,11 +56,6 @@ async function init() {
       card_exp_year INT,
       card_country TEXT,
       card_funding TEXT,
-      stripe_invoice_id TEXT,
-      stripe_fee INT,
-      net_amount INT,
-      balance_transaction_id TEXT,
-      financial_currency TEXT,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS settings (
@@ -119,11 +114,6 @@ async function init() {
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_exp_year INT',
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_country TEXT',
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_funding TEXT',
-    'ALTER TABLE payments ADD COLUMN IF NOT EXISTS stripe_invoice_id TEXT',
-    'ALTER TABLE payments ADD COLUMN IF NOT EXISTS stripe_fee INT',
-    'ALTER TABLE payments ADD COLUMN IF NOT EXISTS net_amount INT',
-    'ALTER TABLE payments ADD COLUMN IF NOT EXISTS balance_transaction_id TEXT',
-    'ALTER TABLE payments ADD COLUMN IF NOT EXISTS financial_currency TEXT',
   ];
   for (const m of migrations) await pool.query(m).catch(() => {});
   const adminCount = await pool.query('SELECT COUNT(*) FROM admin_users');
@@ -209,6 +199,73 @@ const customers = {
   upsert: async (data) => { await pool.query(`INSERT INTO customers (email,name,stripe_customer_id,stripe_payment_method,stripe_account_id,card_brand,card_last4,card_exp_month,card_exp_year) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (stripe_customer_id) DO UPDATE SET stripe_payment_method=EXCLUDED.stripe_payment_method, stripe_account_id=EXCLUDED.stripe_account_id, card_brand=EXCLUDED.card_brand, card_last4=EXCLUDED.card_last4, card_exp_month=EXCLUDED.card_exp_month, card_exp_year=EXCLUDED.card_exp_year`, [data.email, data.name, data.stripe_customer_id, data.stripe_payment_method, data.stripe_account_id||null, data.card_brand, data.card_last4, data.card_exp_month, data.card_exp_year]); },
   updateStatus: async (id, status) => { await pool.query('UPDATE customers SET status=$1 WHERE id=$2', [status, id]); },
   updateNote: async (id, note) => { await pool.query('UPDATE customers SET note=$1 WHERE id=$2', [note, id]); },
+  detail: async (id) => {
+    const customerRes = await pool.query(`
+      WITH sub_stats AS (
+        SELECT customer_id,
+          COUNT(*) FILTER (WHERE status='active') as active_subs,
+          COUNT(*) FILTER (WHERE status='paused') as paused_subs,
+          COUNT(*) as total_subs,
+          MIN(next_billing_date) FILTER (WHERE status='active') as next_billing_date
+        FROM subscriptions
+        WHERE customer_id=$1
+        GROUP BY customer_id
+      ),
+      pay_stats AS (
+        SELECT customer_id,
+          COALESCE(SUM(CASE WHEN status='succeeded' THEN amount ELSE 0 END),0) as total_paid,
+          COUNT(*) FILTER (WHERE status='succeeded') as successful_payments,
+          COUNT(*) FILTER (WHERE status='failed') as failed_payments,
+          AVG(amount) FILTER (WHERE status='succeeded') as avg_payment
+        FROM payments
+        WHERE customer_id=$1
+        GROUP BY customer_id
+      )
+      SELECT c.*, sa.name as account_name,
+        COALESCE(ss.active_subs,0) as active_subs,
+        COALESCE(ss.paused_subs,0) as paused_subs,
+        COALESCE(ss.total_subs,0) as total_subs,
+        ss.next_billing_date,
+        COALESCE(ps.total_paid,0) as total_paid,
+        COALESCE(ps.successful_payments,0) as successful_payments,
+        COALESCE(ps.failed_payments,0) as failed_payments,
+        COALESCE(ps.avg_payment,0) as avg_payment,
+        lp.amount as last_payment_amount,
+        lp.currency as last_payment_currency,
+        lp.created_at as last_payment_at,
+        lp.status as last_payment_status,
+        ld.card_country,
+        ld.card_funding
+      FROM customers c
+      LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id
+      LEFT JOIN sub_stats ss ON ss.customer_id=c.id
+      LEFT JOIN pay_stats ps ON ps.customer_id=c.id
+      LEFT JOIN LATERAL (
+        SELECT amount, currency, created_at, status
+        FROM payments
+        WHERE customer_id=c.id
+        ORDER BY created_at DESC
+        LIMIT 1
+      ) lp ON true
+      LEFT JOIN LATERAL (
+        SELECT card_country, card_funding
+        FROM payments
+        WHERE customer_id=c.id AND (card_country IS NOT NULL OR card_funding IS NOT NULL)
+        ORDER BY created_at DESC
+        LIMIT 1
+      ) ld ON true
+      WHERE c.id=$1
+      LIMIT 1
+    `,[id]);
+    const recentRes = await pool.query(`
+      SELECT id, amount, currency, status, failure_reason, created_at
+      FROM payments
+      WHERE customer_id=$1
+      ORDER BY created_at DESC
+      LIMIT 5
+    `,[id]);
+    return { customer: customerRes.rows[0]||null, recent_payments: recentRes.rows };
+  },
   stats: async () => { const r = await pool.query(`SELECT COUNT(*) as total, COUNT(CASE WHEN status='active' THEN 1 END) as active, COUNT(CASE WHEN created_at >= NOW() - INTERVAL '30 days' THEN 1 END) as new_30d, COUNT(CASE WHEN status='cancelled' AND created_at >= NOW() - INTERVAL '30 days' THEN 1 END) as churned_30d FROM customers`); return r.rows[0]; },
 };
 const subscriptions = {
@@ -270,7 +327,7 @@ const payments = {
   recent: async (limit=50) => { const r = await pool.query('SELECT p.*, c.email, c.name, COALESCE(p.card_brand,c.card_brand) AS card_brand, COALESCE(p.card_last4,c.card_last4) AS card_last4, sa.name AS account_name FROM payments p JOIN customers c ON c.id=p.customer_id LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id ORDER BY p.created_at DESC LIMIT $1', [limit]); return r.rows; },
   byCustomer: async (cid) => { const r = await pool.query('SELECT * FROM payments WHERE customer_id=$1 ORDER BY created_at DESC', [cid]); return r.rows; },
   stats: async () => { const r = await pool.query(`SELECT COUNT(CASE WHEN status='succeeded' THEN 1 END) as succeeded_count, COUNT(CASE WHEN status='failed' THEN 1 END) as failed_count, COALESCE(SUM(CASE WHEN status='succeeded' THEN amount ELSE 0 END),0) as total_revenue, COUNT(CASE WHEN status='succeeded' AND created_at >= NOW()-INTERVAL '30 days' THEN 1 END) as count_30d, COALESCE(SUM(CASE WHEN status='succeeded' AND created_at >= NOW()-INTERVAL '30 days' THEN amount ELSE 0 END),0) as revenue_30d FROM payments`); return r.rows[0]; },
-  insert: async (data) => { await pool.query('INSERT INTO payments (customer_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,card_brand,card_last4,card_exp_month,card_exp_year,card_country,card_funding,stripe_invoice_id,stripe_fee,net_amount,balance_transaction_id,financial_currency) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)', [data.customer_id, data.subscription_id, data.stripe_payment_intent, data.amount, data.currency, data.status, data.failure_reason, data.card_brand||null, data.card_last4||null, data.card_exp_month||null, data.card_exp_year||null, data.card_country||null, data.card_funding||null, data.stripe_invoice_id||null, data.stripe_fee??null, data.net_amount??null, data.balance_transaction_id||null, data.financial_currency||null]); },
+  insert: async (data) => { await pool.query('INSERT INTO payments (customer_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,card_brand,card_last4,card_exp_month,card_exp_year,card_country,card_funding) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)', [data.customer_id, data.subscription_id, data.stripe_payment_intent, data.amount, data.currency, data.status, data.failure_reason, data.card_brand||null, data.card_last4||null, data.card_exp_month||null, data.card_exp_year||null, data.card_country||null, data.card_funding||null]); },
 };
 const activityLog = {
   add: async (type, description, customer_id=null, amount=null) => { await pool.query('INSERT INTO activity_log (type,description,customer_id,amount) VALUES ($1,$2,$3,$4)', [type, description, customer_id, amount]).catch(()=>{}); },
