@@ -1486,6 +1486,45 @@ function openPaymentModal(p){
   h+='<div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;">Failure Reason</div>';
   h+=failCell+'</div></div>';
 
+  // Extra rows: fee, net, country, receipt, card expiry
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--border2);">';
+  h+='<div style="padding:14px 18px;border-right:1px solid var(--border2);">';
+  h+='<div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;">Fee</div>';
+  h+='<div style="font-size:14px;font-weight:700;color:var(--muted);" id="pm-fee-'+p.id+'">—</div></div>';
+  h+='<div style="padding:14px 18px;">';
+  h+='<div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;">Net</div>';
+  h+='<div style="font-size:14px;font-weight:700;color:var(--text);" id="pm-net-'+p.id+'">—</div></div>';
+  h+='</div>';
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--border2);">';
+  h+='<div style="padding:14px 18px;border-right:1px solid var(--border2);">';
+  h+='<div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;">Country</div>';
+  h+='<div style="font-size:14px;font-weight:700;color:var(--text);" id="pm-country-'+p.id+'">—</div></div>';
+  h+='<div style="padding:14px 18px;">';
+  h+='<div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;">Card Expires</div>';
+  h+='<div style="font-size:14px;font-weight:700;color:var(--text);" id="pm-exp-'+p.id+'">—</div></div>';
+  h+='</div>';
+  h+='<div style="padding:14px 18px;border-bottom:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between;">';
+  h+='<div><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;">Receipt</div>';
+  h+='<div id="pm-receipt-'+p.id+'" style="font-size:13px;color:var(--muted);">Loading...</div></div></div>';
+
+  // Fetch extra Stripe details async and inject later
+  var modalId='pm-extra-'+p.id;
+  setTimeout(function(){
+    api('/api/payment/'+p.id+'/details').then(function(d){
+      if(!d)return;
+      var feeEl=document.getElementById('pm-fee-'+p.id);
+      var netEl=document.getElementById('pm-net-'+p.id);
+      var cntEl=document.getElementById('pm-country-'+p.id);
+      var expEl=document.getElementById('pm-exp-'+p.id);
+      var rcpEl=document.getElementById('pm-receipt-'+p.id);
+      if(feeEl&&d.fee!=null)feeEl.textContent=fmtExact(d.fee,d.currency||p.currency||'gbp');
+      if(netEl&&d.net!=null)netEl.textContent=fmtExact(d.net,d.currency||p.currency||'gbp');
+      if(cntEl&&d.billing_country)cntEl.textContent=d.billing_country;
+      if(expEl&&d.card_exp_month)expEl.textContent=(String(d.card_exp_month).padStart(2,'0'))+' / '+d.card_exp_year;
+      if(rcpEl&&d.receipt_url){rcpEl.innerHTML='<a href="'+d.receipt_url+'" target="_blank" style="color:var(--accent);text-decoration:none;font-size:12px;">View receipt ↗</a>';}
+    }).catch(function(){});
+  },100);
+
   // Payment ID
   h+='<div style="padding:14px 18px;border-bottom:1px solid var(--border2);display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">';
   h+='<div style="flex:1;min-width:0;"><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px;">Payment ID</div>';
