@@ -766,6 +766,182 @@ html.light #customer-detail-modal{
   }
 }
 
+
+/* Final unified info-box sizing: payment drawer + customer drawer */
+/* Only the info boxes/tables are affected. Top payment summary and customer name/icon are untouched. */
+#payment-detail-modal .pd-sections-stack{
+  display:flex!important;
+  flex-direction:column!important;
+  gap:10px!important;
+}
+#payment-detail-modal .pd-section-list,
+#customer-detail-modal .customer-panel{
+  border-radius:10px!important;
+  overflow:hidden!important;
+  border:1px solid var(--border)!important;
+  background:var(--surface)!important;
+}
+#customer-detail-modal .customer-panel{
+  margin-top:10px!important;
+}
+#payment-detail-modal .pd-section-title,
+#customer-detail-modal .customer-panel-title{
+  height:28px!important;
+  min-height:28px!important;
+  padding:0 12px!important;
+  display:flex!important;
+  align-items:center!important;
+  background:var(--surface2)!important;
+  border-bottom:1px solid var(--border)!important;
+  font-family:var(--mono)!important;
+  font-size:10px!important;
+  line-height:1!important;
+  letter-spacing:.10em!important;
+  text-transform:uppercase!important;
+  font-weight:800!important;
+  color:var(--muted)!important;
+}
+#payment-detail-modal .pd-row,
+#customer-detail-modal .customer-detail-row{
+  height:48px!important;
+  min-height:48px!important;
+  display:grid!important;
+  grid-template-columns:142px minmax(0,1fr)!important;
+  gap:12px!important;
+  align-items:center!important;
+  padding:0 12px!important;
+  border-bottom:1px solid var(--border)!important;
+  background:var(--surface)!important;
+}
+#payment-detail-modal .pd-row:last-child,
+#customer-detail-modal .customer-detail-row:last-child{
+  border-bottom:none!important;
+}
+#payment-detail-modal .pd-label,
+#customer-detail-modal .customer-detail-label{
+  font-family:var(--mono)!important;
+  font-size:10px!important;
+  line-height:1!important;
+  letter-spacing:.09em!important;
+  text-transform:uppercase!important;
+  font-weight:600!important;
+  color:var(--muted)!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+#payment-detail-modal .pd-value,
+#customer-detail-modal .customer-detail-value{
+  font-family:var(--sans)!important;
+  font-size:13px!important;
+  line-height:1.15!important;
+  font-weight:500!important;
+  color:var(--text)!important;
+  text-align:right!important;
+  min-width:0!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+#payment-detail-modal .pd-value.green,
+#payment-detail-modal .pd-value.value-green,
+#customer-detail-modal .customer-detail-value.value-green{
+  color:var(--green)!important;
+}
+#payment-detail-modal .pd-value.red,
+#payment-detail-modal .pd-value.value-red,
+#customer-detail-modal .customer-detail-value.value-red{
+  color:var(--red)!important;
+}
+#payment-detail-modal .pd-value .payment-card,
+#customer-detail-modal .customer-detail-value .payment-card{
+  justify-content:flex-end!important;
+}
+#payment-detail-modal .payment-card,
+#customer-detail-modal .payment-card{
+  font-size:13px!important;
+}
+#payment-detail-modal .payment-last4,
+#customer-detail-modal .payment-last4,
+#payment-detail-modal .payment-dots,
+#customer-detail-modal .payment-dots{
+  font-size:12px!important;
+  font-weight:500!important;
+}
+
+/* Recent activity uses the same compact rhythm as the info boxes */
+#customer-detail-modal .customer-activity-head{
+  height:28px!important;
+  min-height:28px!important;
+  padding:0 12px!important;
+  font-family:var(--mono)!important;
+  font-size:10px!important;
+  letter-spacing:.10em!important;
+  text-transform:uppercase!important;
+  font-weight:800!important;
+  color:var(--muted)!important;
+  background:var(--surface2)!important;
+  border-bottom:1px solid var(--border)!important;
+}
+#customer-detail-modal .customer-activity-row{
+  height:48px!important;
+  min-height:48px!important;
+  padding:0 12px!important;
+  font-size:13px!important;
+  font-weight:500!important;
+  border-bottom:1px solid var(--border)!important;
+}
+
+/* Light mode parity */
+html.light #payment-detail-modal .pd-section-list,
+html.light #customer-detail-modal .customer-panel{
+  background:#fff!important;
+  border-color:rgba(17,17,24,.12)!important;
+}
+html.light #payment-detail-modal .pd-section-title,
+html.light #customer-detail-modal .customer-panel-title,
+html.light #customer-detail-modal .customer-activity-head{
+  background:#f6f6f9!important;
+  border-color:rgba(17,17,24,.08)!important;
+  color:#777a86!important;
+}
+html.light #payment-detail-modal .pd-row,
+html.light #customer-detail-modal .customer-detail-row,
+html.light #customer-detail-modal .customer-activity-row{
+  background:#fff!important;
+  border-color:rgba(17,17,24,.08)!important;
+}
+
+/* Responsive: keep both payment/customer boxes identical */
+@media(max-width:760px){
+  #payment-detail-modal .pd-sections-stack{
+    gap:8px!important;
+  }
+  #customer-detail-modal .customer-panel{
+    margin-top:8px!important;
+  }
+  #payment-detail-modal .pd-section-title,
+  #customer-detail-modal .customer-panel-title,
+  #customer-detail-modal .customer-activity-head{
+    height:26px!important;
+    min-height:26px!important;
+    padding:0 10px!important;
+  }
+  #payment-detail-modal .pd-row,
+  #customer-detail-modal .customer-detail-row,
+  #customer-detail-modal .customer-activity-row{
+    height:46px!important;
+    min-height:46px!important;
+    grid-template-columns:120px minmax(0,1fr)!important;
+    gap:10px!important;
+    padding:0 10px!important;
+  }
+  #payment-detail-modal .pd-value,
+  #customer-detail-modal .customer-detail-value{
+    font-size:12.5px!important;
+  }
+}
+
 </style>
 </head>
 <body>
