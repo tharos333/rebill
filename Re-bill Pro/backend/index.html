@@ -326,7 +326,7 @@ body.drawer-open{overflow:hidden}
 .customer-drawer-close{width:36px;height:36px;border-radius:12px;background:var(--surface2);border:1px solid var(--border2);color:var(--muted);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
 .customer-drawer-close:hover{color:var(--text);border-color:var(--accent)}
 .customer-drawer-scroll{flex:1;min-height:0;overflow-y:auto;padding:0 20px 20px}
-.customer-drawer-hero{text-align:center;padding:2px 4px 16px}
+.customer-drawer-hero{text-align:center;padding:2px 4px 14px}.customer-title-wrap{display:flex;align-items:center;justify-content:center;gap:10px}.customer-title-icon{width:34px;height:34px;border-radius:10px;border:1px solid var(--border2);background:var(--surface2);display:inline-flex;align-items:center;justify-content:center;color:var(--muted);flex:0 0 auto}.customer-title-icon svg{width:18px;height:18px;display:block;stroke:currentColor}
 .customer-drawer-title{font-size:26px;font-weight:600;letter-spacing:-.04em;line-height:1.05}
 .customer-drawer-subtitle{font-size:13px;color:var(--muted);margin-top:4px}
 .customer-drawer-status{margin-top:12px;display:inline-flex;align-items:center;justify-content:center}
@@ -339,15 +339,15 @@ body.drawer-open{overflow:hidden}
 .customer-detail-value .payment-card{justify-content:flex-end}
 .customer-detail-value.value-green{color:var(--green)}
 .customer-detail-value.value-red{color:var(--red)}
-.customer-activity-head,.customer-activity-row{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;padding:0 14px}
+.customer-activity-head,.customer-activity-row{display:grid;grid-template-columns:minmax(0,1fr) 120px 120px;gap:14px;align-items:center;padding:0 14px}
 .customer-activity-head{height:32px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:10px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em}
-.customer-activity-row{min-height:40px;border-bottom:1px solid var(--border);font-size:12px}
+.customer-activity-row{min-height:40px;border-bottom:1px solid var(--border);font-size:12px}.customer-activity-head>div:nth-child(2),.customer-activity-head>div:nth-child(3),.customer-activity-row>div:nth-child(2),.customer-activity-row>div:nth-child(3){text-align:right}
 .customer-activity-row:last-child{border-bottom:none}
 .customer-drawer-actions{display:flex;gap:10px;margin-top:16px}
 .customer-drawer-actions .btn{flex:1;justify-content:center}
 .customer-detail-empty{padding:16px 14px;color:var(--muted);font-size:12px;font-family:var(--mono)}
 html.light .customer-drawer{background:var(--surface)}
-@media(max-width:760px){.customer-drawer{width:100vw}.customer-detail-row{grid-template-columns:120px minmax(0,1fr)}.customer-drawer-scroll{padding:0 14px 16px}}
+@media(max-width:760px){.customer-drawer{width:100vw}.customer-detail-row{grid-template-columns:120px minmax(0,1fr)}.customer-drawer-scroll{padding:0 14px 16px}.customer-activity-head,.customer-activity-row{grid-template-columns:minmax(0,1fr) 92px 96px;gap:10px}}
 
 </style>
 </head>
@@ -1768,7 +1768,7 @@ function customerActivityRows(rows){
   return '<div class="customer-activity-head"><div>Date</div><div>Amount</div><div>Status</div></div>'+rows.map(function(r){
     var statusText=(r.status||'—');
     statusText=statusText.charAt(0).toUpperCase()+statusText.slice(1);
-    return '<div class="customer-activity-row"><div>'+fmtDate(r.created_at)+'</div><div>'+fmt(r.amount,r.currency)+'</div><div class="customer-detail-value '+customerValueClass(r.status)+'" style="text-align:left;overflow:visible;white-space:nowrap;">'+escapeCustomerHtml(statusText)+'</div></div>';
+    return '<div class="customer-activity-row"><div>'+fmtDate(r.created_at)+'</div><div>'+fmt(r.amount,r.currency)+'</div><div class="customer-detail-value '+customerValueClass(r.status)+'" style="overflow:visible;white-space:nowrap;">'+escapeCustomerHtml(statusText)+'</div></div>';
   }).join('');
 }
 function buildCustomerDrawer(data){
@@ -1779,8 +1779,7 @@ function buildCustomerDrawer(data){
   const totalPaid=fmt(c.total_paid||0,c.last_payment_currency||'usd');
   let h='';
   h+='<div class="customer-drawer-hero">';
-  h+='<div class="customer-drawer-title">'+escapeCustomerHtml(c.name||'Customer')+'</div>';
-  h+='<div class="customer-drawer-subtitle">Customer profile</div>';
+  h+='<div class="customer-title-wrap"><span class="customer-title-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="8" r="4"/></svg></span><div class="customer-drawer-title">'+escapeCustomerHtml(c.name||'Customer')+'</div></div>';
   h+='</div>';
 
   h+='<div class="customer-panel"><div class="customer-panel-title">Customer profile</div>';
