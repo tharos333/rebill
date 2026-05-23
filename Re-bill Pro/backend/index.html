@@ -177,8 +177,8 @@ textarea{resize:vertical;min-height:60px}
 .payment-detail-shell{position:fixed;right:0;top:0;width:min(520px,100vw);height:100dvh;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;box-shadow:none!important}
 .payment-detail-top{position:sticky;top:0;z-index:8;flex:0 0 auto;height:56px;background:var(--surface);display:flex;justify-content:flex-end;align-items:center;padding:10px 16px;border-bottom:0;box-shadow:none!important}.payment-detail-close{width:38px;height:38px;border-radius:12px;border:1px solid var(--border2);background:var(--surface2);color:#a2a2ad;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:20px;font-family:var(--sans);transition:.15s}.payment-detail-close:hover{color:var(--text);border-color:rgba(255,255,255,.20);background:rgba(255,255,255,.06)}
 .payment-detail-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;padding:0 24px 22px;scrollbar-width:thin}.payment-detail-scroll::-webkit-scrollbar{width:7px}.payment-detail-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.18);border-radius:999px}
-.pd-hero{text-align:center;padding:0 4px 14px}.pd-hero-icon{width:46px;height:46px;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:10px}.pd-hero-icon.success{border:1px solid rgba(34,197,94,.22);background:rgba(34,197,94,.08);color:var(--green)}.pd-hero-icon.failed{border:1px solid rgba(248,113,113,.26);background:rgba(248,113,113,.09);color:var(--red)}.pd-hero-icon.neutral{border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--muted)}.pd-hero-title{font-size:17px;font-weight:700;letter-spacing:-.2px;color:var(--text)}.pd-hero-amount{font-size:33px;line-height:1.04;font-weight:800;letter-spacing:-1.1px;margin-top:6px;color:var(--text)}.pd-hero-amount.success{color:var(--text)}.pd-hero-amount.failed{color:var(--red)}.pd-hero-sub{font-size:12.5px;color:var(--muted);margin-top:5px}
-.pd-status-row{min-height:44px;border:1px solid var(--border2);border-radius:10px;background:var(--surface2);display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:8px;padding:6px 10px;margin-bottom:14px}.pd-date-chip{min-height:30px;display:flex;align-items:center;gap:8px;min-width:0;color:#d6d6dc;font-size:12px;font-weight:500}.pd-date-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pd-tz-chip{height:30px;padding:0 12px;border-radius:9px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.035);display:inline-flex;align-items:center;justify-content:center;color:#d5d5dc;font-size:12px;font-family:var(--sans);font-weight:500;line-height:1;white-space:nowrap}.pd-status-pill{height:30px;padding:0 12px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;gap:7px;font-size:12px;font-weight:600;line-height:1;border:1px solid transparent;white-space:nowrap}.pd-status-pill.success{color:var(--green);background:rgba(34,197,94,.11);border-color:rgba(34,197,94,.14)}.pd-status-pill.failed{color:var(--red);background:rgba(248,113,113,.09);border-color:rgba(248,113,113,.14)}.pd-dot{width:7px;height:7px;border-radius:99px;background:currentColor}
+.pd-hero{text-align:center;padding:0 4px 14px}.pd-hero-icon{width:46px;height:46px;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:10px}.pd-hero-icon.success{border:1px solid rgba(34,197,94,.22);background:rgba(34,197,94,.08);color:var(--green)}.pd-hero-icon.failed{border:1px solid rgba(248,113,113,.26);background:rgba(248,113,113,.09);color:var(--red)}.pd-hero-icon.info{border:1px solid rgba(96,165,250,.28);background:rgba(59,130,246,.10);color:#60a5fa}.pd-hero-icon.neutral{border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--muted)}.pd-hero-title{font-size:17px;font-weight:700;letter-spacing:-.2px;color:var(--text)}.pd-hero-amount{font-size:33px;line-height:1.04;font-weight:800;letter-spacing:-1.1px;margin-top:6px;color:var(--text)}.pd-hero-amount.success{color:var(--text)}.pd-hero-amount.failed{color:var(--red)}.pd-hero-sub{font-size:12.5px;color:var(--muted);margin-top:5px}
+.pd-status-row{min-height:44px;border:1px solid var(--border2);border-radius:10px;background:var(--surface2);display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:8px;padding:6px 10px;margin-bottom:14px}.pd-date-chip{min-height:30px;display:flex;align-items:center;gap:8px;min-width:0;color:#d6d6dc;font-size:12px;font-weight:500}.pd-date-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pd-tz-chip{height:30px;padding:0 12px;border-radius:9px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.035);display:inline-flex;align-items:center;justify-content:center;color:#d5d5dc;font-size:12px;font-family:var(--sans);font-weight:500;line-height:1;white-space:nowrap}.pd-status-pill{height:30px;padding:0 12px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;gap:7px;font-size:12px;font-weight:600;line-height:1;border:1px solid transparent;white-space:nowrap}.pd-status-pill.success{color:var(--green);background:rgba(34,197,94,.11);border-color:rgba(34,197,94,.14)}.pd-status-pill.failed{color:var(--red);background:rgba(248,113,113,.09);border-color:rgba(248,113,113,.14)}.pd-status-pill.info{color:#60a5fa;background:rgba(59,130,246,.10);border-color:rgba(96,165,250,.18)}.pd-dot{width:7px;height:7px;border-radius:99px;background:currentColor}
 .pd-tabs{display:none!important}.pd-section-list{border:1px solid var(--border);border-radius:11px;overflow:hidden;margin-top:0;background:var(--surface)}.pd-section-title{height:32px;display:flex;align-items:center;padding:0 14px;background:var(--surface2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#8f8f9a;font-weight:900}.pd-section-title:first-child{border-top:none}.pd-row{height:54px;display:grid;grid-template-columns:152px minmax(0,1fr);align-items:center;gap:14px;padding:0 14px;border-bottom:1px solid var(--border);background:var(--surface)}.pd-row:last-child{border-bottom:none}.pd-label{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:#9a9aa5;font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pd-value{font-size:13.5px;font-weight:650;color:#f3f3f6;text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;justify-self:stretch}.pd-value.green{color:var(--green)}.pd-value.red{color:var(--red)}.pd-value.muted{color:var(--muted);font-weight:600}.pd-value .payment-card{justify-content:flex-end}.pd-customer-value{display:block}.pd-note-row{cursor:pointer}.pd-note-row:hover{background:rgba(255,255,255,0.02)}.pd-note-value{color:var(--muted);font-weight:600}.pd-fail-box{margin:0 0 14px;border:1px solid rgba(248,113,113,.20);background:rgba(248,113,113,.07);border-radius:10px;padding:10px 12px;color:var(--red);font-size:12px;font-weight:600}.pd-sync-note{font-size:10.5px;color:var(--muted);font-family:var(--mono);margin:0 0 12px}.pd-retry-btn{margin-top:14px;width:100%;height:40px;border-radius:10px;border:1px solid rgba(248,113,113,.24);background:rgba(248,113,113,.075);color:var(--red);font-family:var(--sans);font-weight:750;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}.pd-retry-btn svg{width:15px;height:15px;flex:0 0 auto}.pd-retry-btn:hover{background:rgba(248,113,113,.11);border-color:rgba(248,113,113,.4)}
 html.light #payment-detail-modal{background:rgba(16,16,22,.34)}html.light .payment-detail-shell{background:#fff;border-left-color:rgba(0,0,0,.09)}html.light .payment-detail-top{background:#fff}html.light .pd-section-list{background:#fff;border-color:rgba(0,0,0,.09)}html.light .pd-section-title{background:rgba(0,0,0,.018);border-color:rgba(0,0,0,.065)}html.light .pd-row{border-color:rgba(0,0,0,.065)}
 
@@ -940,6 +940,102 @@ html.light #customer-detail-modal .customer-activity-row{
   #customer-detail-modal .customer-detail-value{
     font-size:12.5px!important;
   }
+}
+
+
+/* Customer recent activity: status gets its own column */
+#customer-detail-modal .customer-activity-head,
+#customer-detail-modal .customer-activity-row{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) 92px 96px!important;
+  gap:12px!important;
+  align-items:center!important;
+  padding:0 12px!important;
+}
+#customer-detail-modal .customer-activity-head > div:nth-child(1),
+#customer-detail-modal .customer-activity-row > div:nth-child(1){
+  text-align:left!important;
+  min-width:0!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+}
+#customer-detail-modal .customer-activity-head > div:nth-child(2),
+#customer-detail-modal .customer-activity-row > div:nth-child(2),
+#customer-detail-modal .customer-activity-head > div:nth-child(3),
+#customer-detail-modal .customer-activity-row > div:nth-child(3){
+  text-align:right!important;
+  white-space:nowrap!important;
+}
+#customer-detail-modal .customer-activity-money{
+  display:block!important;
+  color:var(--text)!important;
+  font-size:13px!important;
+  font-weight:500!important;
+  line-height:1!important;
+  text-align:right!important;
+  white-space:nowrap!important;
+}
+#customer-detail-modal .customer-activity-status{
+  display:block!important;
+  font-size:13px!important;
+  font-weight:500!important;
+  line-height:1!important;
+  text-align:right!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+#customer-detail-modal .customer-activity-status.value-green{color:var(--green)!important;}
+#customer-detail-modal .customer-activity-status.value-red{color:var(--red)!important;}
+
+@media(max-width:760px){
+  #customer-detail-modal .customer-activity-head,
+  #customer-detail-modal .customer-activity-row{
+    grid-template-columns:minmax(0,1fr) 78px 86px!important;
+    gap:8px!important;
+    padding:0 10px!important;
+  }
+  #customer-detail-modal .customer-activity-money,
+  #customer-detail-modal .customer-activity-status{
+    font-size:12px!important;
+  }
+}
+
+
+/* Customer drawer close button matches payment drawer close button */
+#customer-detail-modal .customer-drawer-close{
+  width:38px!important;
+  height:38px!important;
+  border-radius:12px!important;
+  border:1px solid var(--border2)!important;
+  background:var(--surface2)!important;
+  color:#a2a2ad!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  cursor:pointer!important;
+  font-size:20px!important;
+  font-family:var(--sans)!important;
+  line-height:1!important;
+  transition:.15s!important;
+  box-shadow:none!important;
+}
+#customer-detail-modal .customer-drawer-close:hover{
+  color:var(--text)!important;
+  border-color:rgba(255,255,255,.20)!important;
+  background:rgba(255,255,255,.06)!important;
+}
+html.light #customer-detail-modal .customer-drawer-close{
+  background:#f2f2f6!important;
+  border:1px solid rgba(17,17,24,.16)!important;
+  color:#7b7d88!important;
+  box-shadow:none!important;
+}
+html.light #customer-detail-modal .customer-drawer-close:hover{
+  background:#ececf2!important;
+  color:#111118!important;
+  border-color:rgba(17,17,24,.24)!important;
 }
 
 </style>
@@ -2243,10 +2339,11 @@ function renderPaymentDetailModal(p, syncing){
   var fullReason=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'';
   var isFailed=p.status==='failed';
   var isSucceeded=p.status==='succeeded';
+  var isRequiresPaymentMethod=p.status==='requires_payment_method';
   var typeLabel=paymentTypeLabel(p);
   var statusTitle=isFailed?'Payment failed':(isSucceeded?'Payment successful':'Payment details');
   var statusPill=isFailed?'Failed':(isSucceeded?'Succeeded':(p.status||'Unknown'));
-  var statusClass=isFailed?'failed':'success';
+  var statusClass=isFailed?'failed':(isSucceeded?'success':'info');
   var pid=p.stripe_payment_intent||'';
   var invoice=p.stripe_invoice_id||'';
   var account=p.account_name||'—';
@@ -2268,7 +2365,7 @@ function renderPaymentDetailModal(p, syncing){
   h+='<div class="payment-detail-shell">';
   h+='<div class="payment-detail-top"><button class="payment-detail-close" onclick="closeModal(\'payment-detail-modal\')">×</button></div>';
   h+='<div class="payment-detail-scroll">';
-  var heroIconSvg=isFailed?'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>':(isSucceeded?'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>':'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>');
+  var heroIconSvg=isFailed?'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>':(isSucceeded?'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>':(isRequiresPaymentMethod?'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/><path d="M16.5 14h.01"/><path d="M12 14h.01"/></svg>':'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>'));
   h+='<div class="pd-fixed-summary">';
   h+='<div class="pd-hero"><div class="pd-hero-icon '+statusClass+'">'+heroIconSvg+'</div>';
   h+='<div class="pd-hero-title">'+escHtml(statusTitle)+'</div><div class="pd-hero-amount '+statusClass+'">'+fmt(p.amount,p.currency)+'</div><div class="pd-hero-sub">'+escHtml(typeLabel)+' card payment</div></div>';
@@ -2371,10 +2468,10 @@ function customerNoteRow(c){
 function customerDetailRow(label,value,cls){return '<div class="customer-detail-row"><div class="customer-detail-label">'+label+'</div><div class="customer-detail-value '+(cls||'')+'">'+(value==null||value===''?'—':value)+'</div></div>';}
 function customerActivityRows(rows){
   if(!rows||!rows.length)return '<div class="customer-detail-empty">No recent payments</div>';
-  return '<div class="customer-activity-head"><div>Date</div><div>Amount</div></div>'+rows.map(function(r){
+  return '<div class="customer-activity-head"><div>Date</div><div>Amount</div><div>Status</div></div>'+rows.map(function(r){
     var statusText=(r.status||'—');
     statusText=statusText.charAt(0).toUpperCase()+statusText.slice(1);
-    return '<div class="customer-activity-row"><div>'+fmtDate(r.created_at)+'</div><div class="customer-activity-amount"><span class="customer-activity-money">'+fmt(r.amount,r.currency)+'</span><span class="customer-activity-status '+customerValueClass(r.status)+'">'+escapeCustomerHtml(statusText)+'</span></div></div>';
+    return '<div class="customer-activity-row"><div>'+fmtDate(r.created_at)+'</div><div class="customer-activity-money">'+fmt(r.amount,r.currency)+'</div><div class="customer-activity-status '+customerValueClass(r.status)+'">'+escapeCustomerHtml(statusText)+'</div></div>';
   }).join('');
 }
 function buildCustomerDrawer(data){
