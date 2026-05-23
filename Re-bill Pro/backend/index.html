@@ -174,9 +174,9 @@ textarea{resize:vertical;min-height:60px}
 .rev-tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
 
 
-.payment-detail-shell{height:100vh;width:100%;background:var(--surface);border-left:1px solid var(--border);box-shadow:-18px 0 60px rgba(0,0,0,.55);color:var(--text);font-family:var(--sans);display:flex;flex-direction:column;overflow:hidden}
-.payment-detail-top{position:sticky;top:0;flex:0 0 54px;display:flex;justify-content:flex-end;align-items:flex-start;padding:14px 16px 0;background:var(--surface);z-index:6}.payment-detail-close{width:38px;height:38px;border-radius:12px;border:1px solid var(--border2);background:var(--surface2);color:#a2a2ad;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:20px;font-family:var(--sans);transition:.15s}.payment-detail-close:hover{color:var(--text);border-color:rgba(255,255,255,.20);background:rgba(255,255,255,.06)}
-.payment-detail-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:6px 22px 22px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.20) transparent}.payment-detail-scroll::-webkit-scrollbar{width:7px}.payment-detail-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.18);border-radius:999px}
+.payment-detail-shell{position:fixed;right:0;top:0;width:min(520px,100vw);height:100dvh;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;box-shadow:none!important}
+.payment-detail-top{position:sticky;top:0;z-index:8;flex:0 0 auto;height:56px;background:var(--surface);display:flex;justify-content:flex-end;align-items:center;padding:10px 16px;border-bottom:0;box-shadow:none!important}.payment-detail-close{width:38px;height:38px;border-radius:12px;border:1px solid var(--border2);background:var(--surface2);color:#a2a2ad;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:20px;font-family:var(--sans);transition:.15s}.payment-detail-close:hover{color:var(--text);border-color:rgba(255,255,255,.20);background:rgba(255,255,255,.06)}
+.payment-detail-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;padding:0 24px 22px;scrollbar-width:thin}.payment-detail-scroll::-webkit-scrollbar{width:7px}.payment-detail-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.18);border-radius:999px}
 .pd-hero{text-align:center;padding:0 4px 14px}.pd-hero-icon{width:46px;height:46px;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:10px}.pd-hero-icon.success{border:1px solid rgba(34,197,94,.22);background:rgba(34,197,94,.08);color:var(--green)}.pd-hero-icon.failed{border:1px solid rgba(248,113,113,.26);background:rgba(248,113,113,.09);color:var(--red)}.pd-hero-icon.neutral{border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--muted)}.pd-hero-title{font-size:17px;font-weight:700;letter-spacing:-.2px;color:var(--text)}.pd-hero-amount{font-size:33px;line-height:1.04;font-weight:800;letter-spacing:-1.1px;margin-top:6px;color:var(--text)}.pd-hero-amount.success{color:var(--text)}.pd-hero-amount.failed{color:var(--red)}.pd-hero-sub{font-size:12.5px;color:var(--muted);margin-top:5px}
 .pd-status-row{min-height:44px;border:1px solid var(--border2);border-radius:10px;background:var(--surface2);display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:8px;padding:6px 10px;margin-bottom:14px}.pd-date-chip{min-height:30px;display:flex;align-items:center;gap:8px;min-width:0;color:#d6d6dc;font-size:12px;font-weight:500}.pd-date-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pd-tz-chip{height:30px;padding:0 12px;border-radius:9px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.035);display:inline-flex;align-items:center;justify-content:center;color:#d5d5dc;font-size:12px;font-family:var(--sans);font-weight:500;line-height:1;white-space:nowrap}.pd-status-pill{height:30px;padding:0 12px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;gap:7px;font-size:12px;font-weight:600;line-height:1;border:1px solid transparent;white-space:nowrap}.pd-status-pill.success{color:var(--green);background:rgba(34,197,94,.11);border-color:rgba(34,197,94,.14)}.pd-status-pill.failed{color:var(--red);background:rgba(248,113,113,.09);border-color:rgba(248,113,113,.14)}.pd-dot{width:7px;height:7px;border-radius:99px;background:currentColor}
 .pd-tabs{display:none!important}.pd-section-list{border:1px solid var(--border);border-radius:11px;overflow:hidden;margin-top:0;background:var(--surface)}.pd-section-title{height:32px;display:flex;align-items:center;padding:0 14px;background:var(--surface2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#8f8f9a;font-weight:800}.pd-section-title:first-child{border-top:none}.pd-row{height:54px;display:grid;grid-template-columns:152px minmax(0,1fr);align-items:center;gap:14px;padding:0 14px;border-bottom:1px solid var(--border);background:var(--surface)}.pd-row:last-child{border-bottom:none}.pd-label{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:#9a9aa5;font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pd-value{font-size:13.5px;font-weight:650;color:#f3f3f6;text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;justify-self:stretch}.pd-value.green{color:var(--green)}.pd-value.red{color:var(--red)}.pd-value.muted{color:var(--muted);font-weight:600}.pd-value .payment-card{justify-content:flex-end}.pd-customer-value{display:block}.pd-note-row{cursor:pointer}.pd-note-row:hover{background:rgba(255,255,255,0.02)}.pd-note-value{color:var(--muted);font-weight:600}.pd-fail-box{margin:0 0 14px;border:1px solid rgba(248,113,113,.20);background:rgba(248,113,113,.07);border-radius:10px;padding:10px 12px;color:var(--red);font-size:12px;font-weight:600}.pd-sync-note{font-size:10.5px;color:var(--muted);font-family:var(--mono);margin:0 0 12px}.pd-retry-btn{margin-top:14px;width:100%;height:40px;border-radius:10px;border:1px solid rgba(248,113,113,.24);background:rgba(248,113,113,.075);color:var(--red);font-family:var(--sans);font-weight:750;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}.pd-retry-btn svg{width:15px;height:15px;flex:0 0 auto}.pd-retry-btn:hover{background:rgba(248,113,113,.11);border-color:rgba(248,113,113,.4)}
@@ -273,6 +273,45 @@ html.light .payment-card img{box-shadow:none!important;}
 #payment-detail-modal .pd-retry-btn{font-weight:600!important;}
 #payment-detail-modal .payment-last4,#payment-detail-modal .payment-dots{font-weight:500!important;}
 #payment-detail-modal .payment-card span{font-weight:500!important;}
+
+/* Payment drawer: keep summary fixed, scroll only detail rows */
+#payment-detail-modal .pd-fixed-summary{
+  flex:0 0 auto;
+  position:sticky;
+  top:0;
+  z-index:5;
+  background:var(--surface);
+  padding-bottom:14px;
+}
+#payment-detail-modal .pd-details-scroll{
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto;
+  overflow-x:hidden;
+  padding-bottom:18px;
+  scrollbar-width:thin;
+}
+#payment-detail-modal .pd-details-scroll::-webkit-scrollbar,
+#payment-detail-modal .payment-detail-scroll::-webkit-scrollbar{
+  width:8px;
+}
+#payment-detail-modal .pd-details-scroll::-webkit-scrollbar-thumb,
+#payment-detail-modal .payment-detail-scroll::-webkit-scrollbar-thumb{
+  background:rgba(255,255,255,.12);
+  border-radius:999px;
+}
+html.light #payment-detail-modal .pd-fixed-summary{
+  background:#fff;
+}
+html.light #payment-detail-modal .pd-details-scroll::-webkit-scrollbar-thumb,
+html.light #payment-detail-modal .payment-detail-scroll::-webkit-scrollbar-thumb{
+  background:rgba(17,17,24,.18);
+}
+@media(max-width:760px){
+  .payment-detail-scroll{padding:0 16px 20px!important}
+  #payment-detail-modal .pd-fixed-summary{padding-bottom:12px}
+}
+
 </style>
 </head>
 <body>
@@ -1564,11 +1603,14 @@ function renderPaymentDetailModal(p, syncing){
   h+='<div class="payment-detail-top"><button class="payment-detail-close" onclick="closeModal(\'payment-detail-modal\')">×</button></div>';
   h+='<div class="payment-detail-scroll">';
   var heroIconSvg=isFailed?'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>':(isSucceeded?'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>':'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>');
+  h+='<div class="pd-fixed-summary">';
   h+='<div class="pd-hero"><div class="pd-hero-icon '+statusClass+'">'+heroIconSvg+'</div>';
   h+='<div class="pd-hero-title">'+escHtml(statusTitle)+'</div><div class="pd-hero-amount '+statusClass+'">'+fmt(p.amount,p.currency)+'</div><div class="pd-hero-sub">'+escHtml(typeLabel)+' card payment</div></div>';
   h+='<div class="pd-status-row"><div class="pd-date-chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span>'+formatPdDate(p.created_at)+', '+formatPdLocalTime(p.created_at)+'</span></div><div class="pd-tz-chip">Local</div><div class="pd-status-pill '+statusClass+'"><span class="pd-dot"></span>'+escHtml(statusPill)+'</div></div>';
   if(isFailed&&fullReason){h+='<div class="pd-fail-box">'+escHtml(fullReason)+'</div>';}
   if(syncing){h+='<div class="pd-sync-note">Fetching real Stripe fee/net…</div>';}
+  h+='</div>';
+  h+='<div class="pd-details-scroll">';
   h+='<div class="pd-section-list">';
   h+='<div class="pd-section-title">Payment identity</div>';
   h+='<div class="pd-row"><div class="pd-label">Payment intent</div><div class="pd-value mono">'+escHtml(pid||'—')+'</div></div>';
