@@ -75,6 +75,9 @@ async function ensureWebhookColumns() {
   await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_price_id TEXT').catch(()=>{});
   await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_invoice_id TEXT').catch(()=>{});
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS stripe_invoice_id TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS stripe_fee INT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS net_amount INT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS balance_transaction_id TEXT').catch(()=>{});
   await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS subscriptions_stripe_subscription_uidx ON subscriptions(stripe_subscription_id) WHERE stripe_subscription_id IS NOT NULL').catch(()=>{});
   await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS payments_stripe_payment_intent_uidx ON payments(stripe_payment_intent) WHERE stripe_payment_intent IS NOT NULL').catch(()=>{});
 }
@@ -291,7 +294,7 @@ function normalizeCardBrand(brand) {
 }
 
 async function getCardDetailsFromPaymentIntent(stripe, pi) {
-  const details = { brand: null, last4: null, exp_month: null, exp_year: null, country: null, funding: null, billing_name: null, billing_email: null };
+  const details = { brand: null, last4: null, exp_month: null, exp_year: null, country: null, funding: null, billing_name: null, billing_email: null, stripe_fee: null, net_amount: null, balance_transaction_id: null };
 
   try {
     if ((!pi.latest_charge || typeof pi.latest_charge === 'string') || !pi.payment_method) {
@@ -308,10 +311,20 @@ async function getCardDetailsFromPaymentIntent(stripe, pi) {
   let card = null;
   try {
     let charge = pi.latest_charge;
-    if (charge && typeof charge === 'string') charge = await stripe.charges.retrieve(charge);
+    if (charge && typeof charge === 'string') charge = await stripe.charges.retrieve(charge, { expand: ['balance_transaction'] });
+    if (charge && typeof charge.balance_transaction === 'string') {
+      try { charge.balance_transaction = await stripe.balanceTransactions.retrieve(charge.balance_transaction); } catch(_) {}
+    }
     card = charge?.payment_method_details?.card || null;
     details.billing_name = charge?.billing_details?.name || null;
     details.billing_email = cleanEmail(charge?.billing_details?.email) || null;
+    if (charge?.balance_transaction && typeof charge.balance_transaction === 'object') {
+      details.stripe_fee = charge.balance_transaction.fee ?? null;
+      details.net_amount = charge.balance_transaction.net ?? null;
+      details.balance_transaction_id = charge.balance_transaction.id || null;
+    } else if (typeof charge?.balance_transaction === 'string') {
+      details.balance_transaction_id = charge.balance_transaction;
+    }
   } catch(e) {
     console.log('[payment] could not retrieve charge card details:', e.message);
   }
@@ -403,17 +416,18 @@ async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null, f
   if (existingPayment.rows[0]) {
     await pool.query(`UPDATE payments SET customer_id=$1, subscription_id=COALESCE($2,subscription_id), amount=$3, currency=$4, status=$5, failure_reason=$6,
       stripe_invoice_id=COALESCE($7,stripe_invoice_id), card_brand=COALESCE($8,card_brand), card_last4=COALESCE($9,card_last4),
-      card_exp_month=COALESCE($10,card_exp_month), card_exp_year=COALESCE($11,card_exp_year), card_country=COALESCE($12,card_country), card_funding=COALESCE($13,card_funding)
-      WHERE id=$14`,
-      [localCustomer.id, localSubId, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, existingPayment.rows[0].id]);
+      card_exp_month=COALESCE($10,card_exp_month), card_exp_year=COALESCE($11,card_exp_year), card_country=COALESCE($12,card_country), card_funding=COALESCE($13,card_funding),
+      stripe_fee=COALESCE($14,stripe_fee), net_amount=COALESCE($15,net_amount), balance_transaction_id=COALESCE($16,balance_transaction_id)
+      WHERE id=$17`,
+      [localCustomer.id, localSubId, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, cardDetails.stripe_fee, cardDetails.net_amount, cardDetails.balance_transaction_id, existingPayment.rows[0].id]);
     console.log('[external-import] updated payment:', pi.id, 'customer:', localCustomer.email);
     return existingPayment.rows[0].id;
   }
 
   const ins = await pool.query(
-    `INSERT INTO payments (customer_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,stripe_invoice_id,card_brand,card_last4,card_exp_month,card_exp_year,card_country,card_funding)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id`,
-    [localCustomer.id, localSubId, pi.id, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding]
+    `INSERT INTO payments (customer_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,stripe_invoice_id,card_brand,card_last4,card_exp_month,card_exp_year,card_country,card_funding,stripe_fee,net_amount,balance_transaction_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING id`,
+    [localCustomer.id, localSubId, pi.id, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, cardDetails.stripe_fee, cardDetails.net_amount, cardDetails.balance_transaction_id]
   );
   console.log('[external-import] saved payment:', pi.id, 'row id:', ins.rows[0].id, 'customer:', localCustomer.email);
   await activityLog.add('payment', `Payment ${status} for ${localCustomer.email}`, localCustomer.id, amount).catch(()=>{});
