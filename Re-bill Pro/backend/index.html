@@ -1801,6 +1801,43 @@ html.light body :where(h1,h2,h3,.page-title,.card-title,.panel-title,.section-ti
   letter-spacing:-.02em!important;
 }
 
+
+/* Remove bold from table prices/amounts on payment, customer, and subscription pages */
+#payments-page table td:nth-child(2),
+#page-payments table td:nth-child(2),
+.payments-table td:nth-child(2),
+#customers-page table td:nth-child(7),
+#page-customers table td:nth-child(7),
+.customers-table td:nth-child(7),
+#subscriptions-page table td:nth-child(2),
+#page-subscriptions table td:nth-child(2),
+.subscriptions-table td:nth-child(2),
+td.amount,
+td.payment-amount,
+td.customer-total,
+td.customer-last-payment{
+  font-family:var(--font-ui)!important;
+  font-weight:500!important;
+  letter-spacing:-0.01em!important;
+}
+
+html.light #payments-page table td:nth-child(2),
+html.light #page-payments table td:nth-child(2),
+html.light .payments-table td:nth-child(2),
+html.light #customers-page table td:nth-child(7),
+html.light #page-customers table td:nth-child(7),
+html.light .customers-table td:nth-child(7),
+html.light #subscriptions-page table td:nth-child(2),
+html.light #page-subscriptions table td:nth-child(2),
+html.light .subscriptions-table td:nth-child(2),
+html.light td.amount,
+html.light td.payment-amount,
+html.light td.customer-total,
+html.light td.customer-last-payment{
+  font-weight:500!important;
+  letter-spacing:-0.01em!important;
+}
+
 </style>
 </head>
 <body>
