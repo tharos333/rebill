@@ -1133,6 +1133,65 @@ html.light .page-header .btn.btn-primary:focus{
   box-shadow:0 0 0 3px rgba(108,99,255,0.16)!important;
 }
 
+
+/* Restore red danger buttons/text in light mode */
+html.light .btn.btn-danger,
+html.light button.btn.btn-danger,
+html.light .btn-danger,
+html.light button[class*="btn-danger"]{
+  color:var(--red)!important;
+  background:var(--red-bg)!important;
+  border-color:rgba(220,38,38,.18)!important;
+  box-shadow:none!important;
+}
+html.light .btn.btn-danger:hover,
+html.light button.btn.btn-danger:hover,
+html.light .btn-danger:hover,
+html.light button[class*="btn-danger"]:hover{
+  color:var(--red)!important;
+  background:rgba(220,38,38,.13)!important;
+  border-color:rgba(220,38,38,.28)!important;
+  box-shadow:none!important;
+}
+
+/* Extra safety for text-only danger actions like Delete / Cancel / Pause */
+html.light button[onclick*="delete"],
+html.light button[onclick*="Delete"],
+html.light button[onclick*="cancel"],
+html.light button[onclick*="Cancel"],
+html.light button[onclick*="pause"],
+html.light button[onclick*="Pause"]{
+  color:var(--red)!important;
+}
+html.light button[onclick*="delete"]:hover,
+html.light button[onclick*="Delete"]:hover,
+html.light button[onclick*="cancel"]:hover,
+html.light button[onclick*="Cancel"]:hover,
+html.light button[onclick*="pause"]:hover,
+html.light button[onclick*="Pause"]:hover{
+  color:var(--red)!important;
+}
+
+/* Keep retry/success actions green when light-mode neutral button rules exist */
+html.light .btn.btn-success,
+html.light button.btn.btn-success,
+html.light .btn-success,
+html.light button[class*="btn-success"]{
+  color:var(--green)!important;
+  background:var(--green-bg)!important;
+  border-color:rgba(22,163,74,.18)!important;
+  box-shadow:none!important;
+}
+html.light .btn.btn-success:hover,
+html.light button.btn.btn-success:hover,
+html.light .btn-success:hover,
+html.light button[class*="btn-success"]:hover{
+  color:var(--green)!important;
+  background:rgba(22,163,74,.13)!important;
+  border-color:rgba(22,163,74,.28)!important;
+  box-shadow:none!important;
+}
+
 </style>
 </head>
 <body>
