@@ -1473,6 +1473,41 @@ html.light #customer-detail-modal .customer-detail-value{
   }
 }
 
+
+/* Consistent amount/price weight in dark + light mode */
+td.amount,
+td.payment-amount,
+td.customer-total,
+td.customer-last-payment,
+.table td.amount,
+.table td.payment-amount,
+.payments-table td:nth-child(2),
+#payments-table td:nth-child(2),
+#payments-page table td:nth-child(2),
+#customers-page table td:nth-child(7),
+#subscriptions-page table td:nth-child(2){
+  font-family:var(--font-ui)!important;
+  font-weight:650!important;
+  letter-spacing:-0.018em!important;
+  color:var(--text)!important;
+}
+
+html.light td.amount,
+html.light td.payment-amount,
+html.light td.customer-total,
+html.light td.customer-last-payment,
+html.light .table td.amount,
+html.light .table td.payment-amount,
+html.light .payments-table td:nth-child(2),
+html.light #payments-table td:nth-child(2),
+html.light #payments-page table td:nth-child(2),
+html.light #customers-page table td:nth-child(7),
+html.light #subscriptions-page table td:nth-child(2){
+  font-weight:650!important;
+  letter-spacing:-0.018em!important;
+  color:#111118!important;
+}
+
 </style>
 </head>
 <body>
