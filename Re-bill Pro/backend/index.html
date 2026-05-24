@@ -1544,6 +1544,160 @@ html.light #stripe-accounts-page table th{
   color:#6b6f7c!important;
 }
 
+
+/* Full app typography polish: use the new Inter style everywhere */
+:root{
+  --font-ui:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif!important;
+  --font-label:var(--font-ui)!important;
+  --sans:var(--font-ui)!important;
+  --mono:var(--font-ui)!important;
+}
+
+html,
+body,
+body *,
+button,
+input,
+select,
+textarea{
+  font-family:var(--font-ui)!important;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  text-rendering:geometricPrecision;
+}
+
+/* Replace old mono-looking labels across the whole app */
+th,
+thead th,
+.table-header,
+.card-label,
+.metric-label,
+label,
+.form-label,
+.sidebar-section,
+.nav-section,
+.menu-label,
+.pd-section-title,
+.pd-label,
+.customer-panel-title,
+.customer-detail-label,
+.customer-activity-head,
+.badge,
+.status-badge,
+.status,
+.pill,
+.tag,
+.payment-last4,
+.payment-dots,
+.no-card,
+.reference,
+.ref,
+.code,
+.mono,
+[class*="label"],
+[class*="header"],
+[class*="status"]{
+  font-family:var(--font-ui)!important;
+}
+
+/* Professional label/header rhythm everywhere */
+th,
+thead th,
+.table-header,
+.card-label,
+.metric-label,
+label,
+.form-label,
+.sidebar-section,
+.nav-section,
+.menu-label,
+.pd-section-title,
+.pd-label,
+.customer-panel-title,
+.customer-detail-label,
+.customer-activity-head{
+  font-size:11px!important;
+  font-weight:700!important;
+  letter-spacing:.045em!important;
+  text-transform:uppercase!important;
+  line-height:1.2!important;
+}
+
+/* Cleaner badges/status text */
+.badge,
+.status-badge,
+.status,
+.pill,
+.tag,
+[class*="status"]{
+  font-weight:700!important;
+  letter-spacing:.015em!important;
+}
+
+/* Keep readable row/value text consistent */
+td,
+tbody,
+.table-row,
+.customer-row,
+.payment-row,
+.pd-value,
+.customer-detail-value,
+.customer-activity-row,
+button,
+.btn,
+.action-btn,
+input,
+select,
+textarea{
+  font-family:var(--font-ui)!important;
+  letter-spacing:-0.01em!important;
+}
+
+/* Keep titles and important values premium */
+h1,
+h2,
+h3,
+.page-title,
+.card-title,
+.panel-title,
+.section-title,
+.modal-title,
+.customer-name,
+.customer-main,
+.customer-title-name,
+.pd-title,
+.pd-amount,
+.metric-value,
+.amount,
+.price,
+.total,
+.revenue,
+.payment-amount{
+  font-family:var(--font-ui)!important;
+  letter-spacing:-0.02em!important;
+}
+
+/* Light mode: same font system, balanced color/weight */
+html.light th,
+html.light thead th,
+html.light .table-header,
+html.light .card-label,
+html.light .metric-label,
+html.light label,
+html.light .form-label,
+html.light .sidebar-section,
+html.light .nav-section,
+html.light .menu-label,
+html.light .pd-section-title,
+html.light .pd-label,
+html.light .customer-panel-title,
+html.light .customer-detail-label,
+html.light .customer-activity-head{
+  font-family:var(--font-ui)!important;
+  color:#6b6f7c!important;
+  font-weight:700!important;
+}
+
 </style>
 </head>
 <body>
