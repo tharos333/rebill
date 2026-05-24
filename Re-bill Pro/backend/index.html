@@ -1508,6 +1508,42 @@ html.light #subscriptions-page table td:nth-child(2){
   color:#111118!important;
 }
 
+
+/* Professional table header typography: use Inter, not mono */
+table th,
+.table th,
+thead th,
+.table-header,
+.payments-table th,
+.customers-table th,
+.subscriptions-table th,
+#payments-page table th,
+#customers-page table th,
+#subscriptions-page table th,
+#stripe-accounts-page table th{
+  font-family:var(--font-ui)!important;
+  font-size:11px!important;
+  font-weight:700!important;
+  letter-spacing:.045em!important;
+  text-transform:uppercase!important;
+  color:var(--muted)!important;
+  line-height:1.15!important;
+}
+
+html.light table th,
+html.light .table th,
+html.light thead th,
+html.light .table-header,
+html.light .payments-table th,
+html.light .customers-table th,
+html.light .subscriptions-table th,
+html.light #payments-page table th,
+html.light #customers-page table th,
+html.light #subscriptions-page table th,
+html.light #stripe-accounts-page table th{
+  color:#6b6f7c!important;
+}
+
 </style>
 </head>
 <body>
