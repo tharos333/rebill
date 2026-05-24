@@ -1698,6 +1698,109 @@ html.light .customer-activity-head{
   font-weight:700!important;
 }
 
+
+/* FINAL typography parity check: same font system in dark + light */
+:root{
+  --font-ui:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif!important;
+  --font-label:var(--font-ui)!important;
+  --sans:var(--font-ui)!important;
+  --mono:var(--font-ui)!important;
+}
+
+/* Same font everywhere in both themes */
+html body,
+html body :where(
+  div,span,p,a,button,input,select,textarea,label,
+  table,thead,tbody,tfoot,tr,th,td,
+  h1,h2,h3,h4,h5,h6,
+  small,strong,em,b,
+  .btn,.badge,.pill,.tag,.status,.status-badge,
+  .table-header,.card-label,.metric-label,.form-label,
+  .pd-section-title,.pd-label,.pd-value,
+  .customer-panel-title,.customer-detail-label,.customer-detail-value,.customer-activity-head,.customer-activity-row,
+  .payment-last4,.payment-dots,.no-card,.reference,.ref,.code,.mono
+){
+  font-family:var(--font-ui)!important;
+}
+
+/* Light mode uses the exact same font family */
+html.light body,
+html.light body :where(
+  div,span,p,a,button,input,select,textarea,label,
+  table,thead,tbody,tfoot,tr,th,td,
+  h1,h2,h3,h4,h5,h6,
+  small,strong,em,b,
+  .btn,.badge,.pill,.tag,.status,.status-badge,
+  .table-header,.card-label,.metric-label,.form-label,
+  .pd-section-title,.pd-label,.pd-value,
+  .customer-panel-title,.customer-detail-label,.customer-detail-value,.customer-activity-head,.customer-activity-row,
+  .payment-last4,.payment-dots,.no-card,.reference,.ref,.code,.mono
+){
+  font-family:var(--font-ui)!important;
+}
+
+/* Professional label style, same in dark + light */
+html body :where(
+  th,thead th,.table-header,
+  .card-label,.metric-label,label,.form-label,
+  .sidebar-section,.nav-section,.menu-label,
+  .pd-section-title,.pd-label,
+  .customer-panel-title,.customer-detail-label,.customer-activity-head
+),
+html.light body :where(
+  th,thead th,.table-header,
+  .card-label,.metric-label,label,.form-label,
+  .sidebar-section,.nav-section,.menu-label,
+  .pd-section-title,.pd-label,
+  .customer-panel-title,.customer-detail-label,.customer-activity-head
+){
+  font-family:var(--font-ui)!important;
+  font-size:11px!important;
+  font-weight:700!important;
+  letter-spacing:.045em!important;
+  text-transform:uppercase!important;
+  line-height:1.2!important;
+}
+
+/* Same table value weight in dark + light */
+html body :where(td,.table-row,.customer-row,.payment-row),
+html.light body :where(td,.table-row,.customer-row,.payment-row){
+  font-family:var(--font-ui)!important;
+  font-weight:500!important;
+  letter-spacing:-.01em!important;
+}
+
+/* Same amount/price strength in dark + light */
+html body :where(.amount,.price,.total,.revenue,.payment-amount,.metric-value,.pd-amount),
+html.light body :where(.amount,.price,.total,.revenue,.payment-amount,.metric-value,.pd-amount){
+  font-family:var(--font-ui)!important;
+  font-weight:650!important;
+  letter-spacing:-.018em!important;
+}
+
+/* Same buttons/inputs in dark + light */
+html body :where(button,.btn,.action-btn,input,select,textarea),
+html.light body :where(button,.btn,.action-btn,input,select,textarea){
+  font-family:var(--font-ui)!important;
+  font-weight:600!important;
+  letter-spacing:-.01em!important;
+}
+
+/* Same badge/status typography in dark + light */
+html body :where(.badge,.pill,.tag,.status,.status-badge,[class*="status"]),
+html.light body :where(.badge,.pill,.tag,.status,.status-badge,[class*="status"]){
+  font-family:var(--font-ui)!important;
+  font-weight:700!important;
+  letter-spacing:.015em!important;
+}
+
+/* Same title style in dark + light */
+html body :where(h1,h2,h3,.page-title,.card-title,.panel-title,.section-title,.modal-title,.customer-title-name,.pd-title),
+html.light body :where(h1,h2,h3,.page-title,.card-title,.panel-title,.section-title,.modal-title,.customer-title-name,.pd-title){
+  font-family:var(--font-ui)!important;
+  letter-spacing:-.02em!important;
+}
+
 </style>
 </head>
 <body>
