@@ -1098,6 +1098,41 @@ html.light button[onclick*="openNoteModal"]:focus{
   color:#111118!important;
 }
 
+
+/* Restore original purple primary buttons in light mode */
+html.light .btn.btn-primary,
+html.light button.btn.btn-primary,
+html.light .btn-primary,
+html.light button[class*="btn-primary"],
+html.light .topbar-actions .btn.btn-primary,
+html.light .page-header .btn.btn-primary{
+  background:var(--accent)!important;
+  border-color:var(--accent)!important;
+  color:#fff!important;
+  box-shadow:none!important;
+}
+html.light .btn.btn-primary:hover,
+html.light button.btn.btn-primary:hover,
+html.light .btn-primary:hover,
+html.light button[class*="btn-primary"]:hover,
+html.light .topbar-actions .btn.btn-primary:hover,
+html.light .page-header .btn.btn-primary:hover{
+  background:#7c74ff!important;
+  border-color:#7c74ff!important;
+  color:#fff!important;
+}
+html.light .btn.btn-primary:focus,
+html.light button.btn.btn-primary:focus,
+html.light .btn-primary:focus,
+html.light button[class*="btn-primary"]:focus,
+html.light .topbar-actions .btn.btn-primary:focus,
+html.light .page-header .btn.btn-primary:focus{
+  background:var(--accent)!important;
+  border-color:var(--accent)!important;
+  color:#fff!important;
+  box-shadow:0 0 0 3px rgba(108,99,255,0.16)!important;
+}
+
 </style>
 </head>
 <body>
