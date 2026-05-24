@@ -1064,6 +1064,40 @@ html.light #customer-detail-modal .customer-drawer-close:hover{
   transform:scaleX(1.10)!important;
 }
 
+
+/* Light mode: keep Note buttons visible on hover */
+html.light .btn,
+html.light button.btn,
+html.light .action-btn,
+html.light button[onclick*="openPaymentNote"],
+html.light button[onclick*="openNoteModal"]{
+  background:#f7f7fa!important;
+  border:1px solid rgba(17,17,24,.16)!important;
+  color:#111118!important;
+  box-shadow:none!important;
+}
+html.light .btn:hover,
+html.light button.btn:hover,
+html.light .action-btn:hover,
+html.light button[onclick*="openPaymentNote"]:hover,
+html.light button[onclick*="openNoteModal"]:hover{
+  background:#ededf3!important;
+  border:1px solid rgba(17,17,24,.22)!important;
+  color:#111118!important;
+  box-shadow:none!important;
+  opacity:1!important;
+}
+html.light .btn:focus,
+html.light button.btn:focus,
+html.light .action-btn:focus,
+html.light button[onclick*="openPaymentNote"]:focus,
+html.light button[onclick*="openNoteModal"]:focus{
+  outline:none!important;
+  background:#ededf3!important;
+  border:1px solid rgba(17,17,24,.26)!important;
+  color:#111118!important;
+}
+
 </style>
 </head>
 <body>
