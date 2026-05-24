@@ -1838,6 +1838,182 @@ html.light td.customer-last-payment{
   letter-spacing:-0.01em!important;
 }
 
+
+/* Modern status badges with icons: success / failed / payment required */
+.status-badge,
+.badge.status,
+.badge.success,
+.badge.failed,
+.badge.info,
+.badge.warning,
+.badge.requires_payment_method,
+.badge.requires-action,
+.badge.requires-payment,
+[class*="status-badge"]{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:7px!important;
+  min-height:26px!important;
+  padding:0 12px 0 9px!important;
+  border-radius:999px!important;
+  font-family:var(--font-ui)!important;
+  font-size:13px!important;
+  font-weight:700!important;
+  letter-spacing:-0.01em!important;
+  line-height:1!important;
+  white-space:nowrap!important;
+  box-shadow:none!important;
+}
+
+.status-badge::before,
+.badge.status::before,
+.badge.success::before,
+.badge.failed::before,
+.badge.info::before,
+.badge.warning::before,
+.badge.requires_payment_method::before,
+.badge.requires-action::before,
+.badge.requires-payment::before{
+  content:""!important;
+  width:17px!important;
+  height:17px!important;
+  flex:0 0 17px!important;
+  border-radius:999px!important;
+  display:inline-block!important;
+  background-repeat:no-repeat!important;
+  background-position:center!important;
+  background-size:12px 12px!important;
+}
+
+/* Success / settled */
+.status-badge.success,
+.badge.success,
+.badge.succeeded,
+.status-badge.succeeded,
+.status-badge.active,
+.badge.active{
+  color:#35e36e!important;
+  background:rgba(34,197,94,.14)!important;
+  border:1px solid rgba(34,197,94,.18)!important;
+}
+.status-badge.success::before,
+.badge.success::before,
+.badge.succeeded::before,
+.status-badge.succeeded::before,
+.status-badge.active::before,
+.badge.active::before{
+  border:1.5px solid #35e36e!important;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3.4 8.3 6.4 11.2 12.7 4.7' fill='none' stroke='%2335e36e' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")!important;
+  box-shadow:0 0 10px rgba(34,197,94,.20)!important;
+}
+
+/* Failed / declined */
+.status-badge.failed,
+.badge.failed,
+.status-badge.declined,
+.badge.declined,
+.status-badge.cancelled,
+.badge.cancelled{
+  color:#ff7b7b!important;
+  background:rgba(239,68,68,.16)!important;
+  border:1px solid rgba(239,68,68,.22)!important;
+}
+.status-badge.failed::before,
+.badge.failed::before,
+.status-badge.declined::before,
+.badge.declined::before,
+.status-badge.cancelled::before,
+.badge.cancelled::before{
+  border:1.5px solid #ff7b7b!important;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 5l6 6M11 5l-6 6' fill='none' stroke='%23ff7b7b' stroke-width='2.1' stroke-linecap='round'/%3E%3C/svg%3E")!important;
+  box-shadow:0 0 10px rgba(239,68,68,.20)!important;
+}
+
+/* Payment required / requires_payment_method / processing / attention */
+.status-badge.requires_payment_method,
+.badge.requires_payment_method,
+.status-badge.requires-payment-method,
+.badge.requires-payment-method,
+.status-badge.requires_payment,
+.badge.requires_payment,
+.status-badge.requires-payment,
+.badge.requires-payment,
+.status-badge.requires_action,
+.badge.requires_action,
+.status-badge.requires-action,
+.badge.requires-action,
+.status-badge.processing,
+.badge.processing,
+.status-badge.info,
+.badge.info{
+  color:#78b7ff!important;
+  background:rgba(59,130,246,.15)!important;
+  border:1px solid rgba(96,165,250,.24)!important;
+}
+.status-badge.requires_payment_method::before,
+.badge.requires_payment_method::before,
+.status-badge.requires-payment-method::before,
+.badge.requires-payment-method::before,
+.status-badge.requires_payment::before,
+.badge.requires_payment::before,
+.status-badge.requires-payment::before,
+.badge.requires-payment::before,
+.status-badge.requires_action::before,
+.badge.requires_action::before,
+.status-badge.requires-action::before,
+.badge.requires-action::before,
+.status-badge.processing::before,
+.badge.processing::before,
+.status-badge.info::before,
+.badge.info::before{
+  border:1.5px solid #78b7ff!important;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'%3E%3Crect x='2.5' y='4' width='11' height='8' rx='1.6' fill='none' stroke='%2378b7ff' stroke-width='1.6'/%3E%3Cpath d='M4.2 6.4h7.6' stroke='%2378b7ff' stroke-width='1.5' stroke-linecap='round'/%3E%3Ccircle cx='11.4' cy='10.2' r='1.7' fill='%23101520' stroke='%2378b7ff' stroke-width='1.2'/%3E%3Cpath d='M11.4 9.35v.9' stroke='%2378b7ff' stroke-width='1.2' stroke-linecap='round'/%3E%3Ccircle cx='11.4' cy='11.2' r='.25' fill='%2378b7ff'/%3E%3C/svg%3E")!important;
+  box-shadow:0 0 10px rgba(59,130,246,.20)!important;
+}
+
+/* Light mode badge balance */
+html.light .status-badge.success,
+html.light .badge.success,
+html.light .badge.succeeded,
+html.light .status-badge.succeeded,
+html.light .status-badge.active,
+html.light .badge.active{
+  color:#059669!important;
+  background:rgba(16,185,129,.12)!important;
+  border-color:rgba(16,185,129,.22)!important;
+}
+html.light .status-badge.failed,
+html.light .badge.failed,
+html.light .status-badge.declined,
+html.light .badge.declined,
+html.light .status-badge.cancelled,
+html.light .badge.cancelled{
+  color:#dc2626!important;
+  background:rgba(239,68,68,.11)!important;
+  border-color:rgba(239,68,68,.20)!important;
+}
+html.light .status-badge.requires_payment_method,
+html.light .badge.requires_payment_method,
+html.light .status-badge.requires-payment-method,
+html.light .badge.requires-payment-method,
+html.light .status-badge.requires_payment,
+html.light .badge.requires_payment,
+html.light .status-badge.requires-payment,
+html.light .badge.requires-payment,
+html.light .status-badge.requires_action,
+html.light .badge.requires_action,
+html.light .status-badge.requires-action,
+html.light .badge.requires-action,
+html.light .status-badge.processing,
+html.light .badge.processing,
+html.light .status-badge.info,
+html.light .badge.info{
+  color:#2563eb!important;
+  background:rgba(59,130,246,.10)!important;
+  border-color:rgba(59,130,246,.20)!important;
+}
+
 </style>
 </head>
 <body>
