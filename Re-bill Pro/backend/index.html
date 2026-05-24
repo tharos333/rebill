@@ -1192,6 +1192,48 @@ html.light button[class*="btn-success"]:hover{
   box-shadow:none!important;
 }
 
+
+
+/* Restore red danger buttons/text in dark mode */
+html:not(.light) .btn.btn-danger,
+html:not(.light) button.btn.btn-danger,
+html:not(.light) .btn-danger,
+html:not(.light) button[class*="btn-danger"]{
+  color:var(--red)!important;
+  background:var(--red-bg)!important;
+  border-color:rgba(248,113,113,.22)!important;
+  box-shadow:none!important;
+}
+html:not(.light) .btn.btn-danger:hover,
+html:not(.light) button.btn.btn-danger:hover,
+html:not(.light) .btn-danger:hover,
+html:not(.light) button[class*="btn-danger"]:hover{
+  color:var(--red)!important;
+  background:rgba(248,113,113,.16)!important;
+  border-color:rgba(248,113,113,.34)!important;
+  box-shadow:none!important;
+}
+
+/* Extra safety for text-only danger actions like Delete / Cancel / Pause in dark mode */
+html:not(.light) button[onclick*="delete"],
+html:not(.light) button[onclick*="Delete"],
+html:not(.light) button[onclick*="cancel"],
+html:not(.light) button[onclick*="Cancel"],
+html:not(.light) button[onclick*="pause"],
+html:not(.light) button[onclick*="Pause"]{
+  color:var(--red)!important;
+}
+html:not(.light) button[onclick*="delete"]:hover,
+html:not(.light) button[onclick*="Delete"]:hover,
+html:not(.light) button[onclick*="cancel"]:hover,
+html:not(.light) button[onclick*="Cancel"]:hover,
+html:not(.light) button[onclick*="pause"]:hover,
+html:not(.light) button[onclick*="Pause"]:hover{
+  color:var(--red)!important;
+  background:rgba(248,113,113,.16)!important;
+  border-color:rgba(248,113,113,.34)!important;
+}
+
 </style>
 </head>
 <body>
