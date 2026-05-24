@@ -1259,6 +1259,220 @@ html:not(.light) button[onclick*="Pause"]:hover{
   border-color:rgba(248,113,113,.34)!important;
 }
 
+
+/* Premium typography upgrade: Inter + IBM Plex Mono */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600;700&display=swap');
+
+:root{
+  --font-ui:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-label:'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+  --sans:var(--font-ui);
+  --mono:var(--font-label);
+}
+
+html,
+body,
+button,
+input,
+select,
+textarea{
+  font-family:var(--font-ui)!important;
+  text-rendering:geometricPrecision;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+}
+
+/* Page hierarchy */
+h1,
+.page-title,
+.content h1,
+.main h1,
+header h1{
+  font-family:var(--font-ui)!important;
+  font-weight:750!important;
+  letter-spacing:-0.028em!important;
+  line-height:1.08!important;
+}
+
+.page-subtitle,
+.subtitle,
+.description,
+.content > p,
+header p{
+  font-family:var(--font-ui)!important;
+  font-weight:450!important;
+  letter-spacing:-0.006em!important;
+  line-height:1.45!important;
+}
+
+/* Card/panel titles */
+.card-title,
+.panel-title,
+.section-title,
+.modal-title{
+  font-family:var(--font-ui)!important;
+  font-weight:650!important;
+  letter-spacing:-0.015em!important;
+}
+
+/* Tables */
+table,
+.table,
+tbody,
+td,
+.table-row,
+.customer-row,
+.payment-row{
+  font-family:var(--font-ui)!important;
+  font-weight:500!important;
+  letter-spacing:-0.01em!important;
+}
+
+th,
+.table th,
+thead th,
+.table-header,
+.card-label,
+.metric-label,
+label,
+.form-label{
+  font-family:var(--font-label)!important;
+  font-weight:600!important;
+  letter-spacing:.075em!important;
+  text-transform:uppercase;
+}
+
+/* Buttons + controls */
+button,
+.btn,
+.action-btn,
+input,
+select,
+textarea,
+.filter-btn,
+.pay-filter-btn{
+  font-family:var(--font-ui)!important;
+  font-weight:600!important;
+  letter-spacing:-0.01em!important;
+}
+
+/* Status badges */
+.badge,
+.status-badge,
+.status,
+.pill,
+.tag,
+[class*="status"]{
+  font-family:var(--font-label)!important;
+  font-weight:700!important;
+  letter-spacing:.035em!important;
+}
+
+/* Big numbers / money values */
+.metric-value,
+.amount,
+.price,
+.total,
+.revenue,
+.pd-amount,
+.payment-amount{
+  font-family:var(--font-ui)!important;
+  font-weight:750!important;
+  letter-spacing:-0.035em!important;
+}
+
+/* Payment/customer info boxes */
+#payment-detail-modal .pd-section-title,
+#customer-detail-modal .customer-panel-title,
+#customer-detail-modal .customer-activity-head{
+  font-family:var(--font-label)!important;
+  font-weight:700!important;
+  letter-spacing:.095em!important;
+  text-transform:uppercase!important;
+}
+
+#payment-detail-modal .pd-label,
+#customer-detail-modal .customer-detail-label{
+  font-family:var(--font-label)!important;
+  font-weight:600!important;
+  letter-spacing:.075em!important;
+  text-transform:uppercase!important;
+}
+
+#payment-detail-modal .pd-value,
+#customer-detail-modal .customer-detail-value,
+#customer-detail-modal .customer-activity-row{
+  font-family:var(--font-ui)!important;
+  font-weight:550!important;
+  letter-spacing:-0.012em!important;
+}
+
+/* Names and key row values */
+.customer-name,
+.customer-main,
+.payment-customer,
+.customer-title-name,
+tbody td strong{
+  font-family:var(--font-ui)!important;
+  font-weight:650!important;
+  letter-spacing:-0.018em!important;
+}
+
+/* Sidebar */
+.sidebar,
+.sidebar a,
+.nav-item,
+.menu-item{
+  font-family:var(--font-ui)!important;
+  font-weight:500!important;
+  letter-spacing:-0.006em!important;
+}
+
+.sidebar-section,
+.nav-section,
+.menu-label{
+  font-family:var(--font-label)!important;
+  font-weight:600!important;
+  letter-spacing:.12em!important;
+  text-transform:uppercase!important;
+}
+
+/* Technical/payment references */
+.payment-id,
+.reference,
+.ref,
+.code,
+.mono,
+.payment-last4,
+.payment-dots,
+.no-card{
+  font-family:var(--font-label)!important;
+  font-weight:600!important;
+}
+
+/* Light mode balance */
+html.light table,
+html.light .table,
+html.light tbody,
+html.light td{
+  font-weight:500!important;
+}
+
+html.light #payment-detail-modal .pd-value,
+html.light #customer-detail-modal .customer-detail-value{
+  font-weight:550!important;
+}
+
+@media(max-width:760px){
+  h1,
+  .page-title,
+  .content h1,
+  .main h1,
+  header h1{
+    letter-spacing:-0.022em!important;
+  }
+}
+
 </style>
 </head>
 <body>
