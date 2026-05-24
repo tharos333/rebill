@@ -1839,23 +1839,44 @@ html.light td.customer-last-payment{
 }
 
 
-/* Modern status badges with icons: success / failed / payment required */
-.status-badge,
-.badge.status,
+
+/* FIXED modern status badges with real icons */
 .badge.success,
+.badge.succeeded,
+.badge.active,
 .badge.failed,
+.badge.declined,
+.badge.cancelled,
 .badge.info,
+.badge.processing,
 .badge.warning,
 .badge.requires_payment_method,
-.badge.requires-action,
+.badge.requires-payment-method,
+.badge.requires_payment,
 .badge.requires-payment,
-[class*="status-badge"]{
+.badge.requires_action,
+.badge.requires-action,
+.status-badge.success,
+.status-badge.succeeded,
+.status-badge.active,
+.status-badge.failed,
+.status-badge.declined,
+.status-badge.cancelled,
+.status-badge.info,
+.status-badge.processing,
+.status-badge.warning,
+.status-badge.requires_payment_method,
+.status-badge.requires-payment-method,
+.status-badge.requires_payment,
+.status-badge.requires-payment,
+.status-badge.requires_action,
+.status-badge.requires-action{
   display:inline-flex!important;
   align-items:center!important;
   justify-content:center!important;
   gap:7px!important;
-  min-height:26px!important;
-  padding:0 12px 0 9px!important;
+  min-height:27px!important;
+  padding:0 12px 0 8px!important;
   border-radius:999px!important;
   font-family:var(--font-ui)!important;
   font-size:13px!important;
@@ -1863,18 +1884,57 @@ html.light td.customer-last-payment{
   letter-spacing:-0.01em!important;
   line-height:1!important;
   white-space:nowrap!important;
-  box-shadow:none!important;
 }
 
-.status-badge::before,
-.badge.status::before,
+/* Hide old dot if it exists as a child element */
+.badge.success .dot,
+.badge.succeeded .dot,
+.badge.active .dot,
+.badge.failed .dot,
+.badge.declined .dot,
+.badge.cancelled .dot,
+.badge.info .dot,
+.badge.processing .dot,
+.badge.warning .dot,
+.badge.requires_payment_method .dot,
+.badge.requires-payment-method .dot,
+.badge.requires_action .dot,
+.badge.requires-action .dot,
+.status-badge .dot{
+  display:none!important;
+}
+
+/* Make pseudo icon replace the old dot */
 .badge.success::before,
+.badge.succeeded::before,
+.badge.active::before,
 .badge.failed::before,
+.badge.declined::before,
+.badge.cancelled::before,
 .badge.info::before,
+.badge.processing::before,
 .badge.warning::before,
 .badge.requires_payment_method::before,
+.badge.requires-payment-method::before,
+.badge.requires_payment::before,
+.badge.requires-payment::before,
+.badge.requires_action::before,
 .badge.requires-action::before,
-.badge.requires-payment::before{
+.status-badge.success::before,
+.status-badge.succeeded::before,
+.status-badge.active::before,
+.status-badge.failed::before,
+.status-badge.declined::before,
+.status-badge.cancelled::before,
+.status-badge.info::before,
+.status-badge.processing::before,
+.status-badge.warning::before,
+.status-badge.requires_payment_method::before,
+.status-badge.requires-payment-method::before,
+.status-badge.requires_payment::before,
+.status-badge.requires-payment::before,
+.status-badge.requires_action::before,
+.status-badge.requires-action::before{
   content:""!important;
   width:17px!important;
   height:17px!important;
@@ -1886,132 +1946,135 @@ html.light td.customer-last-payment{
   background-size:12px 12px!important;
 }
 
-/* Success / settled */
-.status-badge.success,
+/* Green success */
 .badge.success,
 .badge.succeeded,
+.badge.active,
+.status-badge.success,
 .status-badge.succeeded,
-.status-badge.active,
-.badge.active{
+.status-badge.active{
   color:#35e36e!important;
   background:rgba(34,197,94,.14)!important;
-  border:1px solid rgba(34,197,94,.18)!important;
+  border:1px solid rgba(34,197,94,.22)!important;
 }
-.status-badge.success::before,
 .badge.success::before,
 .badge.succeeded::before,
+.badge.active::before,
+.status-badge.success::before,
 .status-badge.succeeded::before,
-.status-badge.active::before,
-.badge.active::before{
+.status-badge.active::before{
   border:1.5px solid #35e36e!important;
   background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3.4 8.3 6.4 11.2 12.7 4.7' fill='none' stroke='%2335e36e' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")!important;
-  box-shadow:0 0 10px rgba(34,197,94,.20)!important;
 }
 
-/* Failed / declined */
-.status-badge.failed,
+/* Red failed */
 .badge.failed,
-.status-badge.declined,
 .badge.declined,
-.status-badge.cancelled,
-.badge.cancelled{
+.badge.cancelled,
+.status-badge.failed,
+.status-badge.declined,
+.status-badge.cancelled{
   color:#ff7b7b!important;
   background:rgba(239,68,68,.16)!important;
-  border:1px solid rgba(239,68,68,.22)!important;
+  border:1px solid rgba(239,68,68,.24)!important;
 }
-.status-badge.failed::before,
 .badge.failed::before,
-.status-badge.declined::before,
 .badge.declined::before,
-.status-badge.cancelled::before,
-.badge.cancelled::before{
+.badge.cancelled::before,
+.status-badge.failed::before,
+.status-badge.declined::before,
+.status-badge.cancelled::before{
   border:1.5px solid #ff7b7b!important;
   background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 5l6 6M11 5l-6 6' fill='none' stroke='%23ff7b7b' stroke-width='2.1' stroke-linecap='round'/%3E%3C/svg%3E")!important;
-  box-shadow:0 0 10px rgba(239,68,68,.20)!important;
 }
 
-/* Payment required / requires_payment_method / processing / attention */
-.status-badge.requires_payment_method,
-.badge.requires_payment_method,
-.status-badge.requires-payment-method,
-.badge.requires-payment-method,
-.status-badge.requires_payment,
-.badge.requires_payment,
-.status-badge.requires-payment,
-.badge.requires-payment,
-.status-badge.requires_action,
-.badge.requires_action,
-.status-badge.requires-action,
-.badge.requires-action,
-.status-badge.processing,
+/* Blue payment required / requires action */
+.badge.info,
 .badge.processing,
+.badge.warning,
+.badge.requires_payment_method,
+.badge.requires-payment-method,
+.badge.requires_payment,
+.badge.requires-payment,
+.badge.requires_action,
+.badge.requires-action,
 .status-badge.info,
-.badge.info{
+.status-badge.processing,
+.status-badge.warning,
+.status-badge.requires_payment_method,
+.status-badge.requires-payment-method,
+.status-badge.requires_payment,
+.status-badge.requires-payment,
+.status-badge.requires_action,
+.status-badge.requires-action{
   color:#78b7ff!important;
   background:rgba(59,130,246,.15)!important;
-  border:1px solid rgba(96,165,250,.24)!important;
+  border:1px solid rgba(96,165,250,.25)!important;
 }
-.status-badge.requires_payment_method::before,
-.badge.requires_payment_method::before,
-.status-badge.requires-payment-method::before,
-.badge.requires-payment-method::before,
-.status-badge.requires_payment::before,
-.badge.requires_payment::before,
-.status-badge.requires-payment::before,
-.badge.requires-payment::before,
-.status-badge.requires_action::before,
-.badge.requires_action::before,
-.status-badge.requires-action::before,
-.badge.requires-action::before,
-.status-badge.processing::before,
+.badge.info::before,
 .badge.processing::before,
+.badge.warning::before,
+.badge.requires_payment_method::before,
+.badge.requires-payment-method::before,
+.badge.requires_payment::before,
+.badge.requires-payment::before,
+.badge.requires_action::before,
+.badge.requires-action::before,
 .status-badge.info::before,
-.badge.info::before{
+.status-badge.processing::before,
+.status-badge.warning::before,
+.status-badge.requires_payment_method::before,
+.status-badge.requires-payment-method::before,
+.status-badge.requires_payment::before,
+.status-badge.requires-payment::before,
+.status-badge.requires_action::before,
+.status-badge.requires-action::before{
   border:1.5px solid #78b7ff!important;
-  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'%3E%3Crect x='2.5' y='4' width='11' height='8' rx='1.6' fill='none' stroke='%2378b7ff' stroke-width='1.6'/%3E%3Cpath d='M4.2 6.4h7.6' stroke='%2378b7ff' stroke-width='1.5' stroke-linecap='round'/%3E%3Ccircle cx='11.4' cy='10.2' r='1.7' fill='%23101520' stroke='%2378b7ff' stroke-width='1.2'/%3E%3Cpath d='M11.4 9.35v.9' stroke='%2378b7ff' stroke-width='1.2' stroke-linecap='round'/%3E%3Ccircle cx='11.4' cy='11.2' r='.25' fill='%2378b7ff'/%3E%3C/svg%3E")!important;
-  box-shadow:0 0 10px rgba(59,130,246,.20)!important;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'%3E%3Crect x='2.5' y='4' width='11' height='8' rx='1.6' fill='none' stroke='%2378b7ff' stroke-width='1.6'/%3E%3Cpath d='M4.2 6.4h7.6' stroke='%2378b7ff' stroke-width='1.5' stroke-linecap='round'/%3E%3Ccircle cx='11.3' cy='10.3' r='1.8' fill='%23101520' stroke='%2378b7ff' stroke-width='1.1'/%3E%3Cpath d='M11.3 9.4v.85' stroke='%2378b7ff' stroke-width='1.1' stroke-linecap='round'/%3E%3Ccircle cx='11.3' cy='11.25' r='.22' fill='%2378b7ff'/%3E%3C/svg%3E")!important;
 }
 
-/* Light mode badge balance */
-html.light .status-badge.success,
+/* Light mode versions */
 html.light .badge.success,
 html.light .badge.succeeded,
+html.light .badge.active,
+html.light .status-badge.success,
 html.light .status-badge.succeeded,
-html.light .status-badge.active,
-html.light .badge.active{
+html.light .status-badge.active{
   color:#059669!important;
   background:rgba(16,185,129,.12)!important;
-  border-color:rgba(16,185,129,.22)!important;
+  border-color:rgba(16,185,129,.24)!important;
 }
-html.light .status-badge.failed,
 html.light .badge.failed,
-html.light .status-badge.declined,
 html.light .badge.declined,
-html.light .status-badge.cancelled,
-html.light .badge.cancelled{
+html.light .badge.cancelled,
+html.light .status-badge.failed,
+html.light .status-badge.declined,
+html.light .status-badge.cancelled{
   color:#dc2626!important;
   background:rgba(239,68,68,.11)!important;
-  border-color:rgba(239,68,68,.20)!important;
+  border-color:rgba(239,68,68,.22)!important;
 }
-html.light .status-badge.requires_payment_method,
-html.light .badge.requires_payment_method,
-html.light .status-badge.requires-payment-method,
-html.light .badge.requires-payment-method,
-html.light .status-badge.requires_payment,
-html.light .badge.requires_payment,
-html.light .status-badge.requires-payment,
-html.light .badge.requires-payment,
-html.light .status-badge.requires_action,
-html.light .badge.requires_action,
-html.light .status-badge.requires-action,
-html.light .badge.requires-action,
-html.light .status-badge.processing,
+html.light .badge.info,
 html.light .badge.processing,
+html.light .badge.warning,
+html.light .badge.requires_payment_method,
+html.light .badge.requires-payment-method,
+html.light .badge.requires_payment,
+html.light .badge.requires-payment,
+html.light .badge.requires_action,
+html.light .badge.requires-action,
 html.light .status-badge.info,
-html.light .badge.info{
+html.light .status-badge.processing,
+html.light .status-badge.warning,
+html.light .status-badge.requires_payment_method,
+html.light .status-badge.requires-payment-method,
+html.light .status-badge.requires_payment,
+html.light .status-badge.requires-payment,
+html.light .status-badge.requires_action,
+html.light .status-badge.requires-action{
   color:#2563eb!important;
   background:rgba(59,130,246,.10)!important;
-  border-color:rgba(59,130,246,.20)!important;
+  border-color:rgba(59,130,246,.22)!important;
 }
 
 </style>
