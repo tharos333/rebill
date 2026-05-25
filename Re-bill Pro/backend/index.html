@@ -1364,7 +1364,7 @@ textarea,
 .tag,
 [class*="status"]{
   font-family:var(--font-label)!important;
-  font-weight:700!important;
+  font-weight:500!important;
   letter-spacing:.035em!important;
 }
 
@@ -1895,6 +1895,22 @@ html.light td.customer-last-payment{
 .badge .dot{
   display:none!important;
   content:none!important;
+}
+
+
+
+/* Status badge icon size/gap only - keep badge box unchanged */
+.badge{
+  gap:3px!important;
+}
+
+.badge svg.status-mini-icon{
+  width:20px!important;
+  height:20px!important;
+  min-width:20px!important;
+  flex:0 0 20px!important;
+  stroke-width:3!important;
+  transform:translateY(0)!important;
 }
 
 </style>
