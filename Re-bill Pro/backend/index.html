@@ -1838,82 +1838,6 @@ html.light td.customer-last-payment{
   letter-spacing:-0.01em!important;
 }
 
-
-
-
-
-
-/* Pro status chips built from scratch */
-.status-chip{
-  display:inline-flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  gap:7px!important;
-  height:24px!important;
-  min-height:24px!important;
-  padding:0 10px 0 7px!important;
-  border-radius:8px!important;
-  font-family:var(--font-ui)!important;
-  font-size:12px!important;
-  font-weight:600!important;
-  letter-spacing:-0.012em!important;
-  line-height:1!important;
-  white-space:nowrap!important;
-  vertical-align:middle!important;
-}
-.status-chip__icon{
-  width:15px!important;
-  height:15px!important;
-  min-width:15px!important;
-  border-radius:5px!important;
-  display:inline-flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  color:#fff!important;
-  box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)!important;
-}
-.status-chip__icon svg{
-  width:10px!important;
-  height:10px!important;
-  display:block!important;
-  stroke-width:2.25!important;
-}
-.status-chip--success{
-  color:#27e878!important;
-  background:linear-gradient(180deg, rgba(34,197,94,.16), rgba(34,197,94,.105))!important;
-  border:1px solid rgba(34,197,94,.26)!important;
-}
-.status-chip--success .status-chip__icon{background:#22c55e!important;}
-.status-chip--failed{
-  color:#ff7777!important;
-  background:linear-gradient(180deg, rgba(239,68,68,.16), rgba(239,68,68,.105))!important;
-  border:1px solid rgba(239,68,68,.28)!important;
-}
-.status-chip--failed .status-chip__icon{background:#ef4444!important;}
-.status-chip--info{
-  color:#79b9ff!important;
-  background:linear-gradient(180deg, rgba(59,130,246,.16), rgba(59,130,246,.105))!important;
-  border:1px solid rgba(59,130,246,.28)!important;
-}
-.status-chip--info .status-chip__icon{background:#3b82f6!important;}
-
-html.light .status-chip--success{
-  color:#047857!important;
-  background:linear-gradient(180deg, rgba(16,185,129,.115), rgba(16,185,129,.075))!important;
-  border-color:rgba(16,185,129,.24)!important;
-}
-html.light .status-chip--failed{
-  color:#dc2626!important;
-  background:linear-gradient(180deg, rgba(239,68,68,.105), rgba(239,68,68,.07))!important;
-  border-color:rgba(239,68,68,.22)!important;
-}
-html.light .status-chip--info{
-  color:#2563eb!important;
-  background:linear-gradient(180deg, rgba(59,130,246,.105), rgba(59,130,246,.07))!important;
-  border-color:rgba(59,130,246,.22)!important;
-}
-html.light .status-chip__icon{box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)!important;}
-
 </style>
 </head>
 <body>
@@ -2622,48 +2546,6 @@ html.light .status-chip__icon{box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)!i
 
 <div id="toast"></div>
 <script>
-
-function normalizeStatusChip(status){
-  const raw = String(status || 'info').toLowerCase().trim();
-  if (raw.includes('succeeded') || raw.includes('success') || raw.includes('settled') || raw.includes('paid') || raw === 'active' || raw === 'ok') return 'success';
-  if (raw.includes('failed') || raw.includes('fail') || raw.includes('declined') || raw.includes('declin') || raw.includes('cancelled') || raw.includes('canceled') || raw.includes('cancel')) return 'failed';
-  return 'info';
-}
-function statusChipLabel(status){
-  const raw = String(status || 'info').toLowerCase().trim();
-  if (raw.includes('requires_payment_method') || raw.includes('requires-payment-method') || raw.includes('payment_required') || raw.includes('payment-required') || raw.includes('requires_payment') || raw.includes('requires-payment')) return 'payment required';
-  if (raw.includes('requires_action') || raw.includes('requires-action')) return 'action required';
-  if (raw.includes('processing')) return 'processing';
-  if (raw === 'active') return 'active';
-  if (raw.includes('success') || raw.includes('succeeded') || raw.includes('settled')) return 'succeeded';
-  if (raw.includes('fail') || raw.includes('declin') || raw.includes('cancel')) return 'failed';
-  return raw.replace(/_/g, ' ') || 'info';
-}
-function statusChipIcon(type){
-  if (type === 'failed') {
-    return `<span class="status-chip__icon" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M4.9 4.9l6.2 6.2M11.1 4.9l-6.2 6.2" stroke="currentColor" stroke-linecap="round"/></svg></span>`;
-  }
-  if (type === 'info') {
-    return `<span class="status-chip__icon" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M3.4 5.5h9.2v5H3.4z" stroke="currentColor" stroke-linejoin="round"/><path d="M4.5 7h7" stroke="currentColor" stroke-linecap="round"/></svg></span>`;
-  }
-  return `<span class="status-chip__icon" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M4.3 8.2l2.35 2.35L11.8 5.2" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg></span>`;
-}
-function statusBadgeHtml(status, label){
-  const type = normalizeStatusChip(status);
-  const safeLabel = String(label || statusChipLabel(status)).replace(/^•\s*/, '').replace(/_/g, ' ');
-  return `<span class="status-chip status-chip--${type}">${statusChipIcon(type)}<span>${safeLabel}</span></span>`;
-}
-function badge(s){
-  return statusBadgeHtml(s, statusChipLabel(s));
-}
-
-
-
-
-
-
-
-
 let currentLink=null,allCustomers=[],allSubscriptions=[],allPayments=[],allStripeAccounts=[],allAdminUsers=[],appSettings={},selectedSubs=new Set(),currentRevPeriod='month',bulkMode=false;
 function toggleTheme(){const isLight=document.documentElement.classList.toggle('light');localStorage.setItem('subloop_theme',isLight?'light':'dark');document.getElementById('theme-label').textContent=isLight?'Light mode':'Dark mode';updateLogos(isLight);}
 function updateLogos(isLight){const src=isLight?'https://i.ibb.co/6cD50Q6H/2.png':'https://i.ibb.co/xq0HVT9G/1.png';['sidebar-logo','login-logo'].forEach(id=>{const el=document.getElementById(id);if(el)el.src=src;});}
@@ -2811,9 +2693,7 @@ function fmt(c,cur){return fmtExact(c,cur);}
 function fmtDate(d){return d?new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';}
 function fmtTime(d){return d?new Date(d).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'—';}
 function initials(n){return(n||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();}
-
-
-
+function badge(s){const m={active:'green',succeeded:'green',failed:'red',paused:'amber',cancelled:'red',pending:'blue',dunning:'amber',ok:'green'};return '<span class="badge badge-'+(m[s]||'blue')+'">'+s+'</span>';}
 async function api(path,opts){
   opts=opts||{};opts.headers=opts.headers||{};
   var u=localStorage.getItem('subloop_username');if(u)opts.headers['x-username']=u;
@@ -3289,7 +3169,7 @@ function renderPaymentDetailModal(p, syncing){
   h+='<div class="pd-fixed-summary">';
   h+='<div class="pd-hero"><div class="pd-hero-icon '+statusClass+'">'+heroIconSvg+'</div>';
   h+='<div class="pd-hero-title">'+escHtml(statusTitle)+'</div><div class="pd-hero-amount '+statusClass+'">'+fmt(p.amount,p.currency)+'</div><div class="pd-hero-sub">'+escHtml(typeLabel)+' card payment</div></div>';
-  h+='<div class="pd-status-row"><div class="pd-date-chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span>'+formatPdDate(p.created_at)+', '+formatPdLocalTime(p.created_at)+'</span></div><div class="pd-tz-chip">Local</div><div class="pd-status-pill '+statusClass+'">'+statusIconSvg(statusPill)+escHtml(statusPill)+'</div></div>';
+  h+='<div class="pd-status-row"><div class="pd-date-chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span>'+formatPdDate(p.created_at)+', '+formatPdLocalTime(p.created_at)+'</span></div><div class="pd-tz-chip">Local</div><div class="pd-status-pill '+statusClass+'"><span class="pd-dot"></span>'+escHtml(statusPill)+'</div></div>';
   if(isFailed&&fullReason){h+='<div class="pd-fail-box">'+escHtml(fullReason)+'</div>';}
   if(syncing){h+='<div class="pd-sync-note">Fetching real Stripe fee/net…</div>';}
   h+='</div>';
