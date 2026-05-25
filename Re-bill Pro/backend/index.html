@@ -1975,6 +1975,17 @@ html.light .badge.badge-amber{
   font-weight:400!important;
 }
 
+
+/* Payment needed icon fix: clean alert triangle, not info/trash-looking */
+.badge.badge-blue svg.status-mini-icon{
+  width:15px!important;
+  height:15px!important;
+  min-width:15px!important;
+  flex:0 0 15px!important;
+  stroke-width:2.05!important;
+  transform:translateY(.05px)!important;
+}
+
 </style>
 </head>
 <body>
@@ -2867,7 +2878,7 @@ function badgeIcon(s){
   }
 
   if (raw.includes('require') || raw.includes('pending') || raw.includes('processing') || raw.includes('method') || raw.includes('action')) {
-    return '<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="5.45" stroke="currentColor"/><path d="M8 7.35v3.35" stroke="currentColor" stroke-linecap="round"/><circle cx="8" cy="5.2" r=".65" fill="currentColor"/></svg>';
+    return '<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 3.1L13.2 12.2H2.8L8 3.1Z" stroke="currentColor" stroke-linejoin="round"/><path d="M8 6.4v2.7" stroke="currentColor" stroke-linecap="round"/><circle cx="8" cy="11.1" r=".55" fill="currentColor"/></svg>';
   }
 
   return '';
