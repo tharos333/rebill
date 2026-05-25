@@ -3863,4 +3863,44 @@ document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>
   transform:translateY(.05px)!important;
 }
 
+
+/* FINAL FORCE: status badge icons not bold */
+.badge svg.status-mini-icon,
+.badge.badge-green svg.status-mini-icon,
+.badge.badge-red svg.status-mini-icon,
+.badge.badge-blue svg.status-mini-icon,
+.badge.badge-amber svg.status-mini-icon,
+#page-payments .badge svg.status-mini-icon,
+#page-customers .badge svg.status-mini-icon,
+#page-subscriptions .badge svg.status-mini-icon,
+#page-accounts .badge svg.status-mini-icon{
+  stroke-width:1.45!important;
+  font-weight:400!important;
+}
+
+.badge svg.status-mini-icon path,
+.badge svg.status-mini-icon line,
+.badge svg.status-mini-icon circle,
+.badge svg.status-mini-icon rect{
+  stroke-width:1.45!important;
+}
+
+.badge svg.status-mini-icon circle[fill="currentColor"]{
+  r:.45!important;
+}
+
+/* Keep the text not bold too */
+.badge,
+.badge > span,
+#page-payments .badge,
+#page-payments .badge > span,
+#page-customers .badge,
+#page-customers .badge > span,
+#page-subscriptions .badge,
+#page-subscriptions .badge > span,
+#page-accounts .badge,
+#page-accounts .badge > span{
+  font-weight:400!important;
+}
+
 </style>
