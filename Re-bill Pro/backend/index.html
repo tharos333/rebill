@@ -1978,46 +1978,23 @@ html.light .badge.badge-amber{
 
 
 
-/* Final Payment needed badge fix: clear icon, aligned, same badge system */
+
+/* Payment needed icon final: SVG alert icon, centered and not attached */
 .badge.badge-blue{
-  color:#60a5fa!important;
-  background:rgba(59,130,246,.14)!important;
-  border-color:rgba(59,130,246,.22)!important;
-  font-weight:400!important;
-  gap:5px!important;
-}
-
-.badge.badge-blue span{
-  font-weight:400!important;
-}
-
-.badge.badge-blue::before,
-.badge.badge-blue .dot{
-  display:none!important;
-  content:none!important;
+  gap:6px!important;
 }
 
 .badge.badge-blue .payment-needed-symbol{
-  width:13px!important;
-  height:13px!important;
-  min-width:13px!important;
-  flex:0 0 13px!important;
-  display:inline-flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  border:1.5px solid currentColor!important;
-  border-radius:999px!important;
-  font-family:var(--sans)!important;
-  font-size:9px!important;
-  font-weight:600!important;
-  line-height:1!important;
-  transform:translateY(.1px)!important;
+  display:none!important;
 }
 
-html.light .badge.badge-blue{
-  color:#2563eb!important;
-  background:rgba(59,130,246,.10)!important;
-  border-color:rgba(59,130,246,.20)!important;
+.badge.badge-blue svg.payment-needed-icon{
+  width:14px!important;
+  height:14px!important;
+  min-width:14px!important;
+  flex:0 0 14px!important;
+  stroke-width:1.65!important;
+  transform:translateY(.05px)!important;
 }
 
 </style>
@@ -2912,7 +2889,7 @@ function badgeIcon(s){
   }
 
   if (raw.includes('require') || raw.includes('pending') || raw.includes('processing') || raw.includes('method') || raw.includes('action')) {
-    return '<span class="status-mini-icon payment-needed-symbol" aria-hidden="true">!</span>';
+    return '<svg class="status-mini-icon payment-needed-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="5.25" stroke="currentColor"/><path d="M8 4.9v3.55" stroke="currentColor" stroke-linecap="round"/><circle cx="8" cy="10.95" r=".55" fill="currentColor"/></svg>';
   }
 
   return '';
