@@ -1977,8 +1977,12 @@ html.light .badge.badge-amber{
 
 
 
-/* Payment needed final clean icon tune */
+
+/* Payment needed clearer meaning */
 .badge.badge-blue{
+  color:#60a5fa!important;
+  background:rgba(59,130,246,.13)!important;
+  border-color:rgba(59,130,246,.22)!important;
   font-weight:400!important;
 }
 
@@ -1987,12 +1991,18 @@ html.light .badge.badge-amber{
 }
 
 .badge.badge-blue svg.status-mini-icon.payment-needed-icon{
-  width:13px!important;
-  height:13px!important;
-  min-width:13px!important;
-  flex:0 0 13px!important;
-  stroke-width:1.75!important;
+  width:14px!important;
+  height:14px!important;
+  min-width:14px!important;
+  flex:0 0 14px!important;
+  stroke-width:2!important;
   transform:translateY(.05px)!important;
+}
+
+html.light .badge.badge-blue{
+  color:#2563eb!important;
+  background:rgba(59,130,246,.10)!important;
+  border-color:rgba(59,130,246,.20)!important;
 }
 
 </style>
@@ -2862,8 +2872,8 @@ function badgeLabel(s){
   if (raw.includes('fail') || raw.includes('declin')) return 'Failed';
   if (raw.includes('cancel')) return 'Cancelled';
   if (raw.includes('refund')) return 'Refunded';
-  if (raw.includes('requires_payment_method') || raw.includes('requires-payment-method') || raw.includes('payment_required') || raw.includes('payment-required') || raw.includes('requires_payment') || raw.includes('requires-payment') || raw.includes('method')) return 'Payment needed';
-  if (raw.includes('requires_action') || raw.includes('requires-action') || raw.includes('action')) return 'Payment needed';
+  if (raw.includes('requires_payment_method') || raw.includes('requires-payment-method') || raw.includes('payment_required') || raw.includes('payment-required') || raw.includes('requires_payment') || raw.includes('requires-payment') || raw.includes('method')) return 'Needs payment';
+  if (raw.includes('requires_action') || raw.includes('requires-action') || raw.includes('action')) return 'Needs payment';
   if (raw.includes('processing')) return 'Processing';
   if (raw.includes('pending')) return 'Pending';
   if (raw.includes('paused')) return 'Paused';
@@ -2887,7 +2897,7 @@ function badgeIcon(s){
   }
 
   if (raw.includes('require') || raw.includes('pending') || raw.includes('processing') || raw.includes('method') || raw.includes('action')) {
-    return '<svg class="status-mini-icon payment-needed-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="2.6" y="4.2" width="10.8" height="7.6" rx="1.8" stroke="currentColor"/><path d="M3.3 6.5h9.4" stroke="currentColor" stroke-linecap="round"/><path d="M5 9.6h2.5" stroke="currentColor" stroke-linecap="round"/></svg>';
+    return '<svg class="status-mini-icon payment-needed-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="5.7" stroke="currentColor"/><path d="M8 4.8v3.6" stroke="currentColor" stroke-linecap="round"/><path d="M8 11.1h.01" stroke="currentColor" stroke-linecap="round"/></svg>';
   }
 
   return '';
