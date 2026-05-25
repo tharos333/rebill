@@ -3647,7 +3647,7 @@ async function loadAccounts(){
           if(st==='active'){
             statusIcon='<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.4 8.2l2.45 2.45L12.6 4.8" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg>';
           } else if(st==='restricted' || st==='verification'){
-            statusIcon='<svg class="status-mini-icon verification-alert-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2.15L14.05 13.1H1.95L8 2.15Z" stroke="currentColor" stroke-width="1.65" stroke-linejoin="round"/><path d="M8 5.65v3.1" stroke="currentColor" stroke-width="1.65" stroke-linecap="round"/><path d="M8 11.15h.01" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/></svg>';
+            statusIcon='<svg class="status-mini-icon verification-alert-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="5.35" stroke="currentColor" stroke-width="1.45"/><path d="M8 5.05v3.05" stroke="currentColor" stroke-width="1.45" stroke-linecap="round"/><circle cx="8" cy="10.75" r=".48" fill="currentColor"/></svg>';
           } else {
             statusIcon='<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M5 5l6 6M11 5l-6 6" stroke="currentColor" stroke-linecap="round"/></svg>';
           }
@@ -3851,7 +3851,8 @@ document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>
 </html>
 
 <style>.badge .verification-bang-only{width:12px;min-width:12px;display:inline-flex;align-items:center;justify-content:center;font-family:var(--sans);font-size:12px;line-height:1;font-weight:400;letter-spacing:0;transform:translateY(-0.5px);}
-/* Stripe Accounts verification: clean alert icon */
+
+/* Stripe Accounts verification: circle alert icon, not triangle */
 .badge svg.verification-alert-icon{
   width:13px!important;
   height:13px!important;
@@ -3859,62 +3860,6 @@ document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>
   flex:0 0 13px!important;
   display:block!important;
   stroke-width:1.45!important;
-  transform:translateY(.05px)!important;
-}
-
-.badge .verification-bang-only{
-  display:none!important;
-}
-
-
-
-/* FINAL double-check: all status badge text and icons regular/not bold */
-.badge,
-.badge span,
-.badge.badge-green,
-.badge.badge-red,
-.badge.badge-amber,
-.badge.badge-blue,
-.badge.badge-payment-needed,
-.badge.badge-required,
-.badge.badge-requires-payment{
-  font-weight:400!important;
-}
-
-.badge svg.status-mini-icon{
-  width:15px!important;
-  height:15px!important;
-  min-width:15px!important;
-  flex:0 0 15px!important;
-  stroke-width:1.7!important;
-  transform:translateY(.05px)!important;
-}
-
-.badge.badge-blue svg.status-mini-icon.payment-needed-icon{
-  width:13px!important;
-  height:13px!important;
-  min-width:13px!important;
-  flex:0 0 13px!important;
-  stroke-width:1.45!important;
-}
-
-.badge svg.verification-alert-icon{
-  width:13px!important;
-  height:13px!important;
-  min-width:13px!important;
-  flex:0 0 13px!important;
-  stroke-width:1.28!important;
-}
-
-
-/* Stripe Accounts verification: clearer alert icon */
-.badge svg.verification-alert-icon{
-  width:14px!important;
-  height:14px!important;
-  min-width:14px!important;
-  flex:0 0 14px!important;
-  display:block!important;
-  stroke-width:1.65!important;
   transform:translateY(.05px)!important;
 }
 
