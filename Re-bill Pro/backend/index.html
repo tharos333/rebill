@@ -2018,6 +2018,81 @@ html.light .badge.badge-amber{
   font-weight:400!important;
 }
 
+
+/* Stripe Accounts status badges: same polished size/text system as other pages */
+.account-status-badge{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:6px!important;
+  min-height:22px!important;
+  height:22px!important;
+  padding:0 10px!important;
+  border-radius:7px!important;
+  font-size:12px!important;
+  line-height:1!important;
+  font-weight:700!important;
+  letter-spacing:0!important;
+  white-space:nowrap!important;
+  vertical-align:middle!important;
+}
+
+.account-status-badge .account-status-dot{
+  width:6px!important;
+  height:6px!important;
+  min-width:6px!important;
+  border-radius:999px!important;
+  background:currentColor!important;
+  display:inline-block!important;
+  transform:translateY(.05px)!important;
+}
+
+.account-status-badge svg.account-status-icon{
+  width:14px!important;
+  height:14px!important;
+  min-width:14px!important;
+  flex:0 0 14px!important;
+  stroke-width:2!important;
+  display:block!important;
+  transform:translateY(.05px)!important;
+}
+
+.account-status-badge.badge-green{
+  color:var(--green)!important;
+  background:rgba(34,197,94,.14)!important;
+  border:1px solid rgba(34,197,94,.22)!important;
+}
+
+.account-status-badge.badge-amber{
+  color:var(--amber)!important;
+  background:rgba(245,158,11,.14)!important;
+  border:1px solid rgba(245,158,11,.24)!important;
+}
+
+.account-status-badge.badge-red{
+  color:var(--red)!important;
+  background:rgba(239,68,68,.14)!important;
+  border:1px solid rgba(239,68,68,.22)!important;
+}
+
+html.light .account-status-badge.badge-green{
+  color:#059669!important;
+  background:rgba(16,185,129,.10)!important;
+  border-color:rgba(16,185,129,.20)!important;
+}
+
+html.light .account-status-badge.badge-amber{
+  color:#b45309!important;
+  background:rgba(245,158,11,.12)!important;
+  border-color:rgba(245,158,11,.24)!important;
+}
+
+html.light .account-status-badge.badge-red{
+  color:#dc2626!important;
+  background:rgba(239,68,68,.10)!important;
+  border-color:rgba(239,68,68,.20)!important;
+}
+
 </style>
 </head>
 <body>
@@ -3652,6 +3727,24 @@ function copyVerificationDebug(){
   }else fallbackCopy(txt);
 }
 
+
+function accountStatusBadge(label,color,reason){
+  var clean=String(label||'').replace(/_/g,' ').trim();
+  var lower=clean.toLowerCase();
+  var title=reason?String(reason).replace(/"/g,'&quot;'):'';
+  if(lower==='verification' || lower==='restricted') clean='verification required';
+  var cls=color||'green';
+  var icon='';
+  if(cls==='green'){
+    icon='<span class="account-status-dot" aria-hidden="true"></span>';
+  }else if(cls==='amber'){
+    icon='<svg class="account-status-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2.8l5.75 10.1H2.25L8 2.8Z" stroke="currentColor" stroke-linejoin="round"/><path d="M8 6.25v3.25" stroke="currentColor" stroke-linecap="round"/><path d="M8 11.65h.01" stroke="currentColor" stroke-linecap="round"/></svg>';
+  }else{
+    icon='<svg class="account-status-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M5 5l6 6M11 5l-6 6" stroke="currentColor" stroke-linecap="round"/></svg>';
+  }
+  return '<span class="badge account-status-badge badge-'+cls+'" title="'+title+'">'+icon+'<span>'+clean+'</span></span>';
+}
+
 async function loadAccounts(){
   try{
     const list=await api('/api/stripe-accounts');
@@ -3666,7 +3759,7 @@ async function loadAccounts(){
           var color=st==='active'?'green':((st==='restricted'||st==='verification')?'amber':'red');
           var details=Array.isArray(a.verification_details)?a.verification_details:[];
           var reason=a.account_status_reason?String(a.account_status_reason).replace(/"/g,'&quot;'):'';
-          var statusBadge='<span class="badge badge-'+color+'" title="'+reason+'">'+label+'</span>';
+          var statusBadge=accountStatusBadge(label,color,reason);
           var defaultBadge=a.is_default?'<span class="badge badge-blue" style="margin-left:6px;">default</span>':'';
           var verificationHtml='';
           if(st==='active'&&!details.length){
