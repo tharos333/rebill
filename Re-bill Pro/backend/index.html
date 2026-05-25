@@ -1980,7 +1980,8 @@ html.light .badge.badge-amber{
 
 
 
-/* Payment needed icon: clean credit-card icon */
+
+/* Payment needed icon: match payment-details card icon style */
 .badge.badge-blue{
   gap:6px!important;
 }
@@ -1992,11 +1993,11 @@ html.light .badge.badge-amber{
 
 .badge.badge-blue svg.payment-needed-card-icon{
   display:block!important;
-  width:15px!important;
-  height:15px!important;
-  min-width:15px!important;
-  flex:0 0 15px!important;
-  stroke-width:1.75!important;
+  width:16px!important;
+  height:16px!important;
+  min-width:16px!important;
+  flex:0 0 16px!important;
+  stroke-width:1.7!important;
   transform:translateY(.05px)!important;
 }
 
@@ -2892,7 +2893,7 @@ function badgeIcon(s){
   }
 
   if (raw.includes('require') || raw.includes('pending') || raw.includes('processing') || raw.includes('method') || raw.includes('action')) {
-    return '<svg class="status-mini-icon payment-needed-card-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="2.5" y="4.3" width="11" height="7.4" rx="1.7" stroke="currentColor"/><path d="M3.3 6.6h9.4" stroke="currentColor" stroke-linecap="round"/><path d="M5 9.55h3.15" stroke="currentColor" stroke-linecap="round"/></svg>';
+    return '<svg class="status-mini-icon payment-needed-card-icon" viewBox="0 0 18 18" fill="none" aria-hidden="true"><rect x="3.25" y="5.15" width="11.5" height="7.7" rx="1.9" stroke="currentColor"/><path d="M4.25 7.45h9.5" stroke="currentColor" stroke-linecap="round"/><circle cx="6.15" cy="10.35" r=".55" fill="currentColor"/><circle cx="8.15" cy="10.35" r=".55" fill="currentColor"/></svg>';
   }
 
   return '';
