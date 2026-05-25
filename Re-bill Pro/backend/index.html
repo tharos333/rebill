@@ -2002,45 +2002,28 @@ html.light .badge.badge-amber{
 }
 
 
-/* Status badge: bold text only, icons stay normal */
+
+/* Remove bold from all status badge text */
 .badge.badge-green > span,
 .badge.badge-red > span,
-.badge.badge-blue > span{
-  font-weight:700!important;
-}
-
-.badge.badge-green svg,
-.badge.badge-red svg,
-.badge.badge-blue svg,
-.badge.badge-green .status-mini-icon,
-.badge.badge-red .status-mini-icon,
-.badge.badge-blue .status-mini-icon{
+.badge.badge-blue > span,
+.badge.badge-amber > span,
+#page-accounts .badge > span{
   font-weight:400!important;
 }
 
-
-/* Stripe Accounts: use the same badge system as Payment page */
+.badge.badge-green,
+.badge.badge-red,
+.badge.badge-blue,
+.badge.badge-amber,
 #page-accounts .badge{
-  height:auto!important;
-  min-height:0!important;
-  padding:4px 9px!important;
-  border-radius:7px!important;
-  font-size:12px!important;
-  line-height:1!important;
-  gap:4px!important;
-  vertical-align:middle!important;
+  font-weight:400!important;
 }
 
-#page-accounts .badge > span{
-  font-weight:700!important;
-}
-
-#page-accounts .badge svg.status-mini-icon{
-  width:13px!important;
-  height:13px!important;
-  min-width:13px!important;
-  flex:0 0 13px!important;
-  stroke-width:2.25!important;
+/* Icons stay unchanged */
+.badge svg,
+.badge .status-mini-icon{
+  font-weight:400!important;
 }
 
 </style>
