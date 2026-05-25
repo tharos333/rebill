@@ -1978,25 +1978,19 @@ html.light .badge.badge-amber{
 
 
 
-/* Payment needed clearer meaning */
+
+/* Payment required final: clean blue text-only pill */
 .badge.badge-blue{
   color:#60a5fa!important;
   background:rgba(59,130,246,.13)!important;
   border-color:rgba(59,130,246,.22)!important;
   font-weight:400!important;
+  gap:0!important;
+  padding:0 10px!important;
 }
 
 .badge.badge-blue span{
   font-weight:400!important;
-}
-
-.badge.badge-blue svg.status-mini-icon.payment-needed-icon{
-  width:14px!important;
-  height:14px!important;
-  min-width:14px!important;
-  flex:0 0 14px!important;
-  stroke-width:2!important;
-  transform:translateY(.05px)!important;
 }
 
 html.light .badge.badge-blue{
@@ -2872,8 +2866,8 @@ function badgeLabel(s){
   if (raw.includes('fail') || raw.includes('declin')) return 'Failed';
   if (raw.includes('cancel')) return 'Cancelled';
   if (raw.includes('refund')) return 'Refunded';
-  if (raw.includes('requires_payment_method') || raw.includes('requires-payment-method') || raw.includes('payment_required') || raw.includes('payment-required') || raw.includes('requires_payment') || raw.includes('requires-payment') || raw.includes('method')) return 'Needs payment';
-  if (raw.includes('requires_action') || raw.includes('requires-action') || raw.includes('action')) return 'Needs payment';
+  if (raw.includes('requires_payment_method') || raw.includes('requires-payment-method') || raw.includes('payment_required') || raw.includes('payment-required') || raw.includes('requires_payment') || raw.includes('requires-payment') || raw.includes('method')) return 'Payment required';
+  if (raw.includes('requires_action') || raw.includes('requires-action') || raw.includes('action')) return 'Payment required';
   if (raw.includes('processing')) return 'Processing';
   if (raw.includes('pending')) return 'Pending';
   if (raw.includes('paused')) return 'Paused';
@@ -2897,7 +2891,7 @@ function badgeIcon(s){
   }
 
   if (raw.includes('require') || raw.includes('pending') || raw.includes('processing') || raw.includes('method') || raw.includes('action')) {
-    return '<svg class="status-mini-icon payment-needed-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="5.7" stroke="currentColor"/><path d="M8 4.8v3.6" stroke="currentColor" stroke-linecap="round"/><path d="M8 11.1h.01" stroke="currentColor" stroke-linecap="round"/></svg>';
+    return '';
   }
 
   return '';
