@@ -1977,22 +1977,47 @@ html.light .badge.badge-amber{
 
 
 
-/* Payment needed final clean icon tune */
+
+/* Final Payment needed badge fix: clear icon, aligned, same badge system */
 .badge.badge-blue{
+  color:#60a5fa!important;
+  background:rgba(59,130,246,.14)!important;
+  border-color:rgba(59,130,246,.22)!important;
   font-weight:400!important;
+  gap:5px!important;
 }
 
 .badge.badge-blue span{
   font-weight:400!important;
 }
 
-.badge.badge-blue svg.status-mini-icon.payment-needed-icon{
+.badge.badge-blue::before,
+.badge.badge-blue .dot{
+  display:none!important;
+  content:none!important;
+}
+
+.badge.badge-blue .payment-needed-symbol{
   width:13px!important;
   height:13px!important;
   min-width:13px!important;
   flex:0 0 13px!important;
-  stroke-width:1.75!important;
-  transform:translateY(.05px)!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  border:1.5px solid currentColor!important;
+  border-radius:999px!important;
+  font-family:var(--sans)!important;
+  font-size:9px!important;
+  font-weight:600!important;
+  line-height:1!important;
+  transform:translateY(.1px)!important;
+}
+
+html.light .badge.badge-blue{
+  color:#2563eb!important;
+  background:rgba(59,130,246,.10)!important;
+  border-color:rgba(59,130,246,.20)!important;
 }
 
 </style>
@@ -2887,7 +2912,7 @@ function badgeIcon(s){
   }
 
   if (raw.includes('require') || raw.includes('pending') || raw.includes('processing') || raw.includes('method') || raw.includes('action')) {
-    return '<svg class="status-mini-icon payment-needed-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="2.6" y="4.2" width="10.8" height="7.6" rx="1.8" stroke="currentColor"/><path d="M3.3 6.5h9.4" stroke="currentColor" stroke-linecap="round"/><path d="M5 9.6h2.5" stroke="currentColor" stroke-linecap="round"/></svg>';
+    return '<span class="status-mini-icon payment-needed-symbol" aria-hidden="true">!</span>';
   }
 
   return '';
