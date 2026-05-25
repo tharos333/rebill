@@ -1841,14 +1841,15 @@ html.light td.customer-last-payment{
 
 
 
-/* FORCE status badge icons - replaces old tiny dot style */
+
+/* Clean status badges with real inline SVG icons */
 .badge{
   display:inline-flex!important;
   align-items:center!important;
   justify-content:center!important;
   gap:6px!important;
   min-height:24px!important;
-  padding:0 10px 0 7px!important;
+  padding:0 10px 0 8px!important;
   border-radius:999px!important;
   font-family:var(--font-ui)!important;
   font-size:12px!important;
@@ -1857,30 +1858,26 @@ html.light td.customer-last-payment{
   line-height:1!important;
   white-space:nowrap!important;
 }
-
 .badge::before{
-  content:""!important;
+  content:none!important;
+  display:none!important;
+}
+.badge .dot{
+  display:none!important;
+}
+.badge-icon{
   width:15px!important;
   height:15px!important;
   min-width:15px!important;
-  border-radius:999px!important;
   display:inline-flex!important;
   align-items:center!important;
   justify-content:center!important;
-  background-repeat:no-repeat!important;
-  background-position:center!important;
-  background-size:10px 10px!important;
-  margin:0!important;
 }
-
-/* remove old bullet/dot spans if present */
-.badge .dot,
-.badge-dot,
-.status-dot{
-  display:none!important;
+.badge-icon svg{
+  width:15px!important;
+  height:15px!important;
+  display:block!important;
 }
-
-/* success / active */
 .badge.success,
 .badge.succeeded,
 .badge.active{
@@ -1888,14 +1885,6 @@ html.light td.customer-last-payment{
   background:rgba(34,197,94,.15)!important;
   border:1px solid rgba(34,197,94,.22)!important;
 }
-.badge.success::before,
-.badge.succeeded::before,
-.badge.active::before{
-  border:1.5px solid #28d96b!important;
-  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3.5 8.3l2.8 2.8 6.2-6.4' fill='none' stroke='%2328d96b' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")!important;
-}
-
-/* failed / declined / cancelled */
 .badge.failed,
 .badge.declined,
 .badge.cancelled{
@@ -1903,14 +1892,6 @@ html.light td.customer-last-payment{
   background:rgba(239,68,68,.17)!important;
   border:1px solid rgba(239,68,68,.25)!important;
 }
-.badge.failed::before,
-.badge.declined::before,
-.badge.cancelled::before{
-  border:1.5px solid #ff7777!important;
-  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 5l6 6M11 5l-6 6' fill='none' stroke='%23ff7777' stroke-width='2.1' stroke-linecap='round'/%3E%3C/svg%3E")!important;
-}
-
-/* payment required / requires payment method / requires action / processing */
 .badge.info,
 .badge.warning,
 .badge.processing,
@@ -1924,20 +1905,6 @@ html.light td.customer-last-payment{
   background:rgba(59,130,246,.16)!important;
   border:1px solid rgba(96,165,250,.25)!important;
 }
-.badge.info::before,
-.badge.warning::before,
-.badge.processing::before,
-.badge.requires_payment_method::before,
-.badge.requires-payment-method::before,
-.badge.requires_payment::before,
-.badge.requires-payment::before,
-.badge.requires_action::before,
-.badge.requires-action::before{
-  border:1.5px solid #78b7ff!important;
-  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'%3E%3Crect x='2.5' y='4' width='11' height='8' rx='1.6' fill='none' stroke='%2378b7ff' stroke-width='1.6'/%3E%3Cpath d='M4.2 6.4h7.6' stroke='%2378b7ff' stroke-width='1.5' stroke-linecap='round'/%3E%3Ccircle cx='11.3' cy='10.3' r='1.7' fill='%23101520' stroke='%2378b7ff' stroke-width='1.1'/%3E%3Cpath d='M11.3 9.45v.8' stroke='%2378b7ff' stroke-width='1.1' stroke-linecap='round'/%3E%3Ccircle cx='11.3' cy='11.22' r='.22' fill='%2378b7ff'/%3E%3C/svg%3E")!important;
-}
-
-/* light mode */
 html.light .badge.success,
 html.light .badge.succeeded,
 html.light .badge.active{
@@ -2674,6 +2641,26 @@ html.light .badge.requires-action{
 
 <div id="toast"></div>
 <script>
+
+function statusIconSvg(status){
+  const s = String(status || '').toLowerCase();
+  if (s.includes('fail') || s.includes('declin') || s.includes('cancel')) {
+    return `<span class="badge-icon" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.6"/><path d="M5.4 5.4l5.2 5.2M10.6 5.4l-5.2 5.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>`;
+  }
+  if (s.includes('require') || s.includes('processing') || s.includes('action') || s.includes('method')) {
+    return `<span class="badge-icon" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><rect x="2.5" y="4" width="11" height="8" rx="1.7" stroke="currentColor" stroke-width="1.5"/><path d="M4.1 6.4h7.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="11.3" cy="10.2" r="1.8" stroke="currentColor" stroke-width="1.2"/><path d="M11.3 9.35v.75" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><circle cx="11.3" cy="11.15" r=".25" fill="currentColor"/></svg></span>`;
+  }
+  return `<span class="badge-icon" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.6"/><path d="M4.6 8.2l2.4 2.4 4.7-5.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>`;
+}
+
+function statusBadgeHtml(status, label){
+  const raw = String(status || 'info');
+  const safeClass = raw.toLowerCase().replace(/[^a-z0-9_-]+/g, '-');
+  const safeLabel = String(label || raw).replace(/^•\s*/, '').replace(/_/g, '_');
+  return `<span class="badge ${safeClass}">${statusIconSvg(raw)}${safeLabel}</span>`;
+}
+
+
 let currentLink=null,allCustomers=[],allSubscriptions=[],allPayments=[],allStripeAccounts=[],allAdminUsers=[],appSettings={},selectedSubs=new Set(),currentRevPeriod='month',bulkMode=false;
 function toggleTheme(){const isLight=document.documentElement.classList.toggle('light');localStorage.setItem('subloop_theme',isLight?'light':'dark');document.getElementById('theme-label').textContent=isLight?'Light mode':'Dark mode';updateLogos(isLight);}
 function updateLogos(isLight){const src=isLight?'https://i.ibb.co/6cD50Q6H/2.png':'https://i.ibb.co/xq0HVT9G/1.png';['sidebar-logo','login-logo'].forEach(id=>{const el=document.getElementById(id);if(el)el.src=src;});}
