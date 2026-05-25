@@ -1976,13 +1976,22 @@ html.light .badge.badge-amber{
 }
 
 
-/* Payment needed icon fix: clean alert triangle, not info/trash-looking */
-.badge.badge-blue svg.status-mini-icon{
-  width:15px!important;
-  height:15px!important;
-  min-width:15px!important;
-  flex:0 0 15px!important;
-  stroke-width:2.05!important;
+
+/* Payment needed final clean icon tune */
+.badge.badge-blue{
+  font-weight:400!important;
+}
+
+.badge.badge-blue span{
+  font-weight:400!important;
+}
+
+.badge.badge-blue svg.status-mini-icon.payment-needed-icon{
+  width:13px!important;
+  height:13px!important;
+  min-width:13px!important;
+  flex:0 0 13px!important;
+  stroke-width:1.75!important;
   transform:translateY(.05px)!important;
 }
 
@@ -2878,7 +2887,7 @@ function badgeIcon(s){
   }
 
   if (raw.includes('require') || raw.includes('pending') || raw.includes('processing') || raw.includes('method') || raw.includes('action')) {
-    return '<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 3.1L13.2 12.2H2.8L8 3.1Z" stroke="currentColor" stroke-linejoin="round"/><path d="M8 6.4v2.7" stroke="currentColor" stroke-linecap="round"/><circle cx="8" cy="11.1" r=".55" fill="currentColor"/></svg>';
+    return '<svg class="status-mini-icon payment-needed-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="2.6" y="4.2" width="10.8" height="7.6" rx="1.8" stroke="currentColor"/><path d="M3.3 6.5h9.4" stroke="currentColor" stroke-linecap="round"/><path d="M5 9.6h2.5" stroke="currentColor" stroke-linecap="round"/></svg>';
   }
 
   return '';
