@@ -1988,6 +1988,149 @@ html.light .badge.requires-action .badge-icon{
 .pd-status-pill .badge-icon{width:14px!important;height:14px!important;min-width:14px!important;display:inline-flex;align-items:center;justify-content:center;margin-right:2px;}
 .pd-status-pill .badge-icon svg{width:14px!important;height:14px!important;display:block;}
 .pd-status-pill .pd-dot{display:none!important;}
+
+/* Final clean compact status badges */
+.badge.success,
+.badge.succeeded,
+.badge.active,
+.badge.failed,
+.badge.declined,
+.badge.cancelled,
+.badge.info,
+.badge.warning,
+.badge.processing,
+.badge.requires_payment_method,
+.badge.requires-payment-method,
+.badge.requires_payment,
+.badge.requires-payment,
+.badge.requires_action,
+.badge.requires-action{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:5px!important;
+  height:21px!important;
+  min-height:21px!important;
+  padding:0 9px 0 6px!important;
+  border-radius:999px!important;
+  font-size:12px!important;
+  font-weight:500!important;
+  letter-spacing:-0.015em!important;
+  line-height:1!important;
+  box-shadow:none!important;
+  white-space:nowrap!important;
+}
+
+.badge.success .badge-icon,
+.badge.succeeded .badge-icon,
+.badge.active .badge-icon,
+.badge.failed .badge-icon,
+.badge.declined .badge-icon,
+.badge.cancelled .badge-icon,
+.badge.info .badge-icon,
+.badge.warning .badge-icon,
+.badge.processing .badge-icon,
+.badge.requires_payment_method .badge-icon,
+.badge.requires-payment-method .badge-icon,
+.badge.requires_payment .badge-icon,
+.badge.requires-payment .badge-icon,
+.badge.requires_action .badge-icon,
+.badge.requires-action .badge-icon{
+  width:13px!important;
+  height:13px!important;
+  min-width:13px!important;
+  border-radius:999px!important;
+  border:1.15px solid currentColor!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  margin:0!important;
+}
+
+.badge.success .badge-icon svg,
+.badge.succeeded .badge-icon svg,
+.badge.active .badge-icon svg,
+.badge.failed .badge-icon svg,
+.badge.declined .badge-icon svg,
+.badge.cancelled .badge-icon svg,
+.badge.info .badge-icon svg,
+.badge.warning .badge-icon svg,
+.badge.processing .badge-icon svg,
+.badge.requires_payment_method .badge-icon svg,
+.badge.requires-payment-method .badge-icon svg,
+.badge.requires_payment .badge-icon svg,
+.badge.requires-payment .badge-icon svg,
+.badge.requires_action .badge-icon svg,
+.badge.requires-action .badge-icon svg{
+  width:7px!important;
+  height:7px!important;
+  display:block!important;
+}
+
+/* Softer colors */
+.badge.success,
+.badge.succeeded,
+.badge.active{
+  color:#2ee66f!important;
+  background:rgba(34,197,94,.105)!important;
+  border:1px solid rgba(34,197,94,.30)!important;
+}
+
+.badge.failed,
+.badge.declined,
+.badge.cancelled{
+  color:#ff7b7b!important;
+  background:rgba(239,68,68,.105)!important;
+  border:1px solid rgba(239,68,68,.30)!important;
+}
+
+.badge.info,
+.badge.warning,
+.badge.processing,
+.badge.requires_payment_method,
+.badge.requires-payment-method,
+.badge.requires_payment,
+.badge.requires-payment,
+.badge.requires_action,
+.badge.requires-action{
+  color:#7bbcff!important;
+  background:rgba(59,130,246,.105)!important;
+  border:1px solid rgba(96,165,250,.30)!important;
+}
+
+/* Light mode clean compact status badges */
+html.light .badge.success,
+html.light .badge.succeeded,
+html.light .badge.active{
+  color:#059669!important;
+  background:rgba(16,185,129,.075)!important;
+  border-color:rgba(16,185,129,.25)!important;
+}
+
+html.light .badge.failed,
+html.light .badge.declined,
+html.light .badge.cancelled{
+  color:#dc2626!important;
+  background:rgba(239,68,68,.075)!important;
+  border-color:rgba(239,68,68,.24)!important;
+}
+
+html.light .badge.info,
+html.light .badge.warning,
+html.light .badge.processing,
+html.light .badge.requires_payment_method,
+html.light .badge.requires-payment-method,
+html.light .badge.requires_payment,
+html.light .badge.requires-payment,
+html.light .badge.requires_action,
+html.light .badge.requires-action{
+  color:#2563eb!important;
+  background:rgba(59,130,246,.07)!important;
+  border-color:rgba(59,130,246,.24)!important;
+}
+
 </style>
 </head>
 <body>
