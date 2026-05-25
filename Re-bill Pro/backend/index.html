@@ -1914,6 +1914,67 @@ html.light td.customer-last-payment{
   transform:translateY(.05px)!important;
 }
 
+
+/* FINAL status badge polish: regular text + blue payment needed */
+.badge,
+.badge span,
+.status-badge,
+.status-badge span,
+.status,
+.status span,
+.pill,
+.pill span,
+.tag,
+.tag span,
+.pd-status-pill,
+.pd-status-pill span{
+  font-weight:400!important;
+}
+
+.badge{
+  gap:4px!important;
+  font-weight:400!important;
+}
+
+.badge svg.status-mini-icon{
+  width:16px!important;
+  height:16px!important;
+  min-width:16px!important;
+  flex:0 0 16px!important;
+  stroke-width:2.25!important;
+  transform:translateY(.05px)!important;
+}
+
+/* Payment needed must be blue, not yellow */
+.badge.badge-blue,
+.badge.badge-payment-needed,
+.badge.badge-required,
+.badge.badge-requires-payment{
+  color:#60a5fa!important;
+  background:rgba(59,130,246,.14)!important;
+  border-color:rgba(59,130,246,.24)!important;
+}
+
+/* Light mode blue payment needed */
+html.light .badge.badge-blue,
+html.light .badge.badge-payment-needed,
+html.light .badge.badge-required,
+html.light .badge.badge-requires-payment{
+  color:#2563eb!important;
+  background:rgba(59,130,246,.10)!important;
+  border-color:rgba(59,130,246,.22)!important;
+}
+
+/* Keep success/failed text regular in both modes */
+.badge.badge-green,
+.badge.badge-red,
+.badge.badge-amber,
+html.light .badge.badge-green,
+html.light .badge.badge-red,
+html.light .badge.badge-amber{
+  font-weight:400!important;
+}
+
 </style>
 </head>
 <body>
@@ -2770,6 +2831,10 @@ function fmtDate(d){return d?new Date(d).toLocaleDateString('en-US',{month:'shor
 function fmtTime(d){return d?new Date(d).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'—';}
 function initials(n){return(n||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();}
 
+
+
+
+
 function badgeLabel(s){
   const raw = String(s || '').toLowerCase().trim();
   if (raw === 'active') return 'Active';
@@ -2788,28 +2853,35 @@ function badgeLabel(s){
 
 function badgeIcon(s){
   const raw = String(s || '').toLowerCase();
+
   if (raw.includes('success') || raw.includes('succeeded') || raw === 'active' || raw === 'ok' || raw === 'paid') {
     return '<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.4 8.2l2.45 2.45L12.6 4.8" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   }
+
   if (raw.includes('fail') || raw.includes('declin') || raw.includes('cancel')) {
     return '<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M5 5l6 6M11 5l-6 6" stroke="currentColor" stroke-linecap="round"/></svg>';
   }
+
   if (raw.includes('refund')) {
     return '<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6.5 4.2L3.6 7.1l2.9 2.9" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.1 7.1h5.1a3.05 3.05 0 010 6.1H7.7" stroke="currentColor" stroke-linecap="round"/></svg>';
   }
+
   if (raw.includes('require') || raw.includes('pending') || raw.includes('processing') || raw.includes('method') || raw.includes('action')) {
-    return '<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="5.4" stroke="currentColor"/><path d="M8 4.9v3.25" stroke="currentColor" stroke-linecap="round"/><circle cx="8" cy="11.15" r=".65" fill="currentColor"/></svg>';
+    return '<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="5.45" stroke="currentColor"/><path d="M8 7.35v3.35" stroke="currentColor" stroke-linecap="round"/><circle cx="8" cy="5.2" r=".65" fill="currentColor"/></svg>';
   }
+
   return '';
 }
 
 function badge(s){
   const raw = String(s || '').toLowerCase().trim();
-  const m={active:'green',succeeded:'green',success:'green',failed:'red',declined:'red',paused:'amber',cancelled:'red',canceled:'red',pending:'blue',dunning:'amber',ok:'green'};
+  const m={active:'green',succeeded:'green',success:'green',failed:'red',declined:'red',paused:'blue',cancelled:'red',canceled:'red',pending:'blue',dunning:'blue',ok:'green'};
   let cls = m[raw] || 'blue';
+
   if (raw.includes('success') || raw.includes('succeeded')) cls = 'green';
   if (raw.includes('fail') || raw.includes('declin') || raw.includes('cancel')) cls = 'red';
-  if (raw.includes('require') || raw.includes('payment') || raw.includes('method') || raw.includes('action')) cls = 'amber';
+  if (raw.includes('require') || raw.includes('payment') || raw.includes('method') || raw.includes('action') || raw.includes('pending') || raw.includes('processing')) cls = 'blue';
+
   const icon = badgeIcon(raw);
   return '<span class="badge badge-'+cls+(icon?' has-status-icon':'')+'"><span>'+badgeLabel(raw)+'</span>'+icon+'</span>';
 }
