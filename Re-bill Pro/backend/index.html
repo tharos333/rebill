@@ -2003,37 +2003,33 @@ html.light .badge.badge-amber{
 
 
 
-/* Remove bold from all status badge text */
-.badge.badge-green > span,
-.badge.badge-red > span,
-.badge.badge-blue > span,
-.badge.badge-amber > span,
-#page-accounts .badge > span{
-  font-weight:400!important;
-}
-
+/* Final: status text not bold + icons not bold */
+.badge,
+.badge > span,
 .badge.badge-green,
 .badge.badge-red,
 .badge.badge-blue,
 .badge.badge-amber,
-#page-accounts .badge{
+.badge.badge-green > span,
+.badge.badge-red > span,
+.badge.badge-blue > span,
+.badge.badge-amber > span,
+#page-accounts .badge,
+#page-accounts .badge > span{
   font-weight:400!important;
 }
 
-/* Icons stay unchanged */
-.badge svg,
-.badge .status-mini-icon{
-  font-weight:400!important;
-}
-
-
-/* Status badge icons: thinner / less bold */
-.badge svg.status-mini-icon{
-  stroke-width:1.75!important;
-}
-
+.badge svg.status-mini-icon,
+.badge.badge-blue svg.status-mini-icon,
+.badge.badge-amber svg.status-mini-icon,
 #page-accounts .badge svg.status-mini-icon{
-  stroke-width:1.75!important;
+  stroke-width:1.55!important;
+  font-weight:400!important;
+}
+
+/* Filled dots inside SVG icons should also look softer */
+.badge svg.status-mini-icon circle[fill="currentColor"]{
+  r:.5!important;
 }
 
 </style>
