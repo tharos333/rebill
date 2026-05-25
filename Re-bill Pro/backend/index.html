@@ -1977,51 +1977,22 @@ html.light .badge.badge-amber{
 
 
 
+/* Payment needed final clean icon tune */
+.badge.badge-blue{
+  font-weight:400!important;
+}
 
-
-
-/* Payment required PRO final: clean blue pill, no dot, no icon */
-.badge.badge-blue,
 .badge.badge-blue span{
   font-weight:400!important;
-  letter-spacing:-0.01em!important;
 }
 
-.badge.badge-blue{
-  display:inline-flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  gap:0!important;
-  min-height:22px!important;
-  height:22px!important;
-  padding:0 10px!important;
-  border-radius:6px!important;
-  color:#60a5fa!important;
-  background:rgba(59,130,246,.14)!important;
-  border:1px solid rgba(59,130,246,.22)!important;
-  box-shadow:none!important;
-}
-
-.badge.badge-blue::before,
-.badge.badge-blue .dot,
-.badge.badge-blue svg,
-.badge.badge-blue .status-mini-icon{
-  display:none!important;
-  content:none!important;
-}
-
-html.light .badge.badge-blue{
-  color:#2563eb!important;
-  background:rgba(59,130,246,.10)!important;
-  border-color:rgba(59,130,246,.20)!important;
-}
-
-/* Keep succeeded/failed regular, not bold */
-.badge.badge-green,
-.badge.badge-green span,
-.badge.badge-red,
-.badge.badge-red span{
-  font-weight:400!important;
+.badge.badge-blue svg.status-mini-icon.payment-needed-icon{
+  width:13px!important;
+  height:13px!important;
+  min-width:13px!important;
+  flex:0 0 13px!important;
+  stroke-width:1.75!important;
+  transform:translateY(.05px)!important;
 }
 
 </style>
@@ -2891,8 +2862,8 @@ function badgeLabel(s){
   if (raw.includes('fail') || raw.includes('declin')) return 'Failed';
   if (raw.includes('cancel')) return 'Cancelled';
   if (raw.includes('refund')) return 'Refunded';
-  if (raw.includes('requires_payment_method') || raw.includes('requires-payment-method') || raw.includes('payment_required') || raw.includes('payment-required') || raw.includes('requires_payment') || raw.includes('requires-payment') || raw.includes('method')) return 'Payment required';
-  if (raw.includes('requires_action') || raw.includes('requires-action') || raw.includes('action')) return 'Payment required';
+  if (raw.includes('requires_payment_method') || raw.includes('requires-payment-method') || raw.includes('payment_required') || raw.includes('payment-required') || raw.includes('requires_payment') || raw.includes('requires-payment') || raw.includes('method')) return 'Payment needed';
+  if (raw.includes('requires_action') || raw.includes('requires-action') || raw.includes('action')) return 'Payment needed';
   if (raw.includes('processing')) return 'Processing';
   if (raw.includes('pending')) return 'Pending';
   if (raw.includes('paused')) return 'Paused';
@@ -2916,7 +2887,7 @@ function badgeIcon(s){
   }
 
   if (raw.includes('require') || raw.includes('pending') || raw.includes('processing') || raw.includes('method') || raw.includes('action')) {
-    return '';
+    return '<svg class="status-mini-icon payment-needed-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="2.6" y="4.2" width="10.8" height="7.6" rx="1.8" stroke="currentColor"/><path d="M3.3 6.5h9.4" stroke="currentColor" stroke-linecap="round"/><path d="M5 9.6h2.5" stroke="currentColor" stroke-linecap="round"/></svg>';
   }
 
   return '';
