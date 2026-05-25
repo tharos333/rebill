@@ -2131,6 +2131,150 @@ html.light .badge.requires-action{
   border-color:rgba(59,130,246,.24)!important;
 }
 
+
+/* Final professional status badges: compact filled icons */
+.badge.success,
+.badge.succeeded,
+.badge.active,
+.badge.failed,
+.badge.declined,
+.badge.cancelled,
+.badge.info,
+.badge.warning,
+.badge.processing,
+.badge.requires_payment_method,
+.badge.requires-payment-method,
+.badge.requires_payment,
+.badge.requires-payment,
+.badge.requires_action,
+.badge.requires-action{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:6px!important;
+  height:22px!important;
+  min-height:22px!important;
+  padding:0 10px 0 6px!important;
+  border-radius:999px!important;
+  font-family:var(--font-ui)!important;
+  font-size:12px!important;
+  font-weight:500!important;
+  letter-spacing:-0.012em!important;
+  line-height:1!important;
+  white-space:nowrap!important;
+  box-shadow:none!important;
+}
+
+.badge.success::before,
+.badge.succeeded::before,
+.badge.active::before,
+.badge.failed::before,
+.badge.declined::before,
+.badge.cancelled::before,
+.badge.info::before,
+.badge.warning::before,
+.badge.processing::before,
+.badge.requires_payment_method::before,
+.badge.requires-payment-method::before,
+.badge.requires_payment::before,
+.badge.requires-payment::before,
+.badge.requires_action::before,
+.badge.requires-action::before{
+  content:none!important;
+  display:none!important;
+}
+
+.badge .dot,
+.badge-dot,
+.status-dot{
+  display:none!important;
+}
+
+.badge-icon{
+  width:15px!important;
+  height:15px!important;
+  min-width:15px!important;
+  border-radius:999px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  border:none!important;
+  box-shadow:none!important;
+  margin:0!important;
+  flex-shrink:0!important;
+}
+
+.badge-icon svg{
+  width:10px!important;
+  height:10px!important;
+  display:block!important;
+}
+
+.badge-icon-success{background:#22c55e!important;}
+.badge-icon-failed{background:#ef4444!important;}
+.badge-icon-info{background:#3b82f6!important;}
+
+.badge.success,
+.badge.succeeded,
+.badge.active{
+  color:#27e36d!important;
+  background:rgba(34,197,94,.105)!important;
+  border:1px solid rgba(34,197,94,.26)!important;
+}
+
+.badge.failed,
+.badge.declined,
+.badge.cancelled{
+  color:#ff7777!important;
+  background:rgba(239,68,68,.105)!important;
+  border:1px solid rgba(239,68,68,.28)!important;
+}
+
+.badge.info,
+.badge.warning,
+.badge.processing,
+.badge.requires_payment_method,
+.badge.requires-payment-method,
+.badge.requires_payment,
+.badge.requires-payment,
+.badge.requires_action,
+.badge.requires-action{
+  color:#7bbcff!important;
+  background:rgba(59,130,246,.105)!important;
+  border:1px solid rgba(59,130,246,.26)!important;
+}
+
+/* Light mode parity */
+html.light .badge.success,
+html.light .badge.succeeded,
+html.light .badge.active{
+  color:#059669!important;
+  background:rgba(16,185,129,.08)!important;
+  border-color:rgba(16,185,129,.24)!important;
+}
+
+html.light .badge.failed,
+html.light .badge.declined,
+html.light .badge.cancelled{
+  color:#dc2626!important;
+  background:rgba(239,68,68,.075)!important;
+  border-color:rgba(239,68,68,.22)!important;
+}
+
+html.light .badge.info,
+html.light .badge.warning,
+html.light .badge.processing,
+html.light .badge.requires_payment_method,
+html.light .badge.requires-payment-method,
+html.light .badge.requires_payment,
+html.light .badge.requires-payment,
+html.light .badge.requires_action,
+html.light .badge.requires-action{
+  color:#2563eb!important;
+  background:rgba(59,130,246,.075)!important;
+  border-color:rgba(59,130,246,.22)!important;
+}
+
 </style>
 </head>
 <body>
@@ -2842,13 +2986,29 @@ html.light .badge.requires-action{
 
 function statusIconSvg(status){
   const s = String(status || '').toLowerCase();
+
   if (s.includes('fail') || s.includes('declin') || s.includes('cancel')) {
-    return `<span class="badge-icon" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M5.2 5.2l5.6 5.6M10.8 5.2l-5.6 5.6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg></span>`;
+    return `<span class="badge-icon badge-icon-failed" aria-hidden="true">
+      <svg viewBox="0 0 16 16" fill="none">
+        <path d="M5.2 5.2l5.6 5.6M10.8 5.2l-5.6 5.6" stroke="white" stroke-width="2.15" stroke-linecap="round"/>
+      </svg>
+    </span>`;
   }
+
   if (s.includes('require') || s.includes('processing') || s.includes('action') || s.includes('method')) {
-    return `<span class="badge-icon" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><rect x="2.6" y="4.6" width="10.8" height="6.8" rx="1.7" stroke="currentColor" stroke-width="1.4"/><path d="M3.8 7h8.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></span>`;
+    return `<span class="badge-icon badge-icon-info" aria-hidden="true">
+      <svg viewBox="0 0 16 16" fill="none">
+        <rect x="3.1" y="4.7" width="9.8" height="6.6" rx="1.35" stroke="white" stroke-width="1.45"/>
+        <path d="M4.2 6.8h7.6" stroke="white" stroke-width="1.3" stroke-linecap="round"/>
+      </svg>
+    </span>`;
   }
-  return `<span class="badge-icon" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M4.7 8.2l2.2 2.3 4.5-4.9" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></span>`;
+
+  return `<span class="badge-icon badge-icon-success" aria-hidden="true">
+    <svg viewBox="0 0 16 16" fill="none">
+      <path d="M4.4 8.25l2.25 2.25 4.95-5.2" stroke="white" stroke-width="2.15" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </span>`;
 }
 
 function statusBadgeHtml(status, label){
