@@ -1933,6 +1933,10 @@ html.light .badge.requires-action{
   border-color:rgba(59,130,246,.22)!important;
 }
 
+
+.pd-status-pill .badge-icon{width:14px!important;height:14px!important;min-width:14px!important;display:inline-flex;align-items:center;justify-content:center;margin-right:2px;}
+.pd-status-pill .badge-icon svg{width:14px!important;height:14px!important;display:block;}
+.pd-status-pill .pd-dot{display:none!important;}
 </style>
 </head>
 <body>
@@ -2808,7 +2812,27 @@ function fmt(c,cur){return fmtExact(c,cur);}
 function fmtDate(d){return d?new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';}
 function fmtTime(d){return d?new Date(d).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'—';}
 function initials(n){return(n||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();}
-function badge(s){const m={active:'green',succeeded:'green',failed:'red',paused:'amber',cancelled:'red',pending:'blue',dunning:'amber',ok:'green'};return '<span class="badge badge-'+(m[s]||'blue')+'">'+s+'</span>';}
+function normalizeBadgeStatus(s){
+  var raw=String(s||'info').toLowerCase().trim();
+  if(!raw)return 'info';
+  if(raw==='success'||raw==='succeeded'||raw==='active'||raw==='ok'||raw==='settled'||raw==='paid') return raw==='active' ? 'active' : 'succeeded';
+  if(raw==='failed'||raw==='declined'||raw==='cancelled') return raw;
+  if(raw==='pending'||raw==='paused'||raw==='dunning'||raw==='processing') return 'processing';
+  if(raw==='requires_payment_method'||raw==='requires-payment-method'||raw==='requires_payment'||raw==='requires-payment'||raw==='payment_required'||raw==='payment-required'||raw==='requires_action'||raw==='requires-action') return 'requires_payment_method';
+  return raw;
+}
+function prettyBadgeLabel(s){
+  var raw=String(s||'info').toLowerCase().trim();
+  if(!raw)return 'info';
+  if(raw==='requires_payment_method'||raw==='requires-payment-method'||raw==='requires_payment'||raw==='requires-payment'||raw==='payment_required'||raw==='payment-required') return 'payment required';
+  if(raw==='requires_action'||raw==='requires-action') return 'action required';
+  return raw.replace(/_/g,' ');
+}
+function badge(s){
+  var semantic = normalizeBadgeStatus(s);
+  var label = prettyBadgeLabel(s);
+  return statusBadgeHtml(semantic, label);
+}
 async function api(path,opts){
   opts=opts||{};opts.headers=opts.headers||{};
   var u=localStorage.getItem('subloop_username');if(u)opts.headers['x-username']=u;
@@ -3284,7 +3308,7 @@ function renderPaymentDetailModal(p, syncing){
   h+='<div class="pd-fixed-summary">';
   h+='<div class="pd-hero"><div class="pd-hero-icon '+statusClass+'">'+heroIconSvg+'</div>';
   h+='<div class="pd-hero-title">'+escHtml(statusTitle)+'</div><div class="pd-hero-amount '+statusClass+'">'+fmt(p.amount,p.currency)+'</div><div class="pd-hero-sub">'+escHtml(typeLabel)+' card payment</div></div>';
-  h+='<div class="pd-status-row"><div class="pd-date-chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span>'+formatPdDate(p.created_at)+', '+formatPdLocalTime(p.created_at)+'</span></div><div class="pd-tz-chip">Local</div><div class="pd-status-pill '+statusClass+'"><span class="pd-dot"></span>'+escHtml(statusPill)+'</div></div>';
+  h+='<div class="pd-status-row"><div class="pd-date-chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span>'+formatPdDate(p.created_at)+', '+formatPdLocalTime(p.created_at)+'</span></div><div class="pd-tz-chip">Local</div><div class="pd-status-pill '+statusClass+'">'+statusIconSvg(statusPill)+escHtml(statusPill)+'</div></div>';
   if(isFailed&&fullReason){h+='<div class="pd-fail-box">'+escHtml(fullReason)+'</div>';}
   if(syncing){h+='<div class="pd-sync-note">Fetching real Stripe fee/net…</div>';}
   h+='</div>';
