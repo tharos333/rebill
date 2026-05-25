@@ -1977,59 +1977,22 @@ html.light .badge.badge-amber{
 
 
 
-
-
-
-
-/* Payment needed icon: match payment-details card icon style */
+/* Payment needed final clean icon tune */
 .badge.badge-blue{
-  gap:6px!important;
+  font-weight:400!important;
 }
 
-.badge.badge-blue .payment-needed-symbol,
-.badge.badge-blue svg.payment-needed-icon{
-  display:none!important;
+.badge.badge-blue span{
+  font-weight:400!important;
 }
 
-.badge.badge-blue svg.payment-needed-card-icon{
-  display:block!important;
-  width:16px!important;
-  height:16px!important;
-  min-width:16px!important;
-  flex:0 0 16px!important;
-  stroke-width:1.7!important;
+.badge.badge-blue svg.status-mini-icon.payment-needed-icon{
+  width:13px!important;
+  height:13px!important;
+  min-width:13px!important;
+  flex:0 0 13px!important;
+  stroke-width:1.75!important;
   transform:translateY(.05px)!important;
-}
-
-
-
-/* Final: status text not bold + icons not bold */
-.badge,
-.badge > span,
-.badge.badge-green,
-.badge.badge-red,
-.badge.badge-blue,
-.badge.badge-amber,
-.badge.badge-green > span,
-.badge.badge-red > span,
-.badge.badge-blue > span,
-.badge.badge-amber > span,
-#page-accounts .badge,
-#page-accounts .badge > span{
-  font-weight:400!important;
-}
-
-.badge svg.status-mini-icon,
-.badge.badge-blue svg.status-mini-icon,
-.badge.badge-amber svg.status-mini-icon,
-#page-accounts .badge svg.status-mini-icon{
-  stroke-width:1.55!important;
-  font-weight:400!important;
-}
-
-/* Filled dots inside SVG icons should also look softer */
-.badge svg.status-mini-icon circle[fill="currentColor"]{
-  r:.5!important;
 }
 
 </style>
@@ -2899,7 +2862,6 @@ function badgeLabel(s){
   if (raw.includes('fail') || raw.includes('declin')) return 'Failed';
   if (raw.includes('cancel')) return 'Cancelled';
   if (raw.includes('refund')) return 'Refunded';
-  if (raw.includes('verification')) return 'Verification required';
   if (raw.includes('requires_payment_method') || raw.includes('requires-payment-method') || raw.includes('payment_required') || raw.includes('payment-required') || raw.includes('requires_payment') || raw.includes('requires-payment') || raw.includes('method')) return 'Payment needed';
   if (raw.includes('requires_action') || raw.includes('requires-action') || raw.includes('action')) return 'Payment needed';
   if (raw.includes('processing')) return 'Processing';
@@ -2924,12 +2886,8 @@ function badgeIcon(s){
     return '<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6.5 4.2L3.6 7.1l2.9 2.9" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.1 7.1h5.1a3.05 3.05 0 010 6.1H7.7" stroke="currentColor" stroke-linecap="round"/></svg>';
   }
 
-  if (raw.includes('verification')) {
-    return '<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="5.2" stroke="currentColor" stroke-width="1.6"/><path d="M8 5.35v2.45" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/><circle cx="8" cy="10.2" r=".56" fill="currentColor"/></svg>';
-  }
-
   if (raw.includes('require') || raw.includes('pending') || raw.includes('processing') || raw.includes('method') || raw.includes('action')) {
-    return '<svg class="status-mini-icon payment-needed-card-icon" viewBox="0 0 18 18" fill="none" aria-hidden="true"><rect x="3.25" y="5.15" width="11.5" height="7.7" rx="1.9" stroke="currentColor"/><path d="M4.25 7.45h9.5" stroke="currentColor" stroke-linecap="round"/><circle cx="6.15" cy="10.35" r=".55" fill="currentColor"/><circle cx="8.15" cy="10.35" r=".55" fill="currentColor"/></svg>';
+    return '<svg class="status-mini-icon payment-needed-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="2.6" y="4.2" width="10.8" height="7.6" rx="1.8" stroke="currentColor"/><path d="M3.3 6.5h9.4" stroke="currentColor" stroke-linecap="round"/><path d="M5 9.6h2.5" stroke="currentColor" stroke-linecap="round"/></svg>';
   }
 
   return '';
@@ -2942,8 +2900,7 @@ function badge(s){
 
   if (raw.includes('success') || raw.includes('succeeded')) cls = 'green';
   if (raw.includes('fail') || raw.includes('declin') || raw.includes('cancel')) cls = 'red';
-  if (raw.includes('verification')) cls = 'amber';
-  if ((raw.includes('require') || raw.includes('payment') || raw.includes('method') || raw.includes('action') || raw.includes('pending') || raw.includes('processing')) && !raw.includes('verification')) cls = 'blue';
+  if (raw.includes('require') || raw.includes('payment') || raw.includes('method') || raw.includes('action') || raw.includes('pending') || raw.includes('processing')) cls = 'blue';
 
   const icon = badgeIcon(raw);
   return '<span class="badge badge-'+cls+(icon?' has-status-icon':'')+'"><span>'+badgeLabel(raw)+'</span>'+icon+'</span>';
@@ -3686,11 +3643,15 @@ async function loadAccounts(){
           var color=st==='active'?'green':((st==='restricted'||st==='verification')?'amber':'red');
           var details=Array.isArray(a.verification_details)?a.verification_details:[];
           var reason=a.account_status_reason?String(a.account_status_reason).replace(/"/g,'&quot;'):'';
-          var statusKey=(st==='active')?'active':((st==='restricted'||st==='verification'||String(label).toLowerCase().includes('verification')||String(label).toLowerCase().includes('required'))?'verification_required':st);
-          var statusBadge=badge(statusKey);
-          if(reason){
-            statusBadge=statusBadge.replace('<span class="badge ', '<span title="'+reason+'" class="badge ');
+          var statusIcon='';
+          if(st==='active'){
+            statusIcon='<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.4 8.2l2.45 2.45L12.6 4.8" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+          } else if(st==='restricted' || st==='verification'){
+            statusIcon='<span class="status-mini-icon verification-bang-only" aria-hidden="true">!</span>';
+          } else {
+            statusIcon='<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M5 5l6 6M11 5l-6 6" stroke="currentColor" stroke-linecap="round"/></svg>';
           }
+          var statusBadge='<span class="badge badge-'+color+(statusIcon?' has-status-icon':'')+'" title="'+reason+'"><span>'+label+'</span>'+statusIcon+'</span>';
           var defaultBadge=a.is_default?'<span class="badge badge-blue" style="margin-left:6px;">default</span>':'';
           var verificationHtml='';
           if(st==='active'&&!details.length){
@@ -3888,3 +3849,5 @@ document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>
 
 </body>
 </html>
+
+<style>.badge .verification-bang-only{width:12px;min-width:12px;display:inline-flex;align-items:center;justify-content:center;font-family:var(--sans);font-size:12px;line-height:1;font-weight:400;letter-spacing:0;transform:translateY(-0.5px);}</style>
