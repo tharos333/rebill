@@ -2910,6 +2910,7 @@ function badgeLabel(s){
   if (raw.includes('fail') || raw.includes('declin')) return 'Failed';
   if (raw.includes('cancel')) return 'Cancelled';
   if (raw.includes('refund')) return 'Refunded';
+  if (raw.includes('verification')) return 'Verification required';
   if (raw.includes('requires_payment_method') || raw.includes('requires-payment-method') || raw.includes('payment_required') || raw.includes('payment-required') || raw.includes('requires_payment') || raw.includes('requires-payment') || raw.includes('method')) return 'Payment needed';
   if (raw.includes('requires_action') || raw.includes('requires-action') || raw.includes('action')) return 'Payment needed';
   if (raw.includes('processing')) return 'Processing';
@@ -2934,6 +2935,10 @@ function badgeIcon(s){
     return '<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6.5 4.2L3.6 7.1l2.9 2.9" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.1 7.1h5.1a3.05 3.05 0 010 6.1H7.7" stroke="currentColor" stroke-linecap="round"/></svg>';
   }
 
+  if (raw.includes('verification')) {
+    return '<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2.2l5.35 9.25a.65.65 0 01-.56.98H3.21a.65.65 0 01-.56-.98L8 2.2z" stroke="currentColor" stroke-linejoin="round"/><path d="M8 5.55v3.2" stroke="currentColor" stroke-linecap="round"/><circle cx="8" cy="11" r=".7" fill="currentColor"/></svg>';
+  }
+
   if (raw.includes('require') || raw.includes('pending') || raw.includes('processing') || raw.includes('method') || raw.includes('action')) {
     return '<svg class="status-mini-icon payment-needed-card-icon" viewBox="0 0 18 18" fill="none" aria-hidden="true"><rect x="3.25" y="5.15" width="11.5" height="7.7" rx="1.9" stroke="currentColor"/><path d="M4.25 7.45h9.5" stroke="currentColor" stroke-linecap="round"/><circle cx="6.15" cy="10.35" r=".55" fill="currentColor"/><circle cx="8.15" cy="10.35" r=".55" fill="currentColor"/></svg>';
   }
@@ -2948,7 +2953,8 @@ function badge(s){
 
   if (raw.includes('success') || raw.includes('succeeded')) cls = 'green';
   if (raw.includes('fail') || raw.includes('declin') || raw.includes('cancel')) cls = 'red';
-  if (raw.includes('require') || raw.includes('payment') || raw.includes('method') || raw.includes('action') || raw.includes('pending') || raw.includes('processing')) cls = 'blue';
+  if (raw.includes('verification')) cls = 'amber';
+  if ((raw.includes('require') || raw.includes('payment') || raw.includes('method') || raw.includes('action') || raw.includes('pending') || raw.includes('processing')) && !raw.includes('verification')) cls = 'blue';
 
   const icon = badgeIcon(raw);
   return '<span class="badge badge-'+cls+(icon?' has-status-icon':'')+'"><span>'+badgeLabel(raw)+'</span>'+icon+'</span>';
@@ -3691,11 +3697,8 @@ async function loadAccounts(){
           var color=st==='active'?'green':((st==='restricted'||st==='verification')?'amber':'red');
           var details=Array.isArray(a.verification_details)?a.verification_details:[];
           var reason=a.account_status_reason?String(a.account_status_reason).replace(/"/g,'&quot;'):'';
-          var statusKey=(st==='active')?'active':((st==='restricted'||st==='verification'||String(label).toLowerCase().includes('verification')||String(label).toLowerCase().includes('required'))?'requires_action':st);
+          var statusKey=(st==='active')?'active':((st==='restricted'||st==='verification'||String(label).toLowerCase().includes('verification')||String(label).toLowerCase().includes('required'))?'verification_required':st);
           var statusBadge=badge(statusKey);
-          if(statusKey==='requires_action'){
-            statusBadge=statusBadge.replace('Payment needed','verification required').replace('Payment Needed','verification required');
-          }
           if(reason){
             statusBadge=statusBadge.replace('<span class="badge ', '<span title="'+reason+'" class="badge ');
           }
