@@ -3452,7 +3452,7 @@ async function loadSecurity(){
     document.getElementById('setting-lockout-mins').value=s.lockout_minutes||'15';
     const history=await api('/api/security/login-history');const tb=document.getElementById('login-history-table');
     if(!history.length){tb.innerHTML='<tr><td colspan="3" class="empty">No login attempts recorded</td></tr>';return;}
-    tb.innerHTML=history.map(function(h){return '<tr><td class="mono" style="font-size:12px;">'+(h.ip||'unknown')+'</td><td>'+(h.success?'<span class="badge badge-green">success</span>':'<span class="badge badge-red">failed</span>')+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+fmtTime(h.created_at)+'</td></tr>';}).join('');
+    tb.innerHTML=history.map(function(h){return '<tr><td class="mono" style="font-size:12px;">'+(h.ip||'unknown')+'</td><td>'+(h.success?'<span class="badge badge-green">Succes</span>':'<span class="badge badge-red">Faild</span>')+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+fmtTime(h.created_at)+'</td></tr>';}).join('');
   }catch(e){}
 }
 function update2FAView(enabled){const badge2fa=document.getElementById('2fa-badge');badge2fa.className='badge '+(enabled?'badge-green':'badge-red');badge2fa.textContent=enabled?'enabled':'disabled';document.getElementById('2fa-disabled-view').style.display=enabled?'none':'block';document.getElementById('2fa-setup-view').style.display='none';document.getElementById('2fa-enabled-view').style.display=enabled?'block':'none';}
@@ -3695,7 +3695,7 @@ async function loadAdmins(){
     if(!list||!list.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:40px 20px;"><div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px;">No admin users yet</div></td></tr>';return;}
     var rows=list.map(function(a){
       var roleColors={owner:'badge-green',admin:'badge-blue',viewer:'badge-amber',custom:'badge-purple'};
-      var roleBadge='<span class="badge '+(roleColors[a.role]||'badge-blue')+'">'+a.role+'</span>';
+      var roleLabel=String(a.role||'').toLowerCase()==='owner'?'Owner':a.role; var roleBadge='<span class="badge '+(roleColors[a.role]||'badge-blue')+'">'+roleLabel+'</span>';
       var perms=a.permissions&&a.permissions.length?'<div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:3px;">'+a.permissions.join(' · ')+'</div>':'';
       return '<tr><td><strong style="font-size:13px;">'+a.username+'</strong></td><td>'+roleBadge+perms+'</td><td class="mono" style="font-size:12px;color:var(--muted);">'+(a.last_login?fmtTime(a.last_login):'Never')+'</td><td class="mono" style="font-size:12px;color:var(--muted);">'+fmtDate(a.created_at)+'</td><td><div class="actions">'+(a.role!=='owner'?'<button class="btn btn-sm btn-danger" onclick="deleteAdmin('+a.id+')">Remove</button>':'')+'</div></td></tr>';
     });
