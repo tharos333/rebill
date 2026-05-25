@@ -1979,24 +1979,49 @@ html.light .badge.badge-amber{
 
 
 
-/* Payment required final: clean blue text-only pill */
-.badge.badge-blue{
-  color:#60a5fa!important;
-  background:rgba(59,130,246,.13)!important;
-  border-color:rgba(59,130,246,.22)!important;
-  font-weight:400!important;
-  gap:0!important;
-  padding:0 10px!important;
-}
 
+/* Payment required PRO final: clean blue pill, no dot, no icon */
+.badge.badge-blue,
 .badge.badge-blue span{
   font-weight:400!important;
+  letter-spacing:-0.01em!important;
+}
+
+.badge.badge-blue{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:0!important;
+  min-height:22px!important;
+  height:22px!important;
+  padding:0 10px!important;
+  border-radius:6px!important;
+  color:#60a5fa!important;
+  background:rgba(59,130,246,.14)!important;
+  border:1px solid rgba(59,130,246,.22)!important;
+  box-shadow:none!important;
+}
+
+.badge.badge-blue::before,
+.badge.badge-blue .dot,
+.badge.badge-blue svg,
+.badge.badge-blue .status-mini-icon{
+  display:none!important;
+  content:none!important;
 }
 
 html.light .badge.badge-blue{
   color:#2563eb!important;
   background:rgba(59,130,246,.10)!important;
   border-color:rgba(59,130,246,.20)!important;
+}
+
+/* Keep succeeded/failed regular, not bold */
+.badge.badge-green,
+.badge.badge-green span,
+.badge.badge-red,
+.badge.badge-red span{
+  font-weight:400!important;
 }
 
 </style>
