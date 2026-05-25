@@ -1859,25 +1859,40 @@ html.light td.customer-last-payment{
 }
 
 
-/* Keep old status badges, only add the small current icons */
+
+/* Clean aligned old-style status badges */
 .badge{
   display:inline-flex!important;
   align-items:center!important;
-  gap:5px!important;
+  justify-content:center!important;
+  gap:6px!important;
+  min-height:22px!important;
+  height:22px!important;
+  padding:0 9px!important;
+  border-radius:6px!important;
+  font-family:var(--font-ui)!important;
+  font-size:12px!important;
   font-weight:500!important;
+  line-height:1!important;
+  letter-spacing:-0.01em!important;
+  white-space:nowrap!important;
+  vertical-align:middle!important;
 }
 
 .badge svg.status-mini-icon{
-  width:11px!important;
-  height:11px!important;
+  width:13px!important;
+  height:13px!important;
+  min-width:13px!important;
   display:block!important;
-  flex:0 0 11px!important;
-  stroke-width:2.2!important;
+  flex:0 0 13px!important;
+  stroke-width:2.25!important;
+  margin:0!important;
+  transform:translateY(.2px)!important;
 }
 
-/* Remove the old dot only when an icon exists */
 .badge.has-status-icon::before,
-.badge.has-status-icon .dot{
+.badge.has-status-icon .dot,
+.badge .dot{
   display:none!important;
   content:none!important;
 }
@@ -2737,26 +2752,49 @@ function fmt(c,cur){return fmtExact(c,cur);}
 function fmtDate(d){return d?new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';}
 function fmtTime(d){return d?new Date(d).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'—';}
 function initials(n){return(n||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();}
+
+function badgeLabel(s){
+  const raw = String(s || '').toLowerCase().trim();
+  if (raw === 'active') return 'Active';
+  if (raw.includes('success') || raw.includes('succeeded') || raw === 'ok' || raw === 'paid') return 'Succeeded';
+  if (raw.includes('fail') || raw.includes('declin')) return 'Failed';
+  if (raw.includes('cancel')) return 'Cancelled';
+  if (raw.includes('refund')) return 'Refunded';
+  if (raw.includes('requires_payment_method') || raw.includes('requires-payment-method') || raw.includes('payment_required') || raw.includes('payment-required') || raw.includes('requires_payment') || raw.includes('requires-payment') || raw.includes('method')) return 'Payment needed';
+  if (raw.includes('requires_action') || raw.includes('requires-action') || raw.includes('action')) return 'Payment needed';
+  if (raw.includes('processing')) return 'Processing';
+  if (raw.includes('pending')) return 'Pending';
+  if (raw.includes('paused')) return 'Paused';
+  if (raw.includes('dunning')) return 'Dunning';
+  return raw ? raw.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Status';
+}
+
 function badgeIcon(s){
   const raw = String(s || '').toLowerCase();
   if (raw.includes('success') || raw.includes('succeeded') || raw === 'active' || raw === 'ok' || raw === 'paid') {
-    return '<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.4 8.2l2.4 2.5 6-6" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    return '<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.4 8.2l2.45 2.45L12.6 4.8" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   }
   if (raw.includes('fail') || raw.includes('declin') || raw.includes('cancel')) {
     return '<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M5 5l6 6M11 5l-6 6" stroke="currentColor" stroke-linecap="round"/></svg>';
   }
   if (raw.includes('refund')) {
-    return '<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6.4 4.2L3.5 7.1l2.9 2.9" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 7.1h5.3a3 3 0 1 1 0 6H7.8" stroke="currentColor" stroke-linecap="round"/></svg>';
+    return '<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6.5 4.2L3.6 7.1l2.9 2.9" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.1 7.1h5.1a3.05 3.05 0 010 6.1H7.7" stroke="currentColor" stroke-linecap="round"/></svg>';
   }
   if (raw.includes('require') || raw.includes('pending') || raw.includes('processing') || raw.includes('method') || raw.includes('action')) {
-    return '<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 4.2v4.1" stroke="currentColor" stroke-linecap="round"/><circle cx="8" cy="11.6" r=".7" fill="currentColor"/><circle cx="8" cy="8" r="5.4" stroke="currentColor"/></svg>';
+    return '<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="5.4" stroke="currentColor"/><path d="M8 4.9v3.25" stroke="currentColor" stroke-linecap="round"/><circle cx="8" cy="11.15" r=".65" fill="currentColor"/></svg>';
   }
   return '';
 }
+
 function badge(s){
-  const m={active:'green',succeeded:'green',failed:'red',paused:'amber',cancelled:'red',pending:'blue',dunning:'amber',ok:'green'};
-  const icon=badgeIcon(s);
-  return '<span class="badge badge-'+(m[s]||'blue')+(icon?' has-status-icon':'')+'">'+s+icon+'</span>';
+  const raw = String(s || '').toLowerCase().trim();
+  const m={active:'green',succeeded:'green',success:'green',failed:'red',declined:'red',paused:'amber',cancelled:'red',canceled:'red',pending:'blue',dunning:'amber',ok:'green'};
+  let cls = m[raw] || 'blue';
+  if (raw.includes('success') || raw.includes('succeeded')) cls = 'green';
+  if (raw.includes('fail') || raw.includes('declin') || raw.includes('cancel')) cls = 'red';
+  if (raw.includes('require') || raw.includes('payment') || raw.includes('method') || raw.includes('action')) cls = 'amber';
+  const icon = badgeIcon(raw);
+  return '<span class="badge badge-'+cls+(icon?' has-status-icon':'')+'"><span>'+badgeLabel(raw)+'</span>'+icon+'</span>';
 }
 async function api(path,opts){
   opts=opts||{};opts.headers=opts.headers||{};
