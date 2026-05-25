@@ -2001,6 +2001,23 @@ html.light .badge.badge-amber{
   transform:translateY(.05px)!important;
 }
 
+
+/* Status badge: bold text only, icons stay normal */
+.badge.badge-green > span,
+.badge.badge-red > span,
+.badge.badge-blue > span{
+  font-weight:700!important;
+}
+
+.badge.badge-green svg,
+.badge.badge-red svg,
+.badge.badge-blue svg,
+.badge.badge-green .status-mini-icon,
+.badge.badge-red .status-mini-icon,
+.badge.badge-blue .status-mini-icon{
+  font-weight:400!important;
+}
+
 </style>
 </head>
 <body>
