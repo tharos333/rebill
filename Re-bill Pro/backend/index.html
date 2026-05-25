@@ -1859,96 +1859,50 @@ html.light td.customer-last-payment{
 }
 
 
-/* Stripe-inspired soft status pills */
+/* Stripe-style status pills */
 .status-pill-stripe{
   display:inline-flex!important;
   align-items:center!important;
-  justify-content:center!important;
-  gap:5px!important;
-  min-height:22px!important;
-  padding:2px 9px!important;
-  border-radius:6px!important;
+  gap:6px!important;
+  min-height:24px!important;
+  padding:2px 10px!important;
+  border-radius:7px!important;
   font-family:var(--font-ui)!important;
   font-size:12px!important;
   font-weight:500!important;
-  letter-spacing:-0.01em!important;
   line-height:1!important;
+  letter-spacing:-0.01em!important;
   white-space:nowrap!important;
   border:1px solid transparent!important;
   box-shadow:none!important;
 }
-
 .status-pill-stripe svg{
-  width:13px!important;
-  height:13px!important;
+  width:12px!important;
+  height:12px!important;
   display:block!important;
-  flex:0 0 13px!important;
-  stroke-width:2!important;
+  flex:0 0 12px!important;
+  stroke-width:2.2!important;
 }
-
 .status-pill-stripe--success,
-.status-pill-stripe--active{
-  color:#0f7a32!important;
-  background:#d7f8c7!important;
-  border-color:#c6efb5!important;
-}
-
+.status-pill-stripe--active{color:#2f7d20!important;background:#d9f3bf!important;border-color:#cbe9ac!important;}
 .status-pill-stripe--failed,
-.status-pill-stripe--cancelled{
-  color:#c5164e!important;
-  background:#fde1ed!important;
-  border-color:#f7c7d8!important;
-}
-
-.status-pill-stripe--refunded{
-  color:#596170!important;
-  background:#eef1f5!important;
-  border-color:#dfe4ec!important;
-}
-
+.status-pill-stripe--cancelled{color:#c02f5b!important;background:#f7d9e6!important;border-color:#efc0d3!important;}
+.status-pill-stripe--refunded{color:#5c6473!important;background:#e9edf2!important;border-color:#dce2ea!important;}
 .status-pill-stripe--required,
 .status-pill-stripe--pending,
-.status-pill-stripe--processing{
-  color:#a65f00!important;
-  background:#fff0d6!important;
-  border-color:#ffdca5!important;
-}
-
-/* Dark mode tuned for Subloop background */
+.status-pill-stripe--processing,
+.status-pill-stripe--paused,
+.status-pill-stripe--dunning{color:#a06207!important;background:#ffe9bf!important;border-color:#f7d99a!important;}
 html:not(.light) .status-pill-stripe--success,
-html:not(.light) .status-pill-stripe--active{
-  color:#44e36f!important;
-  background:rgba(34,197,94,.16)!important;
-  border-color:rgba(34,197,94,.26)!important;
-}
-
+html:not(.light) .status-pill-stripe--active{color:#3fe06f!important;background:rgba(74,222,128,.16)!important;border-color:rgba(74,222,128,.24)!important;}
 html:not(.light) .status-pill-stripe--failed,
-html:not(.light) .status-pill-stripe--cancelled{
-  color:#ff7b8a!important;
-  background:rgba(244,63,94,.16)!important;
-  border-color:rgba(244,63,94,.28)!important;
-}
-
-html:not(.light) .status-pill-stripe--refunded{
-  color:#a8afbd!important;
-  background:rgba(148,163,184,.13)!important;
-  border-color:rgba(148,163,184,.22)!important;
-}
-
+html:not(.light) .status-pill-stripe--cancelled{color:#ff7b97!important;background:rgba(244,114,182,.14)!important;border-color:rgba(244,114,182,.24)!important;}
+html:not(.light) .status-pill-stripe--refunded{color:#aeb6c5!important;background:rgba(148,163,184,.12)!important;border-color:rgba(148,163,184,.20)!important;}
 html:not(.light) .status-pill-stripe--required,
 html:not(.light) .status-pill-stripe--pending,
-html:not(.light) .status-pill-stripe--processing{
-  color:#f0a83a!important;
-  background:rgba(245,158,11,.15)!important;
-  border-color:rgba(245,158,11,.27)!important;
-}
-
-/* keep old dot badge spans stable if any remain */
-.badge .dot,
-.badge-dot,
-.status-dot{
-  display:none!important;
-}
+html:not(.light) .status-pill-stripe--processing,
+html:not(.light) .status-pill-stripe--paused,
+html:not(.light) .status-pill-stripe--dunning{color:#f2b04c!important;background:rgba(245,158,11,.14)!important;border-color:rgba(245,158,11,.22)!important;}
 
 </style>
 </head>
@@ -2658,55 +2612,6 @@ html:not(.light) .status-pill-stripe--processing{
 
 <div id="toast"></div>
 <script>
-function statusPillKind(s){
-  const raw = String(s || '').toLowerCase().trim();
-  if (raw.includes('success') || raw.includes('succeeded') || raw.includes('settled') || raw === 'active' || raw === 'ok' || raw === 'paid') return raw === 'active' ? 'active' : 'success';
-  if (raw.includes('fail') || raw.includes('declin')) return 'failed';
-  if (raw.includes('cancel')) return 'cancelled';
-  if (raw.includes('refund')) return 'refunded';
-  if (raw.includes('require') || raw.includes('payment_required') || raw.includes('payment required') || raw.includes('method') || raw.includes('action')) return 'required';
-  if (raw.includes('pending')) return 'pending';
-  if (raw.includes('processing') || raw.includes('dunning') || raw.includes('paused')) return 'processing';
-  return 'pending';
-}
-
-function statusPillLabel(s){
-  const raw = String(s || '').toLowerCase().trim();
-  if (raw.includes('requires_payment_method') || raw.includes('requires-payment-method') || raw.includes('payment_required') || raw.includes('payment required')) return 'Payment required';
-  if (raw.includes('requires_action') || raw.includes('requires-action')) return 'Action required';
-  if (raw.includes('succeeded') || raw.includes('success') || raw.includes('settled')) return 'Succeeded';
-  if (raw === 'active') return 'Active';
-  if (raw.includes('fail') || raw.includes('declin')) return 'Failed';
-  if (raw.includes('refund')) return 'Refunded';
-  if (raw.includes('cancel')) return 'Cancelled';
-  if (raw.includes('pending')) return 'Pending';
-  if (raw.includes('processing')) return 'Processing';
-  return raw ? raw.replace(/_/g, ' ') : 'Status';
-}
-
-function statusPillIcon(kind){
-  if (kind === 'success') {
-    return '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.4 8.3l3 3L12.7 4.7" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  }
-  if (kind === 'failed' || kind === 'cancelled') {
-    return '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4.7 4.7l6.6 6.6M11.3 4.7l-6.6 6.6" stroke="currentColor" stroke-linecap="round"/></svg>';
-  }
-  if (kind === 'refunded') {
-    return '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6.4 4.2L3.5 7.1l2.9 2.9" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 7.1h5.2a3.2 3.2 0 010 6.4H7.8" stroke="currentColor" stroke-linecap="round"/></svg>';
-  }
-  if (kind === 'required' || kind === 'pending' || kind === 'processing') {
-    return '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="5.5" stroke="currentColor"/><path d="M8 4.9v3.4" stroke="currentColor" stroke-linecap="round"/><circle cx="8" cy="11" r=".65" fill="currentColor"/></svg>';
-  }
-  return '';
-}
-
-function badge(s){
-  const kind = statusPillKind(s);
-  const label = statusPillLabel(s);
-  const icon = kind === 'active' ? '' : statusPillIcon(kind);
-  return '<span class="status-pill-stripe status-pill-stripe--'+kind+'">'+label+icon+'</span>';
-}
-
 let currentLink=null,allCustomers=[],allSubscriptions=[],allPayments=[],allStripeAccounts=[],allAdminUsers=[],appSettings={},selectedSubs=new Set(),currentRevPeriod='month',bulkMode=false;
 function toggleTheme(){const isLight=document.documentElement.classList.toggle('light');localStorage.setItem('subloop_theme',isLight?'light':'dark');document.getElementById('theme-label').textContent=isLight?'Light mode':'Dark mode';updateLogos(isLight);}
 function updateLogos(isLight){const src=isLight?'https://i.ibb.co/6cD50Q6H/2.png':'https://i.ibb.co/xq0HVT9G/1.png';['sidebar-logo','login-logo'].forEach(id=>{const el=document.getElementById(id);if(el)el.src=src;});}
@@ -2854,7 +2759,53 @@ function fmt(c,cur){return fmtExact(c,cur);}
 function fmtDate(d){return d?new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';}
 function fmtTime(d){return d?new Date(d).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'—';}
 function initials(n){return(n||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();}
-
+function statusPillKind(s){
+  const raw = String(s || '').toLowerCase().trim();
+  if (raw === 'active') return 'active';
+  if (raw.includes('success') || raw.includes('succeeded') || raw === 'ok' || raw === 'paid') return 'success';
+  if (raw.includes('fail') || raw.includes('declin') || raw.includes('cancel')) return raw.includes('cancel') ? 'cancelled' : 'failed';
+  if (raw.includes('refund')) return 'refunded';
+  if (raw.includes('require') || raw.includes('method') || raw.includes('action')) return 'required';
+  if (raw.includes('paused') || raw.includes('dunning')) return raw.includes('paused') ? 'paused' : 'dunning';
+  if (raw.includes('processing')) return 'processing';
+  if (raw.includes('pending')) return 'pending';
+  return 'pending';
+}
+function statusPillLabel(s){
+  const raw = String(s || '').toLowerCase().trim();
+  if (raw === 'active') return 'Active';
+  if (raw.includes('succeeded') || raw.includes('success') || raw === 'ok' || raw === 'paid') return 'Succeeded';
+  if (raw.includes('fail') || raw.includes('declin')) return 'Failed';
+  if (raw.includes('cancel')) return 'Cancelled';
+  if (raw.includes('refund')) return 'Refunded';
+  if (raw.includes('requires_payment_method') || raw.includes('payment required') || raw.includes('payment_required')) return 'Payment required';
+  if (raw.includes('requires_action') || raw.includes('action')) return 'Action required';
+  if (raw.includes('paused')) return 'Paused';
+  if (raw.includes('dunning')) return 'Dunning';
+  if (raw.includes('processing')) return 'Processing';
+  if (raw.includes('pending')) return 'Pending';
+  return raw ? raw.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) : 'Pending';
+}
+function statusPillIcon(kind){
+  if (kind === 'success') return '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.4 8.2l2.4 2.5 6-6" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  if (kind === 'failed' || kind === 'cancelled') return '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M5 5l6 6M11 5l-6 6" stroke="currentColor" stroke-linecap="round"/></svg>';
+  if (kind === 'refunded') return '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6.4 4.2L3.5 7.1l2.9 2.9" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 7.1h5.3a3 3 0 1 1 0 6H7.8" stroke="currentColor" stroke-linecap="round"/></svg>';
+  if (kind === 'required' || kind === 'pending' || kind === 'processing' || kind === 'paused' || kind === 'dunning') return '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 4.2v4.1" stroke="currentColor" stroke-linecap="round"/><circle cx="8" cy="11.6" r=".7" fill="currentColor"/><circle cx="8" cy="8" r="5.4" stroke="currentColor"/></svg>';
+  return '';
+}
+function badge(s){
+  const kind = statusPillKind(s);
+  const label = statusPillLabel(s);
+  const icon = kind === 'active' ? '' : statusPillIcon(kind);
+  return '<span class="status-pill-stripe status-pill-stripe--'+kind+'">'+label+icon+'</span>';
+}
+async function api(path,opts){
+  opts=opts||{};opts.headers=opts.headers||{};
+  var u=localStorage.getItem('subloop_username');if(u)opts.headers['x-username']=u;
+  const r=await fetch(path,opts);
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  return r.json();
+}
 function toast(msg,type){const t=document.getElementById('toast');t.textContent=msg;t.className='show '+(type||'success');setTimeout(()=>t.className='',2800);}
 function openModal(id){var el=document.getElementById(id);if(!el)return;el.classList.add('open');if(id==='payment-detail-modal')document.body.classList.add('modal-lock');}
 function closeModal(id){var el=document.getElementById(id);if(!el)return;el.classList.remove('open');if(id==='payment-detail-modal'||!document.querySelector('.modal-bg.open'))document.body.classList.remove('modal-lock');}
