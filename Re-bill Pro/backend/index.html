@@ -1842,438 +1842,77 @@ html.light td.customer-last-payment{
 
 
 
-/* Clean status badges with real inline SVG icons */
-.badge{
-  display:inline-flex!important;
-  align-items:center!important;
-  gap:6px!important;
-  min-height:20px!important;
-  padding:0 8px 0 6px!important;
-  border-radius:999px!important;
-  font-family:var(--font-ui)!important;
-  font-size:11px!important;
-  font-weight:500!important;
-  letter-spacing:0!important;
-  line-height:1!important;
-  white-space:nowrap!important;
-}
-.badge::before{
-  content:none!important;
-  display:none!important;
-}
-.badge .dot{
-  display:none!important;
-}
-.badge-icon{
-  width:16px!important;
-  height:16px!important;
-  min-width:16px!important;
+
+/* Pro status chips built from scratch */
+.status-chip{
   display:inline-flex!important;
   align-items:center!important;
   justify-content:center!important;
-  border-radius:999px!important;
-  border:1px solid currentColor!important;
-  background:transparent!important;
-  flex-shrink:0!important;
-}
-.badge-icon svg{
-  width:9px!important;
-  height:9px!important;
-  display:block!important;
-}
-.badge.success,
-.badge.succeeded,
-.badge.active{
-  color:#28d96b!important;
-  background:rgba(34,197,94,.15)!important;
-  border:1px solid rgba(34,197,94,.22)!important;
-}
-.badge.failed,
-.badge.declined,
-.badge.cancelled{
-  color:#ff7777!important;
-  background:rgba(239,68,68,.17)!important;
-  border:1px solid rgba(239,68,68,.25)!important;
-}
-.badge.info,
-.badge.warning,
-.badge.processing,
-.badge.requires_payment_method,
-.badge.requires-payment-method,
-.badge.requires_payment,
-.badge.requires-payment,
-.badge.requires_action,
-.badge.requires-action{
-  color:#78b7ff!important;
-  background:rgba(59,130,246,.16)!important;
-  border:1px solid rgba(96,165,250,.25)!important;
-}
-.badge.success .badge-icon,
-.badge.succeeded .badge-icon,
-.badge.active .badge-icon{
-  background:rgba(34,197,94,.12)!important;
-  border-color:rgba(34,197,94,.45)!important;
-}
-.badge.failed .badge-icon,
-.badge.declined .badge-icon,
-.badge.cancelled .badge-icon{
-  background:rgba(239,68,68,.12)!important;
-  border-color:rgba(239,68,68,.45)!important;
-}
-.badge.info .badge-icon,
-.badge.warning .badge-icon,
-.badge.processing .badge-icon,
-.badge.requires_payment_method .badge-icon,
-.badge.requires-payment-method .badge-icon,
-.badge.requires_payment .badge-icon,
-.badge.requires-payment .badge-icon,
-.badge.requires_action .badge-icon,
-.badge.requires-action .badge-icon{
-  background:rgba(59,130,246,.12)!important;
-  border-color:rgba(96,165,250,.42)!important;
-}
-html.light .badge.success,
-html.light .badge.succeeded,
-html.light .badge.active{
-  color:#059669!important;
-  background:rgba(16,185,129,.12)!important;
-  border-color:rgba(16,185,129,.24)!important;
-}
-html.light .badge.failed,
-html.light .badge.declined,
-html.light .badge.cancelled{
-  color:#dc2626!important;
-  background:rgba(239,68,68,.11)!important;
-  border-color:rgba(239,68,68,.22)!important;
-}
-html.light .badge.info,
-html.light .badge.warning,
-html.light .badge.processing,
-html.light .badge.requires_payment_method,
-html.light .badge.requires-payment-method,
-html.light .badge.requires_payment,
-html.light .badge.requires-payment,
-html.light .badge.requires_action,
-html.light .badge.requires-action{
-  color:#2563eb!important;
-  background:rgba(59,130,246,.10)!important;
-  border-color:rgba(59,130,246,.22)!important;
-}
-html.light .badge.success .badge-icon,
-html.light .badge.succeeded .badge-icon,
-html.light .badge.active .badge-icon{
-  background:rgba(16,185,129,.08)!important;
-  border-color:rgba(16,185,129,.36)!important;
-}
-html.light .badge.failed .badge-icon,
-html.light .badge.declined .badge-icon,
-html.light .badge.cancelled .badge-icon{
-  background:rgba(239,68,68,.08)!important;
-  border-color:rgba(239,68,68,.34)!important;
-}
-html.light .badge.info .badge-icon,
-html.light .badge.warning .badge-icon,
-html.light .badge.processing .badge-icon,
-html.light .badge.requires_payment_method .badge-icon,
-html.light .badge.requires-payment-method .badge-icon,
-html.light .badge.requires_payment .badge-icon,
-html.light .badge.requires-payment .badge-icon,
-html.light .badge.requires_action .badge-icon,
-html.light .badge.requires-action .badge-icon{
-  background:rgba(59,130,246,.07)!important;
-  border-color:rgba(59,130,246,.30)!important;
-}
-
-
-.pd-status-pill .badge-icon{width:14px!important;height:14px!important;min-width:14px!important;display:inline-flex;align-items:center;justify-content:center;margin-right:2px;}
-.pd-status-pill .badge-icon svg{width:14px!important;height:14px!important;display:block;}
-.pd-status-pill .pd-dot{display:none!important;}
-
-/* Final clean compact status badges */
-.badge.success,
-.badge.succeeded,
-.badge.active,
-.badge.failed,
-.badge.declined,
-.badge.cancelled,
-.badge.info,
-.badge.warning,
-.badge.processing,
-.badge.requires_payment_method,
-.badge.requires-payment-method,
-.badge.requires_payment,
-.badge.requires-payment,
-.badge.requires_action,
-.badge.requires-action{
-  display:inline-flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  gap:5px!important;
-  height:21px!important;
-  min-height:21px!important;
-  padding:0 9px 0 6px!important;
-  border-radius:999px!important;
-  font-size:12px!important;
-  font-weight:500!important;
-  letter-spacing:-0.015em!important;
-  line-height:1!important;
-  box-shadow:none!important;
-  white-space:nowrap!important;
-}
-
-.badge.success .badge-icon,
-.badge.succeeded .badge-icon,
-.badge.active .badge-icon,
-.badge.failed .badge-icon,
-.badge.declined .badge-icon,
-.badge.cancelled .badge-icon,
-.badge.info .badge-icon,
-.badge.warning .badge-icon,
-.badge.processing .badge-icon,
-.badge.requires_payment_method .badge-icon,
-.badge.requires-payment-method .badge-icon,
-.badge.requires_payment .badge-icon,
-.badge.requires-payment .badge-icon,
-.badge.requires_action .badge-icon,
-.badge.requires-action .badge-icon{
-  width:13px!important;
-  height:13px!important;
-  min-width:13px!important;
-  border-radius:999px!important;
-  border:1.15px solid currentColor!important;
-  background:transparent!important;
-  box-shadow:none!important;
-  display:inline-flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  margin:0!important;
-}
-
-.badge.success .badge-icon svg,
-.badge.succeeded .badge-icon svg,
-.badge.active .badge-icon svg,
-.badge.failed .badge-icon svg,
-.badge.declined .badge-icon svg,
-.badge.cancelled .badge-icon svg,
-.badge.info .badge-icon svg,
-.badge.warning .badge-icon svg,
-.badge.processing .badge-icon svg,
-.badge.requires_payment_method .badge-icon svg,
-.badge.requires-payment-method .badge-icon svg,
-.badge.requires_payment .badge-icon svg,
-.badge.requires-payment .badge-icon svg,
-.badge.requires_action .badge-icon svg,
-.badge.requires-action .badge-icon svg{
-  width:7px!important;
-  height:7px!important;
-  display:block!important;
-}
-
-/* Softer colors */
-.badge.success,
-.badge.succeeded,
-.badge.active{
-  color:#2ee66f!important;
-  background:rgba(34,197,94,.105)!important;
-  border:1px solid rgba(34,197,94,.30)!important;
-}
-
-.badge.failed,
-.badge.declined,
-.badge.cancelled{
-  color:#ff7b7b!important;
-  background:rgba(239,68,68,.105)!important;
-  border:1px solid rgba(239,68,68,.30)!important;
-}
-
-.badge.info,
-.badge.warning,
-.badge.processing,
-.badge.requires_payment_method,
-.badge.requires-payment-method,
-.badge.requires_payment,
-.badge.requires-payment,
-.badge.requires_action,
-.badge.requires-action{
-  color:#7bbcff!important;
-  background:rgba(59,130,246,.105)!important;
-  border:1px solid rgba(96,165,250,.30)!important;
-}
-
-/* Light mode clean compact status badges */
-html.light .badge.success,
-html.light .badge.succeeded,
-html.light .badge.active{
-  color:#059669!important;
-  background:rgba(16,185,129,.075)!important;
-  border-color:rgba(16,185,129,.25)!important;
-}
-
-html.light .badge.failed,
-html.light .badge.declined,
-html.light .badge.cancelled{
-  color:#dc2626!important;
-  background:rgba(239,68,68,.075)!important;
-  border-color:rgba(239,68,68,.24)!important;
-}
-
-html.light .badge.info,
-html.light .badge.warning,
-html.light .badge.processing,
-html.light .badge.requires_payment_method,
-html.light .badge.requires-payment-method,
-html.light .badge.requires_payment,
-html.light .badge.requires-payment,
-html.light .badge.requires_action,
-html.light .badge.requires-action{
-  color:#2563eb!important;
-  background:rgba(59,130,246,.07)!important;
-  border-color:rgba(59,130,246,.24)!important;
-}
-
-
-/* Final professional status badges: compact filled icons */
-.badge.success,
-.badge.succeeded,
-.badge.active,
-.badge.failed,
-.badge.declined,
-.badge.cancelled,
-.badge.info,
-.badge.warning,
-.badge.processing,
-.badge.requires_payment_method,
-.badge.requires-payment-method,
-.badge.requires_payment,
-.badge.requires-payment,
-.badge.requires_action,
-.badge.requires-action{
-  display:inline-flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  gap:6px!important;
-  height:22px!important;
-  min-height:22px!important;
-  padding:0 10px 0 6px!important;
-  border-radius:999px!important;
+  gap:7px!important;
+  height:24px!important;
+  min-height:24px!important;
+  padding:0 10px 0 7px!important;
+  border-radius:8px!important;
   font-family:var(--font-ui)!important;
   font-size:12px!important;
-  font-weight:500!important;
+  font-weight:600!important;
   letter-spacing:-0.012em!important;
   line-height:1!important;
   white-space:nowrap!important;
-  box-shadow:none!important;
+  vertical-align:middle!important;
 }
-
-.badge.success::before,
-.badge.succeeded::before,
-.badge.active::before,
-.badge.failed::before,
-.badge.declined::before,
-.badge.cancelled::before,
-.badge.info::before,
-.badge.warning::before,
-.badge.processing::before,
-.badge.requires_payment_method::before,
-.badge.requires-payment-method::before,
-.badge.requires_payment::before,
-.badge.requires-payment::before,
-.badge.requires_action::before,
-.badge.requires-action::before{
-  content:none!important;
-  display:none!important;
-}
-
-.badge .dot,
-.badge-dot,
-.status-dot{
-  display:none!important;
-}
-
-.badge-icon{
+.status-chip__icon{
   width:15px!important;
   height:15px!important;
   min-width:15px!important;
-  border-radius:999px!important;
+  border-radius:5px!important;
   display:inline-flex!important;
   align-items:center!important;
   justify-content:center!important;
-  border:none!important;
-  box-shadow:none!important;
-  margin:0!important;
-  flex-shrink:0!important;
+  color:#fff!important;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)!important;
 }
-
-.badge-icon svg{
+.status-chip__icon svg{
   width:10px!important;
   height:10px!important;
   display:block!important;
+  stroke-width:2.25!important;
 }
-
-.badge-icon-success{background:#22c55e!important;}
-.badge-icon-failed{background:#ef4444!important;}
-.badge-icon-info{background:#3b82f6!important;}
-
-.badge.success,
-.badge.succeeded,
-.badge.active{
-  color:#27e36d!important;
-  background:rgba(34,197,94,.105)!important;
+.status-chip--success{
+  color:#27e878!important;
+  background:linear-gradient(180deg, rgba(34,197,94,.16), rgba(34,197,94,.105))!important;
   border:1px solid rgba(34,197,94,.26)!important;
 }
-
-.badge.failed,
-.badge.declined,
-.badge.cancelled{
+.status-chip--success .status-chip__icon{background:#22c55e!important;}
+.status-chip--failed{
   color:#ff7777!important;
-  background:rgba(239,68,68,.105)!important;
+  background:linear-gradient(180deg, rgba(239,68,68,.16), rgba(239,68,68,.105))!important;
   border:1px solid rgba(239,68,68,.28)!important;
 }
-
-.badge.info,
-.badge.warning,
-.badge.processing,
-.badge.requires_payment_method,
-.badge.requires-payment-method,
-.badge.requires_payment,
-.badge.requires-payment,
-.badge.requires_action,
-.badge.requires-action{
-  color:#7bbcff!important;
-  background:rgba(59,130,246,.105)!important;
-  border:1px solid rgba(59,130,246,.26)!important;
+.status-chip--failed .status-chip__icon{background:#ef4444!important;}
+.status-chip--info{
+  color:#79b9ff!important;
+  background:linear-gradient(180deg, rgba(59,130,246,.16), rgba(59,130,246,.105))!important;
+  border:1px solid rgba(59,130,246,.28)!important;
 }
+.status-chip--info .status-chip__icon{background:#3b82f6!important;}
 
-/* Light mode parity */
-html.light .badge.success,
-html.light .badge.succeeded,
-html.light .badge.active{
-  color:#059669!important;
-  background:rgba(16,185,129,.08)!important;
+html.light .status-chip--success{
+  color:#047857!important;
+  background:linear-gradient(180deg, rgba(16,185,129,.115), rgba(16,185,129,.075))!important;
   border-color:rgba(16,185,129,.24)!important;
 }
-
-html.light .badge.failed,
-html.light .badge.declined,
-html.light .badge.cancelled{
+html.light .status-chip--failed{
   color:#dc2626!important;
-  background:rgba(239,68,68,.075)!important;
+  background:linear-gradient(180deg, rgba(239,68,68,.105), rgba(239,68,68,.07))!important;
   border-color:rgba(239,68,68,.22)!important;
 }
-
-html.light .badge.info,
-html.light .badge.warning,
-html.light .badge.processing,
-html.light .badge.requires_payment_method,
-html.light .badge.requires-payment-method,
-html.light .badge.requires_payment,
-html.light .badge.requires-payment,
-html.light .badge.requires_action,
-html.light .badge.requires-action{
+html.light .status-chip--info{
   color:#2563eb!important;
-  background:rgba(59,130,246,.075)!important;
+  background:linear-gradient(180deg, rgba(59,130,246,.105), rgba(59,130,246,.07))!important;
   border-color:rgba(59,130,246,.22)!important;
 }
+html.light .status-chip__icon{box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)!important;}
 
 </style>
 </head>
@@ -2984,39 +2623,45 @@ html.light .badge.requires-action{
 <div id="toast"></div>
 <script>
 
-function statusIconSvg(status){
-  const s = String(status || '').toLowerCase();
-
-  if (s.includes('fail') || s.includes('declin') || s.includes('cancel')) {
-    return `<span class="badge-icon badge-icon-failed" aria-hidden="true">
-      <svg viewBox="0 0 16 16" fill="none">
-        <path d="M5.2 5.2l5.6 5.6M10.8 5.2l-5.6 5.6" stroke="white" stroke-width="2.15" stroke-linecap="round"/>
-      </svg>
-    </span>`;
-  }
-
-  if (s.includes('require') || s.includes('processing') || s.includes('action') || s.includes('method')) {
-    return `<span class="badge-icon badge-icon-info" aria-hidden="true">
-      <svg viewBox="0 0 16 16" fill="none">
-        <rect x="3.1" y="4.7" width="9.8" height="6.6" rx="1.35" stroke="white" stroke-width="1.45"/>
-        <path d="M4.2 6.8h7.6" stroke="white" stroke-width="1.3" stroke-linecap="round"/>
-      </svg>
-    </span>`;
-  }
-
-  return `<span class="badge-icon badge-icon-success" aria-hidden="true">
-    <svg viewBox="0 0 16 16" fill="none">
-      <path d="M4.4 8.25l2.25 2.25 4.95-5.2" stroke="white" stroke-width="2.15" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-  </span>`;
+function normalizeStatusChip(status){
+  const raw = String(status || 'info').toLowerCase().trim();
+  if (raw.includes('succeeded') || raw.includes('success') || raw.includes('settled') || raw.includes('paid') || raw === 'active' || raw === 'ok') return 'success';
+  if (raw.includes('failed') || raw.includes('fail') || raw.includes('declined') || raw.includes('declin') || raw.includes('cancelled') || raw.includes('canceled') || raw.includes('cancel')) return 'failed';
+  return 'info';
 }
-
+function statusChipLabel(status){
+  const raw = String(status || 'info').toLowerCase().trim();
+  if (raw.includes('requires_payment_method') || raw.includes('requires-payment-method') || raw.includes('payment_required') || raw.includes('payment-required') || raw.includes('requires_payment') || raw.includes('requires-payment')) return 'payment required';
+  if (raw.includes('requires_action') || raw.includes('requires-action')) return 'action required';
+  if (raw.includes('processing')) return 'processing';
+  if (raw === 'active') return 'active';
+  if (raw.includes('success') || raw.includes('succeeded') || raw.includes('settled')) return 'succeeded';
+  if (raw.includes('fail') || raw.includes('declin') || raw.includes('cancel')) return 'failed';
+  return raw.replace(/_/g, ' ') || 'info';
+}
+function statusChipIcon(type){
+  if (type === 'failed') {
+    return `<span class="status-chip__icon" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M4.9 4.9l6.2 6.2M11.1 4.9l-6.2 6.2" stroke="currentColor" stroke-linecap="round"/></svg></span>`;
+  }
+  if (type === 'info') {
+    return `<span class="status-chip__icon" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M3.4 5.5h9.2v5H3.4z" stroke="currentColor" stroke-linejoin="round"/><path d="M4.5 7h7" stroke="currentColor" stroke-linecap="round"/></svg></span>`;
+  }
+  return `<span class="status-chip__icon" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M4.3 8.2l2.35 2.35L11.8 5.2" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg></span>`;
+}
 function statusBadgeHtml(status, label){
-  const raw = String(status || 'info');
-  const safeClass = raw.toLowerCase().replace(/[^a-z0-9_-]+/g, '-');
-  const safeLabel = String(label || raw).replace(/^•\s*/, '').replace(/_/g, '_');
-  return `<span class="badge ${safeClass}">${statusIconSvg(raw)}${safeLabel}</span>`;
+  const type = normalizeStatusChip(status);
+  const safeLabel = String(label || statusChipLabel(status)).replace(/^•\s*/, '').replace(/_/g, ' ');
+  return `<span class="status-chip status-chip--${type}">${statusChipIcon(type)}<span>${safeLabel}</span></span>`;
 }
+function badge(s){
+  return statusBadgeHtml(s, statusChipLabel(s));
+}
+
+
+
+
+
+
 
 
 let currentLink=null,allCustomers=[],allSubscriptions=[],allPayments=[],allStripeAccounts=[],allAdminUsers=[],appSettings={},selectedSubs=new Set(),currentRevPeriod='month',bulkMode=false;
@@ -3166,27 +2811,9 @@ function fmt(c,cur){return fmtExact(c,cur);}
 function fmtDate(d){return d?new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';}
 function fmtTime(d){return d?new Date(d).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'—';}
 function initials(n){return(n||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();}
-function normalizeBadgeStatus(s){
-  var raw=String(s||'info').toLowerCase().trim();
-  if(!raw)return 'info';
-  if(raw==='success'||raw==='succeeded'||raw==='active'||raw==='ok'||raw==='settled'||raw==='paid') return raw==='active' ? 'active' : 'succeeded';
-  if(raw==='failed'||raw==='declined'||raw==='cancelled') return raw;
-  if(raw==='pending'||raw==='paused'||raw==='dunning'||raw==='processing') return 'processing';
-  if(raw==='requires_payment_method'||raw==='requires-payment-method'||raw==='requires_payment'||raw==='requires-payment'||raw==='payment_required'||raw==='payment-required'||raw==='requires_action'||raw==='requires-action') return 'requires_payment_method';
-  return raw;
-}
-function prettyBadgeLabel(s){
-  var raw=String(s||'info').toLowerCase().trim();
-  if(!raw)return 'info';
-  if(raw==='requires_payment_method'||raw==='requires-payment-method'||raw==='requires_payment'||raw==='requires-payment'||raw==='payment_required'||raw==='payment-required') return 'payment required';
-  if(raw==='requires_action'||raw==='requires-action') return 'action required';
-  return raw.replace(/_/g,' ');
-}
-function badge(s){
-  var semantic = normalizeBadgeStatus(s);
-  var label = prettyBadgeLabel(s);
-  return statusBadgeHtml(semantic, label);
-}
+
+
+
 async function api(path,opts){
   opts=opts||{};opts.headers=opts.headers||{};
   var u=localStorage.getItem('subloop_username');if(u)opts.headers['x-username']=u;
