@@ -2227,6 +2227,36 @@ html.light .pd-polished-drawer.payment-detail-shell{background:#fff;border-left-
 html.light .pd-meta-grid{background:#fafafa;border-color:rgba(0,0,0,.10)}html.light .pd-meta-card{border-left-color:rgba(0,0,0,.08)}html.light .pd-polished-section{border-top-color:rgba(0,0,0,.08)}html.light .pd-activity-timeline::before{background:rgba(0,0,0,.10)}html.light .pd-timeline-icon{background:#fff}html.light .pd-polished-value,html.light .pd-timeline-title,html.light .pd-polished-amount{color:#111118}html.light .pd-polished-amount.failed{color:var(--red)}
 @media(max-width:760px){.pd-polished-drawer .payment-detail-scroll{padding:0 18px 22px}.pd-meta-grid{grid-template-columns:1fr 1fr}.pd-meta-card:nth-child(3){border-left:0;border-top:1px solid var(--border)}.pd-meta-card:nth-child(4){border-top:1px solid var(--border)}.pd-polished-method{grid-template-columns:1fr}.pd-timeline-item{grid-template-columns:16px minmax(0,1fr)}.pd-timeline-time-right{grid-column:2;text-align:left}}
 
+
+
+/* Payment drawer refinement: grouped method, simple customer, compact activity */
+.pd-polished-head{padding:4px 0 20px}
+.pd-polished-title{margin-bottom:13px}
+.pd-polished-amount{font-weight:600!important}
+.pd-polished-sub{margin-top:7px}
+.pd-polished-section{padding:17px 0}
+.pd-polished-method-group{max-width:320px}
+.pd-method-main{margin-bottom:12px}
+.pd-method-empty{font-size:13px;color:var(--muted);font-weight:500}
+.pd-polished-customer-simple{display:grid;gap:4px}
+.pd-polished-customer-simple .customer-name{font-size:13px;font-weight:650;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pd-polished-customer-simple .customer-email{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pd-polished-customer-simple .customer-id{font-size:11.5px;color:var(--muted);font-family:var(--mono);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pd-activity-compact{display:grid;gap:9px}
+.pd-activity-row{display:grid;grid-template-columns:18px minmax(0,1fr) auto;align-items:center;gap:10px;min-height:24px;font-size:13px}
+.pd-activity-compact-icon{width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid var(--border2);color:var(--muted);background:var(--surface)}
+.pd-activity-compact-icon svg{width:10px;height:10px}
+.pd-activity-compact-icon.success{border-color:rgba(34,197,94,.5);color:var(--green);background:rgba(34,197,94,.08)}
+.pd-activity-compact-icon.failed{border-color:rgba(248,113,113,.5);color:var(--red);background:rgba(248,113,113,.08)}
+.pd-activity-label{color:var(--text);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pd-activity-stamp{font-size:12px;color:var(--muted);white-space:nowrap;text-align:right}
+html.light .pd-polished-customer-simple .customer-name,
+html.light .pd-activity-label{color:#111118}
+@media(max-width:760px){
+  .pd-activity-row{grid-template-columns:18px minmax(0,1fr)}
+  .pd-activity-stamp{grid-column:2;text-align:left}
+}
+
 </style>
 </head>
 <body>
@@ -3670,7 +3700,8 @@ function renderPaymentDetailModal(p, syncing){
   var statusPill=isFailed?'Failed':(isSucceeded?'Succeeded':(isRequiresPaymentMethod?'Payment needed':(p.status||'Unknown')));
   var statusClass=isFailed?'failed':(isSucceeded?'success':'info');
   var pid=p.stripe_payment_intent||'', invoice=p.stripe_invoice_id||'', account=p.account_name||'—';
-  var cardHtml=(p.card_brand&&p.card_last4)?cardBadge(p.card_brand,p.card_last4):'<span class="pd-polished-value muted">—</span>';
+  var hasPaymentMethod=!!(p.card_brand||p.card_last4||p.card_funding||p.card_country||p.card_exp_month||p.card_exp_year);
+  var cardHtml=(p.card_brand&&p.card_last4)?cardBadge(p.card_brand,p.card_last4):'';
   var exp=(p.card_exp_month&&p.card_exp_year)?String(p.card_exp_month).padStart(2,'0')+' / '+String(p.card_exp_year).slice(-2):'—';
   var reference=p.stripe_payment_intent||p.id||'—';
   var finCur=pdMoneyCurrency(p);
@@ -3692,18 +3723,54 @@ function renderPaymentDetailModal(p, syncing){
   var h='';
   h+='<div class="payment-detail-shell pd-polished-drawer"><div class="payment-detail-top"><button class="payment-detail-close" onclick="closeModal(\'payment-detail-modal\')">×</button></div><div class="payment-detail-scroll">';
   h+='<div class="pd-polished-head"><div class="pd-polished-title"><span class="pd-title-icon '+statusClass+'">'+iconSvg(statusClass)+'</span><span>'+escHtml(headerTitle)+'</span></div><div class="pd-polished-amount '+statusClass+'">'+fmt(p.amount,p.currency)+'</div><div class="pd-polished-sub">'+escHtml(typeLabel)+' card payment</div></div>';
+
   h+='<div class="pd-meta-grid">';
   h+='<div class="pd-meta-card"><div class="pd-meta-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span>Date</span></div><div class="pd-meta-value">'+formatPdDate(p.created_at)+'</div></div>';
   h+='<div class="pd-meta-card"><div class="pd-meta-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Time</span></div><div class="pd-meta-value">'+formatPdLocalTime(p.created_at)+'</div></div>';
   h+='<div class="pd-meta-card"><div class="pd-meta-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 0 20"/><path d="M12 2a15.3 15.3 0 0 0 0 20"/></svg><span>Timezone</span></div><div class="pd-meta-value">Local</div></div>';
   h+='<div class="pd-meta-card"><div class="pd-meta-label"><span class="pd-title-icon '+statusClass+'" style="width:14px;height:14px;">'+iconSvg(statusClass)+'</span><span>Status</span></div><div class="pd-meta-value '+(isFailed?'red':(isSucceeded?'green':''))+'">'+escHtml(statusPill)+'</div></div></div>';
+
   if(isFailed&&fullReason){h+='<div class="pd-fail-box">'+escHtml(fullReason)+'</div>';}
   if(syncing){h+='<div class="pd-sync-note">Fetching real Stripe fee/net…</div>';}
-  h+='<section class="pd-polished-section"><h3 class="pd-polished-heading">Payment breakdown</h3><div class="pd-polished-row"><div class="pd-polished-label">Gross amount</div><div class="pd-polished-value">'+fmt(p.amount,p.currency)+'</div></div><div class="pd-polished-row"><div class="pd-polished-label">Stripe fee</div><div class="pd-polished-value '+((p.stripe_fee!==undefined&&p.stripe_fee!==null)?'':'muted')+'">'+fee+'</div></div><div class="pd-polished-row"><div class="pd-polished-label">Net received</div><div class="pd-polished-value '+((p.net_amount!==undefined&&p.net_amount!==null)?'green':'muted')+'">'+net+'</div></div></section>';
-  h+='<section class="pd-polished-section"><h3 class="pd-polished-heading">Payment method</h3><div class="pd-polished-method"><div class="pd-method-main">'+cardHtml+'</div><div><div class="pd-polished-row"><div class="pd-polished-label">Funding</div><div class="pd-polished-value">'+escHtml(p.card_funding?p.card_funding.charAt(0).toUpperCase()+p.card_funding.slice(1):'—')+'</div></div><div class="pd-polished-row"><div class="pd-polished-label">Country</div><div class="pd-polished-value">'+escHtml(p.card_country||'—')+'</div></div><div class="pd-polished-row"><div class="pd-polished-label">Expires</div><div class="pd-polished-value">'+escHtml(exp)+'</div></div></div></div></section>';
-  h+='<section class="pd-polished-section"><h3 class="pd-polished-heading">Details</h3><div class="pd-polished-row"><div class="pd-polished-label">Payment Intent</div><div class="pd-polished-value mono">'+escHtml(pid||'—')+copyIcon(pid)+'</div></div><div class="pd-polished-row"><div class="pd-polished-label">Reference</div><div class="pd-polished-value mono">'+escHtml(reference)+copyIcon(reference)+'</div></div><div class="pd-polished-row"><div class="pd-polished-label">Stripe Account</div><div class="pd-polished-value">'+escHtml(account)+'</div></div><div class="pd-polished-row"><div class="pd-polished-label">Invoice</div><div class="pd-polished-value mono">'+escHtml(invoice||'—')+'</div></div><div class="pd-polished-row"><div class="pd-polished-label">Currency</div><div class="pd-polished-value mono">'+escHtml((p.currency||'').toUpperCase())+'</div></div><div class="pd-polished-row"><div class="pd-polished-label">Note</div><div class="pd-polished-value"><span class="pd-note-link" onclick="closeModal(\'payment-detail-modal\');openPaymentNote('+p.id+')">'+escHtml(p.note||'Add note')+'</span></div></div></section>';
-  h+='<section class="pd-polished-section"><h3 class="pd-polished-heading">Customer</h3><div class="pd-polished-customer"><div class="pd-polished-customer-left"><div class="avatar">'+initials(customerName)+'</div><div class="pd-polished-customer-main"><div class="pd-polished-customer-name">'+escHtml(customerName)+'</div><div class="pd-polished-customer-email">'+escHtml(emailText)+'</div></div></div><div class="pd-polished-value mono">'+escHtml(p.customer_id||'—')+copyIcon(p.customer_id||'')+'</div></div></section>';
-  h+='<section class="pd-polished-section"><h3 class="pd-polished-heading">Activity</h3><div class="pd-activity-timeline"><div class="pd-timeline-item"><div class="pd-timeline-icon '+(isFailed?'failed':(isSucceeded?'success':''))+'">'+(isFailed?iconSvg('failed'):iconSvg('success'))+'</div><div><div class="pd-timeline-title">'+escHtml(activityMain)+'</div><div class="pd-timeline-time">'+formatPdDate(p.created_at)+', '+formatPdLocalTime(p.created_at)+'</div></div><div class="pd-timeline-time-right">'+formatPdLocalTime(p.created_at)+'</div></div><div class="pd-timeline-item"><div class="pd-timeline-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><div><div class="pd-timeline-title">Payment started</div><div class="pd-timeline-time">'+formatPdDate(p.created_at)+', '+formatPdLocalTime(p.created_at)+'</div></div><div class="pd-timeline-time-right">'+formatPdLocalTime(p.created_at)+'</div></div></div></section>';
+
+  h+='<section class="pd-polished-section"><h3 class="pd-polished-heading">Payment breakdown</h3>';
+  h+='<div class="pd-polished-row"><div class="pd-polished-label">Gross amount</div><div class="pd-polished-value">'+fmt(p.amount,p.currency)+'</div></div>';
+  h+='<div class="pd-polished-row"><div class="pd-polished-label">Stripe fee</div><div class="pd-polished-value '+((p.stripe_fee!==undefined&&p.stripe_fee!==null)?'':'muted')+'">'+fee+'</div></div>';
+  h+='<div class="pd-polished-row"><div class="pd-polished-label">Net received</div><div class="pd-polished-value '+((p.net_amount!==undefined&&p.net_amount!==null)?'green':'muted')+'">'+net+'</div></div>';
+  h+='</section>';
+
+  h+='<section class="pd-polished-section"><h3 class="pd-polished-heading">Payment method</h3>';
+  if(hasPaymentMethod){
+    h+='<div class="pd-polished-method-group">';
+    h+='<div class="pd-method-main">'+(cardHtml||'<span class="pd-polished-value muted">Card details unavailable</span>')+'</div>';
+    h+='<div class="pd-polished-row"><div class="pd-polished-label">Funding</div><div class="pd-polished-value">'+escHtml(p.card_funding?p.card_funding.charAt(0).toUpperCase()+p.card_funding.slice(1):'—')+'</div></div>';
+    h+='<div class="pd-polished-row"><div class="pd-polished-label">Country</div><div class="pd-polished-value">'+escHtml(p.card_country||'—')+'</div></div>';
+    h+='<div class="pd-polished-row"><div class="pd-polished-label">Expires</div><div class="pd-polished-value">'+escHtml(exp)+'</div></div>';
+    h+='</div>';
+  } else {
+    h+='<div class="pd-method-empty">No payment method details available</div>';
+  }
+  h+='</section>';
+
+  h+='<section class="pd-polished-section"><h3 class="pd-polished-heading">Details</h3>';
+  h+='<div class="pd-polished-row"><div class="pd-polished-label">Payment Intent</div><div class="pd-polished-value mono">'+escHtml(pid||'—')+copyIcon(pid)+'</div></div>';
+  h+='<div class="pd-polished-row"><div class="pd-polished-label">Reference</div><div class="pd-polished-value mono">'+escHtml(reference||'—')+copyIcon(reference)+'</div></div>';
+  h+='<div class="pd-polished-row"><div class="pd-polished-label">Stripe Account</div><div class="pd-polished-value">'+escHtml(account||'—')+'</div></div>';
+  h+='<div class="pd-polished-row"><div class="pd-polished-label">Invoice</div><div class="pd-polished-value mono">'+escHtml(invoice||'—')+'</div></div>';
+  h+='<div class="pd-polished-row"><div class="pd-polished-label">Currency</div><div class="pd-polished-value mono">'+escHtml((p.currency||'—').toUpperCase())+'</div></div>';
+  h+='<div class="pd-polished-row"><div class="pd-polished-label">Note</div><div class="pd-polished-value"><span class="pd-note-link" onclick="closeModal(\'payment-detail-modal\');openPaymentNote('+p.id+')">'+escHtml(p.note||'Add note')+'</span></div></div>';
+  h+='</section>';
+
+  h+='<section class="pd-polished-section"><h3 class="pd-polished-heading">Customer</h3>';
+  h+='<div class="pd-polished-customer-simple"><div class="customer-name">'+escHtml(customerName)+'</div><div class="customer-email">'+escHtml(emailText)+'</div>';
+  h+='<div class="customer-id">Customer ID: '+escHtml(p.customer_id||'—')+copyIcon(p.customer_id||'')+'</div></div>';
+  h+='</section>';
+
+  h+='<section class="pd-polished-section"><h3 class="pd-polished-heading">Activity</h3><div class="pd-activity-compact">';
+  h+='<div class="pd-activity-row"><div class="pd-activity-compact-icon '+(isFailed?'failed':(isSucceeded?'success':''))+'">'+(isFailed?iconSvg('failed'):iconSvg(isSucceeded?'success':'info'))+'</div><div class="pd-activity-label">'+escHtml(activityMain)+'</div><div class="pd-activity-stamp">'+formatPdDate(p.created_at)+', '+formatPdLocalTime(p.created_at)+'</div></div>';
+  h+='<div class="pd-activity-row"><div class="pd-activity-compact-icon">'+iconSvg('info')+'</div><div class="pd-activity-label">Payment started</div><div class="pd-activity-stamp">'+formatPdDate(p.created_at)+', '+formatPdLocalTime(p.created_at)+'</div></div>';
+  h+='</div></section>';
+
   if(!isViewer&&isFailed&&!isGhost){h+='<button class="pd-retry-btn" onclick="closeModal(\'payment-detail-modal\');retryPayment('+p.id+')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg><span>Retry payment</span></button>';}
   h+='</div></div>';
   document.getElementById('payment-detail-body').innerHTML=h;
