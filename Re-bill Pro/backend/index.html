@@ -2566,6 +2566,34 @@ html.light .pd-activity-label{color:#111118}
   font-size:13px!important;
 }
 
+
+
+/* Payment drawer activity icon simplification */
+.payment-detail-shell .pd-activity-compact-icon{
+  width:10px!important;
+  height:10px!important;
+  border-radius:50%!important;
+  border:0!important;
+  background:var(--muted)!important;
+  opacity:.75!important;
+  box-shadow:none!important;
+}
+.payment-detail-shell .pd-activity-compact-icon.success{
+  background:var(--green)!important;
+  opacity:1!important;
+}
+.payment-detail-shell .pd-activity-compact-icon.failed{
+  background:var(--red)!important;
+  opacity:1!important;
+}
+.payment-detail-shell .pd-activity-compact-icon svg{
+  display:none!important;
+}
+.payment-detail-shell .pd-activity-row{
+  grid-template-columns:10px minmax(0,1fr) auto!important;
+  gap:12px!important;
+}
+
 </style>
 </head>
 <body>
