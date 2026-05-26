@@ -2055,6 +2055,67 @@ html.light .badge.badge-amber{
   transform:translateY(.05px)!important;
 }
 
+
+
+/* Stripe-inspired payment detail drawer */
+.pd-stripe-drawer.payment-detail-shell{width:min(560px,100vw);background:var(--surface);border-left:1px solid var(--border)}
+.pd-stripe-drawer .payment-detail-top{height:52px;padding:10px 14px;background:transparent}
+.pd-stripe-drawer .payment-detail-scroll{padding:0 28px 28px}
+.pd-stripe-drawer .pd-hero{display:flex;align-items:center;gap:16px;text-align:left;padding:0 0 14px;margin:0}
+.pd-stripe-drawer .pd-hero-icon{width:48px;height:48px;border-radius:50%;margin:0;flex:0 0 48px}
+.pd-stripe-drawer .pd-hero-icon.success{border:1px solid rgba(34,197,94,.38);background:rgba(34,197,94,.10);color:var(--green)}
+.pd-stripe-drawer .pd-hero-icon.failed{border:1px solid rgba(248,113,113,.38);background:rgba(248,113,113,.10);color:var(--red)}
+.pd-stripe-drawer .pd-hero-icon.info{border:1px solid rgba(96,165,250,.30);background:rgba(59,130,246,.10);color:#60a5fa}
+.pd-stripe-drawer .pd-hero-title{font-size:15px;font-weight:700;color:var(--text);letter-spacing:-.1px}
+.pd-stripe-drawer .pd-hero-amount{font-size:31px;line-height:1.05;font-weight:750;letter-spacing:-.9px;margin-top:4px;color:var(--text)}
+.pd-stripe-drawer .pd-hero-amount.failed{color:var(--red)}
+.pd-stripe-drawer .pd-hero-sub{font-size:12px;color:var(--muted);margin-top:4px}
+.pd-stripe-drawer .pd-status-row{min-height:42px;margin:0 0 18px;border-radius:10px;background:var(--surface2);border:1px solid var(--border2);display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;padding:6px 9px}
+.pd-stripe-drawer .pd-date-chip{font-size:12px;color:var(--text);font-weight:500}
+.pd-stripe-drawer .pd-tz-chip,.pd-stripe-drawer .pd-status-pill{height:28px;border-radius:8px;font-size:12px}
+.pd-stripe-drawer .pd-fail-box{margin:0 0 18px}
+.pd-stripe-section{padding:16px 0;border-top:1px solid var(--border)}
+.pd-stripe-section:first-of-type{border-top:0;padding-top:4px}
+.pd-stripe-heading{font-size:15px;font-weight:700;color:var(--text);margin:0 0 12px}
+.pd-stripe-row{min-height:26px;display:flex;align-items:center;justify-content:space-between;gap:18px;font-size:13px}
+.pd-stripe-label{color:var(--muted);min-width:0}
+.pd-stripe-value{color:var(--text);font-weight:500;text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pd-stripe-value.mono{font-family:var(--mono);font-size:12px}
+.pd-stripe-value.green{color:var(--green)}
+.pd-stripe-value.red{color:var(--red)}
+.pd-stripe-value.muted{color:var(--muted)}
+.pd-activity{display:grid;gap:12px}
+.pd-activity-item{display:grid;grid-template-columns:22px minmax(0,1fr) auto;align-items:center;gap:10px;font-size:13px}
+.pd-activity-icon{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid var(--border2);color:var(--muted);background:var(--surface2)}
+.pd-activity-icon.success{border-color:rgba(34,197,94,.45);color:var(--green);background:rgba(34,197,94,.08)}
+.pd-activity-icon.failed{border-color:rgba(248,113,113,.45);color:var(--red);background:rgba(248,113,113,.08)}
+.pd-activity-title{color:var(--text);font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pd-activity-time{font-size:12px;color:var(--muted);white-space:nowrap;text-align:right}
+.pd-method-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(160px,220px);gap:14px;align-items:start}
+.pd-method-card{display:flex;align-items:center;gap:8px;min-width:0}
+.pd-customer-mini{display:flex;align-items:center;gap:10px;min-width:0}
+.pd-customer-mini .avatar{width:30px;height:30px;font-size:11px}
+.pd-customer-main{min-width:0}
+.pd-customer-name{font-size:13px;font-weight:650;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pd-customer-email{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pd-copy-mini{margin-left:6px;border:0;background:transparent;color:var(--muted);cursor:pointer;vertical-align:middle;padding:1px}
+.pd-copy-mini:hover{color:var(--text)}
+.pd-note-link{color:var(--accent);font-weight:600;cursor:pointer}
+.pd-retry-btn{margin-top:14px}
+html.light .pd-stripe-drawer.payment-detail-shell{background:#fff;border-left-color:rgba(0,0,0,.10)}
+html.light .pd-stripe-drawer .pd-status-row{background:#fafafa;border-color:rgba(0,0,0,.10)}
+html.light .pd-stripe-section{border-top-color:rgba(0,0,0,.08)}
+html.light .pd-stripe-value{color:#111118}
+html.light .pd-activity-title{color:#111118}
+html.light .pd-stripe-drawer .pd-hero-amount{color:#111118}
+html.light .pd-stripe-drawer .pd-hero-amount.failed{color:var(--red)}
+@media(max-width:760px){
+  .pd-stripe-drawer .payment-detail-scroll{padding:0 18px 22px}
+  .pd-method-grid{grid-template-columns:1fr}
+  .pd-activity-item{grid-template-columns:22px minmax(0,1fr)}
+  .pd-activity-time{grid-column:2;text-align:left}
+}
+
 </style>
 </head>
 <body>
@@ -3496,73 +3557,68 @@ function renderPaymentDetailModal(p, syncing){
   var isSucceeded=p.status==='succeeded';
   var isRequiresPaymentMethod=p.status==='requires_payment_method';
   var typeLabel=paymentTypeLabel(p);
-  var statusTitle=isFailed?'Payment failed':(isSucceeded?'Payment successful':'Payment details');
-  var statusPill=isFailed?'Failed':(isSucceeded?'Succeeded':(p.status||'Unknown'));
+  var statusTitle=isFailed?'Payment failed':(isSucceeded?'Payment successful':(isRequiresPaymentMethod?'Payment needed':'Payment details'));
+  var statusPill=isFailed?'Failed':(isSucceeded?'Succeeded':(isRequiresPaymentMethod?'Payment needed':(p.status||'Unknown')));
   var statusClass=isFailed?'failed':(isSucceeded?'success':'info');
   var pid=p.stripe_payment_intent||'';
   var invoice=p.stripe_invoice_id||'';
   var account=p.account_name||'—';
-  var brand=(p.card_brand||'card');
-  var brandLabel=brand.replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();});
-  var cardHtml=(p.card_brand&&p.card_last4)?cardBadge(p.card_brand,p.card_last4):'<span class="pd-value muted">—</span>';
-  var exp=(p.card_exp_month&&p.card_exp_year)?String(p.card_exp_month).padStart(2,'0')+'/'+String(p.card_exp_year).slice(-2):'—';
-  var reference=(p.id||p.card_last4||'—');
+  var cardHtml=(p.card_brand&&p.card_last4)?cardBadge(p.card_brand,p.card_last4):'<span class="pd-stripe-value muted">—</span>';
+  var exp=(p.card_exp_month&&p.card_exp_year)?String(p.card_exp_month).padStart(2,'0')+' / '+String(p.card_exp_year).slice(-2):'—';
+  var reference=p.stripe_payment_intent||p.id||'—';
   var finCur=pdMoneyCurrency(p);
   var chargeCur=(p.currency||finCur||'usd').toLowerCase();
   var fee=(p.stripe_fee!==undefined&&p.stripe_fee!==null)?pdMoney(p.stripe_fee,finCur):(syncing?'Syncing…':'—');
   var net=(p.net_amount!==undefined&&p.net_amount!==null)?pdMoney(p.net_amount,finCur):(syncing?'Syncing…':'—');
-  var netClass=(p.net_amount!==undefined&&p.net_amount!==null)?'green':'muted';
   var feeLabel=(finCur&&chargeCur&&finCur!==chargeCur)?'Stripe fee ('+finCur.toUpperCase()+')':'Stripe fee';
   var netLabel=(finCur&&chargeCur&&finCur!==chargeCur)?'Net received ('+finCur.toUpperCase()+')':'Net received';
   var customerName=isGhost?'No profile':(p.name||'—');
   var emailText=p.email||'External payment · no email collected';
+  var activityMain=isFailed?'Payment failed':(isSucceeded?'Payment succeeded':(isRequiresPaymentMethod?'Payment requires payment method':'Payment updated'));
+  var activityIcon=isFailed?'failed':(isSucceeded?'success':'info');
+  var heroIconSvg=isFailed?'<svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>':(isSucceeded?'<svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>':(isRequiresPaymentMethod?'<svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.05" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/><path d="M16.5 14h.01"/><path d="M12 14h.01"/></svg>':'<svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.15" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>'));
+  function copyIcon(v){
+    var safe=escHtml(String(v||'')).replace(/'/g,'&#39;');
+    if(!v||v==='—')return '';
+    return '<button class="pd-copy-mini" title="Copy" onclick="copyPdValue(\''+safe+'\')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
+  }
   var h='';
-  h+='<div class="payment-detail-shell">';
+  h+='<div class="payment-detail-shell pd-stripe-drawer">';
   h+='<div class="payment-detail-top"><button class="payment-detail-close" onclick="closeModal(\'payment-detail-modal\')">×</button></div>';
   h+='<div class="payment-detail-scroll">';
-  var heroIconSvg=isFailed?'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>':(isSucceeded?'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>':(isRequiresPaymentMethod?'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/><path d="M16.5 14h.01"/><path d="M12 14h.01"/></svg>':'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>'));
-  h+='<div class="pd-fixed-summary">';
-  h+='<div class="pd-hero"><div class="pd-hero-icon '+statusClass+'">'+heroIconSvg+'</div>';
-  h+='<div class="pd-hero-title">'+escHtml(statusTitle)+'</div><div class="pd-hero-amount '+statusClass+'">'+fmt(p.amount,p.currency)+'</div><div class="pd-hero-sub">'+escHtml(typeLabel)+' card payment</div></div>';
+  h+='<div class="pd-hero"><div class="pd-hero-icon '+statusClass+'">'+heroIconSvg+'</div><div><div class="pd-hero-title">'+escHtml(statusTitle)+'</div><div class="pd-hero-amount '+statusClass+'">'+fmt(p.amount,p.currency)+'</div><div class="pd-hero-sub">'+escHtml(typeLabel)+' card payment</div></div></div>';
   h+='<div class="pd-status-row"><div class="pd-date-chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span>'+formatPdDate(p.created_at)+', '+formatPdLocalTime(p.created_at)+'</span></div><div class="pd-tz-chip">Local</div><div class="pd-status-pill '+statusClass+'"><span class="pd-dot"></span>'+escHtml(statusPill)+'</div></div>';
   if(isFailed&&fullReason){h+='<div class="pd-fail-box">'+escHtml(fullReason)+'</div>';}
   if(syncing){h+='<div class="pd-sync-note">Fetching real Stripe fee/net…</div>';}
-  h+='</div>';
-  h+='<div class="pd-details-scroll">';
-  h+='<div class="pd-sections-stack">';
-  h+='<div class="pd-section-list">';
-  h+='<div class="pd-section-title">Payment identity</div>';
-  h+='<div class="pd-row"><div class="pd-label">Payment intent</div><div class="pd-value mono">'+escHtml(pid||'—')+'</div></div>';
-  h+='<div class="pd-row"><div class="pd-label">Customer</div><div class="pd-value pd-customer-value">'+escHtml(customerName)+'</div></div>';
-  h+='<div class="pd-row"><div class="pd-label">Email</div><div class="pd-value">'+escHtml(emailText)+'</div></div>';
-  h+='</div>';
-  h+='<div class="pd-section-list">';
-  h+='<div class="pd-section-title">Card details</div>';
-  h+='<div class="pd-row"><div class="pd-label">Method</div><div class="pd-value">'+cardHtml+'</div></div>';
-  h+='<div class="pd-row"><div class="pd-label">Funding</div><div class="pd-value">'+escHtml(p.card_funding?p.card_funding.charAt(0).toUpperCase()+p.card_funding.slice(1):'—')+'</div></div>';
-  h+='<div class="pd-row"><div class="pd-label">Card country</div><div class="pd-value">'+escHtml(p.card_country||'—')+'</div></div>';
-  h+='<div class="pd-row"><div class="pd-label">Expiry</div><div class="pd-value">'+escHtml(exp)+'</div></div>';
-  h+='</div>';
-  h+='<div class="pd-section-list">';
-  h+='<div class="pd-section-title">Amount breakdown</div>';
-  h+='<div class="pd-row"><div class="pd-label">Gross</div><div class="pd-value">'+fmt(p.amount,p.currency)+'</div></div>';
-  h+='<div class="pd-row"><div class="pd-label">'+escHtml(feeLabel)+'</div><div class="pd-value '+((p.stripe_fee!==undefined&&p.stripe_fee!==null)?'':'muted')+'">'+fee+'</div></div>';
-  h+='<div class="pd-row"><div class="pd-label">'+escHtml(netLabel)+'</div><div class="pd-value '+netClass+'">'+net+'</div></div>';
-  h+='</div>';
-  h+='<div class="pd-section-list">';
-  h+='<div class="pd-section-title">Metadata</div>';
-  h+='<div class="pd-row"><div class="pd-label">Stripe account</div><div class="pd-value">'+escHtml(account)+'</div></div>';
-  h+='<div class="pd-row"><div class="pd-label">Invoice</div><div class="pd-value mono">'+escHtml(invoice||'—')+'</div></div>';
-  h+='<div class="pd-row"><div class="pd-label">Payment type</div><div class="pd-value">'+escHtml(typeLabel)+'</div></div>';
-  h+='<div class="pd-row"><div class="pd-label">Currency</div><div class="pd-value mono">'+escHtml((p.currency||'').toUpperCase())+'</div></div>';
-  h+='<div class="pd-row"><div class="pd-label">Reference</div><div class="pd-value mono">'+escHtml(reference)+'</div></div>';
-  h+='<div class="pd-row"><div class="pd-label">Date</div><div class="pd-value">'+formatPdDate(p.created_at)+'</div></div>';
-  h+='<div class="pd-row"><div class="pd-label">Local time</div><div class="pd-value">'+formatPdLocalTime(p.created_at)+'</div></div>';
-  h+='<div class="pd-row"><div class="pd-label">UTC time</div><div class="pd-value">'+formatPdUtcTime(p.created_at)+'</div></div>';
-  h+='<div class="pd-row"><div class="pd-label">Age</div><div class="pd-value muted">'+paymentAgeLabel(p.created_at)+'</div></div>';
-  h+='<div class="pd-row pd-note-row" onclick="closeModal(\'payment-detail-modal\');openPaymentNote('+p.id+')"><div class="pd-label">Note</div><div class="pd-value pd-note-value">'+escHtml(p.note||'No note')+'</div></div>';
-  h+='</div>';
-  h+='</div>';
+
+  h+='<section class="pd-stripe-section"><h3 class="pd-stripe-heading">Recent activity</h3><div class="pd-activity">';
+  h+='<div class="pd-activity-item"><div class="pd-activity-icon '+activityIcon+'">'+(isFailed?'×':'✓')+'</div><div class="pd-activity-title">'+escHtml(activityMain)+'</div><div class="pd-activity-time">'+formatPdDate(p.created_at)+', '+formatPdLocalTime(p.created_at)+'</div></div>';
+  h+='<div class="pd-activity-item"><div class="pd-activity-icon">•</div><div class="pd-activity-title">Payment started</div><div class="pd-activity-time">'+formatPdDate(p.created_at)+', '+formatPdLocalTime(p.created_at)+'</div></div>';
+  h+='</div></section>';
+
+  h+='<section class="pd-stripe-section"><h3 class="pd-stripe-heading">Payment breakdown</h3>';
+  h+='<div class="pd-stripe-row"><div class="pd-stripe-label">Payment amount</div><div class="pd-stripe-value">'+fmt(p.amount,p.currency)+'</div></div>';
+  h+='<div class="pd-stripe-row"><div class="pd-stripe-label">'+escHtml(feeLabel)+'</div><div class="pd-stripe-value '+((p.stripe_fee!==undefined&&p.stripe_fee!==null)?'':'muted')+'">'+fee+'</div></div>';
+  h+='<div class="pd-stripe-row"><div class="pd-stripe-label">'+escHtml(netLabel)+'</div><div class="pd-stripe-value '+((p.net_amount!==undefined&&p.net_amount!==null)?'green':'muted')+'">'+net+'</div></div>';
+  h+='</section>';
+
+  h+='<section class="pd-stripe-section"><h3 class="pd-stripe-heading">Payment method</h3><div class="pd-method-grid"><div class="pd-method-card">'+cardHtml+'</div><div>';
+  h+='<div class="pd-stripe-row"><div class="pd-stripe-label">Funding</div><div class="pd-stripe-value">'+escHtml(p.card_funding?p.card_funding.charAt(0).toUpperCase()+p.card_funding.slice(1):'—')+'</div></div>';
+  h+='<div class="pd-stripe-row"><div class="pd-stripe-label">Country</div><div class="pd-stripe-value">'+escHtml(p.card_country||'—')+'</div></div>';
+  h+='<div class="pd-stripe-row"><div class="pd-stripe-label">Expires</div><div class="pd-stripe-value">'+escHtml(exp)+'</div></div>';
+  h+='</div></div></section>';
+
+  h+='<section class="pd-stripe-section"><h3 class="pd-stripe-heading">Details</h3>';
+  h+='<div class="pd-stripe-row"><div class="pd-stripe-label">Payment intent</div><div class="pd-stripe-value mono">'+escHtml(pid||'—')+copyIcon(pid)+'</div></div>';
+  h+='<div class="pd-stripe-row"><div class="pd-stripe-label">Reference</div><div class="pd-stripe-value mono">'+escHtml(reference)+copyIcon(reference)+'</div></div>';
+  h+='<div class="pd-stripe-row"><div class="pd-stripe-label">Stripe account</div><div class="pd-stripe-value">'+escHtml(account)+'</div></div>';
+  h+='<div class="pd-stripe-row"><div class="pd-stripe-label">Invoice</div><div class="pd-stripe-value mono">'+escHtml(invoice||'—')+'</div></div>';
+  h+='<div class="pd-stripe-row"><div class="pd-stripe-label">Currency</div><div class="pd-stripe-value mono">'+escHtml((p.currency||'').toUpperCase())+'</div></div>';
+  h+='<div class="pd-stripe-row"><div class="pd-stripe-label">Note</div><div class="pd-stripe-value"><span class="pd-note-link" onclick="closeModal(\'payment-detail-modal\');openPaymentNote('+p.id+')">'+escHtml(p.note||'Add note')+'</span></div></div>';
+  h+='</section>';
+
+  h+='<section class="pd-stripe-section"><h3 class="pd-stripe-heading">Customer</h3><div class="pd-stripe-row"><div class="pd-customer-mini"><div class="avatar">'+initials(customerName)+'</div><div class="pd-customer-main"><div class="pd-customer-name">'+escHtml(customerName)+'</div><div class="pd-customer-email">'+escHtml(emailText)+'</div></div></div><div class="pd-stripe-value mono">'+escHtml(p.customer_id||'—')+copyIcon(p.customer_id||'')+'</div></div></section>';
+
   if(!isViewer&&isFailed&&!isGhost){h+='<button class="pd-retry-btn" onclick="closeModal(\'payment-detail-modal\');retryPayment('+p.id+')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg><span>Retry payment</span></button>';}
   h+='</div></div>';
   document.getElementById('payment-detail-body').innerHTML=h;
