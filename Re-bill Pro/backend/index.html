@@ -2257,6 +2257,83 @@ html.light .pd-activity-label{color:#111118}
   .pd-activity-stamp{grid-column:2;text-align:left}
 }
 
+
+
+/* Final payment drawer polish: alignment, section rhythm, customer rows */
+.pd-polished-section{
+  padding:18px 0!important;
+}
+.pd-polished-heading{
+  margin:0 0 14px!important;
+}
+.pd-polished-row{
+  min-height:26px;
+}
+.pd-method-main{
+  margin-bottom:12px!important;
+}
+.pd-polished-method-group{
+  max-width:340px;
+}
+.pd-polished-method-group .pd-polished-row{
+  display:grid;
+  grid-template-columns:96px minmax(0,1fr);
+  gap:16px;
+  align-items:center;
+}
+.pd-polished-method-group .pd-polished-value{
+  text-align:right;
+  justify-self:stretch;
+}
+.pd-method-main .payment-card svg,
+.pd-method-main .payment-brand-badge svg{
+  width:28px!important;
+  height:auto!important;
+}
+.pd-method-main .payment-card img,
+.pd-method-main .payment-brand-badge img{
+  width:28px!important;
+  height:auto!important;
+}
+.pd-method-main .payment-badge-fallback{
+  width:28px!important;
+  height:18px!important;
+}
+.pd-customer-rows{
+  display:grid;
+  gap:7px;
+}
+.pd-customer-rows .pd-polished-row{
+  display:grid;
+  grid-template-columns:96px minmax(0,1fr);
+  gap:16px;
+  min-height:22px;
+  align-items:center;
+}
+.pd-customer-rows .pd-polished-value{
+  text-align:left;
+  justify-self:stretch;
+}
+.pd-customer-rows .customer-id-row .pd-polished-label,
+.pd-customer-rows .customer-id-row .pd-polished-value{
+  font-size:11.5px;
+}
+.pd-activity-compact{
+  gap:8px!important;
+}
+.pd-activity-row{
+  min-height:22px!important;
+}
+.pd-activity-stamp{
+  justify-self:end;
+}
+@media(max-width:760px){
+  .pd-polished-method-group .pd-polished-row,
+  .pd-customer-rows .pd-polished-row{
+    grid-template-columns:86px minmax(0,1fr);
+  }
+}
+
 </style>
 </head>
 <body>
@@ -3762,9 +3839,11 @@ function renderPaymentDetailModal(p, syncing){
   h+='</section>';
 
   h+='<section class="pd-polished-section"><h3 class="pd-polished-heading">Customer</h3>';
-  h+='<div class="pd-polished-customer-simple"><div class="customer-name">'+escHtml(customerName)+'</div><div class="customer-email">'+escHtml(emailText)+'</div>';
-  h+='<div class="customer-id">Customer ID: '+escHtml(p.customer_id||'—')+copyIcon(p.customer_id||'')+'</div></div>';
-  h+='</section>';
+  h+='<div class="pd-customer-rows">';
+  h+='<div class="pd-polished-row"><div class="pd-polished-label">Name</div><div class="pd-polished-value">'+escHtml(customerName||'—')+'</div></div>';
+  h+='<div class="pd-polished-row"><div class="pd-polished-label">Email</div><div class="pd-polished-value">'+escHtml(emailText||'—')+'</div></div>';
+  h+='<div class="pd-polished-row customer-id-row"><div class="pd-polished-label">Customer ID</div><div class="pd-polished-value mono">'+escHtml(p.customer_id||'—')+copyIcon(p.customer_id||'')+'</div></div>';
+  h+='</div></section>';
 
   h+='<section class="pd-polished-section"><h3 class="pd-polished-heading">Activity</h3><div class="pd-activity-compact">';
   h+='<div class="pd-activity-row"><div class="pd-activity-compact-icon '+(isFailed?'failed':(isSucceeded?'success':''))+'">'+(isFailed?iconSvg('failed'):iconSvg(isSucceeded?'success':'info'))+'</div><div class="pd-activity-label">'+escHtml(activityMain)+'</div><div class="pd-activity-stamp">'+formatPdDate(p.created_at)+', '+formatPdLocalTime(p.created_at)+'</div></div>';
