@@ -69,6 +69,10 @@ html.light .toggle-thumb{background:#fff;left:18px}
 .page{display:none}.page.active{display:block}
 .page-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap}
 .page-header h2{font-size:19px;font-weight:600;letter-spacing:-0.3px}
+
+.page-header h2.page-title-with-icon{display:flex;align-items:center;gap:8px}
+.page-header h2.page-title-with-icon .page-title-icon{width:24px;height:24px;flex:0 0 24px;color:currentColor;stroke:currentColor}
+
 .page-header p{font-size:13px;color:var(--muted);margin-top:2px}
 .page-header-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .topbar-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -2106,7 +2110,7 @@ html.light .badge.badge-amber{
 <!-- Dashboard -->
 <div id="page-dashboard" class="page active">
   <div class="page-header">
-    <div><h2>Dashboard</h2><p>Your subscription overview</p></div>
+    <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Dashboard</span></h2><p>Your subscription overview</p></div>
     <div class="topbar-actions" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       <div style="position:relative;">
         <input type="text" id="global-search-input" placeholder="Search..." oninput="globalSearch(this.value)" style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:7px 10px 7px 30px;font-size:13px;font-family:var(--mono);outline:none;width:220px;">
@@ -2173,14 +2177,14 @@ html.light .badge.badge-amber{
 
 <!-- Activity -->
 <div id="page-activity" class="page">
-  <div class="page-header"><div><h2>Activity Log</h2><p>All actions and events</p></div></div>
+  <div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Activity Log</span></h2><p>All actions and events</p></div></div>
   <div class="card"><div style="padding:4px 18px 18px;" id="activity-list"><div class="empty">Loading...</div></div></div>
 </div>
 
 <!-- Customers -->
 <div id="page-customers" class="page">
   <div class="page-header">
-    <div><h2>Customers</h2><p>All customers with saved cards</p></div>
+    <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Customers</span></h2><p>All customers with saved cards</p></div>
     <div class="page-header-actions">
       <button class="btn" onclick="window.location='/api/customers/export'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export CSV</button>
       <button class="btn btn-primary" onclick="openModal('add-customer-modal')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Customer</button>
@@ -2196,7 +2200,7 @@ html.light .badge.badge-amber{
 <!-- Subscriptions -->
 <div id="page-subscriptions" class="page">
   <div class="page-header">
-    <div><h2>Subscriptions</h2><p>All rebilling schedules</p></div>
+    <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg><span>Subscriptions</span></h2><p>All rebilling schedules</p></div>
     <div class="page-header-actions">
       <div id="sub-default-btn">
         <button class="btn btn-sm" onclick="enterBulkMode()">Select</button>
@@ -2224,7 +2228,7 @@ html.light .badge.badge-amber{
 <!-- Payments -->
 <div id="page-payments" class="page">
   <div class="page-header">
-    <div><h2>Payments</h2><p>Full payment history</p></div>
+    <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="6" y1="15" x2="10" y2="15"/></svg><span>Payments</span></h2><p>Full payment history</p></div>
     <button class="btn" onclick="window.location='/api/payments/export'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export CSV</button>
   </div>
   <div class="pay-filter-bar" style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;">
@@ -2279,7 +2283,7 @@ html.light .badge.badge-amber{
 
 <!-- Payment Links -->
 <div id="page-links" class="page">
-  <div class="page-header"><div><h2>Payment Links</h2><p>Generate Stripe payment links that save cards automatically</p></div></div>
+  <div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>Payment Links</span></h2><p>Generate Stripe payment links that save cards automatically</p></div></div>
   <div class="card" style="max-width:500px;margin-bottom:14px;">
     <div class="card-header"><h3>Plan Templates <span id="template-count" style="color:var(--muted);font-weight:400;"></span></h3></div>
     <div style="padding:12px 18px 16px;">
@@ -2319,7 +2323,7 @@ html.light .badge.badge-amber{
 
 <!-- Settings -->
 <div id="page-settings" class="page">
-  <div class="page-header"><div><h2>Settings</h2><p>Configure Subloop features</p></div></div>
+  <div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>Settings</span></h2><p>Configure Subloop features</p></div></div>
   <div class="card" style="max-width:600px;">
     <div class="card-header"><h3>Dunning Management</h3></div>
     <div style="padding:4px 18px 18px;">
@@ -2355,7 +2359,7 @@ html.light .badge.badge-amber{
 
 <!-- Security -->
 <div id="page-security" class="page">
-  <div class="page-header"><div><h2>Security</h2><p>Protect your Subloop account</p></div></div>
+  <div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span>Security</span></h2><p>Protect your Subloop account</p></div></div>
   <div class="card" style="max-width:600px;">
     <div class="card-header"><h3>Two-Factor Authentication (2FA)</h3></div>
     <div style="padding:18px;">
@@ -2404,7 +2408,7 @@ html.light .badge.badge-amber{
 <!-- Stripe Accounts -->
 <div id="page-accounts" class="page">
   <div class="page-header">
-    <div><h2>Stripe Accounts</h2><p>Manage multiple Stripe accounts</p></div>
+    <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg><span>Stripe Accounts</span></h2><p>Manage multiple Stripe accounts</p></div>
     <button class="btn btn-primary" onclick="openModal('add-account-modal')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Account</button>
   </div>
   <div class="card"><div class="scrollable"><table>
@@ -2415,7 +2419,7 @@ html.light .badge.badge-amber{
 
 <!-- Webhook Logs -->
 <div id="page-webhooks" class="page">
-  <div class="page-header"><div><h2>Webhook Logs</h2><p>Incoming Stripe events</p></div></div>
+  <div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 16.98h-5.99c-1.1 0-1.95.94-2.48 1.9A4 4 0 0 1 2 17c.01-.7.2-1.4.57-2"/><path d="m6 17 3.13-5.78c.53-.97.1-2.18-.5-3.1a4 4 0 1 1 6.89-4.06"/><path d="m12 6 3.13 5.73C15.66 12.7 16.9 13 18 13a4 4 0 0 1 0 8"/></svg><span>Webhook Logs</span></h2><p>Incoming Stripe events</p></div></div>
   <div class="card"><div class="scrollable"><table>
     <thead><tr><th>Event</th><th>Account</th><th>Status</th><th>Time</th></tr></thead>
     <tbody id="webhook-table"><tr><td colspan="4" class="empty">Loading...</td></tr></tbody>
@@ -2425,7 +2429,7 @@ html.light .badge.badge-amber{
 
 <!-- Forecast -->
 <div id="page-forecast" class="page">
-  <div class="page-header"><div><h2>Revenue Forecast</h2><p>Projected revenue based on active subscriptions</p></div></div>
+  <div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><span>Revenue Forecast</span></h2><p>Projected revenue based on active subscriptions</p></div></div>
   <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);">
     <div class="stat-card"><div class="stat-label">Next 30 Days</div><div class="stat-value" id="forecast-30">—</div><div class="stat-sub">projected revenue</div></div>
     <div class="stat-card"><div class="stat-label">Next 60 Days</div><div class="stat-value" id="forecast-60">—</div><div class="stat-sub">projected revenue</div></div>
@@ -2443,7 +2447,7 @@ html.light .badge.badge-amber{
 <!-- MRR Growth -->
 <div id="page-mrr" class="page">
   <div class="page-header">
-    <div><h2>MRR Growth</h2><p>Revenue performance over time</p></div>
+    <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg><span>MRR Growth</span></h2><p>Revenue performance over time</p></div>
     <select id="mrr-period" onchange="loadMrr()" class="btn btn-sm" style="cursor:pointer;">
       <option value="month">This Month (daily)</option>
       <option value="3months">Last 3 Months</option>
@@ -2467,7 +2471,7 @@ html.light .badge.badge-amber{
 
 <!-- Recovery Rate -->
 <div id="page-recovery" class="page">
-  <div class="page-header"><div><h2>Payment Recovery</h2><p>How well dunning recovers failed payments</p></div></div>
+  <div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 2v6h6"/><path d="M21.5 22v-6h-6"/><path d="M22 11.5A10 10 0 0 0 3.2 7.2"/><path d="M2 12.5a10 10 0 0 0 18.8 4.2"/></svg><span>Payment Recovery</span></h2><p>How well dunning recovers failed payments</p></div></div>
   <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);">
     <div class="stat-card"><div class="stat-label">Failed (30 days)</div><div class="stat-value" id="rec-failed" style="color:var(--red)">—</div><div class="stat-sub">total failures</div></div>
     <div class="stat-card"><div class="stat-label">Recovered</div><div class="stat-value" id="rec-recovered" style="color:var(--green)">—</div><div class="stat-sub">retried successfully</div></div>
@@ -2477,7 +2481,7 @@ html.light .badge.badge-amber{
 
 <!-- Daily Summary -->
 <div id="page-summary" class="page">
-  <div class="page-header"><div><h2>Daily Summary</h2><p>Your business at a glance</p></div><button class="btn" onclick="loadSummary()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/></svg>Refresh</button></div>
+  <div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="12" y2="17"/></svg><span>Daily Summary</span></h2><p>Your business at a glance</p></div><button class="btn" onclick="loadSummary()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/></svg>Refresh</button></div>
   <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px;">
     <div class="stat-card"><div class="stat-label">Revenue Today</div><div class="stat-value" id="sum-rev-today">—</div><div class="stat-sub" id="sum-pay-today">payments</div></div>
     <div class="stat-card"><div class="stat-label">Failed Today</div><div class="stat-value" id="sum-fail-today" style="color:var(--red)">—</div><div class="stat-sub">failed payments</div></div>
@@ -2507,7 +2511,7 @@ html.light .badge.badge-amber{
 <!-- Admin Users -->
 <div id="page-admins" class="page">
   <div class="page-header">
-    <div><h2>Admin Users</h2><p>Manage who can access Subloop</p></div>
+    <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg><span>Admin Users</span></h2><p>Manage who can access Subloop</p></div>
     <button class="btn btn-primary" onclick="openModal('add-admin-modal')">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Add Admin
