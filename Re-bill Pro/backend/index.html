@@ -2113,7 +2113,7 @@ html.light .badge.badge-amber{
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" style="position:absolute;left:9px;top:9px;pointer-events:none;"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         <div id="global-search-results" style="display:none;position:absolute;top:calc(100% + 6px);left:0;width:340px;background:var(--surface);border:1px solid var(--border2);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.3);z-index:200;max-height:320px;overflow-y:auto;"></div>
       </div>
-      <button class="btn" onclick="runRebills()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/></svg>Run rebills now</button>
+      <button class="btn" onclick="runRebills()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/></svg>Run Rebills Now</button>
       <button class="btn btn-disconnect" onclick="disconnectApp()" title="Disconnect">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         Disconnect
@@ -2183,7 +2183,7 @@ html.light .badge.badge-amber{
     <div><h2>Customers</h2><p>All customers with saved cards</p></div>
     <div class="page-header-actions">
       <button class="btn" onclick="window.location='/api/customers/export'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export CSV</button>
-      <button class="btn btn-primary" onclick="openModal('add-customer-modal')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add customer</button>
+      <button class="btn btn-primary" onclick="openModal('add-customer-modal')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Customer</button>
     </div>
   </div>
   <div class="search-bar"><input type="text" id="customer-search" placeholder="Search by name or email..." oninput="filterCustomers()"></div>
@@ -2279,21 +2279,21 @@ html.light .badge.badge-amber{
 
 <!-- Payment Links -->
 <div id="page-links" class="page">
-  <div class="page-header"><div><h2>Payment Links</h2><p>Generate Stripe links that save cards automatically</p></div></div>
+  <div class="page-header"><div><h2>Payment Links</h2><p>Generate Stripe payment links that save cards automatically</p></div></div>
   <div class="card" style="max-width:500px;margin-bottom:14px;">
-    <div class="card-header"><h3>Plan templates <span id="template-count" style="color:var(--muted);font-weight:400;"></span></h3></div>
+    <div class="card-header"><h3>Plan Templates <span id="template-count" style="color:var(--muted);font-weight:400;"></span></h3></div>
     <div style="padding:12px 18px 16px;">
       <div id="templates-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;min-height:32px;"><span style="font-size:12px;color:var(--muted);font-family:var(--mono);">Loading...</span></div>
       <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
         <div class="form-group" style="margin:0;flex:1;min-width:120px;"><label>Template name</label><input type="text" id="tmpl-name" placeholder="Monthly Pro"></div>
         <div class="form-group" style="margin:0;width:90px;"><label>Amount ($)</label><input type="number" id="tmpl-amount" placeholder="29" min="0.50" step="0.01"></div>
         <div class="form-group" style="margin:0;width:100px;"><label>Interval</label><select id="tmpl-interval"><option value="7">Weekly</option><option value="30" selected>Monthly</option><option value="90">Quarterly</option><option value="365">Yearly</option></select></div>
-        <button class="btn btn-primary btn-sm" onclick="saveTemplate()" style="margin-bottom:1px;">Save template</button>
+        <button class="btn btn-primary btn-sm" onclick="saveTemplate()" style="margin-bottom:1px;">Save Template</button>
       </div>
     </div>
   </div>
   <div class="card" style="max-width:500px;">
-    <div class="card-header"><h3>Create payment link</h3></div>
+    <div class="card-header"><h3>Create Payment Link</h3></div>
     <div style="padding:18px;">
       <div class="form-group"><label>Product name</label><input type="text" id="link-name" value="Monthly Subscription"></div>
       <div class="form-row">
@@ -2304,7 +2304,7 @@ html.light .badge.badge-amber{
       <div class="form-group"><label>Rebill interval</label>
         <select id="link-interval"><option value="7">Weekly</option><option value="14">Biweekly</option><option value="30" selected>Monthly</option><option value="90">Quarterly</option><option value="365">Yearly</option></select>
       </div>
-      <button class="btn btn-primary" onclick="createPaymentLink()" id="create-link-btn">Generate payment link</button>
+      <button class="btn btn-primary" onclick="createPaymentLink()" id="create-link-btn">Generate Payment Link</button>
       <div class="link-result" id="link-result">
         <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;">✓ Link created</div>
         <div class="link-url" id="link-url"></div>
@@ -2323,9 +2323,9 @@ html.light .badge.badge-amber{
   <div class="card" style="max-width:600px;">
     <div class="card-header"><h3>Dunning Management</h3></div>
     <div style="padding:4px 18px 18px;">
-      <p style="font-size:12px;color:var(--muted);font-family:var(--mono);margin:10px 0 16px;">When a rebill fails, automatically retry before cancelling.</p>
+      <p style="font-size:12px;color:var(--muted);font-family:var(--mono);margin:10px 0 16px;">When a rebill fails, automatically retry before canceling.</p>
       <div class="setting-row">
-        <div class="setting-info"><div class="setting-label">Enable Dunning</div><div class="setting-desc">Auto-retry failed payments before cancelling</div></div>
+        <div class="setting-info"><div class="setting-label">Enable Dunning</div><div class="setting-desc">Auto-retry failed payments before canceling</div></div>
         <label class="switch"><input type="checkbox" id="setting-dunning" onchange="saveSetting('dunning_enabled',this.checked)"><span class="slider"></span></label>
       </div>
       <div class="setting-row">
@@ -2361,7 +2361,7 @@ html.light .badge.badge-amber{
     <div style="padding:18px;">
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
         <div style="flex:1;"><div style="font-size:14px;font-weight:500;margin-bottom:3px;">Authenticator App</div><div style="font-size:12px;color:var(--muted);font-family:var(--mono);">Use Google Authenticator or Authy</div></div>
-        <span id="2fa-badge" class="badge badge-red">disabled</span>
+        <span id="2fa-badge" class="badge badge-red">Disabled</span>
       </div>
       <div id="2fa-disabled-view">
         <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">When enabled, you'll need a 6-digit code from your app at every login.</p>
@@ -2405,7 +2405,7 @@ html.light .badge.badge-amber{
 <div id="page-accounts" class="page">
   <div class="page-header">
     <div><h2>Stripe Accounts</h2><p>Manage multiple Stripe accounts</p></div>
-    <button class="btn btn-primary" onclick="openModal('add-account-modal')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add account</button>
+    <button class="btn btn-primary" onclick="openModal('add-account-modal')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Account</button>
   </div>
   <div class="card"><div class="scrollable"><table>
     <thead><tr><th>Name</th><th>Key</th><th>Status</th><th>Verification</th><th>Actions</th></tr></thead>
@@ -2435,7 +2435,7 @@ html.light .badge.badge-amber{
     <div class="card-header"><h3>How forecast works</h3></div>
     <div style="padding:18px;font-size:13px;color:var(--muted);font-family:var(--mono);line-height:1.7;">
       Forecast is calculated from all active subscriptions, their amounts, billing intervals, and next billing dates.<br>
-      It assumes all payments succeed and no new subscriptions are added or cancelled.
+      It assumes all payments succeed and no new subscriptions are added or canceled.
     </div>
   </div>
 </div>
@@ -2467,7 +2467,7 @@ html.light .badge.badge-amber{
 
 <!-- Recovery Rate -->
 <div id="page-recovery" class="page">
-  <div class="page-header"><div><h2>Payment Recovery</h2><p>How well your dunning recovers failed payments</p></div></div>
+  <div class="page-header"><div><h2>Payment Recovery</h2><p>How well dunning recovers failed payments</p></div></div>
   <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);">
     <div class="stat-card"><div class="stat-label">Failed (30 days)</div><div class="stat-value" id="rec-failed" style="color:var(--red)">—</div><div class="stat-sub">total failures</div></div>
     <div class="stat-card"><div class="stat-label">Recovered</div><div class="stat-value" id="rec-recovered" style="color:var(--green)">—</div><div class="stat-sub">retried successfully</div></div>
@@ -2497,7 +2497,7 @@ html.light .badge.badge-amber{
         <div class="form-group"><label>Amount ($)</label><input type="number" id="invoice-amount" placeholder="29.00" step="0.01" min="0.50"></div>
       </div>
       <div class="form-group"><label>Description</label><input type="text" id="invoice-desc" placeholder="Manual invoice - November" value="Manual invoice"></div>
-      <button class="btn btn-primary" onclick="sendManualInvoice()">Charge customer</button>
+      <button class="btn btn-primary" onclick="sendManualInvoice()">Charge Customer</button>
       <div id="invoice-result" style="display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:13px;font-family:var(--mono);"></div>
     </div>
   </div>
@@ -2510,7 +2510,7 @@ html.light .badge.badge-amber{
     <div><h2>Admin Users</h2><p>Manage who can access Subloop</p></div>
     <button class="btn btn-primary" onclick="openModal('add-admin-modal')">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      Add admin
+      Add Admin
     </button>
   </div>
   <div class="card">
@@ -2524,7 +2524,7 @@ html.light .badge.badge-amber{
     <div style="padding:18px;">
       <div class="form-group"><label>New password</label><input type="password" id="change-pass-new" placeholder="New password (min 8 chars)"></div>
       <div class="form-group"><label>Confirm password</label><input type="password" id="change-pass-confirm" placeholder="Confirm password"></div>
-      <button class="btn btn-primary" onclick="changeMyPassword()">Update password</button>
+      <button class="btn btn-primary" onclick="changeMyPassword()">Update Password</button>
     </div>
   </div>
 </div>
@@ -2535,19 +2535,19 @@ html.light .badge.badge-amber{
 <!-- Modals -->
 <div class="modal-bg" id="add-customer-modal">
   <div class="modal">
-    <h3>Add customer manually</h3><p>Link a Stripe customer to Subloop for rebilling</p>
+    <h3>Add Customer Manually</h3><p>Link a Stripe customer to Subloop for rebilling</p>
     <div class="form-row"><div class="form-group"><label>Name</label><input type="text" id="mc-name" placeholder="John Doe"></div><div class="form-group"><label>Email</label><input type="email" id="mc-email" placeholder="john@example.com"></div></div>
     <div class="form-group"><label>Stripe customer ID (cus_...)</label><input type="text" id="mc-stripe-id" placeholder="cus_xxx..."></div>
     <div class="form-group"><label>Payment method ID (pm_...) — optional</label><input type="text" id="mc-pm-id" placeholder="pm_xxx..."></div>
     <div class="form-row"><div class="form-group"><label>Card brand</label><input type="text" id="mc-brand" placeholder="visa"></div><div class="form-group"><label>Last 4 digits</label><input type="text" id="mc-last4" placeholder="4242" maxlength="4"></div></div>
     <div class="form-row-3"><div class="form-group"><label>Exp month</label><input type="number" id="mc-exp-m" placeholder="12" min="1" max="12"></div><div class="form-group"><label>Exp year</label><input type="number" id="mc-exp-y" placeholder="2027"></div><div class="form-group"><label>Stripe account</label><select id="mc-account"><option value="">Default</option></select></div></div>
     <div class="form-group"><label>Note (optional)</label><textarea id="mc-note" placeholder="Internal note..."></textarea></div>
-    <div class="modal-footer"><button class="btn" onclick="closeModal('add-customer-modal')">Cancel</button><button class="btn btn-primary" onclick="addCustomer()">Add customer</button></div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal('add-customer-modal')">Cancel</button><button class="btn btn-primary" onclick="addCustomer()">Add Customer</button></div>
   </div>
 </div>
 <div class="modal-bg" id="add-account-modal">
   <div class="modal">
-    <h3>Add Stripe account</h3><p>Connect a new Stripe account</p>
+    <h3>Add Stripe Account</h3><p>Connect a new Stripe account</p>
     <div class="form-group"><label>Account name</label><input type="text" id="acc-name" placeholder="My Store"></div>
     <div class="form-group"><label>Secret key (sk_live_...)</label><input type="password" id="acc-key" placeholder="sk_live_..."></div>
     <div class="form-group"><label>Webhook secret (whsec_...) — optional</label><input type="text" id="acc-webhook" placeholder="whsec_..."></div>
@@ -2625,13 +2625,13 @@ html.light .badge.badge-amber{
     </div>
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('add-admin-modal')">Cancel</button>
-      <button class="btn btn-primary" onclick="addAdmin()">Add admin</button>
+      <button class="btn btn-primary" onclick="addAdmin()">Add Admin</button>
     </div>
   </div>
 </div>
 <div class="modal-bg" id="payment-note-modal">
   <div class="modal">
-    <h3>Payment note</h3><p>Add an internal note to this payment</p>
+    <h3>Payment Note</h3><p>Add an internal note to this payment</p>
     <input type="hidden" id="payment-note-id">
     <div class="form-group"><label>Note</label><textarea id="payment-note-text" placeholder="e.g. Customer agreed to retry next week..."></textarea></div>
     <div class="modal-footer"><button class="btn" onclick="closeModal('payment-note-modal')">Cancel</button><button class="btn btn-primary" onclick="savePaymentNote()">Save</button></div>
@@ -2639,7 +2639,7 @@ html.light .badge.badge-amber{
 </div>
 <div class="modal-bg" id="edit-account-modal">
   <div class="modal">
-    <h3>Edit Stripe account</h3>
+    <h3>Edit Stripe Account</h3>
     <p>Update the account name or credentials</p>
     <input type="hidden" id="edit-acc-id">
     <div class="form-group"><label>Account name</label><input type="text" id="edit-acc-name" placeholder="My Store"></div>
@@ -2860,7 +2860,7 @@ function badgeLabel(s){
   if (raw === 'active') return 'Active';
   if (raw.includes('success') || raw.includes('succeeded') || raw === 'ok' || raw === 'paid') return 'Succeeded';
   if (raw.includes('fail') || raw.includes('declin')) return 'Failed';
-  if (raw.includes('cancel')) return 'Cancelled';
+  if (raw.includes('cancel')) return 'Canceled';
   if (raw.includes('refund')) return 'Refunded';
   if (raw.includes('requires_payment_method') || raw.includes('requires-payment-method') || raw.includes('payment_required') || raw.includes('payment-required') || raw.includes('requires_payment') || raw.includes('requires-payment') || raw.includes('method')) return 'Payment needed';
   if (raw.includes('requires_action') || raw.includes('requires-action') || raw.includes('action')) return 'Payment needed';
@@ -3190,7 +3190,7 @@ function updateBulkBar(){var n=selectedSubs.size;var countEl=document.getElement
 function clearSelection(){selectedSubs.clear();document.querySelectorAll('.sub-checkbox').forEach(function(cb){cb.checked=false;});document.querySelectorAll('[id^="sub-row-"]').forEach(function(row){row.style.background='';});var cb=document.getElementById('select-all-checkbox');if(cb)cb.checked=false;updateBulkBar();}
 async function bulkCharge(){if(!selectedSubs.size)return;if(!confirm('Charge '+selectedSubs.size+' subscriptions now?'))return;toast('Charging '+selectedSubs.size+' subscriptions…');let ok=0,fail=0;for(const id of selectedSubs){try{const r=await api('/api/subscriptions/'+id+'/charge',{method:'POST'});if(r.success)ok++;else fail++;}catch(e){fail++;}}toast('✓ '+ok+' charged'+(fail?' — '+fail+' failed':''));exitBulkMode();loadStats();loadSubscriptions();}
 async function bulkPause(){if(!selectedSubs.size)return;if(!confirm('Pause '+selectedSubs.size+' subscriptions?'))return;for(const id of selectedSubs){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'paused'})}).catch(()=>{});}toast('✓ '+selectedSubs.size+' paused');exitBulkMode();loadSubscriptions();}
-async function bulkCancel(){if(!selectedSubs.size)return;if(!confirm('Cancel '+selectedSubs.size+' subscriptions? Cannot be undone.'))return;for(const id of selectedSubs){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'cancelled'})}).catch(()=>{});}toast('✓ '+selectedSubs.size+' cancelled');exitBulkMode();loadSubscriptions();loadStats();}
+async function bulkCancel(){if(!selectedSubs.size)return;if(!confirm('Cancel '+selectedSubs.size+' subscriptions? Cannot be undone.'))return;for(const id of selectedSubs){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'cancelled'})}).catch(()=>{});}toast('✓ '+selectedSubs.size+' canceled');exitBulkMode();loadSubscriptions();loadStats();}
 function showEditAmount(subId,currentAmount){const container=document.getElementById('edit-'+subId);if(!container)return;const dollars=(currentAmount/100).toFixed(2);container.innerHTML='<div style="display:inline-flex;align-items:center;gap:4px;"><input type="number" id="new-amount-'+subId+'" value="'+dollars+'" step="0.01" min="0.50" style="width:75px;padding:3px 6px;font-size:12px;"><button class="btn btn-sm btn-primary" onclick="saveAmount('+subId+')">Save</button><button class="btn btn-sm" onclick="loadSubscriptions()">✕</button></div>';document.getElementById('new-amount-'+subId).focus();}
 async function saveAmount(subId){const input=document.getElementById('new-amount-'+subId);if(!input)return;const newCents=Math.round(parseFloat(input.value)*100);if(isNaN(newCents)||newCents<50){toast('Minimum $0.50','error');return;}const r=await api('/api/subscriptions/'+subId+'/amount',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:newCents})});if(r.success){toast('✓ Amount updated');loadSubscriptions();}else toast('Error','error');}
 async function loadPayments(){
@@ -3455,7 +3455,7 @@ async function loadSecurity(){
     tb.innerHTML=history.map(function(h){return '<tr><td class="mono" style="font-size:12px;">'+(h.ip||'unknown')+'</td><td>'+(h.success?'<span class="badge badge-green">Success</span>':'<span class="badge badge-red">Failed</span>')+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+fmtTime(h.created_at)+'</td></tr>';}).join('');
   }catch(e){}
 }
-function update2FAView(enabled){const badge2fa=document.getElementById('2fa-badge');badge2fa.className='badge '+(enabled?'badge-green':'badge-red');badge2fa.textContent=enabled?'enabled':'disabled';document.getElementById('2fa-disabled-view').style.display=enabled?'none':'block';document.getElementById('2fa-setup-view').style.display='none';document.getElementById('2fa-enabled-view').style.display=enabled?'block':'none';}
+function update2FAView(enabled){const badge2fa=document.getElementById('2fa-badge');badge2fa.className='badge '+(enabled?'badge-green':'badge-red');badge2fa.textContent=enabled?'Enabled':'Disabled';document.getElementById('2fa-disabled-view').style.display=enabled?'none':'block';document.getElementById('2fa-setup-view').style.display='none';document.getElementById('2fa-enabled-view').style.display=enabled?'block':'none';}
 async function setup2FA(){try{const r=await api('/api/security/2fa/setup',{method:'POST'});document.getElementById('2fa-qr').src=r.qrCode;document.getElementById('2fa-disabled-view').style.display='none';document.getElementById('2fa-setup-view').style.display='block';}catch(e){toast('Error setting up 2FA','error');}}
 async function confirm2FA(){const token=document.getElementById('2fa-verify-code').value;if(token.length!==6){toast('Enter 6-digit code','error');return;}try{const r=await api('/api/security/2fa/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});if(r.success){toast('✓ 2FA enabled!');update2FAView(true);}else toast('Invalid code','error');}catch(e){toast('Error','error');}}
 function cancel2FASetup(){document.getElementById('2fa-setup-view').style.display='none';document.getElementById('2fa-disabled-view').style.display='block';}
@@ -3465,7 +3465,7 @@ function openPauseModal(subId){document.getElementById('pause-sub-id').value=sub
 async function confirmPause(){const id=document.getElementById('pause-sub-id').value;const resumeDate=document.getElementById('pause-resume-date').value;await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'paused',resume_date:resumeDate||null})});toast('Subscription paused');closeModal('pause-modal');loadUpcoming();loadSubscriptions();}
 function resumeSub(id){setSubStatus(id,'active');}
 function cancelSub(id){setSubStatus(id,'cancelled');}
-async function setSubStatus(id,status){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});toast('Subscription '+status);loadUpcoming();loadSubscriptions();loadStats();}
+async function setSubStatus(id,status){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});toast('Subscription '+(status==='cancelled'?'canceled':status));loadUpcoming();loadSubscriptions();loadStats();}
 let currentCustomerDrawerId=null;
 function escapeCustomerHtml(v){return String(v==null?'':v).replace(/[&<>"']/g,function(m){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m];});}
 function customerValueClass(status){return status==='failed'||status==='paused'?'value-red':(status==='succeeded'||status==='active'?'value-green':'');}
@@ -3571,7 +3571,7 @@ async function saveNote(){const id=document.getElementById('note-customer-id').v
 async function createPaymentLink(){
   const btn=document.getElementById('create-link-btn');btn.textContent='Creating…';btn.disabled=true;
   try{const r=await api('/api/payment-links',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:document.getElementById('link-name').value,amount:Math.round(parseFloat(document.getElementById('link-amount').value)*100),currency:document.getElementById('link-currency').value,interval_days:parseInt(document.getElementById('link-interval').value),stripe_account_id:document.getElementById('link-account').value||null})});if(r.url){currentLink=r.url;document.getElementById('link-url').textContent=r.url;document.getElementById('link-result').classList.add('visible');toast('✓ Link created');}else toast('Error: '+(r.error||'Unknown'),'error');}catch(e){toast('Server error','error');}
-  btn.textContent='Generate payment link';btn.disabled=false;
+  btn.textContent='Generate Payment Link';btn.disabled=false;
 }
 function copyLink(){navigator.clipboard.writeText(currentLink);toast('Copied!');}
 function openLink(){window.open(currentLink,'_blank');}
@@ -3640,6 +3640,12 @@ async function loadAccounts(){
         tb.innerHTML=list.map(function(a){
           var st=(a.account_status||a.status||'active').toLowerCase();
           var label=(a.account_status_label||st);
+          var labelLower=String(label||'').toLowerCase();
+          if(labelLower==='active') label='Active';
+          if(labelLower==='verification required') label='Verification required';
+          if(labelLower==='payment required') label='Payment required';
+          if(labelLower==='payment needed') label='Payment needed';
+          if(labelLower==='cancelled'||labelLower==='canceled') label='Canceled';
           var color=st==='active'?'green':((st==='restricted'||st==='verification')?'amber':'red');
           var details=Array.isArray(a.verification_details)?a.verification_details:[];
           var reason=a.account_status_reason?String(a.account_status_reason).replace(/"/g,'&quot;'):'';
@@ -3667,7 +3673,7 @@ async function loadAccounts(){
           } else {
             verificationHtml='<span style="color:var(--muted);font-size:12px;font-family:var(--mono);">'+(reason||'—')+'</span>';
           }
-          var setDefBtn=!a.is_default?'<button class="btn btn-sm" onclick="setDefaultAccount('+a.id+')">Set default</button>':'';
+          var setDefBtn=!a.is_default?'<button class="btn btn-sm" onclick="setDefaultAccount('+a.id+')">Set Default</button>':'';
           return '<tr><td><strong style="font-size:13px;">'+a.name+'</strong></td><td class="mono" style="font-size:12px;color:var(--muted);">'+(a.key_preview||'—')+'</td><td>'+statusBadge+defaultBadge+'</td><td>'+verificationHtml+'</td><td><div class="actions">'+setDefBtn+'<button class="btn btn-sm" onclick="debugStripeAccount('+a.id+')" title="Check verification details">Check</button><button class="btn btn-sm" onclick="openEditAcc('+a.id+')">Edit</button><button class="btn btn-sm btn-danger" onclick="deleteAccount('+a.id+')">Delete</button></div></td></tr>';
         }).join('');
       }
@@ -3695,7 +3701,7 @@ async function loadAdmins(){
     if(!list||!list.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:40px 20px;"><div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px;">No admin users yet</div></td></tr>';return;}
     var rows=list.map(function(a){
       var roleColors={owner:'badge-green',admin:'badge-blue',viewer:'badge-amber',custom:'badge-purple'};
-      var roleLabel=String(a.role||'').toLowerCase()==='owner'?'Owner':a.role; var roleBadge='<span class="badge '+(roleColors[a.role]||'badge-blue')+'">'+roleLabel+'</span>';
+      var roleLabel=(String(a.role||'').charAt(0).toUpperCase()+String(a.role||'').slice(1)); var roleBadge='<span class="badge '+(roleColors[a.role]||'badge-blue')+'">'+roleLabel+'</span>';
       var perms=a.permissions&&a.permissions.length?'<div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:3px;">'+a.permissions.join(' · ')+'</div>':'';
       return '<tr><td><strong style="font-size:13px;">'+a.username+'</strong></td><td>'+roleBadge+perms+'</td><td class="mono" style="font-size:12px;color:var(--muted);">'+(a.last_login?fmtTime(a.last_login):'Never')+'</td><td class="mono" style="font-size:12px;color:var(--muted);">'+fmtDate(a.created_at)+'</td><td><div class="actions">'+(a.role!=='owner'?'<button class="btn btn-sm btn-danger" onclick="deleteAdmin('+a.id+')">Remove</button>':'')+'</div></td></tr>';
     });
@@ -3733,7 +3739,7 @@ function globalSearch(q){
   },300);
 }
 document.addEventListener('click',function(e){if(!e.target.closest('#global-search-input')&&!e.target.closest('#global-search-results')){var r=document.getElementById('global-search-results');if(r)r.style.display='none';}});
-async function loadChurnAlerts(){try{var d=await api('/api/churn-alerts');var section=document.getElementById('churn-alerts-section');var list=document.getElementById('churn-alerts-list');var count=document.getElementById('churn-count');var all=[...d.cancelled,...d.failing];if(!all.length){section.style.display='none';return;}section.style.display='block';count.textContent=all.length;var html='';d.cancelled.forEach(function(c){html+='<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(248,113,113,0.15);"><div class="avatar">'+initials(c.name)+'</div><div style="flex:1;"><div style="font-size:13px;font-weight:500;">'+(c.name||'—')+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+(c.email||'')+'</div></div><span class="badge badge-red">cancelled</span></div>';});d.failing.forEach(function(c){html+='<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(248,113,113,0.15);"><div class="avatar">'+initials(c.name)+'</div><div style="flex:1;"><div style="font-size:13px;font-weight:500;">'+(c.name||'—')+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+(c.email||'')+'</div></div><span class="badge badge-amber">'+c.dunning_count+' failures</span></div>';});list.innerHTML=html;}catch(e){}}
+async function loadChurnAlerts(){try{var d=await api('/api/churn-alerts');var section=document.getElementById('churn-alerts-section');var list=document.getElementById('churn-alerts-list');var count=document.getElementById('churn-count');var all=[...d.cancelled,...d.failing];if(!all.length){section.style.display='none';return;}section.style.display='block';count.textContent=all.length;var html='';d.cancelled.forEach(function(c){html+='<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(248,113,113,0.15);"><div class="avatar">'+initials(c.name)+'</div><div style="flex:1;"><div style="font-size:13px;font-weight:500;">'+(c.name||'—')+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+(c.email||'')+'</div></div><span class="badge badge-red">Canceled</span></div>';});d.failing.forEach(function(c){html+='<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(248,113,113,0.15);"><div class="avatar">'+initials(c.name)+'</div><div style="flex:1;"><div style="font-size:13px;font-weight:500;">'+(c.name||'—')+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+(c.email||'')+'</div></div><span class="badge badge-amber">'+c.dunning_count+' failures</span></div>';});list.innerHTML=html;}catch(e){}}
 async function loadTemplates(){try{var list=await api('/api/plan-templates');var el=document.getElementById('templates-list');var count=document.getElementById('template-count');if(!el)return;if(count)count.textContent='('+list.length+')';el.innerHTML='';if(!list.length){var empty=document.createElement('span');empty.style.cssText='font-size:12px;color:var(--muted);font-family:var(--mono);';empty.textContent='No templates yet — save one below';el.appendChild(empty);return;}list.forEach(function(t){var chip=document.createElement('div');chip.style.cssText='display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:5px 10px;cursor:pointer;';chip.addEventListener('click',function(){applyTemplate(t.amount,t.currency,t.interval_days,t.name);});var name=document.createElement('span');name.style.cssText='font-size:12px;font-weight:500;';name.textContent=t.name;var price=document.createElement('span');price.style.cssText='font-size:11px;color:var(--muted);font-family:var(--mono);';price.textContent=fmt(t.amount,t.currency)+'/'+t.interval_days+'d';var del=document.createElement('button');del.style.cssText='background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:0 2px;line-height:1;';del.textContent='✕';del.addEventListener('click',function(e){e.stopPropagation();deleteTemplate(t.id);});chip.appendChild(name);chip.appendChild(price);chip.appendChild(del);el.appendChild(chip);});}catch(e){}}
 function applyTemplate(amount,currency,interval,name){document.getElementById('link-name').value=name;document.getElementById('link-amount').value=(amount/100).toFixed(2);document.getElementById('link-currency').value=currency;document.getElementById('link-interval').value=String(interval);toast('✓ Template applied');}
 async function saveTemplate(){var name=document.getElementById('tmpl-name').value.trim();var amount=Math.round(parseFloat(document.getElementById('tmpl-amount').value)*100);var interval=document.getElementById('tmpl-interval').value;if(!name||!amount){toast('Fill in name and amount','error');return;}await api('/api/plan-templates',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,amount,currency:'usd',interval_days:parseInt(interval)})});toast('✓ Template saved');document.getElementById('tmpl-name').value='';document.getElementById('tmpl-amount').value='';loadTemplates();}
