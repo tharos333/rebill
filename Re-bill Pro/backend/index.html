@@ -2594,6 +2594,23 @@ html.light .pd-activity-label{color:#111118}
   gap:12px!important;
 }
 
+
+/* Payment drawer brand name next to card icon */
+.payment-detail-shell .pd-method-main .drawer-payment-card{
+  gap:8px!important;
+  align-items:center!important;
+}
+.payment-detail-shell .pd-method-main .drawer-payment-card .payment-brand-name{
+  font-size:13px!important;
+  font-weight:600!important;
+  color:inherit!important;
+  letter-spacing:0!important;
+}
+.payment-detail-shell .pd-method-main .drawer-payment-card .payment-dots,
+.payment-detail-shell .pd-method-main .drawer-payment-card .payment-last4{
+  font-size:13px!important;
+}
+
 </style>
 </head>
 <body>
@@ -3564,6 +3581,45 @@ async function api(path,opts){
 function toast(msg,type){const t=document.getElementById('toast');t.textContent=msg;t.className='show '+(type||'success');setTimeout(()=>t.className='',2800);}
 function openModal(id){var el=document.getElementById(id);if(!el)return;el.classList.add('open');if(id==='payment-detail-modal')document.body.classList.add('modal-lock');}
 function closeModal(id){var el=document.getElementById(id);if(!el)return;el.classList.remove('open');if(id==='payment-detail-modal'||!document.querySelector('.modal-bg.open'))document.body.classList.remove('modal-lock');}
+function paymentDrawerCardBadge(brand,last4){
+  if(!brand&&!last4)return '<span class="no-card">—</span>';
+  var raw=(brand||'').toLowerCase().trim();
+  var b=raw.replace(/[\s-]+/g,'_');
+  var aliases={
+    'american_express':'amex',
+    'diners_club':'diners',
+    'master_card':'mastercard',
+    'carte_bancaire':'cartes_bancaires',
+    'cb':'cartes_bancaires'
+  };
+  b=aliases[b]||b;
+  var icons={
+    visa:'visa.svg',
+    mastercard:'mastercard.svg',
+    amex:'american-express.svg',
+    discover:'discover.svg',
+    diners:'diners.svg',
+    jcb:'jcb.svg',
+    unionpay:'unionpay.svg',
+    cartes_bancaires:'cartes-bancaires.svg',
+    dankort:'dankort.svg',
+    elo:'elo.svg',
+    hipercard:'hipercard.svg',
+    maestro:'maestro.svg',
+    uatp:'uatp.svg',
+    vpay:'vpay.svg'
+  };
+  var labels={visa:'Visa',mastercard:'Mastercard',amex:'American Express',discover:'Discover',diners:'Diners Club',jcb:'JCB',unionpay:'UnionPay',cartes_bancaires:'Cartes Bancaires',dankort:'Dankort',elo:'Elo',hipercard:'Hipercard',maestro:'Maestro',uatp:'UATP',vpay:'V Pay'};
+  var src=icons[b]?'/icons/'+icons[b]:null;
+  var label=labels[b]||((b||'card').replace(/_/g,' ').replace(/\w/g,function(c){return c.toUpperCase();}));
+  var img=src?'<img src="'+src+'" class="payment-img" alt="'+label+'" title="'+label+'">'
+    :'<div class="payment-badge-fallback" title="'+label+'">'+((b||'card').slice(0,4).toUpperCase())+'</div>';
+  var brandName=brand?'<span class="payment-brand-name">'+label+'</span>':'';
+  var dots=last4?'<span class="payment-dots">••••</span>':'';
+  var num=last4?'<span class="payment-last4">'+last4+'</span>':'';
+  return '<div class="payment-card drawer-payment-card">'+img+brandName+dots+num+'</div>';
+}
+
 function cardBadge(brand,last4){
   if(!brand&&!last4)return '<span class="no-card">—</span>';
   var raw=(brand||'').toLowerCase().trim();
@@ -4038,7 +4094,7 @@ function renderPaymentDetailModal(p, syncing){
   var statusClass=isFailed?'failed':(isSucceeded?'success':'info');
   var pid=p.stripe_payment_intent||'', invoice=p.stripe_invoice_id||'', account=p.account_name||'—';
   var hasPaymentMethod=!!(p.card_brand||p.card_last4||p.card_funding||p.card_country||p.card_exp_month||p.card_exp_year);
-  var cardHtml=(p.card_brand&&p.card_last4)?cardBadge(p.card_brand,p.card_last4):'';
+  var cardHtml=(p.card_brand||p.card_last4)?paymentDrawerCardBadge(p.card_brand,p.card_last4):'';
   var exp=(p.card_exp_month&&p.card_exp_year)?String(p.card_exp_month).padStart(2,'0')+' / '+String(p.card_exp_year).slice(-2):'—';
   var reference=p.stripe_payment_intent||p.id||'—';
   var finCur=pdMoneyCurrency(p);
