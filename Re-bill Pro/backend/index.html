@@ -237,6 +237,61 @@ html.light .payment-badge-fallback{
 .otp-input{width:46px;height:52px;text-align:center;font-size:20px;font-weight:700;font-family:var(--mono);background:var(--surface2);border:1.5px solid var(--border2);border-radius:10px;color:var(--text);outline:none}
 .otp-input:focus{border-color:var(--accent)}
 
+
+.pay-advanced-filters{
+  display:none;
+  position:absolute;
+  right:0;
+  top:calc(100% + 8px);
+  width:310px;
+  z-index:60;
+  background:var(--surface);
+  border:1px solid var(--border2);
+  border-radius:12px;
+  padding:12px;
+  box-shadow:0 18px 40px rgba(0,0,0,.28);
+}
+.pay-advanced-filters.open{display:block}
+.pay-advanced-title{
+  font-size:12px;
+  font-weight:600;
+  margin-bottom:10px;
+  color:var(--text);
+}
+.pay-advanced-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+.pay-advanced-field label{
+  display:block;
+  font-size:10px;
+  color:var(--muted);
+  text-transform:uppercase;
+  letter-spacing:.5px;
+  margin-bottom:5px;
+  font-family:var(--mono);
+}
+.pay-advanced-field select,
+.pay-advanced-field input{
+  width:100%;
+  padding:7px 8px;
+  border-radius:9px;
+  border:1px solid var(--border2);
+  background:var(--surface2);
+  color:var(--text);
+  font-size:12px;
+  font-family:var(--sans);
+  outline:none;
+}
+.pay-advanced-wide{grid-column:1 / -1}
+.pay-advanced-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+  margin-top:12px;
+}
+
 /* ── Pay filter bar light mode ── */
 html.light .pay-filter-bar{background:var(--surface)!important;border-color:var(--border)!important;}
 html.light .pay-filter-btn{background:#f4f4f8!important;border-color:rgba(0,0,0,0.1)!important;color:#111118!important;box-shadow:none!important;}
@@ -2273,7 +2328,57 @@ html.light .badge.badge-amber{
       <span class="pay-filter-kbd" style="position:absolute;right:10px;font-size:10px;color:#8B8B99;background:#14141d;border:1px solid #2A2A38;border-radius:4px;padding:1px 5px;pointer-events:none;">⌘K</span>
     </div>
     <!-- Filters button -->
-    <button onclick="" class="btn btn-primary" style="display:flex;align-items:center;gap:6px;padding:6px 13px;border-radius:12px;font-size:12px;font-weight:600;white-space:nowrap;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>Filters</button>
+    <div style="position:relative;">
+      <button onclick="toggleAdvancedPaymentFilters(event)" class="btn btn-primary" style="display:flex;align-items:center;gap:6px;padding:6px 13px;border-radius:12px;font-size:12px;font-weight:600;white-space:nowrap;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>Filters</button>
+      <div id="pay-advanced-filters" class="pay-advanced-filters" onclick="event.stopPropagation();">
+        <div class="pay-advanced-title">Advanced Filters</div>
+        <div class="pay-advanced-grid">
+          <div class="pay-advanced-field">
+            <label>Card brand</label>
+            <select id="pay-filter-brand">
+              <option value="">All brands</option>
+              <option value="visa">Visa</option>
+              <option value="mastercard">Mastercard</option>
+              <option value="amex">Amex</option>
+              <option value="unknown">Unknown / no card</option>
+            </select>
+          </div>
+          <div class="pay-advanced-field">
+            <label>Card</label>
+            <select id="pay-filter-card-state">
+              <option value="">All</option>
+              <option value="has">Has card</option>
+              <option value="none">No card</option>
+            </select>
+          </div>
+          <div class="pay-advanced-field">
+            <label>Min amount</label>
+            <input type="number" id="pay-filter-min-amount" placeholder="0.00" step="0.01" min="0">
+          </div>
+          <div class="pay-advanced-field">
+            <label>Max amount</label>
+            <input type="number" id="pay-filter-max-amount" placeholder="999.00" step="0.01" min="0">
+          </div>
+          <div class="pay-advanced-field pay-advanced-wide">
+            <label>Failure reason</label>
+            <select id="pay-filter-failure">
+              <option value="">Any reason</option>
+              <option value="card_declined">Card declined</option>
+              <option value="insufficient_funds">Insufficient funds</option>
+              <option value="authentication_required">Authentication required</option>
+              <option value="expired_card">Expired card</option>
+              <option value="generic_decline">Generic decline</option>
+              <option value="processing_error">Processing error</option>
+              <option value="do_not_honor">Bank declined</option>
+            </select>
+          </div>
+        </div>
+        <div class="pay-advanced-actions">
+          <button class="btn btn-sm" onclick="clearAdvancedPaymentFilters()">Clear Advanced</button>
+          <button class="btn btn-sm btn-primary" onclick="applyAdvancedPaymentFilters()">Apply Filters</button>
+        </div>
+      </div>
+    </div>
   </div>
   <div class="card"><div class="scrollable"><table>
     <thead><tr><th>Customer</th><th>Amount</th><th>Card</th><th>Status</th><th>Failure Reason</th><th>Date</th><th>Reference</th><th>Action</th></tr></thead>
@@ -3246,6 +3351,11 @@ function filterPayments(){
   if(!allPayments)return;
   var account=document.getElementById('pay-account-filter')?.value||'';
   var q=(document.getElementById('pay-search')?.value||'').toLowerCase();
+  var advBrand=(document.getElementById('pay-filter-brand')?.value||'').toLowerCase();
+  var advCardState=document.getElementById('pay-filter-card-state')?.value||'';
+  var advFailure=document.getElementById('pay-filter-failure')?.value||'';
+  var advMin=parseFloat(document.getElementById('pay-filter-min-amount')?.value||'');
+  var advMax=parseFloat(document.getElementById('pay-filter-max-amount')?.value||'');
   // update counts
   var allC=allPayments.length;
   var sucC=allPayments.filter(function(p){return p.status==='succeeded';}).length;
@@ -3261,7 +3371,14 @@ function filterPayments(){
     var matchQ=!q||(p.name||'').toLowerCase().includes(q)||(p.email||'').toLowerCase().includes(q)||(p.stripe_payment_intent||'').toLowerCase().includes(q)||(p.card_last4||'').includes(q);
     var matchD=true;
     if(dateF){var d=new Date(p.created_at);if(dateF==='today')matchD=d.toDateString()===now.toDateString();else if(dateF==='yesterday'){var y=new Date(now);y.setDate(y.getDate()-1);matchD=d.toDateString()===y.toDateString();}else if(dateF==='week'){var w=new Date(now);w.setDate(w.getDate()-7);matchD=d>=w;}else if(dateF==='month'){matchD=d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();}else if(dateF==='custom'){var from=document.getElementById('pay-date-from')?.value;var to=document.getElementById('pay-date-to')?.value;if(from)matchD=matchD&&d>=new Date(from);if(to){var toD=new Date(to);toD.setHours(23,59,59,999);matchD=matchD&&d<=toD;}}}
-    return matchS&&matchA&&matchQ&&matchD;
+    var brand=(p.card_brand||'').toLowerCase();
+    var hasCard=!!(p.card_last4||p.card_brand);
+    var amountMajor=Number(p.amount||0)/100;
+    var matchBrand=!advBrand||(advBrand==='unknown'?(!brand||!hasCard):brand===advBrand);
+    var matchCard=!advCardState||(advCardState==='has'?hasCard:!hasCard);
+    var matchFailure=!advFailure||p.failure_reason===advFailure;
+    var matchAmount=(isNaN(advMin)||amountMajor>=advMin)&&(isNaN(advMax)||amountMajor<=advMax);
+    return matchS&&matchA&&matchQ&&matchD&&matchBrand&&matchCard&&matchFailure&&matchAmount;
   });
   var total=filtered.length;
   var totalPages=Math.max(1,Math.ceil(total/PAY_PER_PAGE));
@@ -3276,6 +3393,27 @@ function toggleCustomDate(){
   var el=document.getElementById('pay-custom-date');
   if(el)el.style.display=v==='custom'?'flex':'none';
 }
+function toggleAdvancedPaymentFilters(e){
+  if(e)e.stopPropagation();
+  var el=document.getElementById('pay-advanced-filters');
+  if(el)el.classList.toggle('open');
+}
+function applyAdvancedPaymentFilters(){
+  payCurrentPage=1;
+  filterPayments();
+  var el=document.getElementById('pay-advanced-filters');
+  if(el)el.classList.remove('open');
+}
+function clearAdvancedPaymentFilters(){
+  ['pay-filter-brand','pay-filter-card-state','pay-filter-failure'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
+  ['pay-filter-min-amount','pay-filter-max-amount'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
+  payCurrentPage=1;
+  filterPayments();
+}
+document.addEventListener('click',function(e){
+  var el=document.getElementById('pay-advanced-filters');
+  if(el&&el.classList.contains('open'))el.classList.remove('open');
+});
 function renderPayPagination(total,totalPages){
   var el=document.getElementById('pay-pagination');
   if(!el)return;
