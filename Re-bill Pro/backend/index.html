@@ -2446,6 +2446,80 @@ html.light .pd-activity-label{color:#111118}
   font-size:13px!important;
 }
 
+
+
+/* Final drawer polish: consistent rows + Estimated USD in breakdown */
+.payment-detail-shell .pd-polished-heading{
+  font-size:16px!important;
+  font-weight:600!important;
+  line-height:1.25!important;
+  color:var(--text)!important;
+  margin:0 0 14px!important;
+}
+.payment-detail-shell .pd-polished-label{
+  font-size:14px!important;
+  font-weight:400!important;
+  line-height:1.35!important;
+  color:var(--muted)!important;
+}
+.payment-detail-shell .pd-polished-value{
+  font-size:14px!important;
+  font-weight:500!important;
+  line-height:1.35!important;
+  color:var(--text);
+}
+.payment-detail-shell .pd-polished-value.green{color:var(--green)!important}
+.payment-detail-shell .pd-polished-value.red{color:var(--red)!important}
+.payment-detail-shell .pd-polished-value.muted{color:var(--muted)!important}
+.payment-detail-shell .pd-polished-value.mono{
+  font-size:14px!important;
+  font-weight:500!important;
+}
+.payment-detail-shell .pd-note-link{
+  font-size:14px!important;
+  font-weight:500!important;
+}
+.payment-detail-shell .pd-polished-section{
+  padding:18px 0!important;
+}
+.payment-detail-shell .pd-polished-row{
+  min-height:27px!important;
+}
+.payment-detail-shell .pd-polished-amount{
+  font-weight:600!important;
+}
+.payment-detail-shell .pd-polished-method-group{
+  width:100%!important;
+  max-width:none!important;
+}
+.payment-detail-shell .pd-polished-method-group .pd-polished-row,
+.payment-detail-shell .pd-customer-rows .pd-polished-row{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:18px!important;
+  min-height:27px!important;
+}
+.payment-detail-shell .pd-polished-method-group .pd-polished-value,
+.payment-detail-shell .pd-customer-rows .pd-polished-value{
+  text-align:right!important;
+  margin-left:auto!important;
+}
+.payment-detail-shell .pd-customer-rows{
+  gap:0!important;
+}
+.payment-detail-shell .pd-customer-rows .customer-id-row .pd-polished-label,
+.payment-detail-shell .pd-customer-rows .customer-id-row .pd-polished-value{
+  font-size:14px!important;
+}
+.payment-detail-shell .pd-activity-label{
+  font-size:14px!important;
+  font-weight:500!important;
+}
+.payment-detail-shell .pd-activity-stamp{
+  font-size:13px!important;
+}
+
 </style>
 </head>
 <body>
@@ -3915,7 +3989,7 @@ function renderPaymentDetailModal(p, syncing){
   }
   var h='';
   h+='<div class="payment-detail-shell pd-polished-drawer"><div class="payment-detail-top"><button class="payment-detail-close" onclick="closeModal(\'payment-detail-modal\')">×</button></div><div class="payment-detail-scroll">';
-  h+='<div class="pd-polished-head"><div class="pd-polished-title"><span class="pd-title-icon '+statusClass+'">'+iconSvg(statusClass)+'</span><span>'+escHtml(headerTitle)+'</span></div><div class="pd-polished-amount '+statusClass+'">'+fmt(p.amount,p.currency)+'</div>'+(usdEstimate?'<div class="pd-usd-estimate">≈ '+usdEstimate+' USD</div>':'')+'<div class="pd-polished-sub">'+escHtml(typeLabel)+' card payment</div></div>';
+  h+='<div class="pd-polished-head"><div class="pd-polished-title"><span class="pd-title-icon '+statusClass+'">'+iconSvg(statusClass)+'</span><span>'+escHtml(headerTitle)+'</span></div><div class="pd-polished-amount '+statusClass+'">'+fmt(p.amount,p.currency)+'</div><div class="pd-polished-sub">'+escHtml(typeLabel)+' card payment</div></div>';
 
   h+='<div class="pd-meta-grid">';
   h+='<div class="pd-meta-card"><div class="pd-meta-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span>Date</span></div><div class="pd-meta-value">'+formatPdDate(p.created_at)+'</div></div>';
@@ -3928,6 +4002,7 @@ function renderPaymentDetailModal(p, syncing){
 
   h+='<section class="pd-polished-section"><h3 class="pd-polished-heading">Payment breakdown</h3>';
   h+='<div class="pd-polished-row"><div class="pd-polished-label">Gross amount</div><div class="pd-polished-value">'+fmt(p.amount,p.currency)+'</div></div>';
+  if(usdEstimate){h+='<div class="pd-polished-row"><div class="pd-polished-label">Estimated USD</div><div class="pd-polished-value">≈ '+usdEstimate+' USD</div></div>';}
   h+='<div class="pd-polished-row"><div class="pd-polished-label">Stripe fee</div><div class="pd-polished-value '+((p.stripe_fee!==undefined&&p.stripe_fee!==null)?'':'muted')+'">'+fee+'</div></div>';
   h+='<div class="pd-polished-row"><div class="pd-polished-label">Net received</div><div class="pd-polished-value '+((p.net_amount!==undefined&&p.net_amount!==null)?'green':'muted')+'">'+net+'</div></div>';
   h+='</section>';
