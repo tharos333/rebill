@@ -163,7 +163,7 @@ textarea{resize:vertical;min-height:60px}
 .setting-row:last-child{border-bottom:none}
 .setting-info{flex:1}
 .setting-label{font-size:14px;font-weight:500;margin-bottom:2px}
-.setting-desc{font-size:14px;color:var(--muted);font-family:var(--mono)}
+.setting-desc{font-size:12px;color:var(--muted);font-family:var(--mono)}
 .switch{position:relative;width:42px;height:24px;flex-shrink:0}
 .switch input{opacity:0;width:0;height:0}
 .slider{position:absolute;inset:0;background:var(--surface2);border:1px solid var(--border2);border-radius:24px;cursor:pointer;transition:0.2s}
@@ -2327,7 +2327,7 @@ html.light .badge.badge-amber{
   <div class="card" style="max-width:600px;">
     <div class="card-header"><h3>Dunning Management</h3></div>
     <div style="padding:4px 18px 18px;">
-      <p style="font-size:14px;color:var(--muted);font-family:var(--mono);margin:10px 0 16px;">When a rebill fails, automatically retry before canceling.</p>
+      <p style="font-size:12px;color:var(--muted);font-family:var(--mono);margin:10px 0 16px;">When a rebill fails, automatically retry before canceling.</p>
       <div class="setting-row">
         <div class="setting-info"><div class="setting-label">Enable Dunning</div><div class="setting-desc">Auto-retry failed payments before canceling</div></div>
         <label class="switch"><input type="checkbox" id="setting-dunning" onchange="saveSetting('dunning_enabled',this.checked)"><span class="slider"></span></label>
@@ -2364,7 +2364,7 @@ html.light .badge.badge-amber{
     <div class="card-header"><h3>Two-Factor Authentication (2FA)</h3></div>
     <div style="padding:18px;">
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
-        <div style="flex:1;"><div style="font-size:14px;font-weight:500;margin-bottom:3px;">Authenticator App</div><div style="font-size:14px;color:var(--muted);font-family:var(--mono);">Use Google Authenticator or Authy</div></div>
+        <div style="flex:1;"><div style="font-size:14px;font-weight:500;margin-bottom:3px;">Authenticator App</div><div style="font-size:12px;color:var(--muted);font-family:var(--mono);">Use Google Authenticator or Authy</div></div>
         <span id="2fa-badge" class="badge badge-red">Disabled</span>
       </div>
       <div id="2fa-disabled-view">
@@ -2437,7 +2437,7 @@ html.light .badge.badge-amber{
   </div>
   <div class="card">
     <div class="card-header"><h3>How forecast works</h3></div>
-    <div style="padding:18px;font-size:14px;color:var(--muted);font-family:var(--mono);line-height:1.7;">
+    <div style="padding:18px;font-size:13px;color:var(--muted);font-family:var(--mono);line-height:1.7;">
       Forecast is calculated from all active subscriptions, their amounts, billing intervals, and next billing dates.<br>
       It assumes all payments succeed and no new subscriptions are added or canceled.
     </div>
@@ -2495,7 +2495,7 @@ html.light .badge.badge-amber{
   <div class="card" style="max-width:600px;">
     <div class="card-header"><h3>Manual Invoice</h3></div>
     <div style="padding:18px;">
-      <p style="font-size:14px;color:var(--muted);margin-bottom:16px;">Charge any customer a one-time amount outside their subscription.</p>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Charge any customer a one-time amount outside their subscription.</p>
       <div class="form-row">
         <div class="form-group"><label>Customer Stripe ID (cus_...)</label><input type="text" id="invoice-customer-id" placeholder="cus_xxx..."></div>
         <div class="form-group"><label>Amount ($)</label><input type="number" id="invoice-amount" placeholder="29.00" step="0.01" min="0.50"></div>
