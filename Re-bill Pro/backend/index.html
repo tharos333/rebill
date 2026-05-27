@@ -3278,6 +3278,56 @@ html.light #payment-detail-modal .pd-drawer-scroll-body::-webkit-scrollbar-thumb
   }
 }
 
+
+
+/* Payment drawer bottom-safe height + internal scroll fix */
+#payment-detail-modal{
+  align-items:flex-start!important;
+  justify-content:flex-end!important;
+  padding:24px 18px 88px 0!important;
+}
+#payment-detail-modal .payment-detail-shell{
+  width:440px!important;
+  max-width:calc(100vw - 36px)!important;
+  height:calc(100vh - 112px)!important;
+  max-height:calc(100vh - 112px)!important;
+  min-height:0!important;
+  margin:0!important;
+  overflow:hidden!important;
+  display:flex!important;
+  flex-direction:column!important;
+}
+#payment-detail-modal .payment-detail-scroll{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  overflow:hidden!important;
+  display:flex!important;
+  flex-direction:column!important;
+}
+#payment-detail-modal .pd-polished-head,
+#payment-detail-modal .pd-meta-grid{
+  flex:0 0 auto!important;
+}
+#payment-detail-modal .pd-drawer-scroll-body{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  padding-bottom:28px!important;
+  -webkit-overflow-scrolling:touch;
+}
+@media(max-width:760px){
+  #payment-detail-modal{
+    padding:18px 12px 72px 12px!important;
+  }
+  #payment-detail-modal .payment-detail-shell{
+    width:calc(100vw - 24px)!important;
+    max-width:calc(100vw - 24px)!important;
+    height:calc(100vh - 90px)!important;
+    max-height:calc(100vh - 90px)!important;
+  }
+}
+
 </style>
 </head>
 <body>
