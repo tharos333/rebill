@@ -3683,6 +3683,37 @@ html.light #payment-detail-modal .pd-drawer-scroll-body::-webkit-scrollbar-thumb
   }
 }
 
+
+
+/* Payment drawer X: force exact top alignment with drawer */
+#payment-detail-modal .payment-detail-close-floating{
+  top:0!important;
+  margin-top:0!important;
+  transform:translateY(0)!important;
+  right:465px!important;
+  width:29px!important;
+  height:29px!important;
+  min-width:29px!important;
+  min-height:29px!important;
+  border-radius:7px!important;
+  padding:0!important;
+}
+#payment-detail-modal .payment-detail-close-floating svg{
+  width:14px!important;
+  height:14px!important;
+}
+#payment-detail-modal .payment-detail-close-floating::before,
+#payment-detail-modal .payment-detail-close-floating::after{
+  display:none!important;
+  content:none!important;
+}
+@media(max-width:760px){
+  #payment-detail-modal .payment-detail-close-floating{
+    top:0!important;
+    right:16px!important;
+  }
+}
+
 </style>
 </head>
 <body>
