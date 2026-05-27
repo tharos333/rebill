@@ -3782,6 +3782,82 @@ html.light #payment-detail-modal .payment-detail-close:hover{
   border-radius:10px!important;
 }
 
+
+
+/* Payment drawer exact alignment with meta table */
+#payment-detail-modal .payment-detail-scroll{
+  --pd-scrollbar-gutter:16px;
+}
+#payment-detail-modal .pd-meta-grid{
+  width:100%!important;
+  max-width:none!important;
+  box-sizing:border-box!important;
+}
+#payment-detail-modal .pd-drawer-scroll-body{
+  width:calc(100% + var(--pd-scrollbar-gutter))!important;
+  max-width:calc(100% + var(--pd-scrollbar-gutter))!important;
+  margin-right:calc(var(--pd-scrollbar-gutter) * -1)!important;
+  padding-right:var(--pd-scrollbar-gutter)!important;
+  box-sizing:border-box!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  scrollbar-gutter:stable!important;
+}
+#payment-detail-modal .pd-polished-section{
+  width:100%!important;
+  max-width:none!important;
+  box-sizing:border-box!important;
+  padding-left:0!important;
+  padding-right:0!important;
+}
+#payment-detail-modal .pd-polished-section > .pd-polished-heading,
+#payment-detail-modal .pd-polished-row,
+#payment-detail-modal .pd-method-main,
+#payment-detail-modal .pd-polished-method-group,
+#payment-detail-modal .pd-customer-rows,
+#payment-detail-modal .pd-activity-compact{
+  width:100%!important;
+  max-width:none!important;
+  box-sizing:border-box!important;
+  margin-left:0!important;
+  margin-right:0!important;
+}
+#payment-detail-modal .pd-polished-row{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:18px!important;
+}
+#payment-detail-modal .pd-polished-label{
+  flex:0 0 auto!important;
+  text-align:left!important;
+}
+#payment-detail-modal .pd-polished-value{
+  flex:1 1 auto!important;
+  text-align:right!important;
+  justify-self:end!important;
+  margin-left:auto!important;
+  padding-right:0!important;
+}
+#payment-detail-modal .pd-activity-row{
+  width:100%!important;
+  display:grid!important;
+  grid-template-columns:10px minmax(0,1fr) auto!important;
+  align-items:center!important;
+  gap:12px!important;
+  box-sizing:border-box!important;
+}
+#payment-detail-modal .pd-activity-stamp{
+  justify-self:end!important;
+  text-align:right!important;
+  white-space:nowrap!important;
+}
+@media(max-width:760px){
+  #payment-detail-modal .payment-detail-scroll{
+    --pd-scrollbar-gutter:12px;
+  }
+}
+
 </style>
 </head>
 <body>
