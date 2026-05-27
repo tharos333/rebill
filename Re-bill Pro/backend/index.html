@@ -2672,6 +2672,64 @@ html.light .payment-detail-shell .payment-detail-close:hover{
   border-color:rgba(0,0,0,.22)!important;
 }
 
+
+
+/* Fix payment drawer close placement without collapsing the header */
+.payment-detail-shell .payment-detail-top{
+  height:56px!important;
+  padding:0!important;
+  position:relative!important;
+  background:transparent!important;
+  flex:0 0 56px!important;
+}
+.payment-detail-shell .payment-detail-close{
+  position:absolute!important;
+  top:16px!important;
+  right:18px!important;
+  width:34px!important;
+  height:34px!important;
+  border-radius:10px!important;
+  border:1px solid var(--border2)!important;
+  background:rgba(255,255,255,.025)!important;
+  color:var(--muted)!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  font-size:0!important;
+  line-height:1!important;
+  padding:0!important;
+  cursor:pointer!important;
+  z-index:20!important;
+}
+.payment-detail-shell .payment-detail-close::before,
+.payment-detail-shell .payment-detail-close::after{
+  content:''!important;
+  position:absolute!important;
+  width:14px!important;
+  height:1.6px!important;
+  border-radius:99px!important;
+  background:currentColor!important;
+}
+.payment-detail-shell .payment-detail-close::before{
+  transform:rotate(45deg)!important;
+}
+.payment-detail-shell .payment-detail-close::after{
+  transform:rotate(-45deg)!important;
+}
+.payment-detail-shell .payment-detail-close:hover{
+  background:rgba(255,255,255,.06)!important;
+  border-color:rgba(255,255,255,.22)!important;
+  color:var(--text)!important;
+}
+html.light .payment-detail-shell .payment-detail-close{
+  background:rgba(0,0,0,.025)!important;
+  border-color:rgba(0,0,0,.12)!important;
+}
+html.light .payment-detail-shell .payment-detail-close:hover{
+  background:rgba(0,0,0,.055)!important;
+  border-color:rgba(0,0,0,.22)!important;
+}
+
 </style>
 </head>
 <body>
