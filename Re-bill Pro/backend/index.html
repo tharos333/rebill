@@ -3491,6 +3491,62 @@ html.light #payment-detail-modal .pd-drawer-scroll-body::-webkit-scrollbar-thumb
   }
 }
 
+
+
+/* Payment drawer: same outside space on top, right, and bottom */
+#payment-detail-modal{
+  --drawer-margin:24px;
+  align-items:stretch!important;
+  justify-content:flex-end!important;
+  padding:var(--drawer-margin) var(--drawer-margin) var(--drawer-margin) 0!important;
+  box-sizing:border-box!important;
+}
+#payment-detail-modal .payment-detail-shell{
+  width:440px!important;
+  max-width:calc(100vw - (var(--drawer-margin) * 2))!important;
+  height:calc(100vh - (var(--drawer-margin) * 2))!important;
+  max-height:calc(100vh - (var(--drawer-margin) * 2))!important;
+  min-height:0!important;
+  margin:0!important;
+  overflow:hidden!important;
+  display:flex!important;
+  flex-direction:column!important;
+}
+#payment-detail-modal .payment-detail-scroll{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  height:auto!important;
+  max-height:none!important;
+  overflow:hidden!important;
+  display:flex!important;
+  flex-direction:column!important;
+}
+#payment-detail-modal .pd-polished-head,
+#payment-detail-modal .pd-meta-grid{
+  flex:0 0 auto!important;
+}
+#payment-detail-modal .pd-drawer-scroll-body{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  max-height:none!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  padding-bottom:24px!important;
+  -webkit-overflow-scrolling:touch;
+}
+@media(max-width:760px){
+  #payment-detail-modal{
+    --drawer-margin:16px;
+    padding:var(--drawer-margin)!important;
+  }
+  #payment-detail-modal .payment-detail-shell{
+    width:calc(100vw - (var(--drawer-margin) * 2))!important;
+    max-width:calc(100vw - (var(--drawer-margin) * 2))!important;
+    height:calc(100vh - (var(--drawer-margin) * 2))!important;
+    max-height:calc(100vh - (var(--drawer-margin) * 2))!important;
+  }
+}
+
 </style>
 </head>
 <body>
