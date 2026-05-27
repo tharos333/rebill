@@ -3926,6 +3926,57 @@ html.light #payment-detail-modal .payment-detail-close:hover{
   text-align:right!important;
 }
 
+
+
+/* Payment drawer open effect + smooth blur */
+#payment-detail-modal{
+  background:rgba(0,0,0,0)!important;
+  backdrop-filter:blur(0px)!important;
+  -webkit-backdrop-filter:blur(0px)!important;
+  transition:background .22s ease, backdrop-filter .22s ease, -webkit-backdrop-filter .22s ease!important;
+}
+#payment-detail-modal.open{
+  background:rgba(0,0,0,.48)!important;
+  backdrop-filter:blur(8px) saturate(112%)!important;
+  -webkit-backdrop-filter:blur(8px) saturate(112%)!important;
+}
+#payment-detail-modal .payment-detail-shell{
+  transform:translateX(26px) scale(.985)!important;
+  opacity:0!important;
+  transform-origin:right center!important;
+  transition:
+    transform .24s cubic-bezier(.22,1,.36,1),
+    opacity .20s ease,
+    box-shadow .24s ease!important;
+  will-change:transform,opacity!important;
+}
+#payment-detail-modal.open .payment-detail-shell{
+  transform:translateX(0) scale(1)!important;
+  opacity:1!important;
+}
+#payment-detail-modal .payment-detail-close{
+  opacity:0!important;
+  transform:translateY(-3px) scale(.96)!important;
+  transition:opacity .18s ease .08s, transform .18s ease .08s, background .15s ease, border-color .15s ease, color .15s ease!important;
+}
+#payment-detail-modal.open .payment-detail-close{
+  opacity:1!important;
+  transform:translateY(0) scale(1)!important;
+}
+@media (prefers-reduced-motion: reduce){
+  #payment-detail-modal,
+  #payment-detail-modal .payment-detail-shell,
+  #payment-detail-modal .payment-detail-close{
+    transition:none!important;
+    transform:none!important;
+  }
+}
+html.light #payment-detail-modal.open{
+  background:rgba(17,17,24,.28)!important;
+  backdrop-filter:blur(8px) saturate(108%)!important;
+  -webkit-backdrop-filter:blur(8px) saturate(108%)!important;
+}
+
 </style>
 </head>
 <body>
