@@ -3714,6 +3714,67 @@ html.light #payment-detail-modal .pd-drawer-scroll-body::-webkit-scrollbar-thumb
   }
 }
 
+
+
+/* Payment drawer X back inside drawer, keep 29px box / 14px icon */
+#payment-detail-modal .payment-detail-top{
+  height:0!important;
+  padding:0!important;
+  flex:0 0 0!important;
+  position:relative!important;
+  background:transparent!important;
+}
+#payment-detail-modal .payment-detail-close{
+  position:absolute!important;
+  top:14px!important;
+  right:14px!important;
+  width:29px!important;
+  height:29px!important;
+  min-width:29px!important;
+  min-height:29px!important;
+  border-radius:7px!important;
+  border:1px solid var(--border2)!important;
+  background:rgba(255,255,255,.025)!important;
+  color:var(--muted)!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  padding:0!important;
+  cursor:pointer!important;
+  z-index:60!important;
+  font-size:0!important;
+  line-height:1!important;
+  transform:none!important;
+  box-shadow:none!important;
+}
+#payment-detail-modal .payment-detail-close svg{
+  width:14px!important;
+  height:14px!important;
+  display:block!important;
+  stroke:currentColor!important;
+}
+#payment-detail-modal .payment-detail-close::before,
+#payment-detail-modal .payment-detail-close::after{
+  display:none!important;
+  content:none!important;
+}
+#payment-detail-modal .payment-detail-close:hover{
+  background:rgba(255,255,255,.06)!important;
+  border-color:rgba(255,255,255,.20)!important;
+  color:var(--text)!important;
+}
+#payment-detail-modal .payment-detail-close-floating{
+  display:none!important;
+}
+html.light #payment-detail-modal .payment-detail-close{
+  background:rgba(0,0,0,.025)!important;
+  border-color:rgba(0,0,0,.12)!important;
+}
+html.light #payment-detail-modal .payment-detail-close:hover{
+  background:rgba(0,0,0,.055)!important;
+  border-color:rgba(0,0,0,.22)!important;
+}
+
 </style>
 </head>
 <body>
@@ -5221,7 +5282,7 @@ function renderPaymentDetailModal(p, syncing){
     return '<button class="pd-copy-mini" title="Copy" onclick="copyPdValue(\''+safe+'\')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
   }
   var h='';
-  h+='<button class="payment-detail-close payment-detail-close-floating" onclick="closeModal(\'payment-detail-modal\')" aria-label="Close payment details"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button><div class="payment-detail-shell pd-polished-drawer"><div class="payment-detail-top"></div><div class="payment-detail-scroll">';
+  h+='<div class="payment-detail-shell pd-polished-drawer"><div class="payment-detail-top"><button class="payment-detail-close" onclick="closeModal(\'payment-detail-modal\')" aria-label="Close payment details"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button></div><div class="payment-detail-scroll">';
   h+='<div class="pd-polished-head"><div class="pd-polished-title"><span class="pd-title-icon '+statusClass+'">'+iconSvg(statusClass)+'</span><span>'+escHtml(headerTitle)+'</span></div><div class="pd-polished-amount '+statusClass+'">'+fmt(p.amount,p.currency)+'</div><div class="pd-polished-sub">'+escHtml(typeLabel)+' card payment</div></div>';
 
   h+='<div class="pd-meta-grid">';
