@@ -3437,6 +3437,60 @@ html.light #payment-detail-modal .pd-drawer-scroll-body::-webkit-scrollbar-thumb
   }
 }
 
+
+
+/* Payment drawer equal outer margin only */
+#payment-detail-modal{
+  --drawer-margin:24px;
+  align-items:flex-start!important;
+  justify-content:flex-end!important;
+  padding:var(--drawer-margin) var(--drawer-margin) var(--drawer-margin) 0!important;
+  box-sizing:border-box!important;
+}
+#payment-detail-modal .payment-detail-shell{
+  width:440px!important;
+  max-width:calc(100vw - (var(--drawer-margin) * 2))!important;
+  height:auto!important;
+  min-height:0!important;
+  max-height:calc(100vh - (var(--drawer-margin) * 2))!important;
+  margin:0!important;
+  overflow:hidden!important;
+  display:flex!important;
+  flex-direction:column!important;
+}
+#payment-detail-modal .payment-detail-scroll{
+  height:auto!important;
+  min-height:0!important;
+  max-height:calc(100vh - (var(--drawer-margin) * 2))!important;
+  flex:0 1 auto!important;
+  overflow:hidden!important;
+  display:flex!important;
+  flex-direction:column!important;
+}
+#payment-detail-modal .pd-drawer-scroll-body{
+  flex:0 1 auto!important;
+  min-height:0!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  max-height:calc(100vh - 310px)!important;
+  padding-bottom:24px!important;
+  -webkit-overflow-scrolling:touch;
+}
+@media(max-width:760px){
+  #payment-detail-modal{
+    --drawer-margin:16px;
+    padding:var(--drawer-margin)!important;
+  }
+  #payment-detail-modal .payment-detail-shell{
+    width:calc(100vw - (var(--drawer-margin) * 2))!important;
+    max-width:calc(100vw - (var(--drawer-margin) * 2))!important;
+    max-height:calc(100vh - (var(--drawer-margin) * 2))!important;
+  }
+  #payment-detail-modal .payment-detail-scroll{
+    max-height:calc(100vh - (var(--drawer-margin) * 2))!important;
+  }
+}
+
 </style>
 </head>
 <body>
