@@ -3173,6 +3173,111 @@ html.light #payment-detail-modal .pd-drawer-scroll-body::-webkit-scrollbar-thumb
   }
 }
 
+
+
+/* Payment detail drawer compact floating panel */
+#payment-detail-modal{
+  align-items:center!important;
+  justify-content:flex-end!important;
+  padding:36px 18px 36px 0!important;
+}
+#payment-detail-modal .payment-detail-shell{
+  width:440px!important;
+  max-width:calc(100vw - 36px)!important;
+  height:calc(100vh - 72px)!important;
+  max-height:calc(100vh - 72px)!important;
+  margin:0!important;
+  border-radius:18px!important;
+  border:1px solid var(--border2)!important;
+  border-left:1px solid var(--border2)!important;
+  overflow:hidden!important;
+  box-shadow:0 22px 70px rgba(0,0,0,.36)!important;
+}
+#payment-detail-modal .payment-detail-scroll{
+  padding:24px 20px 0 20px!important;
+}
+#payment-detail-modal .payment-detail-close{
+  top:14px!important;
+  right:14px!important;
+  width:32px!important;
+  height:32px!important;
+  border-radius:10px!important;
+}
+#payment-detail-modal .payment-detail-close svg{
+  width:16px!important;
+  height:16px!important;
+}
+#payment-detail-modal .pd-polished-head{
+  padding:0 42px 14px 0!important;
+}
+#payment-detail-modal .pd-polished-title{
+  margin-bottom:9px!important;
+}
+#payment-detail-modal .pd-polished-amount{
+  font-size:31px!important;
+  line-height:1.05!important;
+}
+#payment-detail-modal .pd-polished-sub{
+  margin-top:5px!important;
+}
+#payment-detail-modal .pd-meta-grid{
+  margin:0 0 14px 0!important;
+}
+#payment-detail-modal .pd-meta-card{
+  min-height:52px!important;
+  padding:9px 10px!important;
+}
+#payment-detail-modal .pd-meta-label{
+  font-size:10.5px!important;
+  gap:5px!important;
+}
+#payment-detail-modal .pd-meta-value{
+  font-size:12px!important;
+}
+#payment-detail-modal .pd-drawer-scroll-body{
+  padding-bottom:22px!important;
+}
+#payment-detail-modal .pd-polished-section{
+  padding:14px 0!important;
+}
+#payment-detail-modal .pd-polished-section:first-child{
+  padding-top:0!important;
+}
+#payment-detail-modal .pd-polished-heading{
+  margin:0 0 10px 0!important;
+  font-size:15px!important;
+}
+#payment-detail-modal .pd-polished-row{
+  min-height:23px!important;
+  gap:14px!important;
+}
+#payment-detail-modal .pd-polished-label,
+#payment-detail-modal .pd-polished-value,
+#payment-detail-modal .pd-polished-value.mono,
+#payment-detail-modal .pd-note-link{
+  font-size:13px!important;
+}
+#payment-detail-modal .pd-method-main{
+  margin:0 0 9px 0!important;
+}
+#payment-detail-modal .pd-activity-row{
+  min-height:22px!important;
+}
+@media(max-width:760px){
+  #payment-detail-modal{
+    padding:14px!important;
+  }
+  #payment-detail-modal .payment-detail-shell{
+    width:calc(100vw - 28px)!important;
+    max-width:calc(100vw - 28px)!important;
+    height:calc(100vh - 28px)!important;
+    max-height:calc(100vh - 28px)!important;
+  }
+  #payment-detail-modal .payment-detail-scroll{
+    padding:22px 18px 0 18px!important;
+  }
+}
+
 </style>
 </head>
 <body>
