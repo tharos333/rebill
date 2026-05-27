@@ -2895,6 +2895,31 @@ html.light .payment-detail-shell .pd-drawer-scroll-body::-webkit-scrollbar-thumb
   }
 }
 
+
+
+/* Payment drawer scroll fade gradient */
+.payment-detail-shell .pd-drawer-scroll-body{
+  -webkit-mask-image:linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 22px,
+    #000 calc(100% - 22px),
+    transparent 100%
+  )!important;
+  mask-image:linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 22px,
+    #000 calc(100% - 22px),
+    transparent 100%
+  )!important;
+  -webkit-mask-size:100% 100%!important;
+  mask-size:100% 100%!important;
+  -webkit-mask-repeat:no-repeat!important;
+  mask-repeat:no-repeat!important;
+  padding-top:10px!important;
+}
+
 </style>
 </head>
 <body>
