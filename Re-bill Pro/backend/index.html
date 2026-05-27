@@ -3858,6 +3858,74 @@ html.light #payment-detail-modal .payment-detail-close:hover{
   }
 }
 
+
+
+/* Payment drawer: align sections exactly to meta table inset */
+#payment-detail-modal .pd-meta-grid{
+  margin-left:0!important;
+  margin-right:0!important;
+  width:100%!important;
+  box-sizing:border-box!important;
+}
+#payment-detail-modal .pd-drawer-scroll-body{
+  width:100%!important;
+  max-width:100%!important;
+  margin-left:0!important;
+  margin-right:0!important;
+  padding-left:0!important;
+  padding-right:0!important;
+  box-sizing:border-box!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  scrollbar-gutter:stable!important;
+}
+#payment-detail-modal .pd-polished-section{
+  width:100%!important;
+  max-width:100%!important;
+  padding-left:0!important;
+  padding-right:0!important;
+  box-sizing:border-box!important;
+}
+#payment-detail-modal .pd-polished-heading,
+#payment-detail-modal .pd-polished-row,
+#payment-detail-modal .pd-method-main,
+#payment-detail-modal .pd-polished-method-group,
+#payment-detail-modal .pd-customer-rows,
+#payment-detail-modal .pd-activity-compact{
+  width:100%!important;
+  max-width:100%!important;
+  margin-left:0!important;
+  margin-right:0!important;
+  box-sizing:border-box!important;
+}
+#payment-detail-modal .pd-polished-row{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:18px!important;
+}
+#payment-detail-modal .pd-polished-label{
+  flex:0 0 auto!important;
+  text-align:left!important;
+}
+#payment-detail-modal .pd-polished-value{
+  flex:1 1 auto!important;
+  margin-left:auto!important;
+  text-align:right!important;
+  padding-right:0!important;
+}
+#payment-detail-modal .pd-activity-row{
+  width:100%!important;
+  display:grid!important;
+  grid-template-columns:10px minmax(0,1fr) auto!important;
+  align-items:center!important;
+  gap:12px!important;
+}
+#payment-detail-modal .pd-activity-stamp{
+  justify-self:end!important;
+  text-align:right!important;
+}
+
 </style>
 </head>
 <body>
