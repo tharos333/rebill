@@ -2801,6 +2801,100 @@ html.light .payment-detail-shell .payment-detail-close:hover{
   right:22px!important;
 }
 
+
+
+/* Payment drawer fixed header + scrolling content fix */
+.payment-detail-shell{
+  height:100vh!important;
+  max-height:100vh!important;
+  display:flex!important;
+  flex-direction:column!important;
+  overflow:hidden!important;
+}
+.payment-detail-shell .payment-detail-top{
+  height:0!important;
+  padding:0!important;
+  flex:0 0 0!important;
+  position:relative!important;
+  background:transparent!important;
+}
+.payment-detail-shell .payment-detail-scroll{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  overflow:hidden!important;
+  display:flex!important;
+  flex-direction:column!important;
+  padding:28px 28px 0 28px!important;
+}
+.payment-detail-shell .pd-polished-head,
+.payment-detail-shell .pd-meta-grid{
+  flex:0 0 auto!important;
+}
+.payment-detail-shell .pd-meta-grid{
+  margin-bottom:20px!important;
+}
+.payment-detail-shell .pd-drawer-scroll-body{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  padding-bottom:28px!important;
+  scrollbar-width:thin;
+}
+.payment-detail-shell .pd-drawer-scroll-body::-webkit-scrollbar{
+  width:8px;
+}
+.payment-detail-shell .pd-drawer-scroll-body::-webkit-scrollbar-thumb{
+  background:rgba(255,255,255,.14);
+  border-radius:99px;
+}
+.payment-detail-shell .payment-detail-close{
+  position:absolute!important;
+  top:22px!important;
+  right:22px!important;
+  width:34px!important;
+  height:34px!important;
+  border-radius:10px!important;
+  border:1px solid var(--border2)!important;
+  background:rgba(255,255,255,.025)!important;
+  color:var(--muted)!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  padding:0!important;
+  cursor:pointer!important;
+  z-index:40!important;
+  font-size:0!important;
+  line-height:1!important;
+}
+.payment-detail-shell .payment-detail-close::before,
+.payment-detail-shell .payment-detail-close::after{
+  display:none!important;
+  content:none!important;
+}
+.payment-detail-shell .payment-detail-close svg{
+  width:17px!important;
+  height:17px!important;
+  display:block!important;
+  stroke:currentColor!important;
+}
+.payment-detail-shell .payment-detail-close:hover{
+  background:rgba(255,255,255,.06)!important;
+  border-color:rgba(255,255,255,.20)!important;
+  color:var(--text)!important;
+}
+html.light .payment-detail-shell .pd-drawer-scroll-body::-webkit-scrollbar-thumb{
+  background:rgba(0,0,0,.16);
+}
+@media(max-width:760px){
+  .payment-detail-shell .payment-detail-scroll{
+    padding:24px 18px 0 18px!important;
+  }
+  .payment-detail-shell .pd-drawer-scroll-body{
+    padding-bottom:24px!important;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -4320,6 +4414,7 @@ function renderPaymentDetailModal(p, syncing){
   if(isFailed&&fullReason){h+='<div class="pd-fail-box">'+escHtml(fullReason)+'</div>';}
   if(syncing){h+='<div class="pd-sync-note">Fetching real Stripe fee/net…</div>';}
 
+  h+='<div class="pd-drawer-scroll-body">';
   h+='<section class="pd-polished-section"><h3 class="pd-polished-heading">Payment breakdown</h3>';
   h+='<div class="pd-polished-row"><div class="pd-polished-label">Gross amount</div><div class="pd-polished-value">'+fmt(p.amount,p.currency)+'</div></div>';
   if(usdEstimate){h+='<div class="pd-polished-row"><div class="pd-polished-label">Estimated USD</div><div class="pd-polished-value">≈ '+usdEstimate+' USD</div></div>';}
@@ -4362,7 +4457,7 @@ function renderPaymentDetailModal(p, syncing){
   h+='</div></section>';
 
   if(!isViewer&&isFailed&&!isGhost){h+='<button class="pd-retry-btn" onclick="closeModal(\'payment-detail-modal\');retryPayment('+p.id+')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg><span>Retry payment</span></button>';}
-  h+='</div></div>';
+  h+='</div></div></div>';
   document.getElementById('payment-detail-body').innerHTML=h;
 }
 
