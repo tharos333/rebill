@@ -2611,6 +2611,67 @@ html.light .pd-activity-label{color:#111118}
   font-size:13px!important;
 }
 
+
+
+/* Payment drawer close button polish */
+.payment-detail-shell .payment-detail-top{
+  height:0!important;
+  padding:0!important;
+  position:relative!important;
+  background:transparent!important;
+}
+.payment-detail-shell .payment-detail-close{
+  position:absolute!important;
+  top:22px!important;
+  right:22px!important;
+  width:38px!important;
+  height:38px!important;
+  border-radius:12px!important;
+  border:1px solid var(--border2)!important;
+  background:rgba(255,255,255,.025)!important;
+  color:var(--muted)!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  font-size:0!important;
+  line-height:1!important;
+  padding:0!important;
+  cursor:pointer!important;
+  z-index:20!important;
+  transition:background .15s ease,border-color .15s ease,color .15s ease,transform .15s ease!important;
+}
+.payment-detail-shell .payment-detail-close::before,
+.payment-detail-shell .payment-detail-close::after{
+  content:''!important;
+  position:absolute!important;
+  width:16px!important;
+  height:1.7px!important;
+  border-radius:99px!important;
+  background:currentColor!important;
+}
+.payment-detail-shell .payment-detail-close::before{
+  transform:rotate(45deg)!important;
+}
+.payment-detail-shell .payment-detail-close::after{
+  transform:rotate(-45deg)!important;
+}
+.payment-detail-shell .payment-detail-close:hover{
+  background:rgba(255,255,255,.06)!important;
+  border-color:rgba(255,255,255,.22)!important;
+  color:var(--text)!important;
+}
+.payment-detail-shell .payment-detail-close:active{
+  transform:scale(.97)!important;
+}
+html.light .payment-detail-shell .payment-detail-close{
+  background:rgba(0,0,0,.025)!important;
+  border-color:rgba(0,0,0,.12)!important;
+}
+html.light .payment-detail-shell .payment-detail-close:hover{
+  background:rgba(0,0,0,.055)!important;
+  border-color:rgba(0,0,0,.22)!important;
+}
+
 </style>
 </head>
 <body>
