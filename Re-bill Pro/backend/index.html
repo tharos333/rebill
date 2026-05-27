@@ -3625,6 +3625,35 @@ html.light #payment-detail-modal .pd-drawer-scroll-body::-webkit-scrollbar-thumb
   }
 }
 
+
+
+/* Payment drawer X: closer to drawer + slightly larger */
+#payment-detail-modal .payment-detail-close-floating{
+  right:468px!important; /* closer to drawer: 440px drawer + 24px margin + 4px visual gap */
+  top:24px!important;
+  width:28px!important;
+  height:28px!important;
+  min-width:28px!important;
+  min-height:28px!important;
+  border-radius:7px!important;
+  padding:0!important;
+}
+#payment-detail-modal .payment-detail-close-floating svg{
+  width:14px!important;
+  height:14px!important;
+}
+#payment-detail-modal .payment-detail-close-floating::before,
+#payment-detail-modal .payment-detail-close-floating::after{
+  display:none!important;
+  content:none!important;
+}
+@media(max-width:760px){
+  #payment-detail-modal .payment-detail-close-floating{
+    top:16px!important;
+    right:16px!important;
+  }
+}
+
 </style>
 </head>
 <body>
