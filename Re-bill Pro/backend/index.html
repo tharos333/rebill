@@ -4308,32 +4308,18 @@ html.light #payment-detail-modal .payment-detail-shell{
   flex:1 1 auto!important;
   min-height:0!important;
   overflow:hidden!important;
-  padding:24px 20px 0!important;
+  padding:22px 20px 0!important;
   display:flex!important;
   flex-direction:column!important;
 }
 #customer-detail-modal .customer-profile-hero{
   flex:0 0 auto!important;
   display:grid!important;
-  grid-template-columns:42px minmax(0,1fr) auto!important;
+  grid-template-columns:minmax(0,1fr) auto!important;
   gap:12px!important;
-  align-items:center!important;
-  padding:0 42px 18px 0!important;
+  align-items:start!important;
+  padding:0 42px 14px 0!important;
   border-bottom:1px solid var(--border)!important;
-}
-#customer-detail-modal .customer-profile-avatar{
-  width:42px!important;
-  height:42px!important;
-  border-radius:12px!important;
-  display:flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  background:var(--accent-glow)!important;
-  border:1px solid rgba(108,99,255,.34)!important;
-  color:var(--accent)!important;
-  font-family:var(--mono)!important;
-  font-weight:700!important;
-  font-size:13px!important;
 }
 #customer-detail-modal .customer-profile-identity{min-width:0!important;}
 #customer-detail-modal .customer-profile-name{
@@ -4348,7 +4334,7 @@ html.light #payment-detail-modal .payment-detail-shell{
 #customer-detail-modal .customer-profile-email{
   margin-top:4px!important;
   font-size:12px!important;
-  line-height:1.2!important;
+  line-height:1.25!important;
   color:var(--muted)!important;
   overflow:hidden!important;
   text-overflow:ellipsis!important;
@@ -4367,6 +4353,7 @@ html.light #payment-detail-modal .payment-detail-shell{
   font-size:12px!important;
   font-weight:700!important;
   white-space:nowrap!important;
+  margin-top:1px!important;
 }
 #customer-detail-modal .customer-profile-status span{
   width:7px!important;
@@ -4391,7 +4378,7 @@ html.light #payment-detail-modal .payment-detail-shell{
   min-height:0!important;
   overflow-y:auto!important;
   overflow-x:hidden!important;
-  padding:16px 0 22px!important;
+  padding:14px 0 18px!important;
   scrollbar-width:thin!important;
 }
 #customer-detail-modal .customer-profile-sections::-webkit-scrollbar{width:8px!important;}
@@ -4401,12 +4388,12 @@ html.light #payment-detail-modal .payment-detail-shell{
 }
 #customer-detail-modal .customer-profile-section{
   width:100%!important;
-  padding:15px 0!important;
+  padding:13px 0!important;
   border-bottom:1px solid var(--border)!important;
 }
 #customer-detail-modal .customer-profile-section:first-child{padding-top:0!important;}
 #customer-detail-modal .customer-profile-section h3{
-  margin:0 0 12px!important;
+  margin:0 0 10px!important;
   font-size:15px!important;
   line-height:1.2!important;
   font-weight:700!important;
@@ -4414,11 +4401,11 @@ html.light #payment-detail-modal .payment-detail-shell{
   letter-spacing:-.15px!important;
 }
 #customer-detail-modal .customer-profile-row{
-  min-height:25px!important;
+  min-height:24px!important;
   display:flex!important;
   align-items:center!important;
   justify-content:space-between!important;
-  gap:18px!important;
+  gap:16px!important;
   width:100%!important;
   box-sizing:border-box!important;
 }
@@ -4441,21 +4428,43 @@ html.light #payment-detail-modal .payment-detail-shell{
   text-overflow:ellipsis!important;
   white-space:nowrap!important;
 }
-#customer-detail-modal .customer-profile-value.mono{
-  font-family:var(--sans)!important;
-}
+#customer-detail-modal .customer-profile-value.mono{font-family:var(--sans)!important;}
 #customer-detail-modal .customer-profile-value.money,
-#customer-detail-modal .customer-profile-value.value-green{
-  color:var(--green)!important;
+#customer-detail-modal .customer-profile-value.value-green{color:var(--green)!important;}
+#customer-detail-modal .customer-profile-value.value-red{color:var(--red)!important;}
+#customer-detail-modal .customer-profile-value.with-copy{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  gap:6px!important;
 }
-#customer-detail-modal .customer-profile-value.value-red{
-  color:var(--red)!important;
+#customer-detail-modal .customer-profile-truncate{
+  display:inline-block!important;
+  max-width:185px!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+  vertical-align:middle!important;
 }
+#customer-detail-modal .customer-profile-copy{
+  flex:0 0 auto!important;
+  width:16px!important;
+  height:16px!important;
+  padding:0!important;
+  border:0!important;
+  background:transparent!important;
+  color:var(--muted)!important;
+  cursor:pointer!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+}
+#customer-detail-modal .customer-profile-copy:hover{color:var(--text)!important;}
 #customer-detail-modal .customer-profile-card-line{
   display:flex!important;
   align-items:center!important;
   justify-content:flex-start!important;
-  margin-bottom:12px!important;
+  margin-bottom:10px!important;
 }
 #customer-detail-modal .customer-profile-card-line .payment-card{
   font-size:13px!important;
@@ -4465,7 +4474,7 @@ html.light #payment-detail-modal .payment-detail-shell{
   color:var(--muted)!important;
   font-size:13px!important;
   line-height:1.4!important;
-  padding:2px 0 4px!important;
+  padding:2px 0 2px!important;
 }
 #customer-detail-modal .customer-profile-activity-list{
   display:flex!important;
@@ -4508,9 +4517,7 @@ html.light #payment-detail-modal .payment-detail-shell{
   color:var(--muted)!important;
   font-size:12px!important;
 }
-#customer-detail-modal .customer-profile-note-row{
-  cursor:pointer!important;
-}
+#customer-detail-modal .customer-profile-note-row{cursor:pointer!important;}
 #customer-detail-modal .customer-profile-note-value{
   display:flex!important;
   align-items:center!important;
@@ -4526,7 +4533,7 @@ html.light #payment-detail-modal .payment-detail-shell{
   display:grid!important;
   grid-template-columns:1fr 1fr!important;
   gap:10px!important;
-  padding-top:16px!important;
+  padding-top:14px!important;
 }
 #customer-detail-modal .customer-profile-actions .btn{
   justify-content:center!important;
@@ -4559,17 +4566,11 @@ html.light #customer-detail-modal .customer-profile-sections::-webkit-scrollbar-
     max-width:calc(100vw - 32px)!important;
     max-height:calc(100vh - 32px)!important;
   }
-  #customer-detail-modal .customer-drawer-scroll{padding:22px 18px 0!important;}
-  #customer-detail-modal .customer-profile-hero{
-    grid-template-columns:38px minmax(0,1fr)!important;
-    padding-right:40px!important;
-  }
-  #customer-detail-modal .customer-profile-status{
-    grid-column:2!important;
-    justify-self:start!important;
-    margin-top:6px!important;
-  }
+  #customer-detail-modal .customer-drawer-scroll{padding:20px 18px 0!important;}
+  #customer-detail-modal .customer-profile-hero{padding-right:40px!important;}
+  #customer-detail-modal .customer-profile-status{justify-self:start!important; margin-top:6px!important;}
 }
+
 
 </style>
 </head>
@@ -6205,13 +6206,31 @@ function customerStatusText(status){
   if(s==='—')return s;
   return s.charAt(0).toUpperCase()+s.slice(1);
 }
+function customerTruncateId(value){
+  value=String(value||'');
+  if(!value) return '—';
+  if(value.length<=18) return value;
+  return value.slice(0,15)+'...'+value.slice(-4);
+}
+function customerCopyButton(value){
+  var v=String(value||'');
+  if(!v || v==='—') return '';
+  var safe=escapeCustomerHtml(v).replace(/'/g,'&#39;');
+  return '<button class="customer-profile-copy" title="Copy" onclick="event.stopPropagation();copyPdValue(''+safe+'')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
+}
 function customerDrawerRow(label,value,cls){
   return '<div class="customer-profile-row"><div class="customer-profile-label">'+label+'</div><div class="customer-profile-value '+(cls||'')+'">'+(value==null||value===''?'—':value)+'</div></div>';
+}
+function customerDrawerIdRow(label,fullValue){
+  var full=String(fullValue||'');
+  var short=customerTruncateId(full);
+  var title=escapeCustomerHtml(full||'—');
+  return '<div class="customer-profile-row"><div class="customer-profile-label">'+label+'</div><div class="customer-profile-value mono with-copy"><span class="customer-profile-truncate" title="'+title+'">'+escapeCustomerHtml(short)+'</span>'+customerCopyButton(full)+'</div></div>';
 }
 function customerDrawerNoteRow(c){
   const safeNote = escapeCustomerHtml(c.note || 'No note added');
   const encodedNote = encodeURIComponent(c.note || '');
-  return '<div class="customer-profile-row customer-profile-note-row" onclick="closeCustomerDrawer();openNoteModal('+c.id+',\''+encodedNote+'\')"><div class="customer-profile-label">Note</div><div class="customer-profile-value customer-profile-note-value"><span>'+safeNote+'</span><span class="customer-profile-note-edit">Edit</span></div></div>';
+  return '<div class="customer-profile-row customer-profile-note-row" onclick="closeCustomerDrawer();openNoteModal('+c.id+',''+encodedNote+'')"><div class="customer-profile-label">Note</div><div class="customer-profile-value customer-profile-note-value"><span>'+safeNote+'</span><span class="customer-profile-note-edit">Edit</span></div></div>';
 }
 function customerActivityRows(rows){
   if(!rows||!rows.length)return '<div class="customer-profile-empty">No recent activity yet</div>';
@@ -6239,7 +6258,6 @@ function buildCustomerDrawer(data){
   const hasCard=!!(c.card_brand||c.card_last4);
   let h='';
   h+='<div class="customer-profile-hero">';
-  h+='<div class="customer-profile-avatar" aria-hidden="true">'+escapeCustomerHtml(initials(c.name||'Customer'))+'</div>';
   h+='<div class="customer-profile-identity"><div class="customer-profile-name" title="'+name+'">'+name+'</div><div class="customer-profile-email" title="'+email+'">'+email+'</div></div>';
   h+='<div class="customer-profile-status '+statusCls+'"><span></span>'+escapeCustomerHtml(status)+'</div>';
   h+='</div>';
@@ -6250,7 +6268,7 @@ function buildCustomerDrawer(data){
   h+=customerDrawerRow('Customer name',name);
   h+=customerDrawerRow('Email',email);
   h+=customerDrawerRow('Status',escapeCustomerHtml(status),statusCls);
-  h+=customerDrawerRow('Stripe customer ID',escapeCustomerHtml(c.stripe_customer_id||'—'),'mono');
+  h+=customerDrawerIdRow('Stripe customer ID',c.stripe_customer_id||'');
   h+=customerDrawerRow('Stripe account',escapeCustomerHtml(c.account_name||'—'));
   h+=customerDrawerRow('Created date',fmtDate(c.created_at));
   h+='</section>';
@@ -6279,14 +6297,11 @@ function buildCustomerDrawer(data){
   h+=customerDrawerRow('Active subscriptions',String(c.active_subs||0));
   h+=customerDrawerRow('Next billing',fmtDate(c.next_billing_date));
   h+=customerDrawerRow('Pause status',escapeCustomerHtml(customerPauseStatus(c)), c.status==='paused'?'value-red':'value-green');
+  h+=customerDrawerNoteRow(c);
   h+='</section>';
 
   h+='<section class="customer-profile-section"><h3>Activity</h3>';
   h+=customerActivityRows(data.recent_payments||[]);
-  h+='</section>';
-
-  h+='<section class="customer-profile-section"><h3>Admin</h3>';
-  h+=customerDrawerNoteRow(c);
   h+='</section>';
 
   h+='<div class="customer-profile-actions">';
