@@ -4233,6 +4233,344 @@ html.light #payment-detail-modal .payment-detail-shell{
   box-shadow:0 24px 70px rgba(17,17,24,.18)!important;
 }
 
+
+
+/* Customer Profile drawer — premium finance panel redesign */
+#customer-detail-modal{
+  align-items:flex-start!important;
+  justify-content:flex-end!important;
+  padding:24px!important;
+  background:rgba(0,0,0,.44)!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  box-sizing:border-box!important;
+}
+#customer-detail-modal .customer-drawer{
+  width:440px!important;
+  max-width:calc(100vw - 48px)!important;
+  height:auto!important;
+  max-height:calc(100vh - 48px)!important;
+  min-height:0!important;
+  border-radius:18px!important;
+  border:1px solid var(--border2)!important;
+  border-left:1px solid var(--border2)!important;
+  background:var(--surface)!important;
+  box-shadow:0 24px 70px rgba(0,0,0,.42)!important;
+  overflow:hidden!important;
+  display:flex!important;
+  flex-direction:column!important;
+}
+#customer-detail-modal .customer-drawer-top{
+  height:0!important;
+  min-height:0!important;
+  padding:0!important;
+  background:transparent!important;
+  position:relative!important;
+  z-index:20!important;
+}
+#customer-detail-modal .customer-drawer-close{
+  position:absolute!important;
+  top:14px!important;
+  right:14px!important;
+  width:29px!important;
+  height:29px!important;
+  min-width:29px!important;
+  min-height:29px!important;
+  border-radius:10px!important;
+  border:1px solid var(--border2)!important;
+  background:rgba(255,255,255,.025)!important;
+  color:var(--muted)!important;
+  font-size:0!important;
+  line-height:1!important;
+  padding:0!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  box-shadow:none!important;
+}
+#customer-detail-modal .customer-drawer-close::before,
+#customer-detail-modal .customer-drawer-close::after{
+  content:''!important;
+  position:absolute!important;
+  width:14px!important;
+  height:1.7px!important;
+  border-radius:999px!important;
+  background:currentColor!important;
+}
+#customer-detail-modal .customer-drawer-close::before{transform:rotate(45deg)!important;}
+#customer-detail-modal .customer-drawer-close::after{transform:rotate(-45deg)!important;}
+#customer-detail-modal .customer-drawer-close:hover{
+  background:rgba(255,255,255,.06)!important;
+  border-color:rgba(255,255,255,.20)!important;
+  color:var(--text)!important;
+}
+#customer-detail-modal .customer-drawer-scroll{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  overflow:hidden!important;
+  padding:24px 20px 0!important;
+  display:flex!important;
+  flex-direction:column!important;
+}
+#customer-detail-modal .customer-profile-hero{
+  flex:0 0 auto!important;
+  display:grid!important;
+  grid-template-columns:42px minmax(0,1fr) auto!important;
+  gap:12px!important;
+  align-items:center!important;
+  padding:0 42px 18px 0!important;
+  border-bottom:1px solid var(--border)!important;
+}
+#customer-detail-modal .customer-profile-avatar{
+  width:42px!important;
+  height:42px!important;
+  border-radius:12px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  background:var(--accent-glow)!important;
+  border:1px solid rgba(108,99,255,.34)!important;
+  color:var(--accent)!important;
+  font-family:var(--mono)!important;
+  font-weight:700!important;
+  font-size:13px!important;
+}
+#customer-detail-modal .customer-profile-identity{min-width:0!important;}
+#customer-detail-modal .customer-profile-name{
+  font-size:17px!important;
+  line-height:1.15!important;
+  font-weight:700!important;
+  color:var(--text)!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+}
+#customer-detail-modal .customer-profile-email{
+  margin-top:4px!important;
+  font-size:12px!important;
+  line-height:1.2!important;
+  color:var(--muted)!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+}
+#customer-detail-modal .customer-profile-status{
+  height:26px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:6px!important;
+  padding:0 9px!important;
+  border-radius:9px!important;
+  background:rgba(255,255,255,.035)!important;
+  border:1px solid var(--border)!important;
+  color:var(--muted)!important;
+  font-size:12px!important;
+  font-weight:700!important;
+  white-space:nowrap!important;
+}
+#customer-detail-modal .customer-profile-status span{
+  width:7px!important;
+  height:7px!important;
+  border-radius:999px!important;
+  background:currentColor!important;
+}
+#customer-detail-modal .customer-profile-status.value-green,
+#customer-detail-modal .customer-profile-status.active{
+  color:var(--green)!important;
+  background:rgba(34,197,94,.10)!important;
+  border-color:rgba(34,197,94,.16)!important;
+}
+#customer-detail-modal .customer-profile-status.value-red,
+#customer-detail-modal .customer-profile-status.paused{
+  color:var(--red)!important;
+  background:rgba(248,113,113,.09)!important;
+  border-color:rgba(248,113,113,.16)!important;
+}
+#customer-detail-modal .customer-profile-sections{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  padding:16px 0 22px!important;
+  scrollbar-width:thin!important;
+}
+#customer-detail-modal .customer-profile-sections::-webkit-scrollbar{width:8px!important;}
+#customer-detail-modal .customer-profile-sections::-webkit-scrollbar-thumb{
+  background:rgba(255,255,255,.14)!important;
+  border-radius:999px!important;
+}
+#customer-detail-modal .customer-profile-section{
+  width:100%!important;
+  padding:15px 0!important;
+  border-bottom:1px solid var(--border)!important;
+}
+#customer-detail-modal .customer-profile-section:first-child{padding-top:0!important;}
+#customer-detail-modal .customer-profile-section h3{
+  margin:0 0 12px!important;
+  font-size:15px!important;
+  line-height:1.2!important;
+  font-weight:700!important;
+  color:var(--text)!important;
+  letter-spacing:-.15px!important;
+}
+#customer-detail-modal .customer-profile-row{
+  min-height:25px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:18px!important;
+  width:100%!important;
+  box-sizing:border-box!important;
+}
+#customer-detail-modal .customer-profile-label{
+  flex:0 0 auto!important;
+  color:var(--muted)!important;
+  font-size:13px!important;
+  line-height:1.25!important;
+  font-weight:500!important;
+}
+#customer-detail-modal .customer-profile-value{
+  flex:1 1 auto!important;
+  min-width:0!important;
+  text-align:right!important;
+  color:var(--text)!important;
+  font-size:13px!important;
+  line-height:1.25!important;
+  font-weight:600!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+}
+#customer-detail-modal .customer-profile-value.mono{
+  font-family:var(--sans)!important;
+}
+#customer-detail-modal .customer-profile-value.money,
+#customer-detail-modal .customer-profile-value.value-green{
+  color:var(--green)!important;
+}
+#customer-detail-modal .customer-profile-value.value-red{
+  color:var(--red)!important;
+}
+#customer-detail-modal .customer-profile-card-line{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  margin-bottom:12px!important;
+}
+#customer-detail-modal .customer-profile-card-line .payment-card{
+  font-size:13px!important;
+  font-weight:600!important;
+}
+#customer-detail-modal .customer-profile-empty{
+  color:var(--muted)!important;
+  font-size:13px!important;
+  line-height:1.4!important;
+  padding:2px 0 4px!important;
+}
+#customer-detail-modal .customer-profile-activity-list{
+  display:flex!important;
+  flex-direction:column!important;
+  gap:10px!important;
+}
+#customer-detail-modal .customer-profile-activity-row{
+  display:grid!important;
+  grid-template-columns:9px minmax(0,1fr) auto!important;
+  gap:12px!important;
+  align-items:center!important;
+  min-height:28px!important;
+}
+#customer-detail-modal .customer-profile-activity-dot{
+  width:8px!important;
+  height:8px!important;
+  border-radius:999px!important;
+  background:var(--muted)!important;
+}
+#customer-detail-modal .customer-profile-activity-dot.success{background:var(--green)!important;}
+#customer-detail-modal .customer-profile-activity-dot.failed{background:var(--red)!important;}
+#customer-detail-modal .customer-profile-activity-main{min-width:0!important;}
+#customer-detail-modal .customer-profile-activity-label{
+  font-size:13px!important;
+  line-height:1.2!important;
+  font-weight:600!important;
+  color:var(--text)!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+}
+#customer-detail-modal .customer-profile-activity-sub{
+  margin-top:3px!important;
+  font-size:11px!important;
+  color:var(--muted)!important;
+}
+#customer-detail-modal .customer-profile-activity-time{
+  text-align:right!important;
+  white-space:nowrap!important;
+  color:var(--muted)!important;
+  font-size:12px!important;
+}
+#customer-detail-modal .customer-profile-note-row{
+  cursor:pointer!important;
+}
+#customer-detail-modal .customer-profile-note-value{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  gap:10px!important;
+}
+#customer-detail-modal .customer-profile-note-edit{
+  color:var(--accent)!important;
+  font-size:12px!important;
+  font-weight:700!important;
+}
+#customer-detail-modal .customer-profile-actions{
+  display:grid!important;
+  grid-template-columns:1fr 1fr!important;
+  gap:10px!important;
+  padding-top:16px!important;
+}
+#customer-detail-modal .customer-profile-actions .btn{
+  justify-content:center!important;
+  height:36px!important;
+}
+html.light #customer-detail-modal{
+  background:rgba(17,17,24,.20)!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+html.light #customer-detail-modal .customer-drawer{
+  background:#fff!important;
+  box-shadow:0 24px 70px rgba(17,17,24,.16)!important;
+}
+html.light #customer-detail-modal .customer-drawer-close{
+  background:rgba(0,0,0,.025)!important;
+  border-color:rgba(0,0,0,.12)!important;
+}
+html.light #customer-detail-modal .customer-profile-section,
+html.light #customer-detail-modal .customer-profile-hero{
+  border-color:rgba(17,17,24,.08)!important;
+}
+html.light #customer-detail-modal .customer-profile-sections::-webkit-scrollbar-thumb{
+  background:rgba(17,17,24,.18)!important;
+}
+@media(max-width:760px){
+  #customer-detail-modal{padding:16px!important;}
+  #customer-detail-modal .customer-drawer{
+    width:calc(100vw - 32px)!important;
+    max-width:calc(100vw - 32px)!important;
+    max-height:calc(100vh - 32px)!important;
+  }
+  #customer-detail-modal .customer-drawer-scroll{padding:22px 18px 0!important;}
+  #customer-detail-modal .customer-profile-hero{
+    grid-template-columns:38px minmax(0,1fr)!important;
+    padding-right:40px!important;
+  }
+  #customer-detail-modal .customer-profile-status{
+    grid-column:2!important;
+    justify-self:start!important;
+    margin-top:6px!important;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -5861,79 +6199,105 @@ function escapeCustomerHtml(v){return String(v==null?'':v).replace(/[&<>"']/g,fu
 function customerValueClass(status){return status==='failed'||status==='paused'?'value-red':(status==='succeeded'||status==='active'?'value-green':'');}
 function customerPaymentType(c){if((c.total_subs||0)>0)return 'Subscription'; if((c.successful_payments||0)>0||(c.failed_payments||0)>0)return 'One-time'; return '—';}
 function customerPauseStatus(c){return c.status==='paused'?'Paused':'Active';}
-function customerNoteRow(c){
+
+function customerStatusText(status){
+  var s=(status||'—');
+  if(s==='—')return s;
+  return s.charAt(0).toUpperCase()+s.slice(1);
+}
+function customerDrawerRow(label,value,cls){
+  return '<div class="customer-profile-row"><div class="customer-profile-label">'+label+'</div><div class="customer-profile-value '+(cls||'')+'">'+(value==null||value===''?'—':value)+'</div></div>';
+}
+function customerDrawerNoteRow(c){
   const safeNote = escapeCustomerHtml(c.note || 'No note added');
   const encodedNote = encodeURIComponent(c.note || '');
-  return '<div class="customer-detail-row customer-note-row" onclick="closeCustomerDrawer();openNoteModal('+c.id+',\''+encodedNote+'\')"><div class="customer-detail-label">Note</div><div class="customer-detail-value customer-note-value"><span>'+safeNote+'</span><span class="customer-note-edit">Edit</span></div></div>';
+  return '<div class="customer-profile-row customer-profile-note-row" onclick="closeCustomerDrawer();openNoteModal('+c.id+',\''+encodedNote+'\')"><div class="customer-profile-label">Note</div><div class="customer-profile-value customer-profile-note-value"><span>'+safeNote+'</span><span class="customer-profile-note-edit">Edit</span></div></div>';
 }
-function customerDetailRow(label,value,cls){return '<div class="customer-detail-row"><div class="customer-detail-label">'+label+'</div><div class="customer-detail-value '+(cls||'')+'">'+(value==null||value===''?'—':value)+'</div></div>';}
 function customerActivityRows(rows){
-  if(!rows||!rows.length)return '<div class="customer-detail-empty">No recent payments</div>';
-  return '<div class="customer-activity-head"><div>Date</div><div>Amount</div><div>Status</div></div>'+rows.map(function(r){
-    var statusText=(r.status||'—');
-    statusText=statusText.charAt(0).toUpperCase()+statusText.slice(1);
-    return '<div class="customer-activity-row"><div>'+fmtDate(r.created_at)+'</div><div class="customer-activity-money">'+fmt(r.amount,r.currency)+'</div><div class="customer-activity-status '+customerValueClass(r.status)+'">'+escapeCustomerHtml(statusText)+'</div></div>';
-  }).join('');
+  if(!rows||!rows.length)return '<div class="customer-profile-empty">No recent activity yet</div>';
+  return '<div class="customer-profile-activity-list">'+rows.slice(0,8).map(function(r){
+    var raw=(r.status||'').toLowerCase();
+    var good=raw==='succeeded'||raw==='success'||raw==='paid';
+    var bad=raw==='failed'||raw==='canceled'||raw==='cancelled';
+    var label=good?'Payment succeeded':(bad?'Payment failed':'Payment '+(raw||'updated'));
+    var dot=good?'success':(bad?'failed':'neutral');
+    var amount=r.amount?fmt(r.amount,r.currency):'';
+    var stamp=fmtDate(r.created_at);
+    return '<div class="customer-profile-activity-row"><span class="customer-profile-activity-dot '+dot+'"></span><div class="customer-profile-activity-main"><div class="customer-profile-activity-label">'+escapeCustomerHtml(label)+'</div>'+(amount?'<div class="customer-profile-activity-sub">'+amount+'</div>':'')+'</div><div class="customer-profile-activity-time">'+stamp+'</div></div>';
+  }).join('')+'</div>';
 }
 function buildCustomerDrawer(data){
   const c=data.customer||{};
-  const expiry=(c.card_exp_month&&c.card_exp_year)?String(c.card_exp_month).padStart(2,'0')+'/'+String(c.card_exp_year).slice(-2):'—';
+  const name=escapeCustomerHtml(c.name||'Customer');
+  const email=escapeCustomerHtml(c.email||'—');
+  const status=customerStatusText(c.status);
+  const statusCls=customerValueClass(c.status)||'';
+  const expiry=(c.card_exp_month&&c.card_exp_year)?String(c.card_exp_month).padStart(2,'0')+' / '+String(c.card_exp_year).slice(-2):'—';
   const avgAmount=(c.avg_payment&&Number(c.avg_payment)>0)?fmt(Math.round(Number(c.avg_payment)), c.last_payment_currency||'usd'):'—';
   const lastAmount=(c.last_payment_amount)?fmt(c.last_payment_amount,c.last_payment_currency||'usd'):'—';
   const totalPaid=fmt(c.total_paid||0,c.last_payment_currency||'usd');
+  const hasCard=!!(c.card_brand||c.card_last4);
   let h='';
-  h+='<div class="customer-drawer-hero">';
-  h+='<div class="customer-title-wrap"><span class="customer-title-avatar" aria-hidden="true">'+escapeCustomerHtml(initials(c.name||'Customer'))+'</span><div class="customer-drawer-title" title="'+escapeCustomerHtml(c.name||'Customer')+'">'+escapeCustomerHtml(c.name||'Customer')+'</div></div>';
-  h+='</div>';
-  h+='<div class="customer-drawer-sections">';
-
-  h+='<div class="customer-panel"><div class="customer-panel-title">Customer profile</div>';
-  h+=customerDetailRow('Customer',escapeCustomerHtml(c.name||'—'));
-  h+=customerDetailRow('Email',escapeCustomerHtml(c.email||'—'));
-  h+=customerDetailRow('Status',escapeCustomerHtml((c.status||'—').charAt(0).toUpperCase()+(c.status||'').slice(1)), customerValueClass(c.status));
-  h+=customerDetailRow('Stripe customer ID',escapeCustomerHtml(c.stripe_customer_id||'—'));
-  h+=customerDetailRow('Stripe account',escapeCustomerHtml(c.account_name||'—'));
-  h+=customerDetailRow('Created',fmtDate(c.created_at));
+  h+='<div class="customer-profile-hero">';
+  h+='<div class="customer-profile-avatar" aria-hidden="true">'+escapeCustomerHtml(initials(c.name||'Customer'))+'</div>';
+  h+='<div class="customer-profile-identity"><div class="customer-profile-name" title="'+name+'">'+name+'</div><div class="customer-profile-email" title="'+email+'">'+email+'</div></div>';
+  h+='<div class="customer-profile-status '+statusCls+'"><span></span>'+escapeCustomerHtml(status)+'</div>';
   h+='</div>';
 
-  h+='<div class="customer-panel"><div class="customer-panel-title">Saved card</div>';
-  h+=customerDetailRow('Method',cardBadge(c.card_brand,c.card_last4));
-  h+=customerDetailRow('Funding',escapeCustomerHtml(c.card_funding||'—'));
-  h+=customerDetailRow('Card country',escapeCustomerHtml((c.card_country||'—').toUpperCase()));
-  h+=customerDetailRow('Expiry',escapeCustomerHtml(expiry));
-  h+='</div>';
+  h+='<div class="customer-drawer-sections customer-profile-sections">';
 
-  h+='<div class="customer-panel"><div class="customer-panel-title">Billing and revenue</div>';
-  h+=customerDetailRow('Total paid',totalPaid);
-  h+=customerDetailRow('Last payment',lastAmount);
-  h+=customerDetailRow('Successful payments',String(c.successful_payments||0));
-  h+=customerDetailRow('Failed payments',String(c.failed_payments||0));
-  h+=customerDetailRow('Average payment',avgAmount);
-  h+=customerDetailRow('Currency',escapeCustomerHtml((c.last_payment_currency||'usd').toUpperCase()));
-  h+='</div>';
+  h+='<section class="customer-profile-section"><h3>Customer profile</h3>';
+  h+=customerDrawerRow('Customer name',name);
+  h+=customerDrawerRow('Email',email);
+  h+=customerDrawerRow('Status',escapeCustomerHtml(status),statusCls);
+  h+=customerDrawerRow('Stripe customer ID',escapeCustomerHtml(c.stripe_customer_id||'—'),'mono');
+  h+=customerDrawerRow('Stripe account',escapeCustomerHtml(c.account_name||'—'));
+  h+=customerDrawerRow('Created date',fmtDate(c.created_at));
+  h+='</section>';
 
-  h+='<div class="customer-panel"><div class="customer-panel-title">Subscription / rebill</div>';
-  h+=customerDetailRow('Payment type',escapeCustomerHtml(customerPaymentType(c)));
-  h+=customerDetailRow('Active subscriptions',String(c.active_subs||0));
-  h+=customerDetailRow('Next billing',fmtDate(c.next_billing_date));
-  h+=customerDetailRow('Pause status',escapeCustomerHtml(customerPauseStatus(c)), c.status==='paused'?'value-red':'value-green');
-  h+='</div>';
+  h+='<section class="customer-profile-section"><h3>Saved card</h3>';
+  if(hasCard){
+    h+='<div class="customer-profile-card-line">'+cardBadge(c.card_brand,c.card_last4)+'</div>';
+    h+=customerDrawerRow('Funding',escapeCustomerHtml(c.card_funding||'—'));
+    h+=customerDrawerRow('Country',escapeCustomerHtml((c.card_country||'—').toUpperCase()));
+    h+=customerDrawerRow('Expires',escapeCustomerHtml(expiry));
+  }else{
+    h+='<div class="customer-profile-empty">No saved card details available</div>';
+  }
+  h+='</section>';
 
-  h+='<div class="customer-panel"><div class="customer-panel-title">Recent activity</div>';
+  h+='<section class="customer-profile-section"><h3>Billing and revenue</h3>';
+  h+=customerDrawerRow('Total paid',totalPaid,'money');
+  h+=customerDrawerRow('Last payment',lastAmount);
+  h+=customerDrawerRow('Successful payments',String(c.successful_payments||0),'value-green');
+  h+=customerDrawerRow('Failed payments',String(c.failed_payments||0),(Number(c.failed_payments||0)>0?'value-red':''));
+  h+=customerDrawerRow('Average payment',avgAmount);
+  h+='</section>';
+
+  h+='<section class="customer-profile-section"><h3>Subscription / rebill</h3>';
+  h+=customerDrawerRow('Payment type',escapeCustomerHtml(customerPaymentType(c)));
+  h+=customerDrawerRow('Active subscriptions',String(c.active_subs||0));
+  h+=customerDrawerRow('Next billing',fmtDate(c.next_billing_date));
+  h+=customerDrawerRow('Pause status',escapeCustomerHtml(customerPauseStatus(c)), c.status==='paused'?'value-red':'value-green');
+  h+='</section>';
+
+  h+='<section class="customer-profile-section"><h3>Activity</h3>';
   h+=customerActivityRows(data.recent_payments||[]);
-  h+='</div>';
+  h+='</section>';
 
-  h+='<div class="customer-panel"><div class="customer-panel-title">Admin</div>';
-  h+=customerNoteRow(c);
-  h+='</div>';
+  h+='<section class="customer-profile-section"><h3>Admin</h3>';
+  h+=customerDrawerNoteRow(c);
+  h+='</section>';
 
-  h+='<div class="customer-drawer-actions">';
+  h+='<div class="customer-profile-actions">';
   h+='<button class="btn" onclick="openPortal('+c.id+')">View card</button>';
   h+=`<button class="btn ${c.status==='active'?'btn-danger':''}" onclick="setCustStatus(${c.id},'${c.status==='active'?'paused':'active'}')">${c.status==='active'?'Pause customer':'Resume customer'}</button>`;
   h+='</div>';
+
   h+='</div>';
   return h;
 }
+
 async function openCustomerDrawer(id){
   currentCustomerDrawerId=id;
   document.getElementById('customer-detail-body').innerHTML='<div class="empty">Loading customer...</div>';
