@@ -3977,6 +3977,72 @@ html.light #payment-detail-modal.open{
   -webkit-backdrop-filter:blur(8px) saturate(108%)!important;
 }
 
+
+
+/* Payment drawer clearly visible open animation */
+@keyframes paymentDrawerOverlayIn{
+  from{
+    background:rgba(0,0,0,0);
+    backdrop-filter:blur(0px);
+    -webkit-backdrop-filter:blur(0px);
+  }
+  to{
+    background:rgba(0,0,0,.52);
+    backdrop-filter:blur(10px) saturate(112%);
+    -webkit-backdrop-filter:blur(10px) saturate(112%);
+  }
+}
+@keyframes paymentDrawerPanelIn{
+  from{
+    opacity:0;
+    transform:translateX(52px) scale(.965);
+    filter:blur(2px);
+  }
+  60%{
+    opacity:1;
+    transform:translateX(-4px) scale(1.002);
+    filter:blur(0);
+  }
+  to{
+    opacity:1;
+    transform:translateX(0) scale(1);
+    filter:blur(0);
+  }
+}
+@keyframes paymentDrawerCloseIn{
+  from{
+    opacity:0;
+    transform:translateY(-6px) scale(.9);
+  }
+  to{
+    opacity:1;
+    transform:translateY(0) scale(1);
+  }
+}
+#payment-detail-modal.open{
+  animation:paymentDrawerOverlayIn .28s ease both!important;
+}
+#payment-detail-modal.open .payment-detail-shell{
+  animation:paymentDrawerPanelIn .34s cubic-bezier(.18,1,.32,1) both!important;
+  transform-origin:right center!important;
+}
+#payment-detail-modal.open .payment-detail-close{
+  animation:paymentDrawerCloseIn .22s ease .08s both!important;
+}
+html.light #payment-detail-modal.open{
+  animation:paymentDrawerOverlayIn .28s ease both!important;
+}
+@media (prefers-reduced-motion: reduce){
+  #payment-detail-modal.open,
+  #payment-detail-modal.open .payment-detail-shell,
+  #payment-detail-modal.open .payment-detail-close{
+    animation:none!important;
+    transform:none!important;
+    filter:none!important;
+    opacity:1!important;
+  }
+}
+
 </style>
 </head>
 <body>
