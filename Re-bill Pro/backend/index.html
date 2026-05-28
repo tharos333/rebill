@@ -4142,6 +4142,47 @@ html.light #payment-detail-modal.open{
   }
 }
 
+
+
+/* Payment drawer professional subtle open animation */
+@keyframes paymentModalProPanelIn{
+  from{
+    opacity:0;
+    transform:translateX(22px);
+  }
+  to{
+    opacity:1;
+    transform:translateX(0);
+  }
+}
+@keyframes paymentModalProOverlayIn{
+  from{
+    background:rgba(0,0,0,0);
+    backdrop-filter:blur(0px);
+    -webkit-backdrop-filter:blur(0px);
+  }
+  to{
+    background:rgba(0,0,0,.46);
+    backdrop-filter:blur(7px);
+    -webkit-backdrop-filter:blur(7px);
+  }
+}
+#payment-detail-modal.open{
+  animation:paymentModalProOverlayIn .22s ease-out both!important;
+}
+#payment-detail-modal.open .modal{
+  animation:paymentModalProPanelIn .24s cubic-bezier(.2,.8,.2,1) both!important;
+  transform-origin:right center!important;
+}
+@media (prefers-reduced-motion: reduce){
+  #payment-detail-modal.open,
+  #payment-detail-modal.open .modal{
+    animation:none!important;
+    transform:none!important;
+    opacity:1!important;
+  }
+}
+
 </style>
 </head>
 <body>
