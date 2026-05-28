@@ -4962,21 +4962,6 @@ tbody td strong{
   font-weight:600!important;
 }
 
-
-
-/* Common text-only status labels */
-.success,
-.succeeded,
-.failed,
-.active,
-.inactive,
-.paused,
-.payment-required,
-.verification-required,
-.owner{
-  font-weight:600!important;
-}
-
 </style>
 </head>
 <body>
@@ -6861,17 +6846,17 @@ async function loadAccounts(){
           var defaultBadge=a.is_default?'<span class="badge badge-blue" style="margin-left:6px;">default</span>':'';
           var verificationHtml='';
           if(st==='active'&&!details.length){
-            verificationHtml='<span style="color:var(--green);font-size:12px;font-family:var(--font-ui);font-weight:600;">Clear</span>';
+            verificationHtml='<span style="color:var(--green);font-size:12px;font-family:var(--mono);">Clear</span>';
           } else if(details.length){
             verificationHtml='<div style="font-size:12px;line-height:1.45;max-width:260px;">'
               + details.slice(0,3).map(function(d){
                 var safe=String(d).replace(/"/g,'&quot;');
-                return '<div title="'+safe+'" style="max-width:100%;color:var(--amber);font-family:var(--font-ui);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+d+'</div>';
+                return '<div title="'+safe+'" style="max-width:100%;color:var(--amber);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+d+'</div>';
               }).join('')
               + (details.length>3?'<div style="color:var(--muted);font-size:11px;font-family:var(--mono);">+'+(details.length-3)+' more</div>':'')
               + '</div>';
           } else {
-            verificationHtml='<span style="color:var(--muted);font-size:12px;font-family:var(--font-ui);font-weight:600;">'+(reason||'—')+'</span>';
+            verificationHtml='<span style="color:var(--muted);font-size:12px;font-family:var(--mono);">'+(reason||'—')+'</span>';
           }
           var setDefBtn=!a.is_default?'<button class="btn btn-sm" onclick="setDefaultAccount('+a.id+')">Set Default</button>':'';
           return '<tr><td><strong style="font-size:13px;">'+a.name+'</strong></td><td class="mono" style="font-size:12px;color:var(--muted);">'+(a.key_preview||'—')+'</td><td>'+statusBadge+defaultBadge+'</td><td>'+verificationHtml+'</td><td><div class="actions">'+setDefBtn+'<button class="btn btn-sm" onclick="debugStripeAccount('+a.id+')" title="Check verification details">Check</button><button class="btn btn-sm" onclick="openEditAcc('+a.id+')">Edit</button><button class="btn btn-sm btn-danger" onclick="deleteAccount('+a.id+')">Delete</button></div></td></tr>';
@@ -7160,49 +7145,6 @@ html.light #customer-detail-modal.open{
   background:rgba(17,17,24,.18)!important;
   backdrop-filter:none!important;
   -webkit-backdrop-filter:none!important;
-}
-
-
-
-/* Keep table/main row names at 600 too */
-.customer-name,
-.customer-name-btn,
-.customer-main,
-.payment-customer,
-.customer-title-name,
-tbody td strong{
-  font-weight:600!important;
-}
-
-
-
-
-
-/* Targeted only: requested pill/status labels weight 600 */
-#page-payments .badge.badge-green,
-#page-payments .badge.badge-red,
-#page-payments .badge.badge-amber,
-#page-payments .badge.badge-blue,
-#page-customers .badge.badge-green,
-#page-customers .badge.badge-red,
-#page-subscriptions .badge.badge-green,
-#page-subscriptions .badge.badge-red,
-#page-accounts .badge.badge-green,
-#page-accounts .badge.badge-red,
-#page-accounts .badge.badge-amber,
-#page-admins .badge.badge-green,
-#page-admins .badge.badge-red,
-#page-security .badge.badge-green,
-#page-security .badge.badge-red,
-#page-payments .btn-success,
-#page-payments .btn-danger,
-#page-customers .btn-success,
-#page-customers .btn-danger,
-#page-subscriptions .btn-success,
-#page-subscriptions .btn-danger,
-#page-accounts .btn-success,
-#page-accounts .btn-danger{
-  font-weight:600!important;
 }
 
 </style>
