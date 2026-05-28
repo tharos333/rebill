@@ -4609,6 +4609,47 @@ html.light #customer-detail-modal .customer-profile-sections::-webkit-scrollbar-
 
 
 
+
+/* Customer drawer header: name + inline status */
+#customer-detail-modal .customer-profile-name-row{
+  display:flex!important;
+  align-items:center!important;
+  gap:10px!important;
+  min-width:0!important;
+}
+#customer-detail-modal .customer-profile-name-row .customer-profile-name{
+  min-width:0!important;
+  flex:0 1 auto!important;
+}
+#customer-detail-modal .customer-profile-header-status{
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:7px!important;
+  flex:0 0 auto!important;
+  font-size:13px!important;
+  line-height:1!important;
+  font-weight:700!important;
+  color:var(--muted)!important;
+  white-space:nowrap!important;
+}
+#customer-detail-modal .customer-profile-header-status span:first-child{
+  width:8px!important;
+  height:8px!important;
+  border-radius:999px!important;
+  background:currentColor!important;
+  flex:0 0 auto!important;
+}
+#customer-detail-modal .customer-profile-header-status.value-green,
+#customer-detail-modal .customer-profile-header-status.active{
+  color:var(--green)!important;
+}
+#customer-detail-modal .customer-profile-header-status.value-red,
+#customer-detail-modal .customer-profile-header-status.paused,
+#customer-detail-modal .customer-profile-header-status.inactive{
+  color:var(--red)!important;
+}
+
+
 /* Customer drawer width 480px */
 #customer-detail-modal .customer-drawer{
   width:480px!important;
@@ -6413,8 +6454,9 @@ function buildCustomerDrawer(data){
   const totalPaid=fmt(c.total_paid||0,c.last_payment_currency||'usd');
   const hasCard=!!(c.card_brand||c.card_last4);
   let h='';
+  var headerStatus='<div class="customer-profile-header-status '+(statusCls||'')+'" title="'+escapeCustomerHtml(status)+'"><span></span><span>'+escapeCustomerHtml(status)+'</span></div>';
   h+='<div class="customer-profile-hero">';
-  h+='<div class="customer-profile-identity"><div class="customer-profile-name" title="'+name+'">'+name+'</div><div class="customer-profile-email" title="'+email+'">'+email+'</div></div>';
+  h+='<div class="customer-profile-identity"><div class="customer-profile-name-row"><div class="customer-profile-name" title="'+name+'">'+name+'</div>'+headerStatus+'</div><div class="customer-profile-email" title="'+email+'">'+email+'</div></div>';
   h+='</div>';
 
   h+='<div class="customer-drawer-sections customer-profile-sections">';
