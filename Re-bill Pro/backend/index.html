@@ -1975,7 +1975,7 @@ html.light td.customer-last-payment{
 }
 
 
-/* FINAL status badge polish: 600 text + blue payment needed */
+/* FINAL status badge polish: regular text + blue payment needed */
 .badge,
 .badge span,
 .status-badge,
@@ -1988,12 +1988,12 @@ html.light td.customer-last-payment{
 .tag span,
 .pd-status-pill,
 .pd-status-pill span{
-  font-weight:600!important;
+  font-weight:400!important;
 }
 
 .badge{
   gap:4px!important;
-  font-weight:600!important;
+  font-weight:400!important;
 }
 
 .badge svg.status-mini-icon{
@@ -2025,16 +2025,14 @@ html.light .badge.badge-requires-payment{
   border-color:rgba(59,130,246,.22)!important;
 }
 
-/* Keep success/failed/payment required labels at 600 in both modes */
+/* Keep success/failed text regular in both modes */
 .badge.badge-green,
 .badge.badge-red,
 .badge.badge-amber,
-.badge.badge-blue,
 html.light .badge.badge-green,
 html.light .badge.badge-red,
-html.light .badge.badge-amber,
-html.light .badge.badge-blue{
-  font-weight:600!important;
+html.light .badge.badge-amber{
+  font-weight:400!important;
 }
 
 
@@ -4966,29 +4964,6 @@ tbody td strong{
 
 
 
-/* Status / role / verification labels weight 600 */
-.badge,
-.status-badge,
-.status,
-.pill,
-.tag,
-[class*="badge-"],
-[class*="status-"],
-.payment-status,
-.customer-status,
-.subscription-status,
-.verification-status,
-.owner-badge,
-.role-badge,
-.default-badge,
-.account-status,
-.stripe-status,
-tbody td .badge,
-tbody td .status,
-tbody td .status-badge{
-  font-weight:600!important;
-}
-
 /* Common text-only status labels */
 .success,
 .succeeded,
@@ -7120,7 +7095,7 @@ document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>
   r:.45!important;
 }
 
-/* Keep visible badge/status text at 600 */
+/* Keep the text not bold too */
 .badge,
 .badge > span,
 #page-payments .badge,
@@ -7130,12 +7105,8 @@ document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>
 #page-subscriptions .badge,
 #page-subscriptions .badge > span,
 #page-accounts .badge,
-#page-accounts .badge > span,
-#page-admins .badge,
-#page-admins .badge > span,
-#page-security .badge,
-#page-security .badge > span{
-  font-weight:600!important;
+#page-accounts .badge > span{
+  font-weight:400!important;
 }
 
 
@@ -7193,54 +7164,6 @@ html.light #customer-detail-modal.open{
 
 
 
-/* FINAL: visible badge/status/action text weight 600 */
-.badge,
-.badge span,
-.status-badge,
-.status-badge span,
-.status,
-.status span,
-.pill,
-.pill span,
-.tag,
-.tag span,
-.btn-success,
-.btn-success span,
-.btn-danger,
-.btn-danger span,
-button.btn-success,
-button.btn-danger,
-.status-filter,
-.status-filter span,
-.status-tab,
-.status-tab span,
-.filter-tab,
-.filter-tab span,
-.payment-status,
-.payment-status span,
-.customer-status,
-.customer-status span,
-.subscription-status,
-.subscription-status span,
-.verification-status,
-.verification-status span,
-.owner-badge,
-.owner-badge span,
-.role-badge,
-.role-badge span,
-.default-badge,
-.default-badge span,
-.account-status,
-.account-status span,
-.stripe-status,
-.stripe-status span,
-[class*="badge"],
-[class*="badge"] span,
-[class*="status"],
-[class*="status"] span{
-  font-weight:600!important;
-}
-
 /* Keep table/main row names at 600 too */
 .customer-name,
 .customer-name-btn,
@@ -7253,37 +7176,32 @@ tbody td strong{
 
 
 
-/* FINAL EXACT: status/role/verification labels weight 600 on all pages */
-#page-payments .badge,
-#page-payments .badge > span,
-#page-customers .badge,
-#page-customers .badge > span,
-#page-subscriptions .badge,
-#page-subscriptions .badge > span,
-#page-accounts .badge,
-#page-accounts .badge > span,
-#page-admins .badge,
-#page-admins .badge > span,
-#page-security .badge,
-#page-security .badge > span,
-#page-webhooks .badge,
-#page-webhooks .badge > span,
-.badge.badge-green,
-.badge.badge-green > span,
-.badge.badge-red,
-.badge.badge-red > span,
-.badge.badge-amber,
-.badge.badge-amber > span,
-.badge.badge-blue,
-.badge.badge-blue > span,
-.badge.badge-purple,
-.badge.badge-purple > span,
-.pay-filter-btn,
-.pay-filter-btn-succeeded,
-.pay-filter-btn-failed,
-.btn-success,
-.btn-danger{
-  font-family:var(--font-ui)!important;
+
+
+/* Targeted only: requested pill/status labels weight 600 */
+#page-payments .badge.badge-green,
+#page-payments .badge.badge-red,
+#page-payments .badge.badge-amber,
+#page-payments .badge.badge-blue,
+#page-customers .badge.badge-green,
+#page-customers .badge.badge-red,
+#page-subscriptions .badge.badge-green,
+#page-subscriptions .badge.badge-red,
+#page-accounts .badge.badge-green,
+#page-accounts .badge.badge-red,
+#page-accounts .badge.badge-amber,
+#page-admins .badge.badge-green,
+#page-admins .badge.badge-red,
+#page-security .badge.badge-green,
+#page-security .badge.badge-red,
+#page-payments .btn-success,
+#page-payments .btn-danger,
+#page-customers .btn-success,
+#page-customers .btn-danger,
+#page-subscriptions .btn-success,
+#page-subscriptions .btn-danger,
+#page-accounts .btn-success,
+#page-accounts .btn-danger{
   font-weight:600!important;
 }
 
