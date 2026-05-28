@@ -1975,7 +1975,7 @@ html.light td.customer-last-payment{
 }
 
 
-/* FINAL status badge polish: regular text + blue payment needed */
+/* FINAL status badge polish: 600 text + blue payment needed */
 .badge,
 .badge span,
 .status-badge,
@@ -1988,12 +1988,12 @@ html.light td.customer-last-payment{
 .tag span,
 .pd-status-pill,
 .pd-status-pill span{
-  font-weight:400!important;
+  font-weight:600!important;
 }
 
 .badge{
   gap:4px!important;
-  font-weight:400!important;
+  font-weight:600!important;
 }
 
 .badge svg.status-mini-icon{
@@ -2025,14 +2025,16 @@ html.light .badge.badge-requires-payment{
   border-color:rgba(59,130,246,.22)!important;
 }
 
-/* Keep success/failed text regular in both modes */
+/* Keep success/failed/payment required labels at 600 in both modes */
 .badge.badge-green,
 .badge.badge-red,
 .badge.badge-amber,
+.badge.badge-blue,
 html.light .badge.badge-green,
 html.light .badge.badge-red,
-html.light .badge.badge-amber{
-  font-weight:400!important;
+html.light .badge.badge-amber,
+html.light .badge.badge-blue{
+  font-weight:600!important;
 }
 
 
@@ -6884,17 +6886,17 @@ async function loadAccounts(){
           var defaultBadge=a.is_default?'<span class="badge badge-blue" style="margin-left:6px;">default</span>':'';
           var verificationHtml='';
           if(st==='active'&&!details.length){
-            verificationHtml='<span style="color:var(--green);font-size:12px;font-family:var(--mono);">Clear</span>';
+            verificationHtml='<span style="color:var(--green);font-size:12px;font-family:var(--font-ui);font-weight:600;">Clear</span>';
           } else if(details.length){
             verificationHtml='<div style="font-size:12px;line-height:1.45;max-width:260px;">'
               + details.slice(0,3).map(function(d){
                 var safe=String(d).replace(/"/g,'&quot;');
-                return '<div title="'+safe+'" style="max-width:100%;color:var(--amber);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+d+'</div>';
+                return '<div title="'+safe+'" style="max-width:100%;color:var(--amber);font-family:var(--font-ui);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+d+'</div>';
               }).join('')
               + (details.length>3?'<div style="color:var(--muted);font-size:11px;font-family:var(--mono);">+'+(details.length-3)+' more</div>':'')
               + '</div>';
           } else {
-            verificationHtml='<span style="color:var(--muted);font-size:12px;font-family:var(--mono);">'+(reason||'—')+'</span>';
+            verificationHtml='<span style="color:var(--muted);font-size:12px;font-family:var(--font-ui);font-weight:600;">'+(reason||'—')+'</span>';
           }
           var setDefBtn=!a.is_default?'<button class="btn btn-sm" onclick="setDefaultAccount('+a.id+')">Set Default</button>':'';
           return '<tr><td><strong style="font-size:13px;">'+a.name+'</strong></td><td class="mono" style="font-size:12px;color:var(--muted);">'+(a.key_preview||'—')+'</td><td>'+statusBadge+defaultBadge+'</td><td>'+verificationHtml+'</td><td><div class="actions">'+setDefBtn+'<button class="btn btn-sm" onclick="debugStripeAccount('+a.id+')" title="Check verification details">Check</button><button class="btn btn-sm" onclick="openEditAcc('+a.id+')">Edit</button><button class="btn btn-sm btn-danger" onclick="deleteAccount('+a.id+')">Delete</button></div></td></tr>';
@@ -7118,7 +7120,7 @@ document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>
   r:.45!important;
 }
 
-/* Keep the text not bold too */
+/* Keep visible badge/status text at 600 */
 .badge,
 .badge > span,
 #page-payments .badge,
@@ -7128,8 +7130,12 @@ document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>
 #page-subscriptions .badge,
 #page-subscriptions .badge > span,
 #page-accounts .badge,
-#page-accounts .badge > span{
-  font-weight:400!important;
+#page-accounts .badge > span,
+#page-admins .badge,
+#page-admins .badge > span,
+#page-security .badge,
+#page-security .badge > span{
+  font-weight:600!important;
 }
 
 
@@ -7242,6 +7248,42 @@ button.btn-danger,
 .payment-customer,
 .customer-title-name,
 tbody td strong{
+  font-weight:600!important;
+}
+
+
+
+/* FINAL EXACT: status/role/verification labels weight 600 on all pages */
+#page-payments .badge,
+#page-payments .badge > span,
+#page-customers .badge,
+#page-customers .badge > span,
+#page-subscriptions .badge,
+#page-subscriptions .badge > span,
+#page-accounts .badge,
+#page-accounts .badge > span,
+#page-admins .badge,
+#page-admins .badge > span,
+#page-security .badge,
+#page-security .badge > span,
+#page-webhooks .badge,
+#page-webhooks .badge > span,
+.badge.badge-green,
+.badge.badge-green > span,
+.badge.badge-red,
+.badge.badge-red > span,
+.badge.badge-amber,
+.badge.badge-amber > span,
+.badge.badge-blue,
+.badge.badge-blue > span,
+.badge.badge-purple,
+.badge.badge-purple > span,
+.pay-filter-btn,
+.pay-filter-btn-succeeded,
+.pay-filter-btn-failed,
+.btn-success,
+.btn-danger{
+  font-family:var(--font-ui)!important;
   font-weight:600!important;
 }
 
