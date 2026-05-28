@@ -4572,6 +4572,41 @@ html.light #customer-detail-modal .customer-profile-sections::-webkit-scrollbar-
 }
 
 
+
+
+/* Customer drawer: remove header status badge, put status icon in row */
+#customer-detail-modal .customer-profile-hero{
+  grid-template-columns:minmax(0,1fr)!important;
+  padding-right:42px!important;
+}
+#customer-detail-modal .customer-profile-hero > .customer-profile-status{
+  display:none!important;
+}
+#customer-detail-modal .customer-profile-status-inline{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  gap:7px!important;
+  color:var(--muted)!important;
+  font-weight:700!important;
+}
+#customer-detail-modal .customer-profile-status-inline span{
+  width:7px!important;
+  height:7px!important;
+  border-radius:999px!important;
+  background:currentColor!important;
+  flex:0 0 auto!important;
+}
+#customer-detail-modal .customer-profile-status-inline.value-green,
+#customer-detail-modal .customer-profile-status-inline.active{
+  color:var(--green)!important;
+}
+#customer-detail-modal .customer-profile-status-inline.value-red,
+#customer-detail-modal .customer-profile-status-inline.paused,
+#customer-detail-modal .customer-profile-status-inline.inactive{
+  color:var(--red)!important;
+}
+
 </style>
 </head>
 <body>
@@ -6226,6 +6261,11 @@ function customerCopyButton(value){
 function customerDrawerRow(label,value,cls){
   return '<div class="customer-profile-row"><div class="customer-profile-label">'+label+'</div><div class="customer-profile-value '+(cls||'')+'">'+(value==null||value===''?'—':value)+'</div></div>';
 }
+function customerStatusRow(status,statusCls){
+  var clean=escapeCustomerHtml(status||'—');
+  return '<div class="customer-profile-row"><div class="customer-profile-label">Status</div><div class="customer-profile-value customer-profile-status-inline '+(statusCls||'')+'"><span></span>'+clean+'</div></div>';
+}
+
 function customerDrawerIdRow(label,fullValue){
   var full=String(fullValue||'');
   var short=customerTruncateId(full);
@@ -6267,7 +6307,6 @@ function buildCustomerDrawer(data){
   let h='';
   h+='<div class="customer-profile-hero">';
   h+='<div class="customer-profile-identity"><div class="customer-profile-name" title="'+name+'">'+name+'</div><div class="customer-profile-email" title="'+email+'">'+email+'</div></div>';
-  h+='<div class="customer-profile-status '+statusCls+'"><span></span>'+escapeCustomerHtml(status)+'</div>';
   h+='</div>';
 
   h+='<div class="customer-drawer-sections customer-profile-sections">';
@@ -6275,7 +6314,7 @@ function buildCustomerDrawer(data){
   h+='<section class="customer-profile-section"><h3>Customer profile</h3>';
   h+=customerDrawerRow('Customer name',name);
   h+=customerDrawerRow('Email',email);
-  h+=customerDrawerRow('Status',escapeCustomerHtml(status),statusCls);
+  h+=customerStatusRow(status,statusCls);
   h+=customerDrawerIdRow('Stripe customer ID',c.stripe_customer_id||'');
   h+=customerDrawerRow('Stripe account',escapeCustomerHtml(c.account_name||'—'));
   h+=customerDrawerRow('Created date',fmtDate(c.created_at));
