@@ -5360,6 +5360,8 @@ function doLogin(){
     }
   }).catch(function(){err.classList.add('visible');document.getElementById('login-pass').value='';});
 }
+window.doLogin=doLogin;
+
 function completeLogin(){
   localStorage.setItem('subloop_auth','1');
   document.getElementById('login-screen').classList.add('hidden');
@@ -6212,11 +6214,14 @@ function customerTruncateId(value){
   if(value.length<=18) return value;
   return value.slice(0,15)+'...'+value.slice(-4);
 }
+var _customerCopyStore = window._customerCopyStore || {};
+var _customerCopyIdx = window._customerCopyIdx || 0;
 function customerCopyButton(value){
   var v=String(value||'');
   if(!v || v==='—') return '';
-  var safe=escapeCustomerHtml(v).replace(/'/g,'&#39;');
-  return '<button class="customer-profile-copy" title="Copy" onclick="event.stopPropagation();copyPdValue(''+safe+'')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
+  var key='custcopy_'+(++_customerCopyIdx);
+  _customerCopyStore[key]=v;
+  return '<button class="customer-profile-copy" title="Copy" data-k="'+key+'" onclick="event.stopPropagation();copyPdValue(_customerCopyStore[this.dataset.k])"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
 }
 function customerDrawerRow(label,value,cls){
   return '<div class="customer-profile-row"><div class="customer-profile-label">'+label+'</div><div class="customer-profile-value '+(cls||'')+'">'+(value==null||value===''?'—':value)+'</div></div>';
@@ -6227,10 +6232,13 @@ function customerDrawerIdRow(label,fullValue){
   var title=escapeCustomerHtml(full||'—');
   return '<div class="customer-profile-row"><div class="customer-profile-label">'+label+'</div><div class="customer-profile-value mono with-copy"><span class="customer-profile-truncate" title="'+title+'">'+escapeCustomerHtml(short)+'</span>'+customerCopyButton(full)+'</div></div>';
 }
+var _customerNoteStore = window._customerNoteStore || {};
+var _customerNoteIdx = window._customerNoteIdx || 0;
 function customerDrawerNoteRow(c){
   const safeNote = escapeCustomerHtml(c.note || 'No note added');
-  const encodedNote = encodeURIComponent(c.note || '');
-  return '<div class="customer-profile-row customer-profile-note-row" onclick="closeCustomerDrawer();openNoteModal('+c.id+',''+encodedNote+'')"><div class="customer-profile-label">Note</div><div class="customer-profile-value customer-profile-note-value"><span>'+safeNote+'</span><span class="customer-profile-note-edit">Edit</span></div></div>';
+  var key='custnote_'+(++_customerNoteIdx);
+  _customerNoteStore[key]=c.note || '';
+  return '<div class="customer-profile-row customer-profile-note-row" data-k="'+key+'" onclick="closeCustomerDrawer();openNoteModal('+c.id+',_customerNoteStore[this.dataset.k])"><div class="customer-profile-label">Note</div><div class="customer-profile-value customer-profile-note-value"><span>'+safeNote+'</span><span class="customer-profile-note-edit">Edit</span></div></div>';
 }
 function customerActivityRows(rows){
   if(!rows||!rows.length)return '<div class="customer-profile-empty">No recent activity yet</div>';
