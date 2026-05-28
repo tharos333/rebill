@@ -4829,6 +4829,71 @@ html.light #customer-detail-modal .customer-profile-sections::-webkit-scrollbar-
   display:none!important;
 }
 
+
+
+/* Customer drawer: same open effect as payment drawer */
+#customer-detail-modal{
+  background:rgba(0,0,0,0)!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+#customer-detail-modal.open{
+  background:rgba(0,0,0,.44)!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+#customer-detail-modal.customer-drawer-anim-prep{
+  background:rgba(0,0,0,0)!important;
+}
+#customer-detail-modal.customer-drawer-anim-prep .customer-drawer{
+  opacity:0!important;
+  transform:translateX(26px) scale(.985)!important;
+}
+#customer-detail-modal.customer-drawer-anim-prep .customer-drawer-close{
+  opacity:0!important;
+  transform:translateY(-3px) scale(.96)!important;
+}
+#customer-detail-modal.customer-drawer-anim-in{
+  background:rgba(0,0,0,.44)!important;
+  transition:background .22s ease!important;
+}
+#customer-detail-modal.customer-drawer-anim-in .customer-drawer{
+  opacity:1!important;
+  transform:translateX(0) scale(1)!important;
+  transform-origin:right center!important;
+  transition:
+    transform .24s cubic-bezier(.22,1,.36,1),
+    opacity .20s ease,
+    box-shadow .24s ease!important;
+  will-change:transform,opacity!important;
+}
+#customer-detail-modal.customer-drawer-anim-in .customer-drawer-close{
+  opacity:1!important;
+  transform:translateY(0) scale(1)!important;
+  transition:
+    opacity .18s ease .08s,
+    transform .18s ease .08s,
+    background .15s ease,
+    border-color .15s ease,
+    color .15s ease!important;
+}
+@media (prefers-reduced-motion: reduce){
+  #customer-detail-modal.customer-drawer-anim-prep .customer-drawer,
+  #customer-detail-modal.customer-drawer-anim-in .customer-drawer,
+  #customer-detail-modal.customer-drawer-anim-prep .customer-drawer-close,
+  #customer-detail-modal.customer-drawer-anim-in .customer-drawer-close{
+    opacity:1!important;
+    transform:none!important;
+    transition:none!important;
+  }
+}
+html.light #customer-detail-modal.open,
+html.light #customer-detail-modal.customer-drawer-anim-in{
+  background:rgba(17,17,24,.20)!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+
 </style>
 </head>
 <body>
@@ -6592,13 +6657,13 @@ async function openCustomerDrawer(id){
   currentCustomerDrawerId=id;
   document.getElementById('customer-detail-body').innerHTML='<div class="empty">Loading customer...</div>';
   var customerModal=document.getElementById('customer-detail-modal');
-  customerModal.classList.remove('customer-anim-in');
-  customerModal.classList.add('customer-anim-prep','open');
+  customerModal.classList.remove('customer-anim-prep','customer-anim-in','customer-drawer-anim-prep','customer-drawer-anim-in');
+  customerModal.classList.add('open','customer-drawer-anim-prep');
   document.body.classList.add('drawer-open');
   requestAnimationFrame(function(){
     requestAnimationFrame(function(){
-      customerModal.classList.remove('customer-anim-prep');
-      customerModal.classList.add('customer-anim-in');
+      customerModal.classList.remove('customer-drawer-anim-prep');
+      customerModal.classList.add('customer-drawer-anim-in');
     });
   });
   try{
@@ -6609,7 +6674,7 @@ async function openCustomerDrawer(id){
     closeCustomerDrawer();
   }
 }
-function closeCustomerDrawer(){var customerModal=document.getElementById('customer-detail-modal');customerModal.classList.remove('open','customer-anim-prep','customer-anim-in');document.body.classList.remove('drawer-open');currentCustomerDrawerId=null;}
+function closeCustomerDrawer(){var customerModal=document.getElementById('customer-detail-modal');customerModal.classList.remove('open','customer-anim-prep','customer-anim-in','customer-drawer-anim-prep','customer-drawer-anim-in');document.body.classList.remove('drawer-open');currentCustomerDrawerId=null;}
 async function setCustStatus(id,status){await api('/api/customers/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});toast('Customer '+status);loadCustomers();if(currentCustomerDrawerId===id){openCustomerDrawer(id);}}
 async function openPortal(customerId){try{const r=await api('/api/customers/'+customerId+'/portal',{method:'POST'});if(r.url)window.open(r.url,'_blank');else toast('Could not open portal','error');}catch(e){toast('Error','error');}}
 async function runRebills(){toast('Running rebill job…');try{const r=await api('/api/run-rebills',{method:'POST'});if(r.success){toast('✓ Done: '+r.succeeded+' charged, '+r.failed+' failed'+(r.resumed>0?', '+r.resumed+' resumed':''));loadStats();loadUpcoming();}}catch(e){toast('Error','error');}}
