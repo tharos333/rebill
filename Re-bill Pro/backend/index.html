@@ -4822,6 +4822,13 @@ html.light #customer-detail-modal .customer-profile-sections::-webkit-scrollbar-
   height:5px!important;
 }
 
+
+
+/* Customer drawer: remove status from header */
+#customer-detail-modal .customer-profile-hero .customer-profile-header-status{
+  display:none!important;
+}
+
 </style>
 </head>
 <body>
@@ -6526,9 +6533,8 @@ function buildCustomerDrawer(data){
   const totalPaid=fmt(c.total_paid||0,c.last_payment_currency||'usd');
   const hasCard=!!(c.card_brand||c.card_last4);
   let h='';
-  var headerStatus='<div class="customer-profile-header-status '+(statusCls||'')+'" title="'+escapeCustomerHtml(status)+'"><span></span><span>'+escapeCustomerHtml(status)+'</span></div>';
   h+='<div class="customer-profile-hero">';
-  h+='<div class="customer-profile-identity"><div class="customer-profile-name-row"><div class="customer-profile-name" title="'+name+'">'+name+'</div>'+headerStatus+'</div><div class="customer-profile-email" title="'+email+'">'+email+'</div></div>';
+  h+='<div class="customer-profile-identity"><div class="customer-profile-name" title="'+name+'">'+name+'</div><div class="customer-profile-email" title="'+email+'">'+email+'</div></div>';
   h+='</div>';
 
   h+='<div class="customer-drawer-sections customer-profile-sections">';
