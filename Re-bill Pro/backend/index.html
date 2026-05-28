@@ -4207,6 +4207,32 @@ html.light #payment-detail-modal .payment-detail-shell{
   box-shadow:0 24px 70px rgba(17,17,24,.18)!important;
 }
 
+
+
+/* FINAL FORCE: payment drawer no blur overlay */
+#payment-detail-modal,
+#payment-detail-modal.open,
+html.light #payment-detail-modal,
+html.light #payment-detail-modal.open{
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  filter:none!important;
+}
+#payment-detail-modal.open{
+  animation:none!important;
+  background:rgba(0,0,0,.44)!important;
+}
+html.light #payment-detail-modal.open{
+  animation:none!important;
+  background:rgba(17,17,24,.28)!important;
+}
+#payment-detail-modal .payment-detail-shell{
+  box-shadow:0 24px 70px rgba(0,0,0,.42)!important;
+}
+html.light #payment-detail-modal .payment-detail-shell{
+  box-shadow:0 24px 70px rgba(17,17,24,.18)!important;
+}
+
 </style>
 </head>
 <body>
