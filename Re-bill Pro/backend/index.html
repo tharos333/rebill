@@ -4615,6 +4615,58 @@ html.light #customer-detail-modal .customer-profile-sections::-webkit-scrollbar-
   max-width:calc(100vw - 48px)!important;
 }
 
+
+
+/* Customer drawer saved card: brand name + payment-size icon */
+#customer-detail-modal .customer-profile-card-line{
+  margin-bottom:10px!important;
+}
+#customer-detail-modal .customer-profile-card-display{
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:9px!important;
+  min-width:0!important;
+  color:var(--text)!important;
+  font-size:13px!important;
+  font-weight:600!important;
+}
+#customer-detail-modal .customer-profile-card-display .payment-card{
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:0!important;
+  flex:0 0 auto!important;
+}
+#customer-detail-modal .customer-profile-card-display .card-icon,
+#customer-detail-modal .customer-profile-card-display .payment-card svg,
+#customer-detail-modal .customer-profile-card-display .payment-card img{
+  width:28px!important;
+  height:20px!important;
+  min-width:28px!important;
+  border-radius:5px!important;
+}
+#customer-detail-modal .customer-profile-card-display .payment-card .card-last4,
+#customer-detail-modal .customer-profile-card-display .payment-card .card-dots,
+#customer-detail-modal .customer-profile-card-display .payment-card span:not(.card-icon){
+  display:none!important;
+}
+#customer-detail-modal .customer-profile-card-brand{
+  color:var(--text)!important;
+  font-size:13px!important;
+  font-weight:600!important;
+  white-space:nowrap!important;
+}
+#customer-detail-modal .customer-profile-card-dots{
+  color:var(--muted)!important;
+  letter-spacing:3px!important;
+  font-size:13px!important;
+  line-height:1!important;
+}
+#customer-detail-modal .customer-profile-card-last4{
+  color:var(--muted)!important;
+  font-size:13px!important;
+  font-weight:600!important;
+}
+
 </style>
 </head>
 <body>
@@ -6301,6 +6353,12 @@ function customerActivityRows(rows){
     return '<div class="customer-profile-activity-row"><span class="customer-profile-activity-dot '+dot+'"></span><div class="customer-profile-activity-main"><div class="customer-profile-activity-label">'+escapeCustomerHtml(label)+'</div>'+(amount?'<div class="customer-profile-activity-sub">'+amount+'</div>':'')+'</div><div class="customer-profile-activity-time">'+stamp+'</div></div>';
   }).join('')+'</div>';
 }
+function customerSavedCardDisplay(c){
+  var brandRaw=String(c.card_brand||'').trim();
+  var brand=brandRaw ? brandRaw.replace(/_/g,' ').replace(/\b\w/g,function(ch){return ch.toUpperCase();}) : 'Card';
+  var last4=c.card_last4 ? String(c.card_last4) : '—';
+  return '<div class="customer-profile-card-display">'+cardBadge(c.card_brand,c.card_last4)+'<span class="customer-profile-card-brand">'+escapeCustomerHtml(brand)+'</span><span class="customer-profile-card-dots">••••</span><span class="customer-profile-card-last4">'+escapeCustomerHtml(last4)+'</span></div>';
+}
 function buildCustomerDrawer(data){
   const c=data.customer||{};
   const name=escapeCustomerHtml(c.name||'Customer');
@@ -6330,7 +6388,7 @@ function buildCustomerDrawer(data){
 
   h+='<section class="customer-profile-section"><h3>Saved card</h3>';
   if(hasCard){
-    h+='<div class="customer-profile-card-line">'+cardBadge(c.card_brand,c.card_last4)+'</div>';
+    h+='<div class="customer-profile-card-line">'+customerSavedCardDisplay(c)+'</div>';
     h+=customerDrawerRow('Funding',escapeCustomerHtml(c.card_funding||'—'));
     h+=customerDrawerRow('Country',escapeCustomerHtml((c.card_country||'—').toUpperCase()));
     h+=customerDrawerRow('Expires',escapeCustomerHtml(expiry));
@@ -6731,6 +6789,59 @@ document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>
 #page-accounts .badge,
 #page-accounts .badge > span{
   font-weight:400!important;
+}
+
+
+
+/* Customer drawer open effect like payment drawer */
+#customer-detail-modal{
+  display:none;
+  align-items:flex-start!important;
+  justify-content:flex-end!important;
+  background:rgba(0,0,0,0)!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  transition:background .22s ease!important;
+}
+#customer-detail-modal.open{
+  display:flex!important;
+  background:rgba(0,0,0,.34)!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+#customer-detail-modal .customer-drawer{
+  transform:translateX(24px) scale(.985)!important;
+  opacity:0!important;
+  transform-origin:right center!important;
+  transition:transform .26s cubic-bezier(.22,1,.36,1), opacity .2s ease, box-shadow .26s ease!important;
+  will-change:transform,opacity!important;
+}
+#customer-detail-modal.open .customer-drawer{
+  transform:translateX(0) scale(1)!important;
+  opacity:1!important;
+}
+#customer-detail-modal .customer-drawer-close{
+  opacity:0!important;
+  transform:translateY(-4px) scale(.96)!important;
+  transition:opacity .18s ease .08s, transform .18s ease .08s, background .15s ease, border-color .15s ease, color .15s ease!important;
+}
+#customer-detail-modal.open .customer-drawer-close{
+  opacity:1!important;
+  transform:translateY(0) scale(1)!important;
+}
+@media (prefers-reduced-motion: reduce){
+  #customer-detail-modal,
+  #customer-detail-modal .customer-drawer,
+  #customer-detail-modal .customer-drawer-close{
+    transition:none!important;
+    transform:none!important;
+    opacity:1!important;
+  }
+}
+html.light #customer-detail-modal.open{
+  background:rgba(17,17,24,.18)!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
 }
 
 </style>
