@@ -4624,9 +4624,15 @@ html.light #customer-detail-modal .customer-profile-sections::-webkit-scrollbar-
 #customer-detail-modal .customer-profile-header-status{
   display:inline-flex!important;
   align-items:center!important;
+  justify-content:center!important;
   gap:7px!important;
   flex:0 0 auto!important;
-  font-size:13px!important;
+  height:24px!important;
+  padding:0 10px!important;
+  border-radius:999px!important;
+  border:1px solid rgba(125,125,155,0.18)!important;
+  background:rgba(255,255,255,0.03)!important;
+  font-size:12px!important;
   line-height:1!important;
   font-weight:700!important;
   color:var(--muted)!important;
@@ -4642,11 +4648,15 @@ html.light #customer-detail-modal .customer-profile-sections::-webkit-scrollbar-
 #customer-detail-modal .customer-profile-header-status.value-green,
 #customer-detail-modal .customer-profile-header-status.active{
   color:var(--green)!important;
+  background:rgba(34,197,94,0.12)!important;
+  border-color:rgba(34,197,94,0.18)!important;
 }
 #customer-detail-modal .customer-profile-header-status.value-red,
 #customer-detail-modal .customer-profile-header-status.paused,
 #customer-detail-modal .customer-profile-header-status.inactive{
   color:var(--red)!important;
+  background:rgba(248,113,113,0.12)!important;
+  border-color:rgba(248,113,113,0.18)!important;
 }
 
 
