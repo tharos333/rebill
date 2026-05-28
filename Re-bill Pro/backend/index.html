@@ -120,7 +120,7 @@ th{text-align:left;padding:8px 16px;font-size:10px;color:var(--muted);font-famil
 td{padding:11px 16px;font-size:13px;border-bottom:1px solid var(--border)}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:rgba(255,255,255,0.02)}
-.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:20px;font-size:11px;font-family:var(--mono);font-weight:500}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:20px;font-size:11px;font-family:var(--mono);font-weight:600}
 .badge::before{content:'●';font-size:7px}
 .badge-green{background:var(--green-bg);color:var(--green)}
 .badge-red{background:var(--red-bg);color:var(--red)}
@@ -7163,6 +7163,21 @@ html.light #customer-detail-modal.open{
 #page-admins .badge.badge-red,
 #page-security .badge.badge-green,
 #page-security .badge.badge-red{
+  font-weight:600!important;
+}
+
+
+
+/* Final exact: only status/role pill text weight 600 */
+.badge{
+  font-weight:600!important;
+}
+
+
+
+/* Final exact: status action button labels only */
+.btn-success,
+.btn-danger{
   font-weight:600!important;
 }
 
