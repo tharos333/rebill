@@ -7402,4 +7402,84 @@ table .customer-cell,
   order:4!important;
 }
 
+
+
+/* FINAL FIX: customer drawer saved card order = brand → icon → dots → last4 */
+#customer-detail-modal .customer-saved-card,
+#customer-detail-modal .saved-card-row,
+#customer-detail-modal .customer-card-main,
+#customer-detail-modal .card-summary,
+.customer-detail-shell .customer-saved-card,
+.customer-detail-shell .saved-card-row,
+.customer-detail-shell .customer-card-main,
+.customer-detail-shell .card-summary{
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  white-space:nowrap!important;
+}
+
+/* Put brand first */
+#customer-detail-modal .customer-saved-card .payment-brand-name,
+#customer-detail-modal .saved-card-row .payment-brand-name,
+#customer-detail-modal .customer-card-main .payment-brand-name,
+#customer-detail-modal .card-summary .payment-brand-name,
+.customer-detail-shell .customer-saved-card .payment-brand-name,
+.customer-detail-shell .saved-card-row .payment-brand-name,
+.customer-detail-shell .customer-card-main .payment-brand-name,
+.customer-detail-shell .card-summary .payment-brand-name{
+  order:1!important;
+}
+
+/* Put icon second and match payment drawer icon size */
+#customer-detail-modal .customer-saved-card img,
+#customer-detail-modal .saved-card-row img,
+#customer-detail-modal .customer-card-main img,
+#customer-detail-modal .card-summary img,
+.customer-detail-shell .customer-saved-card img,
+.customer-detail-shell .saved-card-row img,
+.customer-detail-shell .customer-card-main img,
+.customer-detail-shell .card-summary img,
+#customer-detail-modal .customer-saved-card .payment-img,
+#customer-detail-modal .saved-card-row .payment-img,
+#customer-detail-modal .customer-card-main .payment-img,
+#customer-detail-modal .card-summary .payment-img,
+.customer-detail-shell .customer-saved-card .payment-img,
+.customer-detail-shell .saved-card-row .payment-img,
+.customer-detail-shell .customer-card-main .payment-img,
+.customer-detail-shell .card-summary .payment-img{
+  order:2!important;
+  width:24px!important;
+  height:16px!important;
+  min-width:24px!important;
+  max-width:24px!important;
+  max-height:16px!important;
+  object-fit:contain!important;
+  border-radius:4px!important;
+  flex:0 0 auto!important;
+}
+
+/* Dots third, last4 fourth */
+#customer-detail-modal .customer-saved-card .payment-dots,
+#customer-detail-modal .saved-card-row .payment-dots,
+#customer-detail-modal .customer-card-main .payment-dots,
+#customer-detail-modal .card-summary .payment-dots,
+.customer-detail-shell .customer-saved-card .payment-dots,
+.customer-detail-shell .saved-card-row .payment-dots,
+.customer-detail-shell .customer-card-main .payment-dots,
+.customer-detail-shell .card-summary .payment-dots{
+  order:3!important;
+}
+
+#customer-detail-modal .customer-saved-card .payment-last4,
+#customer-detail-modal .saved-card-row .payment-last4,
+#customer-detail-modal .customer-card-main .payment-last4,
+#customer-detail-modal .card-summary .payment-last4,
+.customer-detail-shell .customer-saved-card .payment-last4,
+.customer-detail-shell .saved-card-row .payment-last4,
+.customer-detail-shell .customer-card-main .payment-last4,
+.customer-detail-shell .card-summary .payment-last4{
+  order:4!important;
+}
+
 </style>
