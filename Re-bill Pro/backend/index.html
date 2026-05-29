@@ -4248,9 +4248,9 @@ html.light #payment-detail-modal .payment-detail-shell{
 #customer-detail-modal .customer-drawer{
   width:440px!important;
   max-width:calc(100vw - 48px)!important;
-  height:auto!important;
-  max-height:calc(100vh - 48px)!important;
-  min-height:0!important;
+  height:calc(100dvh - 48px)!important;
+  max-height:calc(100dvh - 48px)!important;
+  min-height:calc(100dvh - 48px)!important;
   border-radius:18px!important;
   border:1px solid var(--border2)!important;
   border-left:1px solid var(--border2)!important;
@@ -4564,7 +4564,9 @@ html.light #customer-detail-modal .customer-profile-sections::-webkit-scrollbar-
   #customer-detail-modal .customer-drawer{
     width:calc(100vw - 32px)!important;
     max-width:calc(100vw - 32px)!important;
-    max-height:calc(100vh - 32px)!important;
+    height:calc(100dvh - 32px)!important;
+    max-height:calc(100dvh - 32px)!important;
+    min-height:calc(100dvh - 32px)!important;
   }
   #customer-detail-modal .customer-drawer-scroll{padding:20px 18px 0!important;}
   #customer-detail-modal .customer-profile-hero{padding-right:40px!important;}
@@ -4962,66 +4964,6 @@ tbody td strong{
   font-weight:600!important;
 }
 
-</style>
-<style>
-
-/* FINAL OVERRIDE — Customer drawer saved card must match Payment drawer: brand → icon → •••• → last4 */
-#customer-detail-modal .customer-profile-card-line .customer-saved-card-final{
-  display:flex!important;
-  align-items:center!important;
-  justify-content:flex-start!important;
-  gap:8px!important;
-  white-space:nowrap!important;
-  width:auto!important;
-  overflow:visible!important;
-}
-#customer-detail-modal .customer-profile-card-line .customer-saved-card-final .customer-profile-card-brand{
-  display:inline-block!important;
-  visibility:visible!important;
-  opacity:1!important;
-  color:var(--text)!important;
-  font-size:13px!important;
-  font-weight:600!important;
-  line-height:16px!important;
-  order:1!important;
-}
-#customer-detail-modal .customer-profile-card-line .customer-saved-card-final .customer-profile-card-icon{
-  display:inline-block!important;
-  visibility:visible!important;
-  opacity:1!important;
-  order:2!important;
-  width:24px!important;
-  height:16px!important;
-  min-width:24px!important;
-  max-width:24px!important;
-  max-height:16px!important;
-  object-fit:contain!important;
-  border-radius:4px!important;
-  flex:0 0 24px!important;
-}
-#customer-detail-modal .customer-profile-card-line .customer-saved-card-final .customer-profile-card-dots{
-  display:inline-block!important;
-  visibility:visible!important;
-  opacity:1!important;
-  order:3!important;
-  color:var(--muted)!important;
-  font-family:var(--mono)!important;
-  font-size:12px!important;
-  font-weight:500!important;
-  letter-spacing:2px!important;
-  line-height:16px!important;
-}
-#customer-detail-modal .customer-profile-card-line .customer-saved-card-final .customer-profile-card-last4{
-  display:inline-block!important;
-  visibility:visible!important;
-  opacity:1!important;
-  order:4!important;
-  color:var(--muted)!important;
-  font-family:var(--mono)!important;
-  font-size:12px!important;
-  font-weight:500!important;
-  line-height:16px!important;
-}
 </style>
 </head>
 <body>
@@ -6709,50 +6651,8 @@ function customerActivityRows(rows){
   }).join('')+'</div>';
 }
 function customerSavedCardDisplay(c){
-  /* Customer drawer saved card display.
-     Keep this independent from the table/cardBadge CSS so old rules cannot hide the text. */
-  var fallback = null;
-  try{
-    fallback = ((typeof allCustomers !== 'undefined' && allCustomers) ? allCustomers : []).find(function(x){ return String(x.id) === String(c.id || currentCustomerDrawerId); }) || null;
-  }catch(e){}
-  c = Object.assign({}, fallback || {}, c || {});
-
-  var b=(c.card_brand||'').toString().toLowerCase();
-  var last4=(c.card_last4||'').toString();
-  var icons={
-    visa:'visa.svg',
-    mastercard:'mastercard.svg',
-    amex:'amex.svg',
-    discover:'discover.svg',
-    diners:'diners.svg',
-    jcb:'jcb.svg',
-    unionpay:'unionpay.svg',
-    cartes_bancaires:'cartes-bancaires.svg',
-    dankort:'dankort.svg',
-    elo:'elo.svg',
-    hipercard:'hipercard.svg',
-    maestro:'maestro.svg',
-    uatp:'uatp.svg',
-    vpay:'vpay.svg'
-  };
-  var labels={visa:'Visa',mastercard:'Mastercard',amex:'American Express',discover:'Discover',diners:'Diners Club',jcb:'JCB',unionpay:'UnionPay',cartes_bancaires:'Cartes Bancaires',dankort:'Dankort',elo:'Elo',hipercard:'Hipercard',maestro:'Maestro',uatp:'UATP',vpay:'V Pay'};
-  var label=labels[b]||((b||'card').replace(/_/g,' ').replace(/\b\w/g,function(ch){return ch.toUpperCase();}));
-
-  var wrapStyle='display:flex!important;align-items:center!important;gap:8px!important;white-space:nowrap!important;min-width:0!important;overflow:visible!important;color:var(--text)!important;';
-  var brandStyle='display:inline-block!important;visibility:visible!important;opacity:1!important;color:var(--text)!important;font-size:13px!important;font-weight:600!important;line-height:16px!important;white-space:nowrap!important;';
-  var iconStyle='display:inline-block!important;width:24px!important;height:16px!important;min-width:24px!important;max-width:24px!important;max-height:16px!important;object-fit:contain!important;border-radius:4px!important;vertical-align:middle!important;flex:0 0 24px!important;';
-  var dotsStyle='display:inline-block!important;visibility:visible!important;opacity:1!important;color:var(--muted)!important;font-family:var(--mono)!important;font-size:12px!important;font-weight:500!important;letter-spacing:2px!important;line-height:16px!important;white-space:nowrap!important;';
-  var last4Style='display:inline-block!important;visibility:visible!important;opacity:1!important;color:var(--muted)!important;font-family:var(--mono)!important;font-size:12px!important;font-weight:500!important;line-height:16px!important;white-space:nowrap!important;';
-
-  var brand='<strong class="customer-profile-card-brand" style="'+brandStyle+'">'+escapeCustomerHtml(label)+'</strong>';
-  var icon=icons[b]
-    ? '<img src="/icons/'+icons[b]+'" class="customer-profile-card-icon" style="'+iconStyle+'" alt="'+escapeCustomerHtml(label)+'" title="'+escapeCustomerHtml(label)+'">'
-    : '<span class="customer-profile-card-icon" style="'+iconStyle+'text-align:center;background:var(--panel-2);font-size:9px;line-height:16px;color:var(--text);" title="'+escapeCustomerHtml(label)+'">'+escapeCustomerHtml((b||'card').slice(0,4).toUpperCase())+'</span>';
-  var dots=last4?'<span class="customer-profile-card-dots" style="'+dotsStyle+'">••••</span>':'';
-  var last='<span class="customer-profile-card-last4" style="'+last4Style+'">'+escapeCustomerHtml(last4||'—')+'</span>';
-  return '<div class="customer-profile-card-display customer-saved-card-final" style="'+wrapStyle+'">'+brand+icon+dots+last+'</div>';
+  return '<div class="customer-profile-card-display customer-drawer-payment-method">'+paymentDrawerCardBadge(c.card_brand,c.card_last4)+'</div>';
 }
-
 function buildCustomerDrawer(data){
   const c=data.customer||{};
   const name=escapeCustomerHtml(c.name||'Customer');
@@ -7636,116 +7536,28 @@ table .customer-cell,
 #customer-detail-modal .customer-drawer-payment-method .payment-dots{order:3!important;}
 #customer-detail-modal .customer-drawer-payment-method .payment-last4{order:4!important;}
 
-
-
-/* FINAL HARD FIX: show brand + dots + last4 in Customer drawer Saved card.
-   This overrides the older rule that hid all spans inside the customer saved card. */
-#customer-detail-modal .customer-drawer-payment-method .drawer-payment-card .payment-brand-name,
-#customer-detail-modal .customer-drawer-payment-method .drawer-payment-card .payment-dots,
-#customer-detail-modal .customer-drawer-payment-method .drawer-payment-card .payment-last4,
-#customer-detail-modal .customer-profile-card-display .drawer-payment-card .payment-brand-name,
-#customer-detail-modal .customer-profile-card-display .drawer-payment-card .payment-dots,
-#customer-detail-modal .customer-profile-card-display .drawer-payment-card .payment-last4{
-  display:inline-flex!important;
-  align-items:center!important;
-  visibility:visible!important;
-  opacity:1!important;
-}
-#customer-detail-modal .customer-drawer-payment-method .drawer-payment-card .payment-brand-name,
-#customer-detail-modal .customer-profile-card-display .drawer-payment-card .payment-brand-name{
-  order:1!important;
-  color:var(--text)!important;
-  font-size:13px!important;
-  font-weight:600!important;
-}
-#customer-detail-modal .customer-drawer-payment-method .drawer-payment-card .payment-img,
-#customer-detail-modal .customer-profile-card-display .drawer-payment-card .payment-img,
-#customer-detail-modal .customer-drawer-payment-method .drawer-payment-card img,
-#customer-detail-modal .customer-profile-card-display .drawer-payment-card img{
-  order:2!important;
-  width:24px!important;
-  height:16px!important;
-  min-width:24px!important;
-  max-width:24px!important;
-  max-height:16px!important;
-  object-fit:contain!important;
-  border-radius:4px!important;
-  flex:0 0 auto!important;
-}
-#customer-detail-modal .customer-drawer-payment-method .drawer-payment-card .payment-dots,
-#customer-detail-modal .customer-profile-card-display .drawer-payment-card .payment-dots{
-  order:3!important;
-  color:var(--muted)!important;
-  font-family:var(--mono)!important;
-  font-size:12px!important;
-  font-weight:500!important;
-}
-#customer-detail-modal .customer-drawer-payment-method .drawer-payment-card .payment-last4,
-#customer-detail-modal .customer-profile-card-display .drawer-payment-card .payment-last4{
-  order:4!important;
-  color:var(--muted)!important;
-  font-family:var(--mono)!important;
-  font-size:12px!important;
-  font-weight:500!important;
-}
-
-
-/* ULTIMATE CUSTOMER DRAWER CARD FIX: direct markup, no nested payment-card spans. */
-#customer-detail-modal .customer-saved-card-final,
-.customer-detail-shell .customer-saved-card-final{
-  display:inline-flex!important;
-  align-items:center!important;
-  gap:8px!important;
-  white-space:nowrap!important;
-  min-width:0!important;
-}
-#customer-detail-modal .customer-saved-card-final .customer-profile-card-brand,
-.customer-detail-shell .customer-saved-card-final .customer-profile-card-brand{
-  display:inline-flex!important;
-  order:1!important;
-  visibility:visible!important;
-  opacity:1!important;
-  color:var(--text)!important;
-  font-size:13px!important;
-  font-weight:600!important;
-  line-height:1.2!important;
-}
-#customer-detail-modal .customer-saved-card-final .customer-profile-card-icon,
-#customer-detail-modal .customer-saved-card-final img,
-.customer-detail-shell .customer-saved-card-final .customer-profile-card-icon,
-.customer-detail-shell .customer-saved-card-final img{
-  display:inline-flex!important;
-  order:2!important;
-  width:24px!important;
-  height:16px!important;
-  min-width:24px!important;
-  max-width:24px!important;
-  max-height:16px!important;
-  object-fit:contain!important;
-  border-radius:4px!important;
-  flex:0 0 auto!important;
-}
-#customer-detail-modal .customer-saved-card-final .customer-profile-card-dots,
-.customer-detail-shell .customer-saved-card-final .customer-profile-card-dots{
-  display:inline-flex!important;
-  order:3!important;
-  visibility:visible!important;
-  opacity:1!important;
-  color:var(--muted)!important;
-  font-family:var(--mono)!important;
-  font-size:12px!important;
-  font-weight:500!important;
-  letter-spacing:2px!important;
-}
-#customer-detail-modal .customer-saved-card-final .customer-profile-card-last4,
-.customer-detail-shell .customer-saved-card-final .customer-profile-card-last4{
-  display:inline-flex!important;
-  order:4!important;
-  visibility:visible!important;
-  opacity:1!important;
-  color:var(--muted)!important;
-  font-family:var(--mono)!important;
-  font-size:12px!important;
-  font-weight:500!important;
-}
 </style>
+/* Final fix: keep Customer drawer fixed-height like Payment drawer */
+#customer-detail-modal.open .customer-drawer,
+#customer-detail-modal .customer-drawer{
+  height:calc(100dvh - 48px)!important;
+  max-height:calc(100dvh - 48px)!important;
+  min-height:calc(100dvh - 48px)!important;
+}
+#customer-detail-modal .customer-drawer-scroll{
+  flex:1 1 auto!important;
+  min-height:0!important;
+}
+#customer-detail-modal .customer-profile-sections{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  overflow-y:auto!important;
+}
+@media(max-width:760px){
+  #customer-detail-modal.open .customer-drawer,
+  #customer-detail-modal .customer-drawer{
+    height:calc(100dvh - 32px)!important;
+    max-height:calc(100dvh - 32px)!important;
+    min-height:calc(100dvh - 32px)!important;
+  }
+}
