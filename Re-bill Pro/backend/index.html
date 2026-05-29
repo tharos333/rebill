@@ -7561,4 +7561,63 @@ table .customer-cell,
   }
 }
 
+
+/* Customer drawer bottom actions fix */
+#customer-detail-modal .customer-profile-section:last-of-type{
+  border-bottom:0!important;
+}
+#customer-detail-modal .customer-profile-actions{
+  flex:0 0 auto!important;
+  display:grid!important;
+  grid-template-columns:1fr 1fr!important;
+  gap:10px!important;
+  padding:12px 0 16px!important;
+  margin-top:0!important;
+  border-top:0!important;
+  background:transparent!important;
+}
+#customer-detail-modal .customer-profile-actions .btn{
+  height:38px!important;
+  min-height:38px!important;
+  border-radius:9px!important;
+  justify-content:center!important;
+  font-size:12px!important;
+  font-weight:600!important;
+  line-height:1!important;
+  padding:0 12px!important;
+  box-sizing:border-box!important;
+}
+#customer-detail-modal .customer-profile-actions .btn:not(.btn-danger){
+  color:var(--text)!important;
+  background:rgba(255,255,255,.035)!important;
+  border:1px solid rgba(255,255,255,.12)!important;
+}
+#customer-detail-modal .customer-profile-actions .btn:not(.btn-danger):hover{
+  background:rgba(255,255,255,.07)!important;
+  border-color:rgba(255,255,255,.18)!important;
+}
+#customer-detail-modal .customer-profile-actions .btn-danger{
+  color:#ff7b7b!important;
+  background:rgba(248,113,113,.10)!important;
+  border:1px solid rgba(248,113,113,.24)!important;
+}
+#customer-detail-modal .customer-profile-actions .btn-danger:hover{
+  background:rgba(248,113,113,.15)!important;
+  border-color:rgba(248,113,113,.34)!important;
+}
+html.light #customer-detail-modal .customer-profile-actions .btn:not(.btn-danger){
+  color:#171720!important;
+  background:rgba(17,17,24,.035)!important;
+  border-color:rgba(17,17,24,.12)!important;
+}
+html.light #customer-detail-modal .customer-profile-actions .btn:not(.btn-danger):hover{
+  background:rgba(17,17,24,.06)!important;
+  border-color:rgba(17,17,24,.18)!important;
+}
+html.light #customer-detail-modal .customer-profile-actions .btn-danger{
+  color:#c24141!important;
+  background:rgba(220,38,38,.075)!important;
+  border-color:rgba(220,38,38,.22)!important;
+}
+
 </style>
