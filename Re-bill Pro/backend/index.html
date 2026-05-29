@@ -6649,10 +6649,7 @@ function customerActivityRows(rows){
   }).join('')+'</div>';
 }
 function customerSavedCardDisplay(c){
-  var brandRaw=String(c.card_brand||'').trim();
-  var brand=brandRaw ? brandRaw.replace(/_/g,' ').replace(/\b\w/g,function(ch){return ch.toUpperCase();}) : 'Card';
-  var last4=c.card_last4 ? String(c.card_last4) : '—';
-  return '<div class="customer-profile-card-display"><span class="customer-profile-card-brand">'+escapeCustomerHtml(brand)+'</span>'+cardBadge(c.card_brand,c.card_last4)+'<span class="customer-profile-card-dots">••••</span><span class="customer-profile-card-last4">'+escapeCustomerHtml(last4)+'</span></div>';
+  return '<div class="customer-profile-card-display customer-drawer-payment-method">'+paymentDrawerCardBadge(c.card_brand,c.card_last4)+'</div>';
 }
 function buildCustomerDrawer(data){
   const c=data.customer||{};
@@ -7506,5 +7503,35 @@ table .customer-cell,
 }
 #customer-detail-modal .customer-profile-card-display .customer-profile-card-dots{order:3!important;}
 #customer-detail-modal .customer-profile-card-display .customer-profile-card-last4{order:4!important;}
+
+/* FINAL OVERRIDE: Customer drawer saved card uses the exact payment-drawer card markup and sizing */
+#customer-detail-modal .customer-drawer-payment-method{
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:0!important;
+  white-space:nowrap!important;
+}
+#customer-detail-modal .customer-drawer-payment-method .drawer-payment-card{
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  white-space:nowrap!important;
+}
+#customer-detail-modal .customer-drawer-payment-method .payment-brand-name{order:1!important;}
+#customer-detail-modal .customer-drawer-payment-method .payment-img,
+#customer-detail-modal .customer-drawer-payment-method img,
+#customer-detail-modal .customer-drawer-payment-method .payment-badge-fallback{
+  order:2!important;
+  width:24px!important;
+  height:16px!important;
+  min-width:24px!important;
+  max-width:24px!important;
+  max-height:16px!important;
+  object-fit:contain!important;
+  border-radius:4px!important;
+  flex:0 0 auto!important;
+}
+#customer-detail-modal .customer-drawer-payment-method .payment-dots{order:3!important;}
+#customer-detail-modal .customer-drawer-payment-method .payment-last4{order:4!important;}
 
 </style>
