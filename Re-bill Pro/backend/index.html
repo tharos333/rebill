@@ -7249,4 +7249,52 @@ table .customer-cell,
   gap:0!important;
 }
 
+
+
+/* Remove leading dot from badge/status pills */
+.badge::before{
+  content:none!important;
+  display:none!important;
+}
+
+
+
+/* Final typography polish: card last4, webhook event, Stripe key */
+.payment-card .payment-dots,
+.payment-card .payment-last4{
+  font-family:var(--mono)!important;
+  font-size:12px!important;
+  font-weight:500!important;
+  color:var(--muted)!important;
+  line-height:1!important;
+}
+.payment-card .payment-dots{
+  letter-spacing:2px!important;
+}
+.payment-card .payment-last4{
+  letter-spacing:0!important;
+}
+
+/* Webhook Logs: Event column should feel like app UI text, not overly heavy */
+#webhooks-table td:first-child,
+#webhook-table td:first-child,
+#page-webhooks tbody td:first-child{
+  font-family:var(--sans)!important;
+  font-size:13px!important;
+  font-weight:500!important;
+  letter-spacing:-0.01em!important;
+  color:var(--text)!important;
+}
+
+/* Stripe Accounts: secret key column as clean technical/reference text */
+#accounts-table td:nth-child(2),
+#stripe-accounts-table td:nth-child(2),
+#page-accounts tbody td:nth-child(2){
+  font-family:var(--mono)!important;
+  font-size:12px!important;
+  font-weight:500!important;
+  letter-spacing:-0.01em!important;
+  color:var(--muted)!important;
+}
+
 </style>
