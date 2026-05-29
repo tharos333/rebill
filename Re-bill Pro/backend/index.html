@@ -5974,7 +5974,7 @@ function paymentDrawerCardBadge(brand,last4){
   var brandName=brand?'<span class="payment-brand-name">'+label+'</span>':'';
   var dots=last4?'<span class="payment-dots">••••</span>':'';
   var num=last4?'<span class="payment-last4">'+last4+'</span>':'';
-  return '<div class="payment-card drawer-payment-card">'+img+brandName+dots+num+'</div>';
+  return '<div class="payment-card drawer-payment-card">'+brandName+img+dots+num+'</div>';
 }
 
 function cardBadge(brand,last4){
@@ -7350,5 +7350,56 @@ table .customer-cell,
 .customer-detail-drawer .payment-card .payment-last4,
 .payment-drawer .payment-card .payment-last4,
 .customer-drawer .payment-card .payment-last4{order:4!important;}
+
+
+
+/* FINAL: drawer card icon size and order match in payment + customer drawers */
+#payment-detail-modal .drawer-payment-card,
+#customer-detail-modal .drawer-payment-card,
+.payment-detail-shell .drawer-payment-card,
+.customer-detail-shell .drawer-payment-card{
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  white-space:nowrap!important;
+}
+
+#payment-detail-modal .drawer-payment-card .payment-brand-name,
+#customer-detail-modal .drawer-payment-card .payment-brand-name,
+.payment-detail-shell .drawer-payment-card .payment-brand-name,
+.customer-detail-shell .drawer-payment-card .payment-brand-name{
+  order:1!important;
+}
+
+#payment-detail-modal .drawer-payment-card .payment-img,
+#customer-detail-modal .drawer-payment-card .payment-img,
+.payment-detail-shell .drawer-payment-card .payment-img,
+.customer-detail-shell .drawer-payment-card .payment-img,
+#payment-detail-modal .pd-method-main .drawer-payment-card .payment-img,
+.payment-detail-shell .pd-method-main .drawer-payment-card .payment-img{
+  order:2!important;
+  width:24px!important;
+  height:16px!important;
+  min-width:24px!important;
+  max-width:24px!important;
+  max-height:16px!important;
+  object-fit:contain!important;
+  border-radius:4px!important;
+  flex:0 0 auto!important;
+}
+
+#payment-detail-modal .drawer-payment-card .payment-dots,
+#customer-detail-modal .drawer-payment-card .payment-dots,
+.payment-detail-shell .drawer-payment-card .payment-dots,
+.customer-detail-shell .drawer-payment-card .payment-dots{
+  order:3!important;
+}
+
+#payment-detail-modal .drawer-payment-card .payment-last4,
+#customer-detail-modal .drawer-payment-card .payment-last4,
+.payment-detail-shell .drawer-payment-card .payment-last4,
+.customer-detail-shell .drawer-payment-card .payment-last4{
+  order:4!important;
+}
 
 </style>
