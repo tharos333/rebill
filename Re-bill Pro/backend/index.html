@@ -6651,8 +6651,42 @@ function customerActivityRows(rows){
   }).join('')+'</div>';
 }
 function customerSavedCardDisplay(c){
-  return '<div class="customer-profile-card-display customer-drawer-payment-method">'
-    + paymentDrawerCardBadge(c.card_brand,c.card_last4)
+  var raw=(c.card_brand||'').toString().toLowerCase().trim();
+  var b=raw.replace(/[\s-]+/g,'_');
+  var aliases={
+    'american_express':'amex',
+    'diners_club':'diners',
+    'master_card':'mastercard',
+    'carte_bancaire':'cartes_bancaires',
+    'cb':'cartes_bancaires'
+  };
+  b=aliases[b]||b;
+  var icons={
+    visa:'visa.svg',
+    mastercard:'mastercard.svg',
+    amex:'american-express.svg',
+    discover:'discover.svg',
+    diners:'diners.svg',
+    jcb:'jcb.svg',
+    unionpay:'unionpay.svg',
+    cartes_bancaires:'cartes-bancaires.svg',
+    dankort:'dankort.svg',
+    elo:'elo.svg',
+    hipercard:'hipercard.svg',
+    maestro:'maestro.svg',
+    uatp:'uatp.svg',
+    vpay:'vpay.svg'
+  };
+  var labels={visa:'Visa',mastercard:'Mastercard',amex:'American Express',discover:'Discover',diners:'Diners Club',jcb:'JCB',unionpay:'UnionPay',cartes_bancaires:'Cartes Bancaires',dankort:'Dankort',elo:'Elo',hipercard:'Hipercard',maestro:'Maestro',uatp:'UATP',vpay:'V Pay'};
+  var label=labels[b]||((b||'Card').replace(/_/g,' ').replace(/\b\w/g,function(ch){return ch.toUpperCase();}));
+  var icon=icons[b]
+    ? '<img src="/icons/'+icons[b]+'" class="customer-card-icon" alt="'+escapeCustomerHtml(label)+'" title="'+escapeCustomerHtml(label)+'">'
+    : '<span class="customer-card-fallback">'+escapeCustomerHtml((b||'card').slice(0,4).toUpperCase())+'</span>';
+  var last4=(c.card_last4||'').toString();
+  return '<div class="customer-profile-card-display customer-drawer-payment-method customer-card-direct">'
+    + '<span class="customer-card-brand-text">'+escapeCustomerHtml(label)+'</span>'
+    + icon
+    + (last4?'<span class="customer-card-dots">••••</span><span class="customer-card-last4">'+escapeCustomerHtml(last4)+'</span>':'')
     + '</div>';
 }
 function buildCustomerDrawer(data){
@@ -7777,6 +7811,70 @@ html.light #customer-detail-modal .customer-profile-actions{
   font-weight:600!important;
   line-height:1!important;
   white-space:nowrap!important;
+}
+
+
+/* Customer drawer saved card direct format: brand → icon → dots → last4 */
+#customer-detail-modal .customer-card-direct,
+#customer-detail-modal .customer-profile-card-line .customer-card-direct{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  gap:8px!important;
+  width:100%!important;
+  min-width:0!important;
+  color:var(--text)!important;
+  font-size:13px!important;
+  font-weight:600!important;
+  line-height:1!important;
+}
+#customer-detail-modal .customer-card-direct .customer-card-brand-text,
+#customer-detail-modal .customer-card-direct .customer-card-dots,
+#customer-detail-modal .customer-card-direct .customer-card-last4{
+  display:inline-flex!important;
+  visibility:visible!important;
+  opacity:1!important;
+  color:var(--text)!important;
+  font-size:13px!important;
+  font-weight:600!important;
+  line-height:1!important;
+  white-space:nowrap!important;
+  max-width:none!important;
+  width:auto!important;
+  height:auto!important;
+  overflow:visible!important;
+  text-indent:0!important;
+}
+#customer-detail-modal .customer-card-direct .customer-card-dots{
+  color:var(--muted)!important;
+  letter-spacing:3px!important;
+}
+#customer-detail-modal .customer-card-direct .customer-card-icon{
+  display:inline-block!important;
+  visibility:visible!important;
+  opacity:1!important;
+  width:24px!important;
+  height:16px!important;
+  min-width:24px!important;
+  max-width:24px!important;
+  min-height:16px!important;
+  max-height:16px!important;
+  object-fit:contain!important;
+  border-radius:4px!important;
+  flex:0 0 auto!important;
+}
+#customer-detail-modal .customer-card-direct .customer-card-fallback{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  width:24px!important;
+  height:16px!important;
+  min-width:24px!important;
+  border-radius:4px!important;
+  font-size:8px!important;
+  font-weight:700!important;
+  color:var(--text)!important;
+  background:rgba(255,255,255,.08)!important;
 }
 
 </style>
