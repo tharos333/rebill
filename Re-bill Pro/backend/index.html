@@ -4962,6 +4962,39 @@ tbody td strong{
   font-weight:600!important;
 }
 
+
+
+/* Drawer spacing refinement: improve breathing room between payment detail rows only */
+#payment-detail-modal .pd-polished-section{
+  padding-top:20px!important;
+  padding-bottom:20px!important;
+}
+#payment-detail-modal .pd-polished-section:first-of-type{
+  padding-top:0!important;
+}
+#payment-detail-modal .pd-polished-heading{
+  margin-bottom:16px!important;
+}
+#payment-detail-modal .pd-polished-row{
+  min-height:31px!important;
+  padding:3px 0!important;
+  gap:20px!important;
+}
+#payment-detail-modal .pd-customer-rows{
+  gap:10px!important;
+}
+#payment-detail-modal .pd-customer-rows .pd-polished-row{
+  min-height:28px!important;
+  padding:3px 0!important;
+}
+#payment-detail-modal .pd-activity-compact{
+  gap:12px!important;
+}
+#payment-detail-modal .pd-activity-row{
+  min-height:30px!important;
+  padding:4px 0!important;
+  gap:12px!important;
+}
 </style>
 </head>
 <body>
@@ -5924,6 +5957,38 @@ function badge(s){
   const icon = badgeIcon(raw);
   return '<span class="badge badge-'+cls+(icon?' has-status-icon':'')+'"><span>'+badgeLabel(raw)+'</span>'+icon+'</span>';
 }
+
+/* Payment/customer drawer card display alignment: same icon size + brand then dots/last4 */
+#payment-detail-modal .pd-method-main .drawer-payment-card .payment-img,
+#payment-detail-modal .pd-method-main .drawer-payment-card .payment-badge-fallback{
+  width:28px!important;
+  height:20px!important;
+  min-width:28px!important;
+  border-radius:5px!important;
+}
+#payment-detail-modal .pd-method-main .drawer-payment-card{
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:9px!important;
+}
+#payment-detail-modal .pd-method-main .drawer-payment-card .payment-brand-name{
+  order:2!important;
+}
+#payment-detail-modal .pd-method-main .drawer-payment-card .payment-dots{
+  order:3!important;
+}
+#payment-detail-modal .pd-method-main .drawer-payment-card .payment-last4{
+  order:4!important;
+}
+#payment-detail-modal .pd-method-main .drawer-payment-card .payment-img,
+#payment-detail-modal .pd-method-main .drawer-payment-card .payment-badge-fallback{
+  order:1!important;
+}
+#customer-detail-modal .customer-profile-card-brand{order:2!important;}
+#customer-detail-modal .customer-profile-card-dots{order:3!important;}
+#customer-detail-modal .customer-profile-card-last4{order:4!important;}
+#customer-detail-modal .customer-profile-card-display .payment-card{order:1!important;}
+
 async function api(path,opts){
   opts=opts||{};opts.headers=opts.headers||{};
   var u=localStorage.getItem('subloop_username');if(u)opts.headers['x-username']=u;
