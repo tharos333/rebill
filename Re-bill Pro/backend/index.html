@@ -4962,6 +4962,39 @@ tbody td strong{
   font-weight:600!important;
 }
 
+
+
+/* Drawer spacing refinement: improve breathing room between payment detail rows only */
+#payment-detail-modal .pd-polished-section{
+  padding-top:20px!important;
+  padding-bottom:20px!important;
+}
+#payment-detail-modal .pd-polished-section:first-of-type{
+  padding-top:0!important;
+}
+#payment-detail-modal .pd-polished-heading{
+  margin-bottom:16px!important;
+}
+#payment-detail-modal .pd-polished-row{
+  min-height:31px!important;
+  padding:3px 0!important;
+  gap:20px!important;
+}
+#payment-detail-modal .pd-customer-rows{
+  gap:10px!important;
+}
+#payment-detail-modal .pd-customer-rows .pd-polished-row{
+  min-height:28px!important;
+  padding:3px 0!important;
+}
+#payment-detail-modal .pd-activity-compact{
+  gap:12px!important;
+}
+#payment-detail-modal .pd-activity-row{
+  min-height:30px!important;
+  padding:4px 0!important;
+  gap:12px!important;
+}
 </style>
 </head>
 <body>
@@ -7258,9 +7291,4 @@ table .customer-cell,
 }
 
 
-
-/* FINAL TARGETED: extra space between payment meta grid and Payment breakdown */
-#payment-detail-modal .pd-meta-grid{
-  margin-bottom:30px!important;
-}
 </style>
