@@ -7296,4 +7296,59 @@ table .customer-cell,
   order:4!important;
 }
 
+
+
+/* FINAL drawer payment method: brand → icon → dots → last4 */
+#payment-detail-modal .payment-card,
+#customer-detail-modal .payment-card,
+.payment-detail-drawer .payment-card,
+.customer-detail-drawer .payment-card,
+.payment-drawer .payment-card,
+.customer-drawer .payment-card{
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  white-space:nowrap!important;
+}
+#payment-detail-modal .payment-card .payment-brand,
+#customer-detail-modal .payment-card .payment-brand,
+.payment-detail-drawer .payment-card .payment-brand,
+.customer-detail-drawer .payment-card .payment-brand,
+.payment-drawer .payment-card .payment-brand,
+.customer-drawer .payment-card .payment-brand{order:1!important;}
+#payment-detail-modal .payment-card img,
+#customer-detail-modal .payment-card img,
+.payment-detail-drawer .payment-card img,
+.customer-detail-drawer .payment-card img,
+.payment-drawer .payment-card img,
+.customer-drawer .payment-card img,
+#payment-detail-modal .payment-card .payment-img,
+#customer-detail-modal .payment-card .payment-img,
+.payment-detail-drawer .payment-card .payment-img,
+.customer-detail-drawer .payment-card .payment-img,
+.payment-drawer .payment-card .payment-img,
+.customer-drawer .payment-card .payment-img{
+  order:2!important;
+  width:24px!important;
+  height:16px!important;
+  min-width:24px!important;
+  max-width:24px!important;
+  max-height:16px!important;
+  object-fit:contain!important;
+  border-radius:4px!important;
+  flex:0 0 auto!important;
+}
+#payment-detail-modal .payment-card .payment-dots,
+#customer-detail-modal .payment-card .payment-dots,
+.payment-detail-drawer .payment-card .payment-dots,
+.customer-detail-drawer .payment-card .payment-dots,
+.payment-drawer .payment-card .payment-dots,
+.customer-drawer .payment-card .payment-dots{order:3!important;}
+#payment-detail-modal .payment-card .payment-last4,
+#customer-detail-modal .payment-card .payment-last4,
+.payment-detail-drawer .payment-card .payment-last4,
+.customer-detail-drawer .payment-card .payment-last4,
+.payment-drawer .payment-card .payment-last4,
+.customer-drawer .payment-card .payment-last4{order:4!important;}
+
 </style>
