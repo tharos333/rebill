@@ -6711,12 +6711,13 @@ function buildCustomerDrawer(data){
   h+=customerActivityRows(data.recent_payments||[]);
   h+='</section>';
 
+  h+='</div>';
+
   h+='<div class="customer-profile-actions">';
   h+='<button class="btn" onclick="openPortal('+c.id+')">View card</button>';
   h+=`<button class="btn ${c.status==='active'?'btn-danger':''}" onclick="setCustStatus(${c.id},'${c.status==='active'?'paused':'active'}')">${c.status==='active'?'Pause customer':'Resume customer'}</button>`;
   h+='</div>';
 
-  h+='</div>';
   return h;
 }
 
@@ -7618,6 +7619,51 @@ html.light #customer-detail-modal .customer-profile-actions .btn-danger{
   color:#c24141!important;
   background:rgba(220,38,38,.075)!important;
   border-color:rgba(220,38,38,.22)!important;
+}
+
+
+/* Customer drawer fixed bottom action buttons */
+#customer-detail-modal .customer-drawer-scroll{
+  display:flex!important;
+  flex-direction:column!important;
+  height:100%!important;
+  min-height:0!important;
+  overflow:hidden!important;
+  padding-bottom:0!important;
+}
+#customer-detail-modal .customer-profile-sections{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  padding-bottom:14px!important;
+}
+#customer-detail-modal .customer-profile-actions{
+  flex:0 0 auto!important;
+  display:grid!important;
+  grid-template-columns:1fr 1fr!important;
+  gap:10px!important;
+  padding:12px 0 16px!important;
+  margin:0!important;
+  border-top:0!important;
+  background:var(--surface)!important;
+}
+html.light #customer-detail-modal .customer-profile-actions{
+  background:#fff!important;
+}
+#customer-detail-modal .customer-profile-section:last-of-type{
+  border-bottom:0!important;
+}
+#customer-detail-modal .customer-profile-actions .btn{
+  height:38px!important;
+  min-height:38px!important;
+  border-radius:9px!important;
+  justify-content:center!important;
+  font-size:12px!important;
+  font-weight:600!important;
+  line-height:1!important;
+  padding:0 12px!important;
+  box-sizing:border-box!important;
 }
 
 </style>
