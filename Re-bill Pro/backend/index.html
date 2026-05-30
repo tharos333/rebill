@@ -6574,8 +6574,22 @@ function resetCustomerFiltersOnRefresh(){
   updateCustomerPrimaryButtons();
   if(Array.isArray(allCustomers) && allCustomers.length) filterCustomers();
 }
+function resetPaymentFiltersOnRefresh(){
+  payStatusFilter='';
+  payCurrentPage=1;
+  var search=document.getElementById('pay-search'); if(search)search.value='';
+  var account=document.getElementById('pay-account-filter'); if(account)account.value='';
+  var dateFilter=document.getElementById('pay-date-filter'); if(dateFilter)dateFilter.value='';
+  ['pay-date-from','pay-date-to','pay-filter-brand','pay-filter-card-state','pay-filter-failure','pay-filter-min-amount','pay-filter-max-amount'].forEach(function(id){
+    var el=document.getElementById(id); if(el)el.value='';
+  });
+  var popup=document.getElementById('pay-advanced-filters'); if(popup)popup.classList.remove('open');
+  toggleCustomDate();
+  setPayStatus('');
+}
 window.addEventListener('pageshow',function(){
   resetCustomerFiltersOnRefresh();
+  resetPaymentFiltersOnRefresh();
 });
 
 async function loadSubscriptions(){try{allSubscriptions=await api('/api/subscriptions');renderSubscriptions(allSubscriptions);}catch(e){}}
