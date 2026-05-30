@@ -7877,4 +7877,20 @@ html.light #customer-detail-modal .customer-profile-actions{
   background:rgba(255,255,255,.08)!important;
 }
 
+
+/* FINAL ORDER FIX: Customer saved card = Brand → Icon → dots → last4 */
+#customer-detail-modal .customer-card-direct .customer-card-brand-text{
+  order:1!important;
+}
+#customer-detail-modal .customer-card-direct .customer-card-icon,
+#customer-detail-modal .customer-card-direct .customer-card-fallback{
+  order:2!important;
+}
+#customer-detail-modal .customer-card-direct .customer-card-dots{
+  order:3!important;
+}
+#customer-detail-modal .customer-card-direct .customer-card-last4{
+  order:4!important;
+}
+
 </style>
