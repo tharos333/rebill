@@ -4964,6 +4964,21 @@ tbody td strong{
   font-weight:600!important;
 }
 
+
+/* Final fix: Customer drawer close glyph matches Payment drawer SVG exactly */
+#customer-detail-modal .customer-drawer-close::before,
+#customer-detail-modal .customer-drawer-close::after{
+  display:none!important;
+  content:none!important;
+}
+#customer-detail-modal .customer-drawer-close svg{
+  width:14px!important;
+  height:14px!important;
+  display:block!important;
+  stroke:currentColor!important;
+  flex:0 0 auto!important;
+}
+
 </style>
 </head>
 <body>
@@ -5583,7 +5598,7 @@ tbody td strong{
 <div id="customer-detail-modal" onclick="if(event.target===this)closeCustomerDrawer()">
   <div class="customer-drawer">
     <div class="customer-drawer-top">
-      <button class="customer-drawer-close" onclick="closeCustomerDrawer()">×</button>
+      <button class="customer-drawer-close" onclick="closeCustomerDrawer()" aria-label="Close customer details"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button>
     </div>
     <div class="customer-drawer-scroll" id="customer-detail-body"></div>
   </div>
