@@ -5206,22 +5206,24 @@ tbody td strong{
     <!-- Divider -->
     <div class="pay-filter-divider" style="width:1px;height:28px;background:#2A2A38;margin:0 2px;"></div>
     <!-- Date range -->
-    <div style="position:relative;display:flex;align-items:center;">
-      <svg style="position:absolute;left:10px;pointer-events:none;color:#8B8B99;" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-      <select id="pay-date-filter" class="pay-filter-select" onchange="payCurrentPage=1;toggleCustomDate();filterPayments();" style="padding:6px 32px 6px 30px;font-size:12px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#F5F5F7;cursor:pointer;appearance:none;-webkit-appearance:none;min-width:175px;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">
-        <option value="">All time</option>
-        <option value="today">Today</option>
-        <option value="yesterday">Yesterday</option>
-        <option value="week">Last 7 days</option>
-        <option value="month">This month</option>
-        <option value="custom">Custom range...</option>
-      </select>
+    <div style="display:flex;align-items:center;">
+      <div style="position:relative;display:flex;align-items:center;">
+        <svg style="position:absolute;left:10px;pointer-events:none;color:#8B8B99;" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <select id="pay-date-filter" class="pay-filter-select" onchange="payCurrentPage=1;toggleCustomDate();filterPayments();" style="padding:6px 32px 6px 30px;font-size:12px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#F5F5F7;cursor:pointer;appearance:none;-webkit-appearance:none;min-width:175px;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">
+          <option value="">All time</option>
+          <option value="today">Today</option>
+          <option value="yesterday">Yesterday</option>
+          <option value="week">Last 7 days</option>
+          <option value="month">This month</option>
+          <option value="custom">Custom range...</option>
+        </select>
+        <svg style="position:absolute;right:10px;pointer-events:none;color:#8B8B99;" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
       <div id="pay-custom-date" style="display:none;align-items:center;gap:6px;margin-left:4px;">
         <input type="date" id="pay-date-from" onchange="payCurrentPage=1;filterPayments();" style="padding:5px 8px;font-size:12px;border-radius:10px;border:1px solid #2A2A38;background:#14141d;color:#F5F5F7;font-family:var(--sans);cursor:pointer;">
         <span style="color:#8B8B99;font-size:12px;">→</span>
         <input type="date" id="pay-date-to" onchange="payCurrentPage=1;filterPayments();" style="padding:5px 8px;font-size:12px;border-radius:10px;border:1px solid #2A2A38;background:#14141d;color:#F5F5F7;font-family:var(--sans);cursor:pointer;">
       </div>
-      <svg style="position:absolute;right:10px;pointer-events:none;color:#8B8B99;" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
     </div>
     <!-- Stripe account dropdown -->
     <div style="position:relative;display:flex;align-items:center;">
