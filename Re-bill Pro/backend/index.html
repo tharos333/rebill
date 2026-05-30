@@ -297,6 +297,8 @@ html.light .pay-filter-bar{background:var(--surface)!important;border-color:var(
 html.light .pay-filter-btn{background:#f4f4f8!important;border-color:rgba(0,0,0,0.1)!important;color:#111118!important;box-shadow:none!important;}
 html.light .pay-filter-btn-succeeded{color:#00a85a!important;}
 html.light .pay-filter-btn-failed{color:#d93025!important;}
+html.light .customer-filter-btn-active{color:#00a85a!important;}
+html.light .customer-filter-btn-paused{color:#d97706!important;}
 html.light .pay-filter-btn.active{background:rgba(108,99,255,0.08)!important;border-color:#6c63ff!important;color:#5b52cc!important;box-shadow:none!important;}
 html.light .pay-filter-select,html.light .pay-filter-input{background:#f4f4f8!important;border-color:rgba(0,0,0,0.1)!important;color:#111118!important;box-shadow:none!important;}
 html.light .pay-filter-input:focus{border-color:#6c63ff!important;box-shadow:0 0 0 3px rgba(108,99,255,0.12)!important;}
@@ -5170,7 +5172,94 @@ tbody td strong{
       <button class="btn btn-primary" onclick="openModal('add-customer-modal')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Customer</button>
     </div>
   </div>
-  <div class="search-bar"><input type="text" id="customer-search" placeholder="Search by name or email..." oninput="filterCustomers()"></div>
+  <div class="pay-filter-bar" style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;">
+    <!-- Customer status pill buttons -->
+    <div style="display:flex;align-items:center;gap:5px;">
+      <button id="customer-btn-all" class="pay-filter-btn active" onclick="setCustomerStatus('')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #6D5EF8;background:rgba(109,94,248,0.18);color:#F5F5F7;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:0 0 12px rgba(109,94,248,0.25),inset 0 1px 0 rgba(255,255,255,0.08);">All <span id="customer-count-all" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>
+      <button id="customer-btn-active" class="pay-filter-btn customer-filter-btn-active" onclick="setCustomerStatus('active')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#00C773;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">Active <span id="customer-count-active" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>
+      <button id="customer-btn-paused" class="pay-filter-btn customer-filter-btn-paused" onclick="setCustomerStatus('paused')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#FBBF24;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">Paused <span id="customer-count-paused" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>
+    </div>
+    <div class="pay-filter-divider" style="width:1px;height:28px;background:#2A2A38;margin:0 2px;"></div>
+    <!-- Stripe account dropdown -->
+    <div style="position:relative;display:flex;align-items:center;">
+      <select id="customer-account-filter" class="pay-filter-select" onchange="filterCustomers();" style="padding:6px 32px 6px 12px;font-size:12px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#F5F5F7;cursor:pointer;appearance:none;-webkit-appearance:none;min-width:180px;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">
+        <option value="">All Stripe Accounts</option>
+      </select>
+      <svg style="position:absolute;right:10px;pointer-events:none;color:#8B8B99;" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <!-- Search -->
+    <div style="position:relative;display:flex;align-items:center;flex:1;min-width:210px;">
+      <svg style="position:absolute;left:10px;color:#8B8B99;flex-shrink:0;" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input id="customer-search" class="pay-filter-input" type="text" placeholder="Search by name, email or card..." oninput="filterCustomers();" style="width:100%;padding:6px 42px 6px 32px;font-size:12px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#F5F5F7;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);outline:none;transition:border-color 0.18s,box-shadow 0.18s;" onfocus="this.style.borderColor='#6D5EF8';this.style.boxShadow='0 0 0 3px rgba(109,94,248,0.18),inset 0 1px 0 rgba(255,255,255,0.04)';" onblur="this.style.borderColor='#2A2A38';this.style.boxShadow='inset 0 1px 0 rgba(255,255,255,0.04)';">
+      <span class="pay-filter-kbd" style="position:absolute;right:10px;font-size:10px;color:#8B8B99;background:#14141d;border:1px solid #2A2A38;border-radius:4px;padding:1px 5px;pointer-events:none;">⌘K</span>
+    </div>
+    <!-- Advanced customer filters -->
+    <div style="position:relative;">
+      <button onclick="toggleAdvancedCustomerFilters(event)" class="btn btn-primary" style="display:flex;align-items:center;gap:6px;padding:6px 13px;border-radius:12px;font-size:12px;font-weight:600;white-space:nowrap;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>Filters</button>
+      <div id="customer-advanced-filters" class="pay-advanced-filters" onclick="event.stopPropagation();">
+        <div class="pay-advanced-title">Advanced Filters</div>
+        <div class="pay-advanced-grid">
+          <div class="pay-advanced-field">
+            <label>Sort by</label>
+            <select id="customer-filter-sort">
+              <option value="last_desc">Last payment · newest</option>
+              <option value="last_asc">Last payment · oldest</option>
+              <option value="total_desc">Total paid · highest</option>
+              <option value="total_asc">Total paid · lowest</option>
+              <option value="created_desc">Created · newest</option>
+              <option value="created_asc">Created · oldest</option>
+            </select>
+          </div>
+          <div class="pay-advanced-field">
+            <label>Card</label>
+            <select id="customer-filter-card">
+              <option value="">All cards</option>
+              <option value="has">Saved card</option>
+              <option value="none">No saved card</option>
+            </select>
+          </div>
+          <div class="pay-advanced-field">
+            <label>Activity</label>
+            <select id="customer-filter-activity">
+              <option value="">All paid customers</option>
+              <option value="once">Paid once</option>
+              <option value="repeat">Repeat customer</option>
+            </select>
+          </div>
+          <div class="pay-advanced-field">
+            <label>Last payment</label>
+            <select id="customer-filter-date" onchange="toggleCustomerCustomDate();">
+              <option value="">All time</option>
+              <option value="today">Today</option>
+              <option value="week">Last 7 days</option>
+              <option value="month">Last 30 days</option>
+              <option value="custom">Custom range...</option>
+            </select>
+          </div>
+          <div id="customer-custom-date" class="pay-advanced-field pay-advanced-wide" style="display:none;">
+            <label>Custom payment range</label>
+            <div style="display:flex;align-items:center;gap:7px;">
+              <input type="date" id="customer-date-from">
+              <span style="color:var(--muted);font-size:12px;">→</span>
+              <input type="date" id="customer-date-to">
+            </div>
+          </div>
+          <div class="pay-advanced-field">
+            <label>Min total paid</label>
+            <input type="number" id="customer-filter-min-total" placeholder="0.00" step="0.01" min="0">
+          </div>
+          <div class="pay-advanced-field">
+            <label>Max total paid</label>
+            <input type="number" id="customer-filter-max-total" placeholder="999.00" step="0.01" min="0">
+          </div>
+        </div>
+        <div class="pay-advanced-actions">
+          <button class="btn btn-sm" onclick="clearAdvancedCustomerFilters()">Clear Advanced</button>
+          <button class="btn btn-sm btn-primary" onclick="applyAdvancedCustomerFilters()">Apply Filters</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <div class="card"><div class="scrollable"><table>
     <thead><tr><th>Customer</th><th>Card</th><th>Account</th><th>Status</th><th>Note</th><th>Last payment</th><th>Total paid</th><th>Actions</th></tr></thead>
     <tbody id="customers-table"><tr><td colspan="8" class="empty">Loading...</td></tr></tbody>
@@ -6209,7 +6298,20 @@ async function loadCustomers(){
       try{ allPayments = await api('/api/payments'); }catch(_e){}
     }
     allCustomers=await api('/api/customers');
-    renderCustomers(allCustomers);
+    var customerAccountSelect=document.getElementById('customer-account-filter');
+    if(customerAccountSelect){
+      var seenAccounts=new Set();
+      var accountOptions='<option value="">All Stripe Accounts</option>';
+      allCustomers.forEach(function(c){
+        var accountName=c.account_name||'';
+        if(accountName&&!seenAccounts.has(accountName)){
+          seenAccounts.add(accountName);
+          accountOptions+='<option value="'+accountName+'">'+accountName+'</option>';
+        }
+      });
+      customerAccountSelect.innerHTML=accountOptions;
+    }
+    setCustomerStatus('');
   }catch(e){}
 }
 
@@ -6264,7 +6366,137 @@ function renderCustomers(list){
     </tr>`;
   }).join('');
 }
-function filterCustomers(){const q=document.getElementById('customer-search').value.toLowerCase();renderCustomers(allCustomers.filter(c=>(c.name||'').toLowerCase().includes(q)||(c.email||'').toLowerCase().includes(q)));}
+var customerStatusFilter='';
+function setCustomerStatus(status){
+  customerStatusFilter=status;
+  ['all','active','paused'].forEach(function(key){
+    var btn=document.getElementById('customer-btn-'+key);
+    if(!btn)return;
+    var isActive=(key==='all'&&status==='')||(key===status);
+    btn.classList.toggle('active',isActive);
+    if(isActive){
+      btn.style.border='1px solid #6D5EF8';
+      btn.style.background='rgba(109,94,248,0.18)';
+      btn.style.boxShadow='0 0 12px rgba(109,94,248,0.25),inset 0 1px 0 rgba(255,255,255,0.08)';
+      btn.style.color=key==='active'?'#00C773':key==='paused'?'#FBBF24':'#F5F5F7';
+    }else{
+      btn.style.border='1px solid #2A2A38';
+      btn.style.background='#14141d';
+      btn.style.boxShadow='inset 0 1px 0 rgba(255,255,255,0.04)';
+      btn.style.color=key==='active'?'#00C773':key==='paused'?'#FBBF24':'#8B8B99';
+    }
+  });
+  filterCustomers();
+}
+function customerHasSavedCard(c){
+  return !!(c.card_last4||c.card_brand||c.stripe_payment_method);
+}
+function customerMatchesPayment(c,p){
+  return String(p.customer_id||'')===String(c.id||'') ||
+         (c.stripe_customer_id && String(p.stripe_customer_id||'')===String(c.stripe_customer_id)) ||
+         (c.email && String(p.email||p.customer_email||'').toLowerCase()===String(c.email).toLowerCase());
+}
+function customerSuccessfulPaymentCount(c){
+  var successful=(allPayments||[]).filter(function(p){
+    return p.status==='succeeded' && customerMatchesPayment(c,p);
+  }).length;
+  if(successful) return successful;
+  return Number(c.successful_payment_count||c.payments_count||c.payment_count||0);
+}
+function customerDateValue(c,field){
+  var raw=field==='created'?(c.created_at||c.joined_at||c.created):(c.last_payment_at||'');
+  var date=raw?new Date(raw):null;
+  return date && !isNaN(date.getTime()) ? date.getTime() : 0;
+}
+function filterCustomers(){
+  if(!Array.isArray(allCustomers))return;
+  var q=(document.getElementById('customer-search')?.value||'').toLowerCase();
+  var account=document.getElementById('customer-account-filter')?.value||'';
+  var card=document.getElementById('customer-filter-card')?.value||'';
+  var activity=document.getElementById('customer-filter-activity')?.value||'';
+  var dateFilter=document.getElementById('customer-filter-date')?.value||'';
+  var sort=document.getElementById('customer-filter-sort')?.value||'last_desc';
+  var minTotal=parseFloat(document.getElementById('customer-filter-min-total')?.value||'');
+  var maxTotal=parseFloat(document.getElementById('customer-filter-max-total')?.value||'');
+
+  var allCount=allCustomers.length;
+  var activeCount=allCustomers.filter(function(c){return String(c.status||'').toLowerCase()==='active';}).length;
+  var pausedCount=allCustomers.filter(function(c){return String(c.status||'').toLowerCase()==='paused';}).length;
+  var countAll=document.getElementById('customer-count-all'); if(countAll)countAll.textContent=allCount;
+  var countActive=document.getElementById('customer-count-active'); if(countActive)countActive.textContent=activeCount;
+  var countPaused=document.getElementById('customer-count-paused'); if(countPaused)countPaused.textContent=pausedCount;
+
+  var now=new Date();
+  var filtered=allCustomers.filter(function(c){
+    var status=String(c.status||'').toLowerCase();
+    var hasCard=customerHasSavedCard(c);
+    var paidCount=customerSuccessfulPaymentCount(c);
+    var totalMajor=Number(c.total_paid||0)/100;
+    var matchStatus=!customerStatusFilter||status===customerStatusFilter;
+    var matchAccount=!account||(c.account_name||'')===account;
+    var matchSearch=!q ||
+      String(c.name||'').toLowerCase().includes(q) ||
+      String(c.email||'').toLowerCase().includes(q) ||
+      String(c.card_last4||'').includes(q) ||
+      String(c.stripe_customer_id||c.id||'').toLowerCase().includes(q);
+    var matchCard=!card||(card==='has'?hasCard:!hasCard);
+    var matchActivity=!activity||(activity==='once'?paidCount===1:paidCount>=2);
+    var matchAmount=(isNaN(minTotal)||totalMajor>=minTotal)&&(isNaN(maxTotal)||totalMajor<=maxTotal);
+    var matchDate=true;
+    if(dateFilter){
+      var time=customerDateValue(c,'last');
+      if(!time) return false;
+      var d=new Date(time);
+      if(dateFilter==='today') matchDate=d.toDateString()===now.toDateString();
+      else if(dateFilter==='week'){var w=new Date(now);w.setDate(w.getDate()-7);matchDate=d>=w;}
+      else if(dateFilter==='month'){var m=new Date(now);m.setDate(m.getDate()-30);matchDate=d>=m;}
+      else if(dateFilter==='custom'){
+        var from=document.getElementById('customer-date-from')?.value;
+        var to=document.getElementById('customer-date-to')?.value;
+        if(from) matchDate=matchDate&&d>=new Date(from);
+        if(to){var toDate=new Date(to);toDate.setHours(23,59,59,999);matchDate=matchDate&&d<=toDate;}
+      }
+    }
+    return matchStatus&&matchAccount&&matchSearch&&matchCard&&matchActivity&&matchDate&&matchAmount;
+  });
+
+  filtered.sort(function(a,b){
+    if(sort==='total_desc') return Number(b.total_paid||0)-Number(a.total_paid||0);
+    if(sort==='total_asc') return Number(a.total_paid||0)-Number(b.total_paid||0);
+    if(sort==='last_asc') return customerDateValue(a,'last')-customerDateValue(b,'last');
+    if(sort==='created_desc') return customerDateValue(b,'created')-customerDateValue(a,'created');
+    if(sort==='created_asc') return customerDateValue(a,'created')-customerDateValue(b,'created');
+    return customerDateValue(b,'last')-customerDateValue(a,'last');
+  });
+  renderCustomers(filtered);
+}
+function toggleAdvancedCustomerFilters(event){
+  if(event)event.stopPropagation();
+  var popup=document.getElementById('customer-advanced-filters');
+  if(popup)popup.classList.toggle('open');
+}
+function toggleCustomerCustomDate(){
+  var visible=(document.getElementById('customer-filter-date')?.value||'')==='custom';
+  var custom=document.getElementById('customer-custom-date');
+  if(custom)custom.style.display=visible?'block':'none';
+}
+function applyAdvancedCustomerFilters(){
+  filterCustomers();
+  var popup=document.getElementById('customer-advanced-filters');
+  if(popup)popup.classList.remove('open');
+}
+function clearAdvancedCustomerFilters(){
+  ['customer-filter-card','customer-filter-activity','customer-filter-date'].forEach(function(id){
+    var el=document.getElementById(id); if(el)el.value='';
+  });
+  var sort=document.getElementById('customer-filter-sort'); if(sort)sort.value='last_desc';
+  ['customer-filter-min-total','customer-filter-max-total','customer-date-from','customer-date-to'].forEach(function(id){
+    var el=document.getElementById(id); if(el)el.value='';
+  });
+  toggleCustomerCustomDate();
+  filterCustomers();
+}
+
 async function loadSubscriptions(){try{allSubscriptions=await api('/api/subscriptions');renderSubscriptions(allSubscriptions);}catch(e){}}
 function renderSubscriptions(list){
   var tb=document.getElementById('subscriptions-table');
@@ -6408,6 +6640,8 @@ function clearAdvancedPaymentFilters(){
 document.addEventListener('click',function(e){
   var el=document.getElementById('pay-advanced-filters');
   if(el&&el.classList.contains('open'))el.classList.remove('open');
+  var customerEl=document.getElementById('customer-advanced-filters');
+  if(customerEl&&customerEl.classList.contains('open'))customerEl.classList.remove('open');
 });
 function renderPayPagination(total,totalPages){
   var el=document.getElementById('pay-pagination');
