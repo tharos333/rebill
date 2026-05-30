@@ -75,6 +75,7 @@ async function ensureWebhookColumns() {
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS net_amount INT').catch(()=>{});
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS balance_transaction_id TEXT').catch(()=>{});
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS financial_currency TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS retry_of_payment_id INT REFERENCES payments(id)').catch(()=>{});
   await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT').catch(()=>{});
   await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_price_id TEXT').catch(()=>{});
   await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_invoice_id TEXT').catch(()=>{});
@@ -999,15 +1000,18 @@ app.get('/api/payments/:id/financials', async (req, res) => {
 });
 app.post('/api/payments/:id/retry', async (req, res) => {
   try {
+    await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS retry_of_payment_id INT REFERENCES payments(id)').catch(()=>{});
     const r = await pool.query('SELECT p.*, c.stripe_customer_id, c.stripe_payment_method, c.stripe_account_id, c.email, c.name FROM payments p JOIN customers c ON c.id=p.customer_id WHERE p.id=$1', [req.params.id]);
-    const p = r.rows[0]; if (!p) return res.status(404).json({ error: 'Not found' });
+    const p = r.rows[0];
+    if (!p) return res.status(404).json({ error: 'Not found' });
+    if (p.status !== 'failed') return res.status(400).json({ error: 'Only failed payments can be retried' });
     const acc = await stripeAccounts.byId(p.stripe_account_id);
     const stripe = require('stripe')(acc.secret_key);
     const pi = await stripe.paymentIntents.create({ amount: p.amount, currency: p.currency||'usd', customer: p.stripe_customer_id, payment_method: p.stripe_payment_method, confirm: true, off_session: true });
     const status = pi.status==='succeeded'?'succeeded':'failed';
-    await payments.insert({ customer_id: p.customer_id, subscription_id: p.subscription_id, stripe_payment_intent: pi.id, amount: p.amount, currency: p.currency, status, failure_reason: null });
+    await payments.insert({ customer_id: p.customer_id, subscription_id: p.subscription_id, stripe_payment_intent: pi.id, amount: p.amount, currency: p.currency, status, failure_reason: null, retry_of_payment_id: p.id });
     await activityLog.add('retry', `Retried payment for ${p.name}: ${status}`, p.customer_id, p.amount);
-    res.json({ success: status==='succeeded', status });
+    res.json({ success: status==='succeeded', status, retry_of_payment_id: p.id });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.patch('/api/payments/:id/note', async (req, res) => {
@@ -1315,10 +1319,31 @@ app.get('/api/mrr-history', async (req, res) => {
 });
 app.get('/api/recovery-rate', async (req, res) => {
   try {
-    const r = await pool.query(`SELECT COUNT(CASE WHEN status='failed' THEN 1 END) as total_failed, COUNT(CASE WHEN status='succeeded' THEN 1 END) as total_succeeded FROM payments WHERE created_at >= NOW()-INTERVAL '30 days'`);
-    const row = r.rows[0];
-    const tf=parseInt(row.total_failed)||0, ts=parseInt(row.total_succeeded)||0;
-    res.json({ total_failed: tf, recovered: 0, rate: (tf+ts)>0?Math.round((ts/(tf+ts))*100):0, total_succeeded: ts });
+    await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS retry_of_payment_id INT REFERENCES payments(id)').catch(()=>{});
+    const r = await pool.query(`
+      WITH failed AS (
+        SELECT id
+        FROM payments
+        WHERE status='failed'
+          AND created_at >= NOW()-INTERVAL '30 days'
+      ),
+      recovered AS (
+        SELECT DISTINCT p.retry_of_payment_id AS failed_id
+        FROM payments p
+        JOIN failed f ON f.id=p.retry_of_payment_id
+        WHERE p.status='succeeded'
+      )
+      SELECT
+        COUNT(f.id) AS total_failed,
+        COUNT(r.failed_id) AS recovered
+      FROM failed f
+      LEFT JOIN recovered r ON r.failed_id=f.id
+    `);
+    const row = r.rows[0] || {};
+    const tf = parseInt(row.total_failed) || 0;
+    const recovered = parseInt(row.recovered) || 0;
+    const rate = tf > 0 ? Math.round((recovered / tf) * 100) : 0;
+    res.json({ total_failed: tf, recovered, rate });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.get('/api/search', async (req, res) => {
