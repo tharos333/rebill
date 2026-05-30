@@ -6226,8 +6226,8 @@ function renderCustomers(list){
       <td>
         <div class="customer-cell">
           <div class="avatar">${initials(c.name)}</div>
-          <div class="customer-name-only">
-            <button type="button" class="customer-name-btn" onclick="event.stopPropagation();openCustomerDrawer(${c.id})">${c.name||'—'}</button>
+          <div>
+            <div class="customer-name" style="font-size:13px;">${c.name||'—'}</div>
           </div>
         </div>
       </td>
