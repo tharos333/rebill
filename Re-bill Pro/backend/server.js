@@ -1020,7 +1020,18 @@ app.patch('/api/payments/:id/note', async (req, res) => {
 app.get('/api/payments/export', async (req, res) => {
   try {
     const list = await payments.recent(10000);
-    const csv = ['Customer,Email,Amount,Status,Date'].concat(list.map(p=>`${p.name||''},${p.email||''},${(p.amount||0)/100},${p.status},${p.created_at}`)).join('\n');
+    const escapeCsv = (v) => {
+      const s = String(v ?? '');
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+    const csv = ['Customer,Email,Amount,Currency,Status,Date'].concat(list.map(p=>[
+      p.name||'',
+      p.email||'',
+      ((p.amount||0)/100).toFixed(2),
+      (p.currency||'usd').toUpperCase(),
+      p.status||'',
+      p.created_at||''
+    ].map(escapeCsv).join(','))).join('\n');
     res.setHeader('Content-Type','text/csv'); res.setHeader('Content-Disposition','attachment; filename=payments.csv'); res.send(csv);
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
@@ -1239,31 +1250,56 @@ app.post('/api/auth/check', async (req, res) => {
 // ── Stats & Dashboard ─────────────────────────────────────────────────────────
 app.get('/api/stats', async (req, res) => {
   try {
+    // Analytics are USD-estimated and converted per row before summing.
+    // Keep these calculations separated by table so joins cannot duplicate revenue.
     const r = await pool.query(`
+      WITH sub_stats AS (
+        SELECT
+          COALESCE(SUM(CASE WHEN s.status='active' THEN ${usdAmountSql('s')} ELSE 0 END),0) as mrr,
+          COUNT(CASE WHEN s.status='active' THEN 1 END) as active_subscriptions
+        FROM subscriptions s
+      ),
+      cust_stats AS (
+        SELECT
+          COUNT(*) as total_customers,
+          COUNT(CASE WHEN card_last4 IS NOT NULL THEN 1 END) as saved_cards,
+          COUNT(CASE WHEN created_at >= NOW()-INTERVAL '30 days' THEN 1 END) as new_customers_30d,
+          COUNT(CASE WHEN status='cancelled' AND created_at >= NOW()-INTERVAL '30 days' THEN 1 END) as churned_30d
+        FROM customers
+      ),
+      payment_stats AS (
+        SELECT
+          COUNT(CASE WHEN p.status='failed' AND p.created_at >= NOW()-INTERVAL '30 days' THEN 1 END) as failed_payments,
+          COUNT(CASE WHEN p.status='succeeded' AND p.created_at >= NOW()-INTERVAL '30 days' THEN 1 END) as succeeded_30d,
+          COUNT(CASE WHEN p.status='failed' AND p.created_at >= NOW()-INTERVAL '30 days' THEN 1 END) as failed_30d,
+          COALESCE(SUM(CASE WHEN p.status='succeeded' AND p.created_at >= DATE_TRUNC('month',NOW()) THEN ${usdAmountSql('p')} ELSE 0 END),0) as revenue_month,
+          COALESCE(SUM(CASE WHEN p.status='succeeded' THEN ${usdAmountSql('p')} ELSE 0 END),0) as total_revenue
+        FROM payments p
+      )
       SELECT
-        COALESCE(SUM(CASE WHEN s.status='active' THEN ${usdAmountSql('s')} ELSE 0 END),0) as mrr,
-        COUNT(DISTINCT CASE WHEN s.status='active' THEN s.id END) as active_subscriptions,
-        COUNT(DISTINCT c.id) as total_customers,
-        COUNT(DISTINCT CASE WHEN c.card_last4 IS NOT NULL THEN c.id END) as saved_cards,
-        COUNT(CASE WHEN p.status='failed' AND p.created_at >= NOW()-INTERVAL '30 days' THEN 1 END) as failed_payments,
-        COALESCE(SUM(CASE WHEN p.status='succeeded' AND p.created_at >= DATE_TRUNC('month',NOW()) THEN ${usdAmountSql('p')} ELSE 0 END),0) as revenue_month,
-        COALESCE(SUM(CASE WHEN p.status='succeeded' THEN ${usdAmountSql('p')} ELSE 0 END),0) as total_revenue,
-        COUNT(DISTINCT CASE WHEN c.created_at >= NOW()-INTERVAL '30 days' THEN c.id END) as new_customers_30d
-      FROM customers c
-      LEFT JOIN subscriptions s ON s.customer_id=c.id
-      LEFT JOIN payments p ON p.customer_id=c.id
+        sub_stats.mrr,
+        sub_stats.active_subscriptions,
+        cust_stats.total_customers,
+        cust_stats.saved_cards,
+        cust_stats.new_customers_30d,
+        cust_stats.churned_30d,
+        payment_stats.failed_payments,
+        payment_stats.succeeded_30d,
+        payment_stats.failed_30d,
+        payment_stats.revenue_month,
+        payment_stats.total_revenue
+      FROM sub_stats, cust_stats, payment_stats
     `);
     const row = r.rows[0];
-    const sc = await pool.query("SELECT COUNT(*) as n FROM payments WHERE status='succeeded' AND created_at >= NOW()-INTERVAL '30 days'");
-    const fc = await pool.query("SELECT COUNT(*) as n FROM payments WHERE status='failed' AND created_at >= NOW()-INTERVAL '30 days'");
-    const total = parseInt(sc.rows[0].n)+parseInt(fc.rows[0].n);
-    const custStats = await pool.query("SELECT COUNT(*) as total, COUNT(CASE WHEN status='cancelled' AND created_at >= NOW()-INTERVAL '30 days' THEN 1 END) as churned_30d FROM customers");
-    const cs = custStats.rows[0];
-    const churnRate = parseInt(cs.total)>0?((parseInt(cs.churned_30d)||0)/parseInt(cs.total)*100).toFixed(1):0;
-    const avgLtv = parseInt(cs.total)>0?Math.round(parseInt(row.total_revenue)/parseInt(cs.total)):0;
+    const succeeded30 = parseInt(row.succeeded_30d)||0;
+    const failed30 = parseInt(row.failed_30d)||0;
+    const totalPayments30 = succeeded30 + failed30;
+    const totalCustomers = parseInt(row.total_customers)||0;
+    const churnRate = totalCustomers>0?(((parseInt(row.churned_30d)||0)/totalCustomers)*100).toFixed(1):0;
+    const avgLtv = totalCustomers>0?Math.round((parseFloat(row.total_revenue)||0)/totalCustomers):0;
     res.json({
       ...row,
-      payment_success_rate: total>0?Math.round((parseInt(sc.rows[0].n)/total)*100):100,
+      payment_success_rate: totalPayments30>0?Math.round((succeeded30/totalPayments30)*100):100,
       churn_rate: churnRate,
       avg_ltv: avgLtv,
       revenue_30d: row.revenue_month
@@ -1315,10 +1351,23 @@ app.get('/api/mrr-history', async (req, res) => {
 });
 app.get('/api/recovery-rate', async (req, res) => {
   try {
-    const r = await pool.query(`SELECT COUNT(CASE WHEN status='failed' THEN 1 END) as total_failed, COUNT(CASE WHEN status='succeeded' THEN 1 END) as total_succeeded FROM payments WHERE created_at >= NOW()-INTERVAL '30 days'`);
-    const row = r.rows[0];
-    const tf=parseInt(row.total_failed)||0, ts=parseInt(row.total_succeeded)||0;
-    res.json({ total_failed: tf, recovered: 0, rate: (tf+ts)>0?Math.round((ts/(tf+ts))*100):0, total_succeeded: ts });
+    // Recovery rate means failed payments recovered by retry/dunning, not general payment success rate.
+    const failedRes = await pool.query(`
+      SELECT COUNT(*) as total_failed
+      FROM payments
+      WHERE status='failed' AND created_at >= NOW()-INTERVAL '30 days'
+    `);
+    const recoveredRes = await pool.query(`
+      SELECT COUNT(*) as recovered
+      FROM activity_log
+      WHERE type='retry'
+        AND created_at >= NOW()-INTERVAL '30 days'
+        AND description ILIKE '%succeeded%'
+    `).catch(async () => ({ rows: [{ recovered: 0 }] }));
+    const totalFailed = parseInt(failedRes.rows[0]?.total_failed)||0;
+    const recovered = parseInt(recoveredRes.rows[0]?.recovered)||0;
+    const rate = totalFailed>0 ? Math.round((recovered/totalFailed)*100) : 0;
+    res.json({ total_failed: totalFailed, recovered, rate });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.get('/api/search', async (req, res) => {
