@@ -4986,6 +4986,34 @@ tbody td strong{
   font-weight:600!important;
 }
 
+
+/* Payment needed: blue card icon and blue status text in drawer + Payments table */
+#payment-detail-modal .pd-title-icon.payment-needed{
+  color:#60a5fa!important;
+}
+#payment-detail-modal .pd-meta-value.blue{
+  color:#60a5fa!important;
+}
+#payment-detail-modal .pd-activity-compact-icon.payment-needed{
+  color:#60a5fa!important;
+  border-color:rgba(96,165,250,.38)!important;
+  background:rgba(59,130,246,.10)!important;
+}
+#page-payments .badge.badge-blue,
+#page-payments .badge.badge-blue > span,
+#page-payments .badge.badge-blue svg{
+  color:#60a5fa!important;
+  stroke:#60a5fa!important;
+}
+html.light #payment-detail-modal .pd-title-icon.payment-needed,
+html.light #payment-detail-modal .pd-meta-value.blue,
+html.light #page-payments .badge.badge-blue,
+html.light #page-payments .badge.badge-blue > span,
+html.light #page-payments .badge.badge-blue svg{
+  color:#2563eb!important;
+  stroke:#2563eb!important;
+}
+
 </style>
 </head>
 <body>
@@ -6817,10 +6845,11 @@ function renderPaymentDetailModal(p, syncing){
   var fullReason=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'';
   var isFailed=p.status==='failed', isSucceeded=p.status==='succeeded', isPaymentNeeded=badgeLabel(p.status)==='Payment needed';
   var typeLabel=paymentTypeLabel(p);
-  var headerTitle=isSucceeded?'Payment successful':(isFailed?'Payment failed':'Payment details');
+  var headerTitle=isSucceeded?'Payment successful':(isFailed?'Payment failed':(isPaymentNeeded?'Payment needed':'Payment details'));
   var statusPill=isFailed?'Failed':(isSucceeded?'Succeeded':(isPaymentNeeded?'Payment needed':(p.status||'Unknown')));
   var statusClass=isFailed?'failed':(isSucceeded?'success':'info');
   var drawerStatusIcon=isPaymentNeeded?'payment-needed':statusClass;
+  var drawerStatusClass=isPaymentNeeded?'payment-needed':statusClass;
   var pid=p.stripe_payment_intent||'', invoice=p.stripe_invoice_id||'', account=p.account_name||'—';
   var hasPaymentMethod=!!(p.card_brand||p.card_last4||p.card_funding||p.card_country||p.card_exp_month||p.card_exp_year);
   var cardHtml=(p.card_brand||p.card_last4)?paymentDrawerCardBadge(p.card_brand,p.card_last4):'';
@@ -6849,13 +6878,13 @@ function renderPaymentDetailModal(p, syncing){
   }
   var h='';
   h+='<div class="payment-detail-shell pd-polished-drawer"><div class="payment-detail-top"><button class="payment-detail-close" onclick="closeModal(\'payment-detail-modal\')" aria-label="Close payment details"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button></div><div class="payment-detail-scroll">';
-  h+='<div class="pd-polished-head"><div class="pd-polished-title"><span class="pd-title-icon '+statusClass+'">'+iconSvg(drawerStatusIcon)+'</span><span>'+escHtml(headerTitle)+'</span></div><div class="pd-polished-amount '+statusClass+'">'+fmt(p.amount,p.currency)+'</div><div class="pd-polished-sub">'+escHtml(typeLabel)+' card payment</div></div>';
+  h+='<div class="pd-polished-head"><div class="pd-polished-title"><span class="pd-title-icon '+drawerStatusClass+'">'+iconSvg(drawerStatusIcon)+'</span><span>'+escHtml(headerTitle)+'</span></div><div class="pd-polished-amount '+statusClass+'">'+fmt(p.amount,p.currency)+'</div><div class="pd-polished-sub">'+escHtml(typeLabel)+' card payment</div></div>';
 
   h+='<div class="pd-meta-grid">';
   h+='<div class="pd-meta-card"><div class="pd-meta-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span>Date</span></div><div class="pd-meta-value">'+formatPdDate(p.created_at)+'</div></div>';
   h+='<div class="pd-meta-card"><div class="pd-meta-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Time</span></div><div class="pd-meta-value">'+formatPdLocalTime(p.created_at)+'</div></div>';
   h+='<div class="pd-meta-card"><div class="pd-meta-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 0 20"/><path d="M12 2a15.3 15.3 0 0 0 0 20"/></svg><span>Timezone</span></div><div class="pd-meta-value">Local</div></div>';
-  h+='<div class="pd-meta-card"><div class="pd-meta-label"><span class="pd-title-icon '+statusClass+'" style="width:14px;height:14px;">'+iconSvg(drawerStatusIcon)+'</span><span>Status</span></div><div class="pd-meta-value '+(isFailed?'red':(isSucceeded?'green':''))+'">'+escHtml(statusPill)+'</div></div></div>';
+  h+='<div class="pd-meta-card"><div class="pd-meta-label"><span class="pd-title-icon '+drawerStatusClass+'" style="width:14px;height:14px;">'+iconSvg(drawerStatusIcon)+'</span><span>Status</span></div><div class="pd-meta-value '+(isFailed?'red':(isSucceeded?'green':(isPaymentNeeded?'blue':'')))+'">'+escHtml(statusPill)+'</div></div></div>';
 
   if(isFailed&&fullReason){h+='<div class="pd-fail-box">'+escHtml(fullReason)+'</div>';}
   if(syncing){h+='<div class="pd-sync-note">Fetching real Stripe fee/net…</div>';}
@@ -6898,7 +6927,7 @@ function renderPaymentDetailModal(p, syncing){
   h+='</div></section>';
 
   h+='<section class="pd-polished-section"><h3 class="pd-polished-heading">Activity</h3><div class="pd-activity-compact">';
-  h+='<div class="pd-activity-row"><div class="pd-activity-compact-icon '+(isFailed?'failed':(isSucceeded?'success':''))+'">'+(isFailed?iconSvg('failed'):iconSvg(isSucceeded?'success':drawerStatusIcon))+'</div><div class="pd-activity-label">'+escHtml(activityMain)+'</div><div class="pd-activity-stamp">'+formatPdDate(p.created_at)+', '+formatPdLocalTime(p.created_at)+'</div></div>';
+  h+='<div class="pd-activity-row"><div class="pd-activity-compact-icon '+(isFailed?'failed':(isSucceeded?'success':(isPaymentNeeded?'payment-needed':'')))+'">'+(isFailed?iconSvg('failed'):iconSvg(isSucceeded?'success':drawerStatusIcon))+'</div><div class="pd-activity-label">'+escHtml(activityMain)+'</div><div class="pd-activity-stamp">'+formatPdDate(p.created_at)+', '+formatPdLocalTime(p.created_at)+'</div></div>';
   h+='<div class="pd-activity-row"><div class="pd-activity-compact-icon">'+iconSvg('info')+'</div><div class="pd-activity-label">Payment started</div><div class="pd-activity-stamp">'+formatPdDate(p.created_at)+', '+formatPdLocalTime(p.created_at)+'</div></div>';
   h+='</div></section>';
 
