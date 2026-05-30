@@ -5175,9 +5175,10 @@ tbody td strong{
   <div class="pay-filter-bar" style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;">
     <!-- Customer status pill buttons -->
     <div style="display:flex;align-items:center;gap:5px;">
-      <button id="customer-btn-all" class="pay-filter-btn active" onclick="setCustomerStatus('')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #6D5EF8;background:rgba(109,94,248,0.18);color:#F5F5F7;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:0 0 12px rgba(109,94,248,0.25),inset 0 1px 0 rgba(255,255,255,0.08);">All <span id="customer-count-all" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>
-      <button id="customer-btn-active" class="pay-filter-btn customer-filter-btn-active" onclick="setCustomerStatus('active')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#00C773;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">Active <span id="customer-count-active" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>
-      <button id="customer-btn-paused" class="pay-filter-btn customer-filter-btn-paused" onclick="setCustomerStatus('paused')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#FBBF24;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">Paused <span id="customer-count-paused" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>
+      <button id="customer-btn-all" class="pay-filter-btn active" onclick="setCustomerPrimaryFilter('')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #6D5EF8;background:rgba(109,94,248,0.18);color:#F5F5F7;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:0 0 12px rgba(109,94,248,0.25),inset 0 1px 0 rgba(255,255,255,0.08);">All <span id="customer-count-all" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>
+      <button id="customer-btn-onetime" class="pay-filter-btn" onclick="setCustomerPrimaryFilter('one-time')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#F5F5F7;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">One-time <span id="customer-count-onetime" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>
+      <button id="customer-btn-subscription" class="pay-filter-btn customer-filter-btn-active" onclick="setCustomerPrimaryFilter('subscription')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#00C773;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">Subscription <span id="customer-count-subscription" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>
+      <button id="customer-btn-paused" class="pay-filter-btn customer-filter-btn-paused" onclick="setCustomerPrimaryFilter('paused')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#FBBF24;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">Paused <span id="customer-count-paused" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>
     </div>
     <div class="pay-filter-divider" style="width:1px;height:28px;background:#2A2A38;margin:0 2px;"></div>
     <!-- Stripe account dropdown -->
@@ -5200,14 +5201,11 @@ tbody td strong{
         <div class="pay-advanced-title">Advanced Filters</div>
         <div class="pay-advanced-grid">
           <div class="pay-advanced-field">
-            <label>Sort by</label>
-            <select id="customer-filter-sort">
-              <option value="last_desc">Last payment · newest</option>
-              <option value="last_asc">Last payment · oldest</option>
-              <option value="total_desc">Total paid · highest</option>
-              <option value="total_asc">Total paid · lowest</option>
-              <option value="created_desc">Created · newest</option>
-              <option value="created_asc">Created · oldest</option>
+            <label>Status</label>
+            <select id="customer-filter-status">
+              <option value="">All statuses</option>
+              <option value="active">Active</option>
+              <option value="paused">Paused</option>
             </select>
           </div>
           <div class="pay-advanced-field">
@@ -5219,14 +5217,25 @@ tbody td strong{
             </select>
           </div>
           <div class="pay-advanced-field">
-            <label>Activity</label>
+            <label>Purchase history</label>
             <select id="customer-filter-activity">
-              <option value="">All paid customers</option>
+              <option value="">All customers</option>
               <option value="once">Paid once</option>
               <option value="repeat">Repeat customer</option>
             </select>
           </div>
           <div class="pay-advanced-field">
+            <label>Sort by</label>
+            <select id="customer-filter-sort">
+              <option value="last_desc">Last payment · newest</option>
+              <option value="last_asc">Last payment · oldest</option>
+              <option value="total_desc">Total paid · highest</option>
+              <option value="total_asc">Total paid · lowest</option>
+              <option value="created_desc">Created · newest</option>
+              <option value="created_asc">Created · oldest</option>
+            </select>
+          </div>
+          <div class="pay-advanced-field pay-advanced-wide">
             <label>Last payment</label>
             <select id="customer-filter-date" onchange="toggleCustomerCustomDate();">
               <option value="">All time</option>
@@ -6297,6 +6306,9 @@ async function loadCustomers(){
     if(!Array.isArray(allPayments) || allPayments.length===0){
       try{ allPayments = await api('/api/payments'); }catch(_e){}
     }
+    if(!Array.isArray(allSubscriptions) || allSubscriptions.length===0){
+      try{ allSubscriptions = await api('/api/subscriptions'); }catch(_e){}
+    }
     allCustomers=await api('/api/customers');
     var customerAccountSelect=document.getElementById('customer-account-filter');
     if(customerAccountSelect){
@@ -6311,7 +6323,7 @@ async function loadCustomers(){
       });
       customerAccountSelect.innerHTML=accountOptions;
     }
-    setCustomerStatus('');
+    setCustomerPrimaryFilter('');
   }catch(e){}
 }
 
@@ -6366,26 +6378,35 @@ function renderCustomers(list){
     </tr>`;
   }).join('');
 }
-var customerStatusFilter='';
-function setCustomerStatus(status){
-  customerStatusFilter=status;
-  ['all','active','paused'].forEach(function(key){
+var customerPrimaryFilter='';
+function updateCustomerPrimaryButtons(){
+  ['all','onetime','subscription','paused'].forEach(function(key){
     var btn=document.getElementById('customer-btn-'+key);
     if(!btn)return;
-    var isActive=(key==='all'&&status==='')||(key===status);
+    var value=key==='onetime'?'one-time':key;
+    var isActive=(key==='all'&&customerPrimaryFilter==='')||(value===customerPrimaryFilter);
     btn.classList.toggle('active',isActive);
     if(isActive){
       btn.style.border='1px solid #6D5EF8';
       btn.style.background='rgba(109,94,248,0.18)';
       btn.style.boxShadow='0 0 12px rgba(109,94,248,0.25),inset 0 1px 0 rgba(255,255,255,0.08)';
-      btn.style.color=key==='active'?'#00C773':key==='paused'?'#FBBF24':'#F5F5F7';
     }else{
       btn.style.border='1px solid #2A2A38';
       btn.style.background='#14141d';
       btn.style.boxShadow='inset 0 1px 0 rgba(255,255,255,0.04)';
-      btn.style.color=key==='active'?'#00C773':key==='paused'?'#FBBF24':'#8B8B99';
     }
+    btn.style.color=key==='subscription'?'#00C773':key==='paused'?'#FBBF24':(isActive?'#F5F5F7':'#8B8B99');
   });
+}
+function setCustomerPrimaryFilter(filter){
+  customerPrimaryFilter=filter;
+  var status=document.getElementById('customer-filter-status');
+  if(status){
+    if(filter==='paused') status.value='paused';
+    else if(status.value==='paused') status.value='';
+    if(filter==='') status.value='';
+  }
+  updateCustomerPrimaryButtons();
   filterCustomers();
 }
 function customerHasSavedCard(c){
@@ -6395,6 +6416,17 @@ function customerMatchesPayment(c,p){
   return String(p.customer_id||'')===String(c.id||'') ||
          (c.stripe_customer_id && String(p.stripe_customer_id||'')===String(c.stripe_customer_id)) ||
          (c.email && String(p.email||p.customer_email||'').toLowerCase()===String(c.email).toLowerCase());
+}
+function customerMatchesSubscription(c,s){
+  return String(s.customer_id||'')===String(c.id||'') ||
+         (c.stripe_customer_id && String(s.stripe_customer_id||'')===String(c.stripe_customer_id)) ||
+         (c.email && s.email && String(s.email).toLowerCase()===String(c.email).toLowerCase());
+}
+function customerHasSubscription(c){
+  return (allSubscriptions||[]).some(function(s){ return customerMatchesSubscription(c,s); });
+}
+function customerTypeKey(c){
+  return customerHasSubscription(c)?'subscription':'one-time';
 }
 function customerSuccessfulPaymentCount(c){
   var successful=(allPayments||[]).filter(function(p){
@@ -6412,6 +6444,7 @@ function filterCustomers(){
   if(!Array.isArray(allCustomers))return;
   var q=(document.getElementById('customer-search')?.value||'').toLowerCase();
   var account=document.getElementById('customer-account-filter')?.value||'';
+  var statusFilter=document.getElementById('customer-filter-status')?.value||'';
   var card=document.getElementById('customer-filter-card')?.value||'';
   var activity=document.getElementById('customer-filter-activity')?.value||'';
   var dateFilter=document.getElementById('customer-filter-date')?.value||'';
@@ -6420,19 +6453,25 @@ function filterCustomers(){
   var maxTotal=parseFloat(document.getElementById('customer-filter-max-total')?.value||'');
 
   var allCount=allCustomers.length;
-  var activeCount=allCustomers.filter(function(c){return String(c.status||'').toLowerCase()==='active';}).length;
+  var oneTimeCount=allCustomers.filter(function(c){return customerTypeKey(c)==='one-time';}).length;
+  var subscriptionCount=allCustomers.filter(function(c){return customerTypeKey(c)==='subscription';}).length;
   var pausedCount=allCustomers.filter(function(c){return String(c.status||'').toLowerCase()==='paused';}).length;
   var countAll=document.getElementById('customer-count-all'); if(countAll)countAll.textContent=allCount;
-  var countActive=document.getElementById('customer-count-active'); if(countActive)countActive.textContent=activeCount;
+  var countOneTime=document.getElementById('customer-count-onetime'); if(countOneTime)countOneTime.textContent=oneTimeCount;
+  var countSubscription=document.getElementById('customer-count-subscription'); if(countSubscription)countSubscription.textContent=subscriptionCount;
   var countPaused=document.getElementById('customer-count-paused'); if(countPaused)countPaused.textContent=pausedCount;
 
   var now=new Date();
   var filtered=allCustomers.filter(function(c){
     var status=String(c.status||'').toLowerCase();
+    var customerType=customerTypeKey(c);
     var hasCard=customerHasSavedCard(c);
     var paidCount=customerSuccessfulPaymentCount(c);
     var totalMajor=Number(c.total_paid||0)/100;
-    var matchStatus=!customerStatusFilter||status===customerStatusFilter;
+    var matchPrimary=customerPrimaryFilter==='paused'
+      ? status==='paused'
+      : (!customerPrimaryFilter||customerType===customerPrimaryFilter);
+    var matchStatus=!statusFilter||status===statusFilter;
     var matchAccount=!account||(c.account_name||'')===account;
     var matchSearch=!q ||
       String(c.name||'').toLowerCase().includes(q) ||
@@ -6457,7 +6496,7 @@ function filterCustomers(){
         if(to){var toDate=new Date(to);toDate.setHours(23,59,59,999);matchDate=matchDate&&d<=toDate;}
       }
     }
-    return matchStatus&&matchAccount&&matchSearch&&matchCard&&matchActivity&&matchDate&&matchAmount;
+    return matchPrimary&&matchStatus&&matchAccount&&matchSearch&&matchCard&&matchActivity&&matchDate&&matchAmount;
   });
 
   filtered.sort(function(a,b){
@@ -6481,12 +6520,17 @@ function toggleCustomerCustomDate(){
   if(custom)custom.style.display=visible?'block':'none';
 }
 function applyAdvancedCustomerFilters(){
+  var status=document.getElementById('customer-filter-status')?.value||'';
+  if(customerPrimaryFilter==='paused' && status!=='paused'){
+    customerPrimaryFilter='';
+    updateCustomerPrimaryButtons();
+  }
   filterCustomers();
   var popup=document.getElementById('customer-advanced-filters');
   if(popup)popup.classList.remove('open');
 }
 function clearAdvancedCustomerFilters(){
-  ['customer-filter-card','customer-filter-activity','customer-filter-date'].forEach(function(id){
+  ['customer-filter-status','customer-filter-card','customer-filter-activity','customer-filter-date'].forEach(function(id){
     var el=document.getElementById(id); if(el)el.value='';
   });
   var sort=document.getElementById('customer-filter-sort'); if(sort)sort.value='last_desc';
@@ -6494,6 +6538,10 @@ function clearAdvancedCustomerFilters(){
     var el=document.getElementById(id); if(el)el.value='';
   });
   toggleCustomerCustomDate();
+  if(customerPrimaryFilter==='paused'){
+    customerPrimaryFilter='';
+    updateCustomerPrimaryButtons();
+  }
   filterCustomers();
 }
 
