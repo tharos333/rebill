@@ -62,6 +62,8 @@ async function init() {
       balance_transaction_id TEXT,
       financial_currency TEXT,
       retry_of_payment_id INT REFERENCES payments(id),
+      was_failed BOOLEAN DEFAULT false,
+      recovered_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS settings (
@@ -126,6 +128,8 @@ async function init() {
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS balance_transaction_id TEXT',
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS financial_currency TEXT',
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS retry_of_payment_id INT REFERENCES payments(id)',
+    'ALTER TABLE payments ADD COLUMN IF NOT EXISTS was_failed BOOLEAN DEFAULT false',
+    'ALTER TABLE payments ADD COLUMN IF NOT EXISTS recovered_at TIMESTAMPTZ',
   ];
   for (const m of migrations) await pool.query(m).catch(() => {});
   const adminCount = await pool.query('SELECT COUNT(*) FROM admin_users');
@@ -341,7 +345,7 @@ const payments = {
   recent: async (limit=50) => { const r = await pool.query('SELECT p.*, c.email, c.name, COALESCE(p.card_brand,c.card_brand) AS card_brand, COALESCE(p.card_last4,c.card_last4) AS card_last4, sa.name AS account_name FROM payments p JOIN customers c ON c.id=p.customer_id LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id ORDER BY p.created_at DESC LIMIT $1', [limit]); return r.rows; },
   byCustomer: async (cid) => { const r = await pool.query('SELECT * FROM payments WHERE customer_id=$1 ORDER BY created_at DESC', [cid]); return r.rows; },
   stats: async () => { const r = await pool.query(`SELECT COUNT(CASE WHEN status='succeeded' THEN 1 END) as succeeded_count, COUNT(CASE WHEN status='failed' THEN 1 END) as failed_count, COALESCE(SUM(CASE WHEN status='succeeded' THEN amount ELSE 0 END),0) as total_revenue, COUNT(CASE WHEN status='succeeded' AND created_at >= NOW()-INTERVAL '30 days' THEN 1 END) as count_30d, COALESCE(SUM(CASE WHEN status='succeeded' AND created_at >= NOW()-INTERVAL '30 days' THEN amount ELSE 0 END),0) as revenue_30d FROM payments`); return r.rows[0]; },
-  insert: async (data) => { await pool.query('INSERT INTO payments (customer_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,card_brand,card_last4,card_exp_month,card_exp_year,card_country,card_funding,stripe_invoice_id,stripe_fee,net_amount,balance_transaction_id,financial_currency,retry_of_payment_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)', [data.customer_id, data.subscription_id, data.stripe_payment_intent, data.amount, data.currency, data.status, data.failure_reason, data.card_brand||null, data.card_last4||null, data.card_exp_month||null, data.card_exp_year||null, data.card_country||null, data.card_funding||null, data.stripe_invoice_id||null, data.stripe_fee??null, data.net_amount??null, data.balance_transaction_id||null, data.financial_currency||null, data.retry_of_payment_id||null]); },
+  insert: async (data) => { await pool.query('INSERT INTO payments (customer_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,card_brand,card_last4,card_exp_month,card_exp_year,card_country,card_funding,stripe_invoice_id,stripe_fee,net_amount,balance_transaction_id,financial_currency,retry_of_payment_id,was_failed,recovered_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)', [data.customer_id, data.subscription_id, data.stripe_payment_intent, data.amount, data.currency, data.status, data.failure_reason, data.card_brand||null, data.card_last4||null, data.card_exp_month||null, data.card_exp_year||null, data.card_country||null, data.card_funding||null, data.stripe_invoice_id||null, data.stripe_fee??null, data.net_amount??null, data.balance_transaction_id||null, data.financial_currency||null, data.retry_of_payment_id||null, data.was_failed ?? (data.status==='failed'), data.recovered_at||null]); },
 };
 const activityLog = {
   add: async (type, description, customer_id=null, amount=null) => { await pool.query('INSERT INTO activity_log (type,description,customer_id,amount) VALUES ($1,$2,$3,$4)', [type, description, customer_id, amount]).catch(()=>{}); },

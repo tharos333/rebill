@@ -76,6 +76,8 @@ async function ensureWebhookColumns() {
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS balance_transaction_id TEXT').catch(()=>{});
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS financial_currency TEXT').catch(()=>{});
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS retry_of_payment_id INT REFERENCES payments(id)').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS was_failed BOOLEAN DEFAULT false').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS recovered_at TIMESTAMPTZ').catch(()=>{});
   await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT').catch(()=>{});
   await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_price_id TEXT').catch(()=>{});
   await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_invoice_id TEXT').catch(()=>{});
@@ -432,22 +434,24 @@ async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null, f
   const amount = pi.amount_received || financials.amount || pi.amount || 0;
   const currency = pi.currency || financials.currency || 'usd';
 
-  const existingPayment = await pool.query('SELECT id FROM payments WHERE stripe_payment_intent=$1', [pi.id]);
+  const existingPayment = await pool.query('SELECT id, status, was_failed, recovered_at FROM payments WHERE stripe_payment_intent=$1', [pi.id]);
   if (existingPayment.rows[0]) {
     await pool.query(`UPDATE payments SET customer_id=$1, subscription_id=COALESCE($2,subscription_id), amount=$3, currency=$4, status=$5, failure_reason=$6,
       stripe_invoice_id=COALESCE($7,stripe_invoice_id), card_brand=COALESCE($8,card_brand), card_last4=COALESCE($9,card_last4),
       card_exp_month=COALESCE($10,card_exp_month), card_exp_year=COALESCE($11,card_exp_year), card_country=COALESCE($12,card_country), card_funding=COALESCE($13,card_funding),
-      stripe_fee=COALESCE($14,stripe_fee), net_amount=COALESCE($15,net_amount), balance_transaction_id=COALESCE($16,balance_transaction_id), financial_currency=COALESCE($17,financial_currency)
-      WHERE id=$18`,
-      [localCustomer.id, localSubId, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency, existingPayment.rows[0].id]);
+      stripe_fee=COALESCE($14,stripe_fee), net_amount=COALESCE($15,net_amount), balance_transaction_id=COALESCE($16,balance_transaction_id), financial_currency=COALESCE($17,financial_currency),
+      was_failed=COALESCE(was_failed,false) OR $18='failed',
+      recovered_at=CASE WHEN $18='succeeded' AND (COALESCE(was_failed,false) OR status='failed') THEN COALESCE(recovered_at,NOW()) ELSE recovered_at END
+      WHERE id=$19`,
+      [localCustomer.id, localSubId, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency, status, existingPayment.rows[0].id]);
     console.log('[external-import] updated payment:', pi.id, 'customer:', localCustomer.email);
     return existingPayment.rows[0].id;
   }
 
   const ins = await pool.query(
-    `INSERT INTO payments (customer_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,stripe_invoice_id,card_brand,card_last4,card_exp_month,card_exp_year,card_country,card_funding,stripe_fee,net_amount,balance_transaction_id,financial_currency)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING id`,
-    [localCustomer.id, localSubId, pi.id, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency]
+    `INSERT INTO payments (customer_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,stripe_invoice_id,card_brand,card_last4,card_exp_month,card_exp_year,card_country,card_funding,stripe_fee,net_amount,balance_transaction_id,financial_currency,was_failed)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING id`,
+    [localCustomer.id, localSubId, pi.id, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency, status==='failed']
   );
   console.log('[external-import] saved payment:', pi.id, 'row id:', ins.rows[0].id, 'customer:', localCustomer.email);
   await activityLog.add('payment', `Payment ${status} for ${localCustomer.email}`, localCustomer.id, amount).catch(()=>{});
@@ -1319,25 +1323,66 @@ app.get('/api/mrr-history', async (req, res) => {
 });
 app.get('/api/recovery-rate', async (req, res) => {
   try {
-    await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS retry_of_payment_id INT REFERENCES payments(id)').catch(()=>{});
+    await ensureWebhookColumns();
     const r = await pool.query(`
       WITH failed AS (
-        SELECT id
-        FROM payments
-        WHERE status='failed'
-          AND created_at >= NOW()-INTERVAL '30 days'
-      ),
-      recovered AS (
-        SELECT DISTINCT p.retry_of_payment_id AS failed_id
+        SELECT p.*
         FROM payments p
-        JOIN failed f ON f.id=p.retry_of_payment_id
-        WHERE p.status='succeeded'
+        WHERE (p.status='failed' OR COALESCE(p.was_failed,false)=true)
+          AND p.created_at >= NOW()-INTERVAL '30 days'
+      ),
+      recovered_successes AS (
+        /* 1) A retry started through Subloop and linked to a failed payment. */
+        SELECT DISTINCT s.id AS recovery_id
+        FROM payments s
+        JOIN failed f ON f.id=s.retry_of_payment_id
+        WHERE s.status='succeeded'
+
+        UNION
+
+        /* 2) Stripe updates the same PaymentIntent from failed to succeeded. */
+        SELECT DISTINCT f.id AS recovery_id
+        FROM failed f
+        WHERE f.recovered_at IS NOT NULL
+
+        UNION
+
+        /* 3) Stripe payment/invoice/subscription retry: later successful attempt for the same bill. */
+        SELECT DISTINCT s.id AS recovery_id
+        FROM payments s
+        JOIN failed f
+          ON s.customer_id=f.customer_id
+         AND s.status='succeeded'
+         AND s.created_at > f.created_at
+         AND s.created_at <= f.created_at + INTERVAL '30 days'
+         AND s.amount=f.amount
+         AND LOWER(COALESCE(s.currency,'usd'))=LOWER(COALESCE(f.currency,'usd'))
+         AND (
+           (f.stripe_invoice_id IS NOT NULL AND s.stripe_invoice_id=f.stripe_invoice_id)
+           OR (f.subscription_id IS NOT NULL AND s.subscription_id=f.subscription_id)
+         )
+
+        UNION
+
+        /* 4) Customer self-retry for one-time checkout: same customer/amount/currency shortly after failure. */
+        SELECT DISTINCT s.id AS recovery_id
+        FROM payments s
+        JOIN failed f
+          ON s.customer_id=f.customer_id
+         AND s.status='succeeded'
+         AND s.created_at > f.created_at
+         AND s.created_at <= f.created_at + INTERVAL '24 hours'
+         AND s.amount=f.amount
+         AND LOWER(COALESCE(s.currency,'usd'))=LOWER(COALESCE(f.currency,'usd'))
+         AND COALESCE(s.subscription_id,0)=0
+         AND COALESCE(f.subscription_id,0)=0
+         AND (
+           f.card_last4 IS NULL OR s.card_last4 IS NULL OR f.card_last4=s.card_last4
+         )
       )
       SELECT
-        COUNT(f.id) AS total_failed,
-        COUNT(r.failed_id) AS recovered
-      FROM failed f
-      LEFT JOIN recovered r ON r.failed_id=f.id
+        (SELECT COUNT(*) FROM failed) AS total_failed,
+        (SELECT COUNT(*) FROM recovered_successes) AS recovered
     `);
     const row = r.rows[0] || {};
     const tf = parseInt(row.total_failed) || 0;
