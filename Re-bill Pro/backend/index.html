@@ -6305,9 +6305,7 @@ async function loadCustomers(){
     if(!Array.isArray(allPayments) || allPayments.length===0){
       try{ allPayments = await api('/api/payments'); }catch(_e){}
     }
-    if(!Array.isArray(allSubscriptions) || allSubscriptions.length===0){
-      try{ allSubscriptions = await api('/api/subscriptions'); }catch(_e){}
-    }
+    try{ allSubscriptions = await api('/api/subscriptions'); }catch(_e){}
     allCustomers=await api('/api/customers');
     var customerAccountSelect=document.getElementById('customer-account-filter');
     if(customerAccountSelect){
@@ -6347,11 +6345,13 @@ function renderCustomers(list){
     const dateLabel = c.last_payment_at ? fmtDate(c.last_payment_at) : '—';
     const dateTitle = c.last_payment_at ? 'Last successful payment date' : 'No successful payment yet';
     const noteValue = encodeURIComponent(c.note||'');
-    const statusAction = c.status==='active'
-      ? `<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();setCustStatus(${c.id},'paused')">Pause</button>`
-      : (c.status==='paused'
-          ? `<button class="btn btn-sm" onclick="event.stopPropagation();setCustStatus(${c.id},'active')">Resume</button>`
-          : '');
+    const pausedSubscription = customerPausedSubscription(c);
+    const displayStatus = customerEffectiveStatus(c);
+    const statusAction = String(c.status||'').toLowerCase()==='paused'
+      ? `<button class="btn btn-sm" onclick="event.stopPropagation();setCustStatus(${c.id},'active')">Resume</button>`
+      : (pausedSubscription
+          ? `<button class="btn btn-sm" onclick="event.stopPropagation();resumeSubscriptionFromCustomer(${pausedSubscription.id})">Resume</button>`
+          : `<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();setCustStatus(${c.id},'paused')">Pause</button>`);
     return `<tr style="cursor:pointer;" onclick="openCustomerDrawer(${c.id})">
       <td>
         <div class="customer-cell">
@@ -6363,7 +6363,7 @@ function renderCustomers(list){
       </td>
       <td>${cardBadge(c.card_brand,c.card_last4)}</td>
       <td style="font-size:12px;color:var(--muted);">${c.account_name||'—'}</td>
-      <td>${badge(c.status)}</td>
+      <td>${badge(displayStatus)}</td>
       <td style="font-size:12px;color:var(--muted);font-family:var(--mono);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.note||'—'}</td>
       <td class="mono" style="font-size:12px;white-space:nowrap;" title="${dateTitle}">${dateLabel}</td>
       <td class="mono">${fmt(c.total_paid||0, customerOriginalCurrency(c))}</td>
@@ -6380,7 +6380,7 @@ function renderCustomers(list){
 var customerPrimaryFilter='';
 function updateCustomerPrimaryButtons(pausedCount){
   if(typeof pausedCount!=='number'){
-    pausedCount=(allCustomers||[]).filter(function(c){return String(c.status||'').toLowerCase()==='paused';}).length;
+    pausedCount=(allCustomers||[]).filter(function(c){return customerEffectiveStatus(c)==='paused';}).length;
   }
   ['all','onetime','subscription','paused'].forEach(function(key){
     var btn=document.getElementById('customer-btn-'+key);
@@ -6428,6 +6428,14 @@ function customerMatchesSubscription(c,s){
 function customerHasSubscription(c){
   return (allSubscriptions||[]).some(function(s){ return customerMatchesSubscription(c,s); });
 }
+function customerPausedSubscription(c){
+  return (allSubscriptions||[]).find(function(s){
+    return customerMatchesSubscription(c,s) && String(s.status||'').toLowerCase()==='paused';
+  }) || null;
+}
+function customerEffectiveStatus(c){
+  return String(c.status||'').toLowerCase()==='paused' || customerPausedSubscription(c) ? 'paused' : String(c.status||'active').toLowerCase();
+}
 function customerTypeKey(c){
   return customerHasSubscription(c)?'subscription':'one-time';
 }
@@ -6458,7 +6466,7 @@ function filterCustomers(){
   var allCount=allCustomers.length;
   var oneTimeCount=allCustomers.filter(function(c){return customerTypeKey(c)==='one-time';}).length;
   var subscriptionCount=allCustomers.filter(function(c){return customerTypeKey(c)==='subscription';}).length;
-  var pausedCount=allCustomers.filter(function(c){return String(c.status||'').toLowerCase()==='paused';}).length;
+  var pausedCount=allCustomers.filter(function(c){return customerEffectiveStatus(c)==='paused';}).length;
   var countAll=document.getElementById('customer-count-all'); if(countAll)countAll.textContent=allCount;
   var countOneTime=document.getElementById('customer-count-onetime'); if(countOneTime)countOneTime.textContent=oneTimeCount;
   var countSubscription=document.getElementById('customer-count-subscription'); if(countSubscription)countSubscription.textContent=subscriptionCount;
@@ -6467,7 +6475,7 @@ function filterCustomers(){
 
   var now=new Date();
   var filtered=allCustomers.filter(function(c){
-    var status=String(c.status||'').toLowerCase();
+    var status=customerEffectiveStatus(c);
     var customerType=customerTypeKey(c);
     var hasCard=customerHasSavedCard(c);
     var paidCount=customerSuccessfulPaymentCount(c);
@@ -6913,13 +6921,18 @@ async function chargeNow(subId){toast('Charging…');try{const r=await api('/api
 function openPauseModal(subId){document.getElementById('pause-sub-id').value=subId;document.getElementById('pause-resume-date').value='';openModal('pause-modal');}
 async function confirmPause(){const id=document.getElementById('pause-sub-id').value;const resumeDate=document.getElementById('pause-resume-date').value;await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'paused',resume_date:resumeDate||null})});toast('Subscription paused');closeModal('pause-modal');loadUpcoming();loadSubscriptions();}
 function resumeSub(id){setSubStatus(id,'active');}
+async function resumeSubscriptionFromCustomer(id){
+  await setSubStatus(id,'active');
+  await loadCustomers();
+  if(currentCustomerDrawerId){openCustomerDrawer(currentCustomerDrawerId);}
+}
 function cancelSub(id){setSubStatus(id,'cancelled');}
 async function setSubStatus(id,status){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});toast('Subscription '+(status==='cancelled'?'canceled':status));loadUpcoming();loadSubscriptions();loadStats();}
 let currentCustomerDrawerId=null;
 function escapeCustomerHtml(v){return String(v==null?'':v).replace(/[&<>"']/g,function(m){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m];});}
 function customerValueClass(status){return status==='failed'||status==='paused'?'value-red':(status==='succeeded'||status==='active'?'value-green':'');}
 function customerPaymentType(c){if((c.total_subs||0)>0)return 'Subscription'; if((c.successful_payments||0)>0||(c.failed_payments||0)>0)return 'One-time'; return '—';}
-function customerPauseStatus(c){return c.status==='paused'?'Paused':'Active';}
+function customerPauseStatus(c){return customerEffectiveStatus(c)==='paused'?'Paused':'Active';}
 
 function customerStatusText(status){
   var s=(status||'—');
@@ -7019,8 +7032,9 @@ function buildCustomerDrawer(data){
   const c=data.customer||{};
   const name=escapeCustomerHtml(c.name||'Customer');
   const email=escapeCustomerHtml(c.email||'—');
-  const status=customerStatusText(c.status);
-  const statusCls=customerValueClass(c.status)||'';
+  const effectiveStatus=customerEffectiveStatus(c);
+  const status=customerStatusText(effectiveStatus);
+  const statusCls=customerValueClass(effectiveStatus)||'';
   const expiry=(c.card_exp_month&&c.card_exp_year)?String(c.card_exp_month).padStart(2,'0')+' / '+String(c.card_exp_year).slice(-2):'—';
   const customerMoneyCurrency = customerOriginalCurrency(c);
   const avgAmount=(c.avg_payment&&Number(c.avg_payment)>0)?fmt(Math.round(Number(c.avg_payment)), customerMoneyCurrency):'—';
@@ -7066,7 +7080,7 @@ function buildCustomerDrawer(data){
   h+=customerDrawerRow('Payment type',escapeCustomerHtml(customerPaymentType(c)));
   h+=customerDrawerRow('Active subscriptions',String(c.active_subs||0));
   h+=customerDrawerRow('Next billing',fmtDate(c.next_billing_date));
-  h+=customerDrawerRow('Pause status',escapeCustomerHtml(customerPauseStatus(c)), c.status==='paused'?'value-red':'value-green');
+  h+=customerDrawerRow('Pause status',escapeCustomerHtml(customerPauseStatus(c)), effectiveStatus==='paused'?'value-red':'value-green');
   h+=customerDrawerNoteRow(c);
   h+='</section>';
 
@@ -7078,7 +7092,14 @@ function buildCustomerDrawer(data){
 
   h+='<div class="customer-profile-actions">';
   h+='<button class="btn" onclick="openPortal('+c.id+')">View card</button>';
-  h+=`<button class="btn ${c.status==='active'?'btn-danger':''}" onclick="setCustStatus(${c.id},'${c.status==='active'?'paused':'active'}')">${c.status==='active'?'Pause customer':'Resume customer'}</button>`;
+  var drawerPausedSub=customerPausedSubscription(c);
+  if(String(c.status||'').toLowerCase()==='paused'){
+    h+='<button class="btn" onclick="setCustStatus('+c.id+',\'active\')">Resume customer</button>';
+  }else if(drawerPausedSub){
+    h+='<button class="btn" onclick="resumeSubscriptionFromCustomer('+drawerPausedSub.id+')">Resume subscription</button>';
+  }else{
+    h+='<button class="btn btn-danger" onclick="setCustStatus('+c.id+',\'paused\')">Pause customer</button>';
+  }
   h+='</div>';
 
   return h;
