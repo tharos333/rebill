@@ -1239,24 +1239,6 @@ html.light button[class*="btn-danger"]:hover{
   box-shadow:none!important;
 }
 
-/* Extra safety for text-only danger actions like Delete / Cancel / Pause */
-html.light button[onclick*="delete"],
-html.light button[onclick*="Delete"],
-html.light button[onclick*="cancel"],
-html.light button[onclick*="Cancel"],
-html.light button[onclick*="pause"],
-html.light button[onclick*="Pause"]{
-  color:var(--red)!important;
-}
-html.light button[onclick*="delete"]:hover,
-html.light button[onclick*="Delete"]:hover,
-html.light button[onclick*="cancel"]:hover,
-html.light button[onclick*="Cancel"]:hover,
-html.light button[onclick*="pause"]:hover,
-html.light button[onclick*="Pause"]:hover{
-  color:var(--red)!important;
-}
-
 /* Keep retry/success actions green when light-mode neutral button rules exist */
 html.light .btn.btn-success,
 html.light button.btn.btn-success,
@@ -1297,26 +1279,6 @@ html:not(.light) button[class*="btn-danger"]:hover{
   background:rgba(248,113,113,.16)!important;
   border-color:rgba(248,113,113,.34)!important;
   box-shadow:none!important;
-}
-
-/* Extra safety for text-only danger actions like Delete / Cancel / Pause in dark mode */
-html:not(.light) button[onclick*="delete"],
-html:not(.light) button[onclick*="Delete"],
-html:not(.light) button[onclick*="cancel"],
-html:not(.light) button[onclick*="Cancel"],
-html:not(.light) button[onclick*="pause"],
-html:not(.light) button[onclick*="Pause"]{
-  color:var(--red)!important;
-}
-html:not(.light) button[onclick*="delete"]:hover,
-html:not(.light) button[onclick*="Delete"]:hover,
-html:not(.light) button[onclick*="cancel"]:hover,
-html:not(.light) button[onclick*="Cancel"]:hover,
-html:not(.light) button[onclick*="pause"]:hover,
-html:not(.light) button[onclick*="Pause"]:hover{
-  color:var(--red)!important;
-  background:rgba(248,113,113,.16)!important;
-  border-color:rgba(248,113,113,.34)!important;
 }
 
 
@@ -5060,6 +5022,29 @@ html.light #payment-detail-modal .pd-activity-compact-icon.payment-needed{
   box-shadow:0 0 0 3px rgba(108,99,255,0.16)!important;
 }
 
+
+/* Button role system: visual effects follow role classes, not action text */
+html:not(.light) .btn.btn-primary,
+html.light .btn.btn-primary{
+  background:var(--accent)!important;
+  border-color:var(--accent)!important;
+  color:#fff!important;
+}
+html:not(.light) .btn.btn-primary:hover,
+html.light .btn.btn-primary:hover{
+  background:#7c74ff!important;
+  border-color:#7c74ff!important;
+  color:#fff!important;
+}
+html:not(.light) .btn.btn-danger,
+html.light .btn.btn-danger{
+  color:var(--red)!important;
+}
+html:not(.light) .btn.btn-success,
+html.light .btn.btn-success{
+  color:var(--green)!important;
+}
+
 </style>
 </head>
 <body>
@@ -5365,7 +5350,7 @@ html.light #payment-detail-modal .pd-activity-compact-icon.payment-needed{
       <div id="sub-bulk-btns" style="display:none;align-items:center;gap:6px;flex-wrap:wrap;">
         <span id="bulk-count" style="font-size:12px;color:var(--muted);font-family:var(--mono);min-width:60px;"></span>
         <button class="btn btn-sm" id="bulk-charge-btn" onclick="bulkCharge()" disabled style="opacity:0.4;">Charge</button>
-        <button class="btn btn-sm" id="bulk-pause-btn" onclick="bulkPause()" disabled style="opacity:0.4;">Pause</button>
+        <button class="btn btn-sm btn-danger" id="bulk-pause-btn" onclick="bulkPause()" disabled style="opacity:0.4;">Pause</button>
         <button class="btn btn-sm btn-danger" id="bulk-cancel-btn" onclick="bulkCancel()" disabled style="opacity:0.4;">Cancel</button>
         <button class="btn btn-sm" onclick="clearSelection()">Clear</button>
         <button class="btn btn-sm" onclick="exitBulkMode()" style="color:var(--accent);border-color:var(--accent);">Done</button>
@@ -6350,7 +6335,7 @@ async function loadUpcoming(){
   try{
     const subs=await api('/api/subscriptions');const tb=document.getElementById('upcoming-table');
     if(!subs.length){tb.innerHTML='<tr><td colspan="5" class="empty">No subscriptions yet.</td></tr>';return;}
-    tb.innerHTML=subs.slice(0,10).map(s=>'<tr><td><div class="customer-cell"><div class="avatar">'+initials(s.name)+'</div><div><div class="customer-name">'+(s.name||'—')+'</div><div class="customer-email">'+(s.email||'')+'</div></div></div></td><td class="mono">'+fmt(s.amount,s.currency)+'</td><td class="mono">'+fmtDate(s.next_billing_date)+'</td><td>'+(String(s.status||'').toLowerCase()==='paused'?badge(s.status).replace('class="badge ','class="badge dashboard-upcoming-paused '):badge(s.status))+'</td><td><div class="actions">'+(s.status==='active'?'<button class="btn btn-sm" onclick="chargeNow('+s.id+')">Charge</button>':'')+(s.status==='active'?'<button class="btn btn-sm" onclick="openPauseModal('+s.id+')">Pause</button>':'')+(s.status==='paused'?'<button class="btn btn-sm" onclick="setSubStatus('+s.id+',\'active\')">Resume</button>':'')+'</div></td></tr>').join('');
+    tb.innerHTML=subs.slice(0,10).map(s=>'<tr><td><div class="customer-cell"><div class="avatar">'+initials(s.name)+'</div><div><div class="customer-name">'+(s.name||'—')+'</div><div class="customer-email">'+(s.email||'')+'</div></div></div></td><td class="mono">'+fmt(s.amount,s.currency)+'</td><td class="mono">'+fmtDate(s.next_billing_date)+'</td><td>'+(String(s.status||'').toLowerCase()==='paused'?badge(s.status).replace('class="badge ','class="badge dashboard-upcoming-paused '):badge(s.status))+'</td><td><div class="actions">'+(s.status==='active'?'<button class="btn btn-sm" onclick="chargeNow('+s.id+')">Charge</button>':'')+(s.status==='active'?'<button class="btn btn-sm btn-danger" onclick="openPauseModal('+s.id+')">Pause</button>':'')+(s.status==='paused'?'<button class="btn btn-sm" onclick="setSubStatus('+s.id+',\'active\')">Resume</button>':'')+'</div></td></tr>').join('');
   }catch(e){}
 }
 async function loadRecentPayments(){
@@ -6676,7 +6661,7 @@ function renderSubscriptions(list){
     var cbDisplay=bulkMode?'table-cell':'none';var cbChecked=sel?'checked':'';
     var resumeBtn=s.status==='paused'?'<button class="btn btn-sm" onclick="resumeSub('+s.id+')">Resume</button>':'';
     var chargeBtn=s.status==='active'?'<button class="btn btn-sm" onclick="chargeNow('+s.id+')">Charge</button>':'';
-    var pauseBtn=s.status==='active'?'<button class="btn btn-sm" onclick="openPauseModal('+s.id+')">Pause</button>':'';
+    var pauseBtn=s.status==='active'?'<button class="btn btn-sm btn-danger" onclick="openPauseModal('+s.id+')">Pause</button>':'';
     var retryBtn=s.status==='dunning'?'<button class="btn btn-sm btn-success" onclick="chargeNow('+s.id+')">Retry now</button>':'';
     var cancelBtn='<button class="btn btn-sm btn-danger" onclick="cancelSub('+s.id+')">Cancel</button>';
     var editSpan='<button class="btn btn-sm" onclick="showEditAmount('+s.id+','+s.amount+')">Edit $</button><span id="edit-'+s.id+'"></span>';
