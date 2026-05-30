@@ -185,19 +185,11 @@ const customers = {
       COALESCE(p.total_paid, 0) as total_paid,
       p.last_payment_at,
       p.last_any_payment_at,
-      lp.last_payment_currency,
       COALESCE(p.last_payment_at, c.created_at) as sort_date
     FROM customers c
     LEFT JOIN stripe_accounts sa ON sa.id = c.stripe_account_id
     LEFT JOIN sub_stats s ON s.customer_id = c.id
     LEFT JOIN pay_stats p ON p.customer_id = c.id
-    LEFT JOIN LATERAL (
-      SELECT currency as last_payment_currency
-      FROM payments
-      WHERE customer_id = c.id
-      ORDER BY created_at DESC
-      LIMIT 1
-    ) lp ON true
     WHERE NOT (
       COALESCE(p.total_paid, 0) = 0
       AND (
