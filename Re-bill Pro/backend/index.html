@@ -6218,16 +6218,16 @@ function renderCustomers(list){
     const dateTitle = c.last_payment_at ? 'Last successful payment date' : 'No successful payment yet';
     const noteValue = encodeURIComponent(c.note||'');
     const statusAction = c.status==='active'
-      ? `<button class="btn btn-sm btn-danger" onclick="setCustStatus(${c.id},'paused')">Pause</button>`
+      ? `<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();setCustStatus(${c.id},'paused')">Pause</button>`
       : (c.status==='paused'
-          ? `<button class="btn btn-sm" onclick="setCustStatus(${c.id},'active')">Resume</button>`
+          ? `<button class="btn btn-sm" onclick="event.stopPropagation();setCustStatus(${c.id},'active')">Resume</button>`
           : '');
-    return `<tr>
+    return `<tr style="cursor:pointer;" onclick="openCustomerDrawer(${c.id})">
       <td>
         <div class="customer-cell">
           <div class="avatar">${initials(c.name)}</div>
           <div class="customer-name-only">
-            <button type="button" class="customer-name-btn" onclick="openCustomerDrawer(${c.id})">${c.name||'—'}</button>
+            <button type="button" class="customer-name-btn" onclick="event.stopPropagation();openCustomerDrawer(${c.id})">${c.name||'—'}</button>
           </div>
         </div>
       </td>
@@ -6239,8 +6239,8 @@ function renderCustomers(list){
       <td class="mono">${fmt(c.total_paid||0, customerOriginalCurrency(c))}</td>
       <td>
         <div class="actions">
-          <button class="btn btn-sm" onclick="openNoteModal(${c.id},'${noteValue}')">Note</button>
-          <button class="btn btn-sm" onclick="openPortal(${c.id})">Card ↗</button>
+          <button class="btn btn-sm" onclick="event.stopPropagation();openNoteModal(${c.id},'${noteValue}')">Note</button>
+          <button class="btn btn-sm" onclick="event.stopPropagation();openPortal(${c.id})">Card ↗</button>
           ${statusAction}
         </div>
       </td>
