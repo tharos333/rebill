@@ -6892,6 +6892,7 @@ async function loadAccounts(){
           if(labelLower==='payment needed') label='Payment needed';
           if(labelLower==='cancelled'||labelLower==='canceled') label='Canceled';
           var color=st==='active'?'green':((st==='restricted'||st==='verification')?'amber':'red');
+          var rowBg=(st==='restricted'||st==='verification')?'background:rgba(251,191,36,0.04);':'';
           var details=Array.isArray(a.verification_details)?a.verification_details:[];
           var reason=a.account_status_reason?String(a.account_status_reason).replace(/"/g,'&quot;'):'';
           var statusIcon='';
@@ -6919,7 +6920,7 @@ async function loadAccounts(){
             verificationHtml='<span style="color:var(--muted);font-size:12px;font-family:var(--mono);">'+(reason||'—')+'</span>';
           }
           var setDefBtn=!a.is_default?'<button class="btn btn-sm" onclick="setDefaultAccount('+a.id+')">Set Default</button>':'';
-          return '<tr><td><strong style="font-size:13px;">'+a.name+'</strong></td><td class="mono" style="font-size:12px;color:var(--muted);">'+(a.key_preview||'—')+'</td><td>'+statusBadge+defaultBadge+'</td><td>'+verificationHtml+'</td><td><div class="actions">'+setDefBtn+'<button class="btn btn-sm" onclick="debugStripeAccount('+a.id+')" title="Check verification details">Check</button><button class="btn btn-sm" onclick="openEditAcc('+a.id+')">Edit</button><button class="btn btn-sm btn-danger" onclick="deleteAccount('+a.id+')">Delete</button></div></td></tr>';
+          return '<tr style="'+rowBg+'"><td><strong style="font-size:13px;">'+a.name+'</strong></td><td class="mono" style="font-size:12px;color:var(--muted);">'+(a.key_preview||'—')+'</td><td>'+statusBadge+defaultBadge+'</td><td>'+verificationHtml+'</td><td><div class="actions">'+setDefBtn+'<button class="btn btn-sm" onclick="debugStripeAccount('+a.id+')" title="Check verification details">Check</button><button class="btn btn-sm" onclick="openEditAcc('+a.id+')">Edit</button><button class="btn btn-sm btn-danger" onclick="deleteAccount('+a.id+')">Delete</button></div></td></tr>';
         }).join('');
       }
     }
