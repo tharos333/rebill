@@ -6213,7 +6213,7 @@ function renderCustomers(list){
       <td>${badge(c.status)}</td>
       <td style="font-size:12px;color:var(--muted);font-family:var(--mono);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.note||'—'}</td>
       <td class="mono" style="font-size:12px;white-space:nowrap;" title="${dateTitle}">${dateLabel}</td>
-      <td class="mono">${fmt(c.total_paid||0)}</td>
+      <td class="mono">${fmt(c.total_paid||0, c.last_payment_currency || c.currency || c.default_currency || 'usd')}</td>
       <td>
         <div class="actions">
           <button class="btn btn-sm" onclick="openNoteModal(${c.id},'${noteValue}')">Note</button>
@@ -6696,9 +6696,10 @@ function buildCustomerDrawer(data){
   const status=customerStatusText(c.status);
   const statusCls=customerValueClass(c.status)||'';
   const expiry=(c.card_exp_month&&c.card_exp_year)?String(c.card_exp_month).padStart(2,'0')+' / '+String(c.card_exp_year).slice(-2):'—';
-  const avgAmount=(c.avg_payment&&Number(c.avg_payment)>0)?fmt(Math.round(Number(c.avg_payment)), c.last_payment_currency||'usd'):'—';
-  const lastAmount=(c.last_payment_amount)?fmt(c.last_payment_amount,c.last_payment_currency||'usd'):'—';
-  const totalPaid=fmt(c.total_paid||0,c.last_payment_currency||'usd');
+  const customerMoneyCurrency = c.last_payment_currency || c.currency || c.default_currency || 'usd';
+  const avgAmount=(c.avg_payment&&Number(c.avg_payment)>0)?fmt(Math.round(Number(c.avg_payment)), customerMoneyCurrency):'—';
+  const lastAmount=(c.last_payment_amount)?fmt(c.last_payment_amount, customerMoneyCurrency):'—';
+  const totalPaid=fmt(c.total_paid||0, customerMoneyCurrency);
   const hasCard=!!(c.card_brand||c.card_last4);
   let h='';
   h+='<div class="customer-profile-hero">';
