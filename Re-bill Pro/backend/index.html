@@ -5046,9 +5046,13 @@ html.light .btn.btn-success{
 }
 
 
-/* Customer filter: keep Subscription green when active like Payment Succeeded */
-.customer-filter-btn.subscription.active{
-  color:var(--green) !important;
+
+/* Customers: Subscription keeps its green meaning while selected, dark and light */
+#customer-btn-subscription.active{
+  color:#00C773!important;
+}
+html.light #customer-btn-subscription.active{
+  color:#00a85a!important;
 }
 
 </style>
@@ -6460,7 +6464,7 @@ function updateCustomerPrimaryButtons(){
       btn.style.border='1px solid #6D5EF8';
       btn.style.background='rgba(109,94,248,0.18)';
       btn.style.boxShadow='0 0 12px rgba(109,94,248,0.25),inset 0 1px 0 rgba(255,255,255,0.08)';
-      btn.style.color='#F5F5F7';
+      btn.style.color=key==='subscription'?'#00C773':'#F5F5F7';
     }else{
       btn.style.border='1px solid #2A2A38';
       btn.style.background='#14141d';
