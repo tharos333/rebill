@@ -7893,4 +7893,45 @@ html.light #customer-detail-modal .customer-profile-actions{
   order:4!important;
 }
 
+
+/* Payment drawer card text polish: match Customer drawer strength */
+#payment-detail-modal .payment-card,
+#payment-detail-modal .drawer-payment-card{
+  display:flex!important;
+  align-items:center!important;
+  gap:8px!important;
+}
+#payment-detail-modal .payment-card .payment-brand-name,
+#payment-detail-modal .drawer-payment-card .payment-brand-name{
+  color:var(--text)!important;
+  font-weight:700!important;
+  font-size:13px!important;
+}
+#payment-detail-modal .payment-card .payment-dots,
+#payment-detail-modal .drawer-payment-card .payment-dots{
+  color:var(--muted)!important;
+  font-weight:700!important;
+  letter-spacing:3px!important;
+}
+#payment-detail-modal .payment-card .payment-last4,
+#payment-detail-modal .drawer-payment-card .payment-last4{
+  color:var(--text)!important;
+  font-weight:700!important;
+  font-size:13px!important;
+  opacity:1!important;
+}
+#payment-detail-modal .payment-card img,
+#payment-detail-modal .drawer-payment-card img,
+#payment-detail-modal .payment-card svg,
+#payment-detail-modal .drawer-payment-card svg{
+  width:24px!important;
+  height:16px!important;
+  min-width:24px!important;
+  max-width:24px!important;
+  min-height:16px!important;
+  max-height:16px!important;
+  object-fit:contain!important;
+  border-radius:4px!important;
+}
+
 </style>
