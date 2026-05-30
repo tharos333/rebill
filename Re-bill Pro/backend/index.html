@@ -6383,6 +6383,7 @@ async function loadCustomers(){
     try{ allSubscriptions = await api('/api/subscriptions'); }catch(_e){}
     allCustomers=await api('/api/customers');
     var customerAccountSelect=document.getElementById('customer-account-filter');
+    var selectedCustomerAccount=customerAccountSelect ? customerAccountSelect.value : '';
     if(customerAccountSelect){
       var seenAccounts=new Set();
       var accountOptions='<option value="">All Stripe Accounts</option>';
@@ -6394,8 +6395,12 @@ async function loadCustomers(){
         }
       });
       customerAccountSelect.innerHTML=accountOptions;
+      if(selectedCustomerAccount && seenAccounts.has(selectedCustomerAccount)){
+        customerAccountSelect.value=selectedCustomerAccount;
+      }
     }
-    setCustomerPrimaryFilter('');
+    updateCustomerPrimaryButtons();
+    filterCustomers();
   }catch(e){}
 }
 
