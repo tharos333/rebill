@@ -297,8 +297,6 @@ html.light .pay-filter-bar{background:var(--surface)!important;border-color:var(
 html.light .pay-filter-btn{background:#f4f4f8!important;border-color:rgba(0,0,0,0.1)!important;color:#111118!important;box-shadow:none!important;}
 html.light .pay-filter-btn-succeeded{color:#00a85a!important;}
 html.light .pay-filter-btn-failed{color:#d93025!important;}
-html.light .customer-filter-btn-active{color:#00a85a!important;}
-html.light .customer-filter-btn-paused{color:#d97706!important;}
 html.light .pay-filter-btn.active{background:rgba(108,99,255,0.08)!important;border-color:#6c63ff!important;color:#5b52cc!important;box-shadow:none!important;}
 html.light .pay-filter-select,html.light .pay-filter-input{background:#f4f4f8!important;border-color:rgba(0,0,0,0.1)!important;color:#111118!important;box-shadow:none!important;}
 html.light .pay-filter-input:focus{border-color:#6c63ff!important;box-shadow:0 0 0 3px rgba(108,99,255,0.12)!important;}
@@ -5176,9 +5174,10 @@ tbody td strong{
     <!-- Customer status pill buttons -->
     <div style="display:flex;align-items:center;gap:5px;">
       <button id="customer-btn-all" class="pay-filter-btn active" onclick="setCustomerPrimaryFilter('')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #6D5EF8;background:rgba(109,94,248,0.18);color:#F5F5F7;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:0 0 12px rgba(109,94,248,0.25),inset 0 1px 0 rgba(255,255,255,0.08);">All <span id="customer-count-all" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>
-      <button id="customer-btn-onetime" class="pay-filter-btn" onclick="setCustomerPrimaryFilter('one-time')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#F5F5F7;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">One-time <span id="customer-count-onetime" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>
-      <button id="customer-btn-subscription" class="pay-filter-btn customer-filter-btn-active" onclick="setCustomerPrimaryFilter('subscription')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#00C773;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">Subscription <span id="customer-count-subscription" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>
-      <button id="customer-btn-paused" class="pay-filter-btn customer-filter-btn-paused" onclick="setCustomerPrimaryFilter('paused')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#FBBF24;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">Paused <span id="customer-count-paused" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>
+      <button id="customer-btn-onetime" class="pay-filter-btn" onclick="setCustomerPrimaryFilter('one-time')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#A8A8B5;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">One-time <span id="customer-count-onetime" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>
+      <button id="customer-btn-subscription" class="pay-filter-btn" onclick="setCustomerPrimaryFilter('subscription')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#A8A8B5;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">Subscription <span id="customer-count-subscription" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>
+      <div class="pay-filter-divider" style="width:1px;height:26px;background:#2A2A38;margin:0 4px;"></div>
+      <button id="customer-btn-paused" class="pay-filter-btn" onclick="setCustomerPrimaryFilter('paused')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#A8A8B5;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">Paused <span id="customer-count-paused" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>
     </div>
     <div class="pay-filter-divider" style="width:1px;height:28px;background:#2A2A38;margin:0 2px;"></div>
     <!-- Stripe account dropdown -->
@@ -6379,7 +6378,10 @@ function renderCustomers(list){
   }).join('');
 }
 var customerPrimaryFilter='';
-function updateCustomerPrimaryButtons(){
+function updateCustomerPrimaryButtons(pausedCount){
+  if(typeof pausedCount!=='number'){
+    pausedCount=(allCustomers||[]).filter(function(c){return String(c.status||'').toLowerCase()==='paused';}).length;
+  }
   ['all','onetime','subscription','paused'].forEach(function(key){
     var btn=document.getElementById('customer-btn-'+key);
     if(!btn)return;
@@ -6390,12 +6392,13 @@ function updateCustomerPrimaryButtons(){
       btn.style.border='1px solid #6D5EF8';
       btn.style.background='rgba(109,94,248,0.18)';
       btn.style.boxShadow='0 0 12px rgba(109,94,248,0.25),inset 0 1px 0 rgba(255,255,255,0.08)';
+      btn.style.color='#F5F5F7';
     }else{
       btn.style.border='1px solid #2A2A38';
       btn.style.background='#14141d';
       btn.style.boxShadow='inset 0 1px 0 rgba(255,255,255,0.04)';
+      btn.style.color=(key==='paused'&&pausedCount>0)?'#FBBF24':'#A8A8B5';
     }
-    btn.style.color=key==='subscription'?'#00C773':key==='paused'?'#FBBF24':(isActive?'#F5F5F7':'#8B8B99');
   });
 }
 function setCustomerPrimaryFilter(filter){
@@ -6460,6 +6463,7 @@ function filterCustomers(){
   var countOneTime=document.getElementById('customer-count-onetime'); if(countOneTime)countOneTime.textContent=oneTimeCount;
   var countSubscription=document.getElementById('customer-count-subscription'); if(countSubscription)countSubscription.textContent=subscriptionCount;
   var countPaused=document.getElementById('customer-count-paused'); if(countPaused)countPaused.textContent=pausedCount;
+  updateCustomerPrimaryButtons(pausedCount);
 
   var now=new Date();
   var filtered=allCustomers.filter(function(c){
