@@ -5205,9 +5205,9 @@ tbody td strong{
         <div class="pay-advanced-title">Advanced Filters</div>
         <div class="pay-advanced-grid">
           <div class="pay-advanced-field">
-            <label>Subscription status</label>
+            <label>Status</label>
             <select id="customer-filter-status">
-              <option value="">All subscription statuses</option>
+              <option value="">All statuses</option>
               <option value="active">Active</option>
               <option value="paused">Paused</option>
               <option value="canceled">Canceled</option>
@@ -6558,6 +6558,25 @@ function clearAdvancedCustomerFilters(){
   toggleCustomerCustomDate();
   filterCustomers();
 }
+function resetCustomerFiltersOnRefresh(){
+  customerPrimaryFilter='';
+  var search=document.getElementById('customer-search'); if(search)search.value='';
+  var account=document.getElementById('customer-account-filter'); if(account)account.value='';
+  ['customer-filter-status','customer-filter-card','customer-filter-activity','customer-filter-date'].forEach(function(id){
+    var el=document.getElementById(id); if(el)el.value='';
+  });
+  var sort=document.getElementById('customer-filter-sort'); if(sort)sort.value='last_desc';
+  ['customer-filter-min-total','customer-filter-max-total','customer-date-from','customer-date-to'].forEach(function(id){
+    var el=document.getElementById(id); if(el)el.value='';
+  });
+  var popup=document.getElementById('customer-advanced-filters'); if(popup)popup.classList.remove('open');
+  toggleCustomerCustomDate();
+  updateCustomerPrimaryButtons();
+  if(Array.isArray(allCustomers) && allCustomers.length) filterCustomers();
+}
+window.addEventListener('pageshow',function(){
+  resetCustomerFiltersOnRefresh();
+});
 
 async function loadSubscriptions(){try{allSubscriptions=await api('/api/subscriptions');renderSubscriptions(allSubscriptions);}catch(e){}}
 function renderSubscriptions(list){
