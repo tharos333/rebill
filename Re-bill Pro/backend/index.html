@@ -4979,6 +4979,13 @@ tbody td strong{
   flex:0 0 auto!important;
 }
 
+
+/* Dashboard only: match Upcoming rebills Paused text weight with Subscriptions Paused */
+#page-dashboard #upcoming-table .dashboard-upcoming-paused,
+#page-dashboard #upcoming-table .dashboard-upcoming-paused > span{
+  font-weight:600!important;
+}
+
 </style>
 </head>
 <body>
@@ -6269,7 +6276,7 @@ async function loadUpcoming(){
   try{
     const subs=await api('/api/subscriptions');const tb=document.getElementById('upcoming-table');
     if(!subs.length){tb.innerHTML='<tr><td colspan="5" class="empty">No subscriptions yet.</td></tr>';return;}
-    tb.innerHTML=subs.slice(0,10).map(s=>'<tr><td><div class="customer-cell"><div class="avatar">'+initials(s.name)+'</div><div><div class="customer-name">'+(s.name||'—')+'</div><div class="customer-email">'+(s.email||'')+'</div></div></div></td><td class="mono">'+fmt(s.amount,s.currency)+'</td><td class="mono">'+fmtDate(s.next_billing_date)+'</td><td>'+badge(s.status)+'</td><td><div class="actions">'+(s.status==='active'?'<button class="btn btn-sm" onclick="chargeNow('+s.id+')">Charge</button>':'')+(s.status==='active'?'<button class="btn btn-sm" onclick="openPauseModal('+s.id+')">Pause</button>':'')+(s.status==='paused'?'<button class="btn btn-sm" onclick="setSubStatus('+s.id+',\'active\')">Resume</button>':'')+'</div></td></tr>').join('');
+    tb.innerHTML=subs.slice(0,10).map(s=>'<tr><td><div class="customer-cell"><div class="avatar">'+initials(s.name)+'</div><div><div class="customer-name">'+(s.name||'—')+'</div><div class="customer-email">'+(s.email||'')+'</div></div></div></td><td class="mono">'+fmt(s.amount,s.currency)+'</td><td class="mono">'+fmtDate(s.next_billing_date)+'</td><td>'+(String(s.status||'').toLowerCase()==='paused'?badge(s.status).replace('class="badge ','class="badge dashboard-upcoming-paused '):badge(s.status))+'</td><td><div class="actions">'+(s.status==='active'?'<button class="btn btn-sm" onclick="chargeNow('+s.id+')">Charge</button>':'')+(s.status==='active'?'<button class="btn btn-sm" onclick="openPauseModal('+s.id+')">Pause</button>':'')+(s.status==='paused'?'<button class="btn btn-sm" onclick="setSubStatus('+s.id+',\'active\')">Resume</button>':'')+'</div></td></tr>').join('');
   }catch(e){}
 }
 async function loadRecentPayments(){
