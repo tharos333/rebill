@@ -5177,7 +5177,7 @@ tbody td strong{
       <button id="customer-btn-onetime" class="pay-filter-btn" onclick="setCustomerPrimaryFilter('one-time')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#A8A8B5;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">One-time <span id="customer-count-onetime" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>
       <button id="customer-btn-subscription" class="pay-filter-btn" onclick="setCustomerPrimaryFilter('subscription')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#A8A8B5;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">Subscription <span id="customer-count-subscription" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>
       <div class="pay-filter-divider" style="width:1px;height:26px;background:#2A2A38;margin:0 4px;"></div>
-      <button id="customer-btn-paused" class="pay-filter-btn" onclick="setCustomerPrimaryFilter('paused')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#A8A8B5;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">Paused <span id="customer-count-paused" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>
+      <button id="customer-btn-paused" class="pay-filter-btn" onclick="setCustomerPrimaryFilter('paused')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#60A5FA;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">Paused <span id="customer-count-paused" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>
     </div>
     <div class="pay-filter-divider" style="width:1px;height:28px;background:#2A2A38;margin:0 2px;"></div>
     <!-- Stripe account dropdown -->
@@ -6397,7 +6397,7 @@ function updateCustomerPrimaryButtons(pausedCount){
       btn.style.border='1px solid #2A2A38';
       btn.style.background='#14141d';
       btn.style.boxShadow='inset 0 1px 0 rgba(255,255,255,0.04)';
-      btn.style.color=(key==='paused'&&pausedCount>0)?'#FBBF24':'#A8A8B5';
+      btn.style.color=key==='paused'?'#60A5FA':'#A8A8B5';
     }
   });
 }
