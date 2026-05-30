@@ -6186,7 +6186,15 @@ async function loadActivity(){
     wrap.innerHTML=list.map(function(a){return '<div class="activity-item"><div class="activity-dot" style="background:'+(colors[a.type]||'var(--muted)')+'"></div><div style="flex:1;"><div style="font-size:13px;">'+a.description+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;">'+fmtTime(a.created_at)+'</div></div></div>';}).join('');
   }catch(e){}
 }
-async function loadCustomers(){try{allCustomers=await api('/api/customers');renderCustomers(allCustomers);}catch(e){}}
+async function loadCustomers(){
+  try{
+    if(!Array.isArray(allPayments) || allPayments.length===0){
+      try{ allPayments = await api('/api/payments'); }catch(_e){}
+    }
+    allCustomers=await api('/api/customers');
+    renderCustomers(allCustomers);
+  }catch(e){}
+}
 
 function customerOriginalCurrency(c){
   if(c.last_payment_currency || c.currency || c.default_currency) return c.last_payment_currency || c.currency || c.default_currency;
@@ -6194,7 +6202,7 @@ function customerOriginalCurrency(c){
     var match=(allPayments||[]).find(function(p){
       return String(p.customer_id||'')===String(c.id||'') ||
              String(p.stripe_customer_id||'')===String(c.stripe_customer_id||'') ||
-             ((p.customer_email||p.email||'') && c.email && String(p.customer_email||p.email).toLowerCase()===String(c.email).toLowerCase());
+             ((p.email||p.customer_email||'') && c.email && String(p.email||p.customer_email).toLowerCase()===String(c.email).toLowerCase());
     });
     return (match && (match.currency || match.payment_currency || match.amount_currency)) || 'usd';
   }catch(e){
