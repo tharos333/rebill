@@ -5055,6 +5055,12 @@ html.light #customer-btn-subscription.active{
   color:#00a85a!important;
 }
 
+
+/* Paused badge optical spacing: narrow pause icon sits 3px closer to its label */
+.badge svg.status-mini-icon.paused-mini-icon{
+  margin-left:-3px!important;
+}
+
 </style>
 </head>
 <body>
@@ -6093,7 +6099,7 @@ function badgeIcon(s){
   }
 
   if (raw.includes('pause')) {
-    return '<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 4.5v7M10 4.5v7" stroke="currentColor" stroke-linecap="round"/></svg>';
+    return '<svg class="status-mini-icon paused-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 4.5v7M10 4.5v7" stroke="currentColor" stroke-linecap="round"/></svg>';
   }
 
   if (raw.includes('refund')) {
