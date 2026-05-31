@@ -5061,21 +5061,6 @@ html.light #customer-btn-subscription.active{
   margin-left:-3px!important;
 }
 
-
-/* Wallet and alternative-payment logos: readable while card icons stay compact */
-.payment-img.payment-method-img{
-  width:38px!important;
-  height:22px!important;
-  border-radius:5px!important;
-}
-.payment-detail-shell .drawer-payment-card .payment-img.payment-method-img{
-  width:42px!important;
-  height:25px!important;
-}
-.payment-detail-shell .pd-polished-value .drawer-payment-card{
-  justify-content:flex-end!important;
-}
-
 </style>
 </head>
 <body>
@@ -6154,109 +6139,82 @@ function closeModal(id){
     var pdModal=document.getElementById('payment-detail-modal');
     if(pdModal){pdModal.classList.remove('payment-anim-prep','payment-anim-in');}
   }var el=document.getElementById(id);if(!el)return;el.classList.remove('open');if(id==='payment-detail-modal'||!document.querySelector('.modal-bg.open'))document.body.classList.remove('modal-lock');}
-function normalizePaymentIconKey(value){
-  var b=String(value||'').toLowerCase().trim().replace(/[\s-]+/g,'_');
-  var aliases={
-    american_express:'amex',
-    diners_club:'diners',
-    master_card:'mastercard',
-    carte_bancaire:'cartes_bancaires',
-    cb:'cartes_bancaires',
-    googlepay:'google_pay',
-    applepay:'apple_pay',
-    samsungpay:'samsung_pay',
-    sepa:'sepa_debit',
-    p24:'przelewy24',
-    paypal_payments:'paypal'
-  };
-  return aliases[b]||b;
-}
-var paymentIconAssets={
-  visa:'visa.svg', mastercard:'mastercard.svg', amex:'american-express.svg', discover:'discover.svg', diners:'diners.svg',
-  jcb:'jcb.svg', unionpay:'unionpay.svg', cartes_bancaires:'cartes-bancaires.svg', dankort:'dankort.svg', elo:'elo.svg',
-  hipercard:'hipercard.svg', maestro:'maestro.svg', uatp:'uatp.svg', vpay:'vpay.svg',
-  apple_pay:'apple-pay.svg', google_pay:'google-pay.svg', samsung_pay:'samsung-pay.svg', link:'link.svg',
-  klarna:'klarna.svg', paypal:'paypal.svg', amazon_pay:'amazon-pay.svg', alipay:'alipay.svg',
-  bancontact:'bancontact.svg', blik:'blik.svg', eps:'eps.svg', giropay:'giropay.svg', ideal:'ideal.svg',
-  przelewy24:'przelewy24.svg', sepa_debit:'sepa.svg', swish:'swish.svg', twint:'twint.svg',
-  vipps:'vipps.svg', mobilepay:'mobilepay.svg', wechat_pay:'wechat-pay.svg'
-};
-var paymentIconLabels={
-  visa:'Visa', mastercard:'Mastercard', amex:'American Express', discover:'Discover', diners:'Diners Club',
-  jcb:'JCB', unionpay:'UnionPay', cartes_bancaires:'Cartes Bancaires', dankort:'Dankort', elo:'Elo',
-  hipercard:'Hipercard', maestro:'Maestro', uatp:'UATP', vpay:'V Pay',
-  apple_pay:'Apple Pay', google_pay:'Google Pay', samsung_pay:'Samsung Pay', link:'Link',
-  klarna:'Klarna', paypal:'PayPal', amazon_pay:'Amazon Pay', alipay:'Alipay',
-  bancontact:'Bancontact', blik:'BLIK', eps:'EPS', giropay:'giropay', ideal:'iDEAL',
-  przelewy24:'Przelewy24', sepa_debit:'SEPA Direct Debit', swish:'Swish', twint:'TWINT',
-  vipps:'Vipps', mobilepay:'MobilePay', wechat_pay:'WeChat Pay'
-};
-var cardNetworkIconKeys={visa:1,mastercard:1,amex:1,discover:1,diners:1,jcb:1,unionpay:1,cartes_bancaires:1,dankort:1,elo:1,hipercard:1,maestro:1,uatp:1,vpay:1};
-function paymentIconLabel(key){
-  key=normalizePaymentIconKey(key);
-  return paymentIconLabels[key]||key.replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();});
-}
-function paymentIconHtml(key){
-  key=normalizePaymentIconKey(key);
-  var label=paymentIconLabel(key||'card');
-  var src=paymentIconAssets[key]?'/icons/'+paymentIconAssets[key]:null;
-  var wide=!cardNetworkIconKeys[key];
-  return src
-    ? '<img src="'+src+'" class="payment-img'+(wide?' payment-method-img':'')+'" alt="'+label+'" title="'+label+'">'
-    : '<div class="payment-badge-fallback" title="'+label+'">'+((key||'card').slice(0,4).toUpperCase())+'</div>';
-}
-function paymentMethodBadge(key,last4,includeName,drawer){
-  key=normalizePaymentIconKey(key);
-  last4=String(last4||'').trim();
-  var hasRecognizedIcon=!!paymentIconAssets[key];
-  var genericCard=!key||key==='card';
-
-  /* Never show a fake CARD fallback for missing Stripe method details. */
-  if(genericCard&&!last4)return '<span class="no-card">—</span>';
-
-  /* If Stripe supplied last4 but no recognized brand, show digits only, not CARD. */
-  if(genericCard&&last4){
-    return '<div class="payment-card'+(drawer?' drawer-payment-card':'')+'"><span class="payment-dots">••••</span><span class="payment-last4">'+last4+'</span></div>';
-  }
-
-  /* Unknown unsupported method types should not pretend to be card. */
-  if(!hasRecognizedIcon&&!last4)return '<span class="no-card">—</span>';
-
-  var label=paymentIconLabel(key);
-  var name=includeName?'<span class="payment-brand-name">'+label+'</span>':'';
-  var dots=last4?'<span class="payment-dots">••••</span>':'';
-  var number=last4?'<span class="payment-last4">'+last4+'</span>':'';
-  return '<div class="payment-card'+(drawer?' drawer-payment-card':'')+'">'+name+(hasRecognizedIcon?paymentIconHtml(key):'')+dots+number+'</div>';
-}
 function paymentDrawerCardBadge(brand,last4){
-  return paymentMethodBadge(brand,last4,true,true);
-}
-function cardBadge(brand,last4){
-  return paymentMethodBadge(brand,last4,false,false);
-}
-function paymentPrimaryMethodKey(p){
-  var wallet=normalizePaymentIconKey(p&&p.wallet_type);
-  if(wallet)return wallet;
-  var type=normalizePaymentIconKey(p&&p.payment_method_type);
-  if(type&&type!=='card')return type;
-  return normalizePaymentIconKey(p&&p.card_brand)||'';
-}
-function paymentPrimaryLast4(p){
-  return (p&&(p.wallet_last4||p.payment_method_last4||p.card_last4))||'';
-}
-function paymentBadge(p){
-  return paymentMethodBadge(paymentPrimaryMethodKey(p),paymentPrimaryLast4(p),false,false);
-}
-function paymentDrawerMethodBadge(p){
-  return paymentMethodBadge(paymentPrimaryMethodKey(p),paymentPrimaryLast4(p),true,true);
-}
-function paymentHasAlternativeMethod(p){
-  return !!(p&&(p.wallet_type||(p.payment_method_type&&normalizePaymentIconKey(p.payment_method_type)!=='card')));
-}
-function paymentIsWallet(p){
-  return !!(p&&p.wallet_type);
+  if(!brand&&!last4)return '<span class="no-card">—</span>';
+  var raw=(brand||'').toLowerCase().trim();
+  var b=raw.replace(/[\s-]+/g,'_');
+  var aliases={
+    'american_express':'amex',
+    'diners_club':'diners',
+    'master_card':'mastercard',
+    'carte_bancaire':'cartes_bancaires',
+    'cb':'cartes_bancaires'
+  };
+  b=aliases[b]||b;
+  var icons={
+    visa:'visa.svg',
+    mastercard:'mastercard.svg',
+    amex:'american-express.svg',
+    discover:'discover.svg',
+    diners:'diners.svg',
+    jcb:'jcb.svg',
+    unionpay:'unionpay.svg',
+    cartes_bancaires:'cartes-bancaires.svg',
+    dankort:'dankort.svg',
+    elo:'elo.svg',
+    hipercard:'hipercard.svg',
+    maestro:'maestro.svg',
+    uatp:'uatp.svg',
+    vpay:'vpay.svg'
+  };
+  var labels={visa:'Visa',mastercard:'Mastercard',amex:'American Express',discover:'Discover',diners:'Diners Club',jcb:'JCB',unionpay:'UnionPay',cartes_bancaires:'Cartes Bancaires',dankort:'Dankort',elo:'Elo',hipercard:'Hipercard',maestro:'Maestro',uatp:'UATP',vpay:'V Pay'};
+  var src=icons[b]?'/icons/'+icons[b]:null;
+  var label=labels[b]||((b||'card').replace(/_/g,' ').replace(/\w/g,function(c){return c.toUpperCase();}));
+  var img=src?'<img src="'+src+'" class="payment-img" alt="'+label+'" title="'+label+'">'
+    :'<div class="payment-badge-fallback" title="'+label+'">'+((b||'card').slice(0,4).toUpperCase())+'</div>';
+  var brandName=brand?'<span class="payment-brand-name">'+label+'</span>':'';
+  var dots=last4?'<span class="payment-dots">••••</span>':'';
+  var num=last4?'<span class="payment-last4">'+last4+'</span>':'';
+  return '<div class="payment-card drawer-payment-card">'+brandName+img+dots+num+'</div>';
 }
 
+function cardBadge(brand,last4){
+  if(!brand&&!last4)return '<span class="no-card">—</span>';
+  var raw=(brand||'').toLowerCase().trim();
+  var b=raw.replace(/[\s-]+/g,'_');
+  var aliases={
+    'american_express':'amex',
+    'diners_club':'diners',
+    'master_card':'mastercard',
+    'carte_bancaire':'cartes_bancaires',
+    'cb':'cartes_bancaires'
+  };
+  b=aliases[b]||b;
+  var icons={
+    visa:'visa.svg',
+    mastercard:'mastercard.svg',
+    amex:'american-express.svg',
+    discover:'discover.svg',
+    diners:'diners.svg',
+    jcb:'jcb.svg',
+    unionpay:'unionpay.svg',
+    cartes_bancaires:'cartes-bancaires.svg',
+    dankort:'dankort.svg',
+    elo:'elo.svg',
+    hipercard:'hipercard.svg',
+    maestro:'maestro.svg',
+    uatp:'uatp.svg',
+    vpay:'vpay.svg'
+  };
+  var labels={visa:'Visa',mastercard:'Mastercard',amex:'American Express',discover:'Discover',diners:'Diners Club',jcb:'JCB',unionpay:'UnionPay',cartes_bancaires:'Cartes Bancaires',dankort:'Dankort',elo:'Elo',hipercard:'Hipercard',maestro:'Maestro',uatp:'UATP',vpay:'V Pay'};
+  var src=icons[b]?'/icons/'+icons[b]:null;
+  var label=labels[b]||((b||'card').replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();}));
+  var img=src?'<img src="'+src+'" class="payment-img" alt="'+label+'" title="'+label+'">'
+    :'<div class="payment-badge-fallback" title="'+label+'">'+((b||'card').slice(0,4).toUpperCase())+'</div>';
+  var dots=last4?'<span class="payment-dots">••••</span>':'';
+  var num=last4?'<span class="payment-last4">'+last4+'</span>':'';
+  return '<div class="payment-card">'+img+dots+num+'</div>'; 
+}
 function initApp(){
   var username=localStorage.getItem('subloop_username');
   if(username){
@@ -6413,7 +6371,7 @@ async function loadRecentPayments(){
       var customerHtml=isGhost
         ?'<div class="customer-name" style="color:var(--red);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;margin-top:-1px;flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>No profile</div><div class="customer-email">External payment · no email collected</div>'
         :'<div class="customer-name">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div>';
-      return '<tr style="'+rowBg+'"><td><div class="customer-cell">'+avatarHtml+'<div>'+customerHtml+'</div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+paymentBadge(p)+'</td><td>'+badge(p.status)+'</td><td class="mono">'+fmtDate(p.created_at)+'</td></tr>';
+      return '<tr style="'+rowBg+'"><td><div class="customer-cell">'+avatarHtml+'<div>'+customerHtml+'</div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+cardBadge(p.card_brand,p.card_last4)+'</td><td>'+badge(p.status)+'</td><td class="mono">'+fmtDate(p.created_at)+'</td></tr>';
     }).join('');
   }catch(e){}
 }
@@ -6901,7 +6859,7 @@ function renderPayments(list){
       ?'<div class="customer-name" style="font-size:13px;color:var(--red);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;margin-top:-1px;flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>No profile</div>'
       :'<div class="customer-name" style="font-size:13px;">'+(p.name||'—')+'</div>';
     var pJson=encodeURIComponent(JSON.stringify(p));
-    return '<tr style="'+rowBg+'cursor:pointer;" onclick="openPaymentModal(decodePaymentData(this))" data-payment="'+pJson+'"><td><div class="customer-cell">'+avatarHtml+'<div>'+customerHtml+'</div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+paymentBadge(p)+'</td><td>'+badge(p.status)+'</td><td>'+reasonHtml+'</td><td class="mono" style="font-size:12px;white-space:nowrap;">'+fmtDate(p.created_at)+'</td><td>'+refHtml+'</td><td>'+actions+'</td></tr>';
+    return '<tr style="'+rowBg+'cursor:pointer;" onclick="openPaymentModal(decodePaymentData(this))" data-payment="'+pJson+'"><td><div class="customer-cell">'+avatarHtml+'<div>'+customerHtml+'</div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+cardBadge(p.card_brand,p.card_last4)+'</td><td>'+badge(p.status)+'</td><td>'+reasonHtml+'</td><td class="mono" style="font-size:12px;white-space:nowrap;">'+fmtDate(p.created_at)+'</td><td>'+refHtml+'</td><td>'+actions+'</td></tr>';
   }).join('');
 }
 function decodePaymentData(row){try{return JSON.parse(decodeURIComponent(row.getAttribute('data-payment')));}catch(e){return {};}}
@@ -6950,13 +6908,9 @@ function renderPaymentDetailModal(p, syncing){
   var drawerStatusIcon=isPaymentNeeded?'payment-needed':statusClass;
   var drawerStatusClass=isPaymentNeeded?'payment-needed':statusClass;
   var pid=p.stripe_payment_intent||'', invoice=p.stripe_invoice_id||'', account=p.account_name||'—';
-  var isWalletMethod=paymentIsWallet(p);
-  var isAlternativeMethod=paymentHasAlternativeMethod(p);
-  var hasPaymentMethod=!!(p.wallet_type||p.card_brand||p.card_last4||p.payment_method_last4||p.payment_method_email||p.card_funding||p.card_country||p.card_exp_month||p.card_exp_year||(p.payment_method_type&&normalizePaymentIconKey(p.payment_method_type)!=='card'));
-  var methodHtml=hasPaymentMethod?paymentDrawerMethodBadge(p):'';
-  var underlyingCardHtml=(isWalletMethod&&(p.card_brand||p.card_last4))?paymentDrawerCardBadge(p.card_brand,p.card_last4):'';
+  var hasPaymentMethod=!!(p.card_brand||p.card_last4||p.card_funding||p.card_country||p.card_exp_month||p.card_exp_year);
+  var cardHtml=(p.card_brand||p.card_last4)?paymentDrawerCardBadge(p.card_brand,p.card_last4):'';
   var exp=(p.card_exp_month&&p.card_exp_year)?String(p.card_exp_month).padStart(2,'0')+' / '+String(p.card_exp_year).slice(-2):'—';
-  var methodPaymentDescription=isWalletMethod?'wallet payment':(isAlternativeMethod?'payment':'card payment');
   var reference=p.stripe_payment_intent||p.id||'—';
   var finCur=pdMoneyCurrency(p);
   var fee=(p.stripe_fee!==undefined&&p.stripe_fee!==null)?pdMoney(p.stripe_fee,finCur):(syncing?'Syncing…':'—');
@@ -6981,7 +6935,7 @@ function renderPaymentDetailModal(p, syncing){
   }
   var h='';
   h+='<div class="payment-detail-shell pd-polished-drawer"><div class="payment-detail-top"><button class="payment-detail-close" onclick="closeModal(\'payment-detail-modal\')" aria-label="Close payment details"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button></div><div class="payment-detail-scroll">';
-  h+='<div class="pd-polished-head"><div class="pd-polished-title"><span class="pd-title-icon '+drawerStatusClass+'">'+iconSvg(drawerStatusIcon)+'</span><span>'+escHtml(headerTitle)+'</span></div><div class="pd-polished-amount '+statusClass+'">'+fmt(p.amount,p.currency)+'</div><div class="pd-polished-sub">'+escHtml(typeLabel)+' '+methodPaymentDescription+'</div></div>';
+  h+='<div class="pd-polished-head"><div class="pd-polished-title"><span class="pd-title-icon '+drawerStatusClass+'">'+iconSvg(drawerStatusIcon)+'</span><span>'+escHtml(headerTitle)+'</span></div><div class="pd-polished-amount '+statusClass+'">'+fmt(p.amount,p.currency)+'</div><div class="pd-polished-sub">'+escHtml(typeLabel)+' card payment</div></div>';
 
   h+='<div class="pd-meta-grid">';
   h+='<div class="pd-meta-card"><div class="pd-meta-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span>Date</span></div><div class="pd-meta-value">'+formatPdDate(p.created_at)+'</div></div>';
@@ -7003,20 +6957,10 @@ function renderPaymentDetailModal(p, syncing){
   h+='<section class="pd-polished-section"><h3 class="pd-polished-heading">Payment method</h3>';
   if(hasPaymentMethod){
     h+='<div class="pd-polished-method-group">';
-    h+='<div class="pd-method-main">'+(methodHtml||'<span class="pd-polished-value muted">Payment method unavailable</span>')+'</div>';
-    if(isWalletMethod&&underlyingCardHtml){
-      h+='<div class="pd-polished-row"><div class="pd-polished-label">Funding source</div><div class="pd-polished-value">'+underlyingCardHtml+'</div></div>';
-    }
-    if(p.payment_method_email){
-      h+='<div class="pd-polished-row"><div class="pd-polished-label">Account</div><div class="pd-polished-value">'+escHtml(p.payment_method_email)+'</div></div>';
-    }
-    if(!isAlternativeMethod||isWalletMethod){
-      h+='<div class="pd-polished-row"><div class="pd-polished-label">Funding</div><div class="pd-polished-value">'+escHtml(p.card_funding?p.card_funding.charAt(0).toUpperCase()+p.card_funding.slice(1):'—')+'</div></div>';
-      h+='<div class="pd-polished-row"><div class="pd-polished-label">Country</div><div class="pd-polished-value">'+escHtml(p.card_country||'—')+'</div></div>';
-      h+='<div class="pd-polished-row"><div class="pd-polished-label">Expires</div><div class="pd-polished-value">'+escHtml(exp)+'</div></div>';
-    } else if(p.card_country){
-      h+='<div class="pd-polished-row"><div class="pd-polished-label">Country</div><div class="pd-polished-value">'+escHtml(p.card_country)+'</div></div>';
-    }
+    h+='<div class="pd-method-main">'+(cardHtml||'<span class="pd-polished-value muted">Card details unavailable</span>')+'</div>';
+    h+='<div class="pd-polished-row"><div class="pd-polished-label">Funding</div><div class="pd-polished-value">'+escHtml(p.card_funding?p.card_funding.charAt(0).toUpperCase()+p.card_funding.slice(1):'—')+'</div></div>';
+    h+='<div class="pd-polished-row"><div class="pd-polished-label">Country</div><div class="pd-polished-value">'+escHtml(p.card_country||'—')+'</div></div>';
+    h+='<div class="pd-polished-row"><div class="pd-polished-label">Expires</div><div class="pd-polished-value">'+escHtml(exp)+'</div></div>';
     h+='</div>';
   } else {
     h+='<div class="pd-method-empty">No payment method details available</div>';
@@ -7062,8 +7006,7 @@ function renderPaymentDetailModal(p, syncing){
 
 function openPaymentModal(p){
   if(!p||!p.id)return;
-  var needsMethodSync=p.stripe_payment_intent&&(!p.payment_method_type||((p.payment_method_type==='card'||!p.payment_method_type)&&!p.card_brand));
-  var needsFinancialSync=!!(p.stripe_payment_intent&&((p.status==='succeeded'&&(p.stripe_fee===undefined||p.stripe_fee===null||p.net_amount===undefined||p.net_amount===null||!p.financial_currency))||needsMethodSync));
+  var needsFinancialSync=p.status==='succeeded'&&p.stripe_payment_intent&&(p.stripe_fee===undefined||p.stripe_fee===null||p.net_amount===undefined||p.net_amount===null||!p.financial_currency);
   renderPaymentDetailModal(p, needsFinancialSync);
   openModal('payment-detail-modal');
   if(needsFinancialSync){
@@ -7072,10 +7015,7 @@ function openPaymentModal(p){
       renderPaymentDetailModal(merged,false);
       if(Array.isArray(allPayments)){
         var idx=allPayments.findIndex(function(x){return String(x.id)===String(p.id);});
-        if(idx>=0){
-          allPayments[idx]=Object.assign({},allPayments[idx],updated||{});
-          if(document.getElementById('page-payments')&&document.getElementById('page-payments').classList.contains('active'))filterPayments();
-        }
+        if(idx>=0)allPayments[idx]=Object.assign({},allPayments[idx],updated||{});
       }
     }).catch(function(){renderPaymentDetailModal(p,false);});
   }
