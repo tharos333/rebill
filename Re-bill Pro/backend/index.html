@@ -6207,12 +6207,26 @@ function paymentIconHtml(key){
 }
 function paymentMethodBadge(key,last4,includeName,drawer){
   key=normalizePaymentIconKey(key);
-  if(!key&&!last4)return '<span class="no-card">—</span>';
-  var label=paymentIconLabel(key||'card');
+  last4=String(last4||'').trim();
+  var hasRecognizedIcon=!!paymentIconAssets[key];
+  var genericCard=!key||key==='card';
+
+  /* Never show a fake CARD fallback for missing Stripe method details. */
+  if(genericCard&&!last4)return '<span class="no-card">—</span>';
+
+  /* If Stripe supplied last4 but no recognized brand, show digits only, not CARD. */
+  if(genericCard&&last4){
+    return '<div class="payment-card'+(drawer?' drawer-payment-card':'')+'"><span class="payment-dots">••••</span><span class="payment-last4">'+last4+'</span></div>';
+  }
+
+  /* Unknown unsupported method types should not pretend to be card. */
+  if(!hasRecognizedIcon&&!last4)return '<span class="no-card">—</span>';
+
+  var label=paymentIconLabel(key);
   var name=includeName?'<span class="payment-brand-name">'+label+'</span>':'';
   var dots=last4?'<span class="payment-dots">••••</span>':'';
   var number=last4?'<span class="payment-last4">'+last4+'</span>':'';
-  return '<div class="payment-card'+(drawer?' drawer-payment-card':'')+'">'+name+paymentIconHtml(key)+dots+number+'</div>';
+  return '<div class="payment-card'+(drawer?' drawer-payment-card':'')+'">'+name+(hasRecognizedIcon?paymentIconHtml(key):'')+dots+number+'</div>';
 }
 function paymentDrawerCardBadge(brand,last4){
   return paymentMethodBadge(brand,last4,true,true);
@@ -6225,7 +6239,7 @@ function paymentPrimaryMethodKey(p){
   if(wallet)return wallet;
   var type=normalizePaymentIconKey(p&&p.payment_method_type);
   if(type&&type!=='card')return type;
-  return normalizePaymentIconKey(p&&p.card_brand)||type||'card';
+  return normalizePaymentIconKey(p&&p.card_brand)||'';
 }
 function paymentPrimaryLast4(p){
   return (p&&(p.wallet_last4||p.payment_method_last4||p.card_last4))||'';
@@ -6938,7 +6952,7 @@ function renderPaymentDetailModal(p, syncing){
   var pid=p.stripe_payment_intent||'', invoice=p.stripe_invoice_id||'', account=p.account_name||'—';
   var isWalletMethod=paymentIsWallet(p);
   var isAlternativeMethod=paymentHasAlternativeMethod(p);
-  var hasPaymentMethod=!!(p.payment_method_type||p.wallet_type||p.card_brand||p.card_last4||p.card_funding||p.card_country||p.card_exp_month||p.card_exp_year);
+  var hasPaymentMethod=!!(p.wallet_type||p.card_brand||p.card_last4||p.payment_method_last4||p.payment_method_email||p.card_funding||p.card_country||p.card_exp_month||p.card_exp_year||(p.payment_method_type&&normalizePaymentIconKey(p.payment_method_type)!=='card'));
   var methodHtml=hasPaymentMethod?paymentDrawerMethodBadge(p):'';
   var underlyingCardHtml=(isWalletMethod&&(p.card_brand||p.card_last4))?paymentDrawerCardBadge(p.card_brand,p.card_last4):'';
   var exp=(p.card_exp_month&&p.card_exp_year)?String(p.card_exp_month).padStart(2,'0')+' / '+String(p.card_exp_year).slice(-2):'—';
