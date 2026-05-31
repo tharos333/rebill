@@ -71,6 +71,9 @@ async function ensureWebhookColumns() {
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_exp_year INT').catch(()=>{});
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_country TEXT').catch(()=>{});
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_funding TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_method_type TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS wallet_type TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS wallet_checked BOOLEAN DEFAULT FALSE').catch(()=>{});
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS stripe_fee INT').catch(()=>{});
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS net_amount INT').catch(()=>{});
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS balance_transaction_id TEXT').catch(()=>{});
@@ -298,7 +301,7 @@ function normalizeCardBrand(brand) {
 }
 
 async function getCardDetailsFromPaymentIntent(stripe, pi) {
-  const details = { brand: null, last4: null, exp_month: null, exp_year: null, country: null, funding: null, billing_name: null, billing_email: null };
+  const details = { brand: null, last4: null, exp_month: null, exp_year: null, country: null, funding: null, billing_name: null, billing_email: null, payment_method_type: null, wallet_type: null };
 
   try {
     if ((!pi.latest_charge || typeof pi.latest_charge === 'string') || !pi.payment_method) {
@@ -309,33 +312,37 @@ async function getCardDetailsFromPaymentIntent(stripe, pi) {
       pi.receipt_email = pi.receipt_email || fullPi.receipt_email;
     }
   } catch(e) {
-    console.log('[payment] could not expand card details from PI:', e.message);
+    console.log('[payment] could not expand payment details from PI:', e.message);
   }
 
   let card = null;
   try {
     let charge = pi.latest_charge;
     if (charge && typeof charge === 'string') charge = await stripe.charges.retrieve(charge);
-    card = charge?.payment_method_details?.card || null;
+    const pmDetails = charge?.payment_method_details || null;
+    details.payment_method_type = pmDetails?.type || null;
+    card = pmDetails?.card || null;
+    details.wallet_type = card?.wallet?.type || null;
     details.billing_name = charge?.billing_details?.name || null;
     details.billing_email = cleanEmail(charge?.billing_details?.email) || null;
   } catch(e) {
-    console.log('[payment] could not retrieve charge card details:', e.message);
+    console.log('[payment] could not retrieve charge payment details:', e.message);
   }
 
-  if (!card) {
-    try {
-      let pm = pi.payment_method;
-      if (pm && typeof pm === 'string') pm = await stripe.paymentMethods.retrieve(pm);
-      card = pm?.card || null;
-      details.billing_name = details.billing_name || pm?.billing_details?.name || null;
-      details.billing_email = details.billing_email || cleanEmail(pm?.billing_details?.email) || null;
-    } catch(e) {
-      console.log('[payment] could not retrieve payment method card details:', e.message);
-    }
+  try {
+    let pm = pi.payment_method;
+    if (pm && typeof pm === 'string') pm = await stripe.paymentMethods.retrieve(pm);
+    details.payment_method_type = details.payment_method_type || pm?.type || null;
+    if (!card) card = pm?.card || null;
+    details.wallet_type = details.wallet_type || card?.wallet?.type || null;
+    details.billing_name = details.billing_name || pm?.billing_details?.name || null;
+    details.billing_email = details.billing_email || cleanEmail(pm?.billing_details?.email) || null;
+  } catch(e) {
+    console.log('[payment] could not retrieve PaymentMethod details:', e.message);
   }
 
   if (card) {
+    details.payment_method_type = details.payment_method_type || 'card';
     details.brand = normalizeCardBrand(card.brand);
     details.last4 = card.last4 || null;
     details.exp_month = card.exp_month || null;
@@ -444,7 +451,9 @@ async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null, f
       recovered_at=CASE WHEN $18='succeeded' AND (COALESCE(was_failed,false) OR status='failed') THEN COALESCE(recovered_at,NOW()) ELSE recovered_at END
       WHERE id=$19`,
       [localCustomer.id, localSubId, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency, status, existingPayment.rows[0].id]);
-    console.log('[external-import] updated payment:', pi.id, 'customer:', localCustomer.email);
+    await pool.query(`UPDATE payments SET payment_method_type=COALESCE($1,payment_method_type), wallet_type=COALESCE($2,wallet_type), wallet_checked=TRUE WHERE id=$3`,
+      [cardDetails.payment_method_type, cardDetails.wallet_type, existingPayment.rows[0].id]).catch(()=>{});
+    console.log('[external-import] updated payment:', pi.id, 'customer:', localCustomer.email, 'method:', cardDetails.payment_method_type || '-', 'wallet:', cardDetails.wallet_type || '-');
     return existingPayment.rows[0].id;
   }
 
@@ -453,7 +462,9 @@ async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null, f
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING id`,
     [localCustomer.id, localSubId, pi.id, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency, status==='failed']
   );
-  console.log('[external-import] saved payment:', pi.id, 'row id:', ins.rows[0].id, 'customer:', localCustomer.email);
+  await pool.query(`UPDATE payments SET payment_method_type=COALESCE($1,payment_method_type), wallet_type=COALESCE($2,wallet_type), wallet_checked=TRUE WHERE id=$3`,
+    [cardDetails.payment_method_type, cardDetails.wallet_type, ins.rows[0].id]).catch(()=>{});
+  console.log('[external-import] saved payment:', pi.id, 'row id:', ins.rows[0].id, 'customer:', localCustomer.email, 'method:', cardDetails.payment_method_type || '-', 'wallet:', cardDetails.wallet_type || '-');
   await activityLog.add('payment', `Payment ${status} for ${localCustomer.email}`, localCustomer.id, amount).catch(()=>{});
   return ins.rows[0].id;
 }
@@ -994,6 +1005,8 @@ app.get('/api/payments/:id/financials', async (req, res) => {
       stripe_invoice_id=COALESCE($5,stripe_invoice_id), card_brand=COALESCE($6,card_brand), card_last4=COALESCE($7,card_last4),
       card_exp_month=COALESCE($8,card_exp_month), card_exp_year=COALESCE($9,card_exp_year), card_country=COALESCE($10,card_country), card_funding=COALESCE($11,card_funding)
       WHERE id=$12`, [financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, payment.id]);
+    await pool.query(`UPDATE payments SET payment_method_type=COALESCE($1,payment_method_type), wallet_type=COALESCE($2,wallet_type), wallet_checked=TRUE WHERE id=$3`,
+      [cardDetails.payment_method_type, cardDetails.wallet_type, payment.id]).catch(()=>{});
     const updated = await pool.query(`SELECT p.*, c.email, c.name, COALESCE(p.card_brand,c.card_brand) AS card_brand, COALESCE(p.card_last4,c.card_last4) AS card_last4, sa.name AS account_name
       FROM payments p JOIN customers c ON c.id=p.customer_id LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id WHERE p.id=$1`, [payment.id]);
     res.json(updated.rows[0] || payment);
