@@ -1293,7 +1293,9 @@ app.get('/api/stats', async (req, res) => {
 });
 app.get('/api/revenue-chart', async (req, res) => {
   try {
-    const r = await pool.query(`SELECT DATE(created_at) as day, SUM(CASE WHEN status='succeeded' THEN ${usdAmountSql()} ELSE 0 END) as revenue, COUNT(CASE WHEN status='succeeded' THEN 1 END) as count FROM payments WHERE created_at >= NOW() - INTERVAL '60 days' GROUP BY DATE(created_at) ORDER BY day ASC`);
+    const allTime = String(req.query.period || '').toLowerCase() === 'all';
+    const dateFilter = allTime ? '' : " WHERE created_at >= NOW() - INTERVAL '60 days'";
+    const r = await pool.query(`SELECT DATE(created_at) as day, SUM(CASE WHEN status='succeeded' THEN ${usdAmountSql()} ELSE 0 END) as revenue, COUNT(CASE WHEN status='succeeded' THEN 1 END) as count FROM payments${dateFilter} GROUP BY DATE(created_at) ORDER BY day ASC`);
     res.json(r.rows);
   } catch(err) { res.status(500).json({ error: err.message }); }
 });

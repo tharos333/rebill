@@ -5222,6 +5222,7 @@ html.light #customer-btn-subscription.active{
     <div style="padding:14px 18px 0;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
       <div><div style="font-size:14px;font-weight:600;">Revenue Overview</div><div style="font-size:13px;color:var(--muted);font-family:var(--mono);margin-top:2px;">Track revenue by selected period</div></div>
       <div style="display:flex;gap:5px;flex-wrap:wrap;">
+        <button class="rev-tab" id="rev-tab-all" onclick="setRevPeriod('all')">All Time</button>
         <button class="rev-tab active" id="rev-tab-month" onclick="setRevPeriod('month')">This Month</button>
         <button class="rev-tab" id="rev-tab-week" onclick="setRevPeriod('week')">This Week</button>
         <button class="rev-tab" id="rev-tab-yesterday" onclick="setRevPeriod('yesterday')">Yesterday</button>
@@ -6400,11 +6401,18 @@ async function loadStats(){
 function setRevPeriod(period){currentRevPeriod=period;document.querySelectorAll('.rev-tab').forEach(t=>t.classList.remove('active'));document.getElementById('rev-tab-'+period).classList.add('active');loadChart();}
 async function loadChart(){
   try{
-    const data=await api('/api/revenue-chart');const wrap=document.getElementById('revenue-summary');const now=new Date();let filtered;
-    if(currentRevPeriod==='today'){const t=now.toISOString().split('T')[0];filtered=data.filter(d=>d.day&&d.day.startsWith(t));}
-    else if(currentRevPeriod==='yesterday'){const y=new Date(now);y.setDate(y.getDate()-1);const ys=y.toISOString().split('T')[0];filtered=data.filter(d=>d.day&&d.day.startsWith(ys));}
+    const data=await api('/api/revenue-chart'+(currentRevPeriod==='all'?'?period=all':''));
+    const wrap=document.getElementById('revenue-summary');const now=new Date();let filtered;
+    const localDateKey=function(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+    if(currentRevPeriod==='all'){filtered=data;}
+    else if(currentRevPeriod==='month'){
+      const monthKey=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+      filtered=data.filter(d=>d.day&&String(d.day).slice(0,7)===monthKey);
+    }
+    else if(currentRevPeriod==='today'){const t=localDateKey(now);filtered=data.filter(d=>d.day&&d.day.startsWith(t));}
+    else if(currentRevPeriod==='yesterday'){const y=new Date(now);y.setDate(y.getDate()-1);const ys=localDateKey(y);filtered=data.filter(d=>d.day&&d.day.startsWith(ys));}
     else if(currentRevPeriod==='week'){const w=new Date(now);w.setDate(w.getDate()-7);filtered=data.filter(d=>d.day&&new Date(d.day)>=w);}
-    else{filtered=data;}
+    else{filtered=[];}
     const total=filtered.reduce((s,d)=>s+(parseInt(d.revenue)||0),0);
     const totalCount=filtered.reduce((s,d)=>s+(parseInt(d.count)||0),0);
     const avg=totalCount>0?Math.round(total/totalCount):0;
