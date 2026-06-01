@@ -6427,7 +6427,7 @@ async function loadRecentPayments(){
         ?'<div class="avatar" style="background:rgba(248,113,113,0.15);border-color:rgba(248,113,113,0.4);color:var(--red);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>'
         :'<div class="avatar">'+initials(p.name)+'</div>';
       var customerHtml=isGhost
-        ?'<div class="customer-name" style="color:var(--red);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:6px;margin-top:-1px;flex-shrink:0;" aria-hidden="true"><path d="M15 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m18 8 5 5"/><path d="m23 8-5 5"/></svg>No profile</div><div class="customer-email">External payment · no email collected</div>'
+        ?'<div class="customer-name" style="color:var(--red);">No profile</div><div class="customer-email">External payment · no email collected</div>'
         :'<div class="customer-name">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div>';
       return '<tr style="'+rowBg+'"><td><div class="customer-cell">'+avatarHtml+'<div>'+customerHtml+'</div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+paymentMethodDisplay(p,false)+'</td><td>'+badge(p.status)+'</td><td class="mono">'+fmtDate(p.created_at)+'</td></tr>';
     }).join('');
@@ -6914,7 +6914,7 @@ function renderPayments(list){
       ?'<div class="avatar" style="background:rgba(248,113,113,0.15);border-color:rgba(248,113,113,0.4);color:var(--red);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>'
       :'<div class="avatar">'+initials(p.name)+'</div>';
     var customerHtml=isGhost
-      ?'<div class="customer-name" style="font-size:13px;color:var(--red);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:6px;margin-top:-1px;flex-shrink:0;" aria-hidden="true"><path d="M15 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m18 8 5 5"/><path d="m23 8-5 5"/></svg>No profile</div>'
+      ?'<div class="customer-name" style="font-size:13px;color:var(--red);">No profile</div>'
       :'<div class="customer-name table-customer-name" style="font-size:13px;">'+(p.name||'—')+'</div>';
     var pJson=encodeURIComponent(JSON.stringify(p));
     return '<tr style="'+rowBg+'cursor:pointer;" onclick="openPaymentModal(decodePaymentData(this))" data-payment="'+pJson+'"><td><div class="customer-cell">'+avatarHtml+'<div>'+customerHtml+'</div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+paymentMethodDisplay(p,false)+'</td><td>'+badge(p.status)+'</td><td>'+reasonHtml+'</td><td class="mono" style="font-size:12px;white-space:nowrap;">'+fmtDate(p.created_at)+'</td><td>'+refHtml+'</td><td>'+actions+'</td></tr>';
@@ -7419,7 +7419,7 @@ async function loadAccounts(){
           if(st==='active'){
             statusIcon='<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.4 8.2l2.45 2.45L12.6 4.8" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg>';
           } else if(st==='restricted' || st==='verification'){
-            statusIcon='<svg class="status-mini-icon verification-alert-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="5.35" stroke="currentColor" stroke-width="1.45"/><path d="M8 5.05v3.05" stroke="currentColor" stroke-width="1.45" stroke-linecap="round"/><circle cx="8" cy="10.75" r=".48" fill="currentColor"/></svg>';
+            statusIcon='<svg class="status-mini-icon verification-alert-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2.15 14.25 13.2a1.05 1.05 0 0 1-.91 1.57H2.66a1.05 1.05 0 0 1-.91-1.57L8 2.15Z" stroke="currentColor" stroke-linejoin="round"/><path d="M8 6.1v4.05" stroke="currentColor" stroke-linecap="round"/><path d="M8 12.25h.01" stroke="currentColor" stroke-linecap="round"/></svg>';
           } else {
             statusIcon='<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M5 5l6 6M11 5l-6 6" stroke="currentColor" stroke-linecap="round"/></svg>';
           }
@@ -7624,12 +7624,12 @@ document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>
 
 <style>.badge .verification-bang-only{width:12px;min-width:12px;display:inline-flex;align-items:center;justify-content:center;font-family:var(--sans);font-size:12px;line-height:1;font-weight:400;letter-spacing:0;transform:translateY(-0.5px);}
 
-/* Stripe Accounts verification: circle alert icon, not triangle */
+/* Stripe Accounts verification: warning triangle, aligned with all status icons */
 .badge svg.verification-alert-icon{
-  width:13px!important;
-  height:13px!important;
-  min-width:13px!important;
-  flex:0 0 13px!important;
+  width:16px!important;
+  height:16px!important;
+  min-width:16px!important;
+  flex:0 0 16px!important;
   display:block!important;
   stroke-width:1.45!important;
   transform:translateY(.05px)!important;
