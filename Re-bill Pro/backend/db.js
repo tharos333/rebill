@@ -194,11 +194,27 @@ const customers = {
       COALESCE(p.total_paid, 0) as total_paid,
       p.last_payment_at,
       p.last_any_payment_at,
-      COALESCE(p.last_payment_at, c.created_at) as sort_date
+      COALESCE(p.last_payment_at, c.created_at) as sort_date,
+      pm.payment_method_type as primary_payment_method_type,
+      pm.wallet_type as primary_wallet_type,
+      COALESCE(pm.card_brand, c.card_brand) as primary_card_brand,
+      COALESCE(pm.card_last4, c.card_last4) as primary_card_last4,
+      COALESCE(pm.card_exp_month, c.card_exp_month) as primary_card_exp_month,
+      COALESCE(pm.card_exp_year, c.card_exp_year) as primary_card_exp_year,
+      pm.card_country as primary_card_country,
+      pm.card_funding as primary_card_funding
     FROM customers c
     LEFT JOIN stripe_accounts sa ON sa.id = c.stripe_account_id
     LEFT JOIN sub_stats s ON s.customer_id = c.id
     LEFT JOIN pay_stats p ON p.customer_id = c.id
+    LEFT JOIN LATERAL (
+      SELECT payment_method_type, wallet_type, card_brand, card_last4, card_exp_month, card_exp_year, card_country, card_funding
+      FROM payments
+      WHERE customer_id=c.id
+        AND (payment_method_type IS NOT NULL OR wallet_type IS NOT NULL OR card_brand IS NOT NULL OR card_last4 IS NOT NULL)
+      ORDER BY CASE WHEN status='succeeded' THEN 0 ELSE 1 END, created_at DESC
+      LIMIT 1
+    ) pm ON true
     WHERE NOT (
       COALESCE(p.total_paid, 0) = 0
       AND (
@@ -253,8 +269,16 @@ const customers = {
         lp.currency as last_payment_currency,
         lp.created_at as last_payment_at,
         lp.status as last_payment_status,
-        ld.card_country,
-        ld.card_funding
+        pm.payment_method_type as primary_payment_method_type,
+        pm.wallet_type as primary_wallet_type,
+        COALESCE(pm.card_brand, c.card_brand) as primary_card_brand,
+        COALESCE(pm.card_last4, c.card_last4) as primary_card_last4,
+        COALESCE(pm.card_exp_month, c.card_exp_month) as primary_card_exp_month,
+        COALESCE(pm.card_exp_year, c.card_exp_year) as primary_card_exp_year,
+        pm.card_country as primary_card_country,
+        pm.card_funding as primary_card_funding,
+        pm.card_country as card_country,
+        pm.card_funding as card_funding
       FROM customers c
       LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id
       LEFT JOIN sub_stats ss ON ss.customer_id=c.id
@@ -267,12 +291,13 @@ const customers = {
         LIMIT 1
       ) lp ON true
       LEFT JOIN LATERAL (
-        SELECT card_country, card_funding
+        SELECT payment_method_type, wallet_type, card_brand, card_last4, card_exp_month, card_exp_year, card_country, card_funding
         FROM payments
-        WHERE customer_id=c.id AND (card_country IS NOT NULL OR card_funding IS NOT NULL)
-        ORDER BY created_at DESC
+        WHERE customer_id=c.id
+          AND (payment_method_type IS NOT NULL OR wallet_type IS NOT NULL OR card_brand IS NOT NULL OR card_last4 IS NOT NULL)
+        ORDER BY CASE WHEN status='succeeded' THEN 0 ELSE 1 END, created_at DESC
         LIMIT 1
-      ) ld ON true
+      ) pm ON true
       WHERE c.id=$1
       LIMIT 1
     `,[id]);

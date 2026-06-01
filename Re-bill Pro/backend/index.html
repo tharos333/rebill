@@ -5246,7 +5246,7 @@ html.light #customer-btn-subscription.active{
 <!-- Customers -->
 <div id="page-customers" class="page">
   <div class="page-header">
-    <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Customers</span></h2><p>All customers with saved cards</p></div>
+    <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Customers</span></h2><p>All customers with payment methods</p></div>
     <div class="page-header-actions">
       <button class="btn" onclick="window.location='/api/customers/export'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export CSV</button>
       <button class="btn btn-primary" onclick="openModal('add-customer-modal')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Customer</button>
@@ -5350,7 +5350,7 @@ html.light #customer-btn-subscription.active{
     </div>
   </div>
   <div class="card"><div class="scrollable"><table>
-    <thead><tr><th>Customer</th><th>Card</th><th>Account</th><th>Status</th><th>Note</th><th>Last payment</th><th>Total paid</th><th>Actions</th></tr></thead>
+    <thead><tr><th>Customer</th><th>Primary payment method</th><th>Account</th><th>Status</th><th>Note</th><th>Last payment</th><th>Total paid</th><th>Actions</th></tr></thead>
     <tbody id="customers-table"><tr><td colspan="8" class="empty">Loading...</td></tr></tbody>
   </table></div></div>
 </div>
@@ -5485,7 +5485,7 @@ html.light #customer-btn-subscription.active{
     </div>
   </div>
   <div class="card"><div class="scrollable"><table>
-    <thead><tr><th>Customer</th><th>Amount</th><th>Card</th><th>Status</th><th>Failure Reason</th><th>Date</th><th>Reference</th><th>Action</th></tr></thead>
+    <thead><tr><th>Customer</th><th>Amount</th><th>Payment method</th><th>Status</th><th>Failure Reason</th><th>Date</th><th>Reference</th><th>Action</th></tr></thead>
     <tbody id="payments-table"><tr><td colspan="8" class="empty">Loading...</td></tr></tbody>
   </table></div></div>
   <div id="pay-pagination" style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap;"></div>
@@ -6239,9 +6239,7 @@ function paymentMethodDisplay(p,drawer){
   }
   /* Standalone Link payments expose Link only, without underlying card details. */
   if(type==='link'){
-    return drawer
-      ? '<div class="'+cls+'"><span class="payment-brand-name">Link</span>'+stripeMethodIcon('link')+'</div>'
-      : '<div class="'+cls+'">'+stripeMethodIcon('link')+'<span class="payment-last4">Link</span></div>';
+    return '<div class="'+cls+'">'+stripeMethodIcon('link')+'</div>';
   }
   if(type==='klarna'){
     return '<div class="'+cls+'">'+stripeMethodIcon('klarna')+'</div>';
@@ -6485,7 +6483,7 @@ function renderCustomers(list){
           </div>
         </div>
       </td>
-      <td>${cardBadge(c.card_brand,c.card_last4)}</td>
+      <td>${customerPrimaryPaymentDisplay(c,false)}</td>
       <td style="font-size:12px;color:var(--muted);">${c.account_name||'—'}</td>
       <td>${badge(displayStatus)}</td>
       <td style="font-size:12px;color:var(--muted);font-family:var(--mono);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.note||'—'}</td>
@@ -6935,7 +6933,7 @@ function renderPaymentDetailModal(p, syncing){
   var fullReason=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'';
   var isFailed=p.status==='failed', isSucceeded=p.status==='succeeded', isPaymentNeeded=badgeLabel(p.status)==='Payment needed', isCanceled=badgeLabel(p.status)==='Canceled';
   var isRedState=isFailed||isCanceled;
-  var typeLabel=(p.wallet_type||normalizeStripeMethodKey(p.payment_method_type)==='link')?((p.subscription_id||p.stripe_invoice_id)?'Subscription wallet':'One-time wallet'):paymentTypeLabel(p);
+  var typeLabel=(p.wallet_type||normalizeStripeMethodKey(p.payment_method_type)==='link')?((p.subscription_id||p.stripe_invoice_id)?'Subscription wallet payment':'One-time wallet payment'):paymentTypeLabel(p);
   var headerTitle=isSucceeded?'Payment successful':(isFailed?'Payment failed':(isCanceled?'Payment canceled':(isPaymentNeeded?'Payment needed':'Payment details')));
   var statusPill=isFailed?'Failed':(isSucceeded?'Succeeded':(isCanceled?'Canceled':(isPaymentNeeded?'Payment needed':(p.status||'Unknown'))));
   var statusClass=isRedState?'failed':(isSucceeded?'success':'info');
@@ -7146,6 +7144,20 @@ function customerActivityRows(rows){
     return '<div class="customer-profile-activity-row"><span class="customer-profile-activity-dot '+dot+'"></span><div class="customer-profile-activity-main"><div class="customer-profile-activity-label">'+escapeCustomerHtml(label)+'</div>'+(amount?'<div class="customer-profile-activity-sub">'+amount+'</div>':'')+'</div><div class="customer-profile-activity-time">'+stamp+'</div></div>';
   }).join('')+'</div>';
 }
+function customerPrimaryPaymentRecord(c){
+  return {
+    payment_method_type: c.primary_payment_method_type || null,
+    wallet_type: c.primary_wallet_type || null,
+    card_brand: c.primary_card_brand || c.card_brand || null,
+    card_last4: c.primary_card_last4 || c.card_last4 || null
+  };
+}
+function customerPrimaryPaymentDisplay(c,drawer){
+  return paymentMethodDisplay(customerPrimaryPaymentRecord(c),!!drawer);
+}
+function customerHasPrimaryPaymentMethod(c){
+  return !!(c.primary_payment_method_type || c.primary_wallet_type || c.primary_card_brand || c.primary_card_last4 || c.card_brand || c.card_last4);
+}
 function customerSavedCardDisplay(c){
   var raw=(c.card_brand||'').toString().toLowerCase().trim();
   var b=raw.replace(/[\s-]+/g,'_');
@@ -7192,12 +7204,13 @@ function buildCustomerDrawer(data){
   const effectiveStatus=customerEffectiveStatus(c);
   const status=customerStatusText(effectiveStatus);
   const statusCls=customerValueClass(effectiveStatus)||'';
-  const expiry=(c.card_exp_month&&c.card_exp_year)?String(c.card_exp_month).padStart(2,'0')+' / '+String(c.card_exp_year).slice(-2):'—';
+  const primaryExpMonth=c.primary_card_exp_month||c.card_exp_month; const primaryExpYear=c.primary_card_exp_year||c.card_exp_year;
+  const expiry=(primaryExpMonth&&primaryExpYear)?String(primaryExpMonth).padStart(2,'0')+' / '+String(primaryExpYear).slice(-2):'—';
   const customerMoneyCurrency = customerOriginalCurrency(c);
   const avgAmount=(c.avg_payment&&Number(c.avg_payment)>0)?fmt(Math.round(Number(c.avg_payment)), customerMoneyCurrency):'—';
   const lastAmount=(c.last_payment_amount)?fmt(c.last_payment_amount, customerMoneyCurrency):'—';
   const totalPaid=fmt(c.total_paid||0, customerMoneyCurrency);
-  const hasCard=!!(c.card_brand||c.card_last4);
+  const hasCard=customerHasPrimaryPaymentMethod(c);
   let h='';
   h+='<div class="customer-profile-hero">';
   h+='<div class="customer-profile-identity"><div class="customer-profile-name" title="'+name+'">'+name+'</div><div class="customer-profile-email" title="'+email+'">'+email+'</div></div>';
@@ -7214,14 +7227,14 @@ function buildCustomerDrawer(data){
   h+=customerDrawerRow('Created date',fmtDate(c.created_at));
   h+='</section>';
 
-  h+='<section class="customer-profile-section"><h3>Saved card</h3>';
+  h+='<section class="customer-profile-section"><h3>Primary payment method</h3>';
   if(hasCard){
-    h+='<div class="customer-profile-card-line">'+customerSavedCardDisplay(c)+'</div>';
-    h+=customerDrawerRow('Funding',escapeCustomerHtml(c.card_funding||'—'));
-    h+=customerDrawerRow('Country',escapeCustomerHtml((c.card_country||'—').toUpperCase()));
+    h+='<div class="customer-profile-card-line">'+customerPrimaryPaymentDisplay(c,true)+'</div>';
+    h+=customerDrawerRow('Funding',escapeCustomerHtml(c.primary_card_funding||c.card_funding||'—'));
+    h+=customerDrawerRow('Country',escapeCustomerHtml((c.primary_card_country||c.card_country||'—').toUpperCase()));
     h+=customerDrawerRow('Expires',escapeCustomerHtml(expiry));
   }else{
-    h+='<div class="customer-profile-empty">No saved card details available</div>';
+    h+='<div class="customer-profile-empty">No payment method details available</div>';
   }
   h+='</section>';
 
