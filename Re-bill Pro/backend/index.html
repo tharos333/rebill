@@ -6241,8 +6241,12 @@ function paymentMethodDisplay(p,drawer){
   var wallet=normalizeStripeMethodKey(p&&p.wallet_type);
   var type=normalizeStripeMethodKey(p&&p.payment_method_type);
   var cls=drawer?'payment-card drawer-payment-card':'payment-card';
+  var walletLabels={apple_pay:'Apple Pay',google_pay:'Google Pay',link:'Link'};
   if(wallet==='apple_pay'||wallet==='google_pay'||wallet==='link'){
     var walletImg=stripeMethodIcon(wallet);
+    if(drawer){
+      return '<div class="'+cls+'"><span class="payment-brand-name">'+walletLabels[wallet]+'</span>'+walletImg+'</div>';
+    }
     var networkImg=stripeMethodIcon(p.card_brand);
     var digits=p.card_last4?'<span class="payment-dots">••••</span><span class="payment-last4">'+p.card_last4+'</span>':'';
     return '<div class="'+cls+'">'+walletImg+networkImg+digits+'</div>';
@@ -6250,14 +6254,15 @@ function paymentMethodDisplay(p,drawer){
   /* Amazon Pay may include an underlying funding card in Stripe. */
   if(type==='amazon_pay'){
     var amazonImg=stripeMethodIcon('amazon_pay');
+    if(drawer){
+      return '<div class="'+cls+'"><span class="payment-brand-name">Amazon Pay</span>'+amazonImg+'</div>';
+    }
     var amazonNetworkImg=stripeMethodIcon(p.card_brand);
     var amazonDigits=p.card_last4?'<span class="payment-dots">••••</span><span class="payment-last4">'+p.card_last4+'</span>':'';
     if(p.card_brand||p.card_last4){
       return '<div class="'+cls+'">'+amazonImg+amazonNetworkImg+amazonDigits+'</div>';
     }
-    return drawer
-      ? '<div class="'+cls+'"><span class="payment-brand-name">Amazon Pay</span>'+amazonImg+'</div>'
-      : '<div class="'+cls+'">'+amazonImg+'<span class="payment-last4">Amazon Pay</span></div>';
+    return '<div class="'+cls+'">'+amazonImg+'<span class="payment-last4">Amazon Pay</span></div>';
   }
   /* Standalone Link payments expose Link only, without underlying card details. */
   if(type==='link'){
@@ -6959,7 +6964,8 @@ function renderPaymentDetailModal(p, syncing){
   var fullReason=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'';
   var isFailed=p.status==='failed', isSucceeded=p.status==='succeeded', isPaymentNeeded=badgeLabel(p.status)==='Payment needed', isCanceled=badgeLabel(p.status)==='Canceled';
   var isRedState=isFailed||isCanceled;
-  var typeLabel=(p.wallet_type||['link','amazon_pay'].includes(normalizeStripeMethodKey(p.payment_method_type)))?((p.subscription_id||p.stripe_invoice_id)?'Subscription wallet':'One-time wallet'):paymentTypeLabel(p);
+  var isWalletPayment=!!p.wallet_type||['link','amazon_pay'].includes(normalizeStripeMethodKey(p.payment_method_type));
+  var typeLabel=isWalletPayment?((p.subscription_id||p.stripe_invoice_id)?'Subscription wallet payment':'One-time wallet payment'):(paymentTypeLabel(p)+' card payment');
   var headerTitle=isSucceeded?'Payment successful':(isFailed?'Payment failed':(isCanceled?'Payment canceled':(isPaymentNeeded?'Payment needed':'Payment details')));
   var statusPill=isFailed?'Failed':(isSucceeded?'Succeeded':(isCanceled?'Canceled':(isPaymentNeeded?'Payment needed':(p.status||'Unknown'))));
   var statusClass=isRedState?'failed':(isSucceeded?'success':'info');
@@ -6968,6 +6974,7 @@ function renderPaymentDetailModal(p, syncing){
   var pid=p.stripe_payment_intent||'', invoice=p.stripe_invoice_id||'', account=p.account_name||'—';
   var hasPaymentMethod=!!(p.wallet_type||p.payment_method_type||p.card_brand||p.card_last4||p.card_funding||p.card_country||p.card_exp_month||p.card_exp_year);
   var cardHtml=hasPaymentMethod?paymentMethodDisplay(p,true):'';
+  var fundingSourceHtml=(isWalletPayment&&(p.card_brand||p.card_last4))?paymentDrawerCardBadge(p.card_brand,p.card_last4):'';
   var exp=(p.card_exp_month&&p.card_exp_year)?String(p.card_exp_month).padStart(2,'0')+' / '+String(p.card_exp_year).slice(-2):'—';
   var reference=p.stripe_payment_intent||p.id||'—';
   var finCur=pdMoneyCurrency(p);
@@ -6993,7 +7000,7 @@ function renderPaymentDetailModal(p, syncing){
   }
   var h='';
   h+='<div class="payment-detail-shell pd-polished-drawer"><div class="payment-detail-top"><button class="payment-detail-close" onclick="closeModal(\'payment-detail-modal\')" aria-label="Close payment details"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button></div><div class="payment-detail-scroll">';
-  h+='<div class="pd-polished-head"><div class="pd-polished-title"><span class="pd-title-icon '+drawerStatusClass+'">'+iconSvg(drawerStatusIcon)+'</span><span>'+escHtml(headerTitle)+'</span></div><div class="pd-polished-amount '+statusClass+'">'+fmt(p.amount,p.currency)+'</div><div class="pd-polished-sub">'+escHtml(typeLabel)+' card payment</div></div>';
+  h+='<div class="pd-polished-head"><div class="pd-polished-title"><span class="pd-title-icon '+drawerStatusClass+'">'+iconSvg(drawerStatusIcon)+'</span><span>'+escHtml(headerTitle)+'</span></div><div class="pd-polished-amount '+statusClass+'">'+fmt(p.amount,p.currency)+'</div><div class="pd-polished-sub">'+escHtml(typeLabel)+'</div></div>';
 
   h+='<div class="pd-meta-grid">';
   h+='<div class="pd-meta-card"><div class="pd-meta-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span>Date</span></div><div class="pd-meta-value">'+formatPdDate(p.created_at)+'</div></div>';
@@ -7016,6 +7023,9 @@ function renderPaymentDetailModal(p, syncing){
   if(hasPaymentMethod){
     h+='<div class="pd-polished-method-group">';
     h+='<div class="pd-method-main">'+(cardHtml||'<span class="pd-polished-value muted">Card details unavailable</span>')+'</div>';
+    if(fundingSourceHtml){
+      h+='<div class="pd-polished-row"><div class="pd-polished-label">Funding source</div><div class="pd-polished-value">'+fundingSourceHtml+'</div></div>';
+    }
     h+='<div class="pd-polished-row"><div class="pd-polished-label">Funding</div><div class="pd-polished-value">'+escHtml(p.card_funding?p.card_funding.charAt(0).toUpperCase()+p.card_funding.slice(1):'—')+'</div></div>';
     h+='<div class="pd-polished-row"><div class="pd-polished-label">Country</div><div class="pd-polished-value">'+escHtml(p.card_country||'—')+'</div></div>';
     h+='<div class="pd-polished-row"><div class="pd-polished-label">Expires</div><div class="pd-polished-value">'+escHtml(exp)+'</div></div>';
