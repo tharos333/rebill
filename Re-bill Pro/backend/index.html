@@ -6223,15 +6223,15 @@ function normalizeStripeMethodKey(value){
 }
 function stripeMethodIcon(key){
   key=normalizeStripeMethodKey(key);
-  var icons={apple_pay:'apple-pay.svg',google_pay:'google-pay.svg',klarna:'klarna.svg',visa:'visa.svg',mastercard:'mastercard.svg',amex:'american-express.svg'};
-  var labels={apple_pay:'Apple Pay',google_pay:'Google Pay',klarna:'Klarna',visa:'Visa',mastercard:'Mastercard',amex:'American Express'};
+  var icons={apple_pay:'apple-pay.svg',google_pay:'google-pay.svg',link:'link.svg',klarna:'klarna.svg',visa:'visa.svg',mastercard:'mastercard.svg',amex:'american-express.svg'};
+  var labels={apple_pay:'Apple Pay',google_pay:'Google Pay',link:'Link',klarna:'Klarna',visa:'Visa',mastercard:'Mastercard',amex:'American Express'};
   return icons[key]?'<img src="/icons/'+icons[key]+'" class="payment-img" alt="'+(labels[key]||key)+'" title="'+(labels[key]||key)+'">':'';
 }
 function paymentMethodDisplay(p,drawer){
   var wallet=normalizeStripeMethodKey(p&&p.wallet_type);
   var type=normalizeStripeMethodKey(p&&p.payment_method_type);
   var cls=drawer?'payment-card drawer-payment-card':'payment-card';
-  if(wallet==='apple_pay'||wallet==='google_pay'){
+  if(wallet==='apple_pay'||wallet==='google_pay'||wallet==='link'){
     var walletImg=stripeMethodIcon(wallet);
     var networkImg=stripeMethodIcon(p.card_brand);
     var digits=p.card_last4?'<span class="payment-dots">••••</span><span class="payment-last4">'+p.card_last4+'</span>':'';
