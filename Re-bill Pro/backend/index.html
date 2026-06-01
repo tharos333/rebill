@@ -5100,6 +5100,9 @@ html.light #customer-btn-subscription.active{
 #page-payments .payment-table-customer-name{
   max-width:150px!important;
 }
+#page-customers .table-customer-name{
+  max-width:150px!important;
+}
 #page-payments .payment-account-cell{
   font-size:12px!important;
   color:var(--muted)!important;
@@ -6537,7 +6540,7 @@ function renderCustomers(list){
         <div class="customer-cell">
           <div class="avatar">${initials(c.name)}</div>
           <div>
-            <div class="customer-name table-customer-name" style="font-size:13px;">${c.name||'—'}</div>
+            <div class="customer-name table-customer-name" style="font-size:13px;" title="${c.name||'—'}">${c.name||'—'}</div>
           </div>
         </div>
       </td>
