@@ -6254,7 +6254,9 @@ function paymentMethodDisplay(p,drawer){
       : '<div class="'+cls+'">'+stripeMethodIcon('link')+'<span class="payment-last4">Link</span></div>';
   }
   if(type==='klarna'){
-    return '<div class="'+cls+'">'+stripeMethodIcon('klarna')+'</div>';
+    return drawer
+      ? '<div class="'+cls+'"><span class="payment-brand-name">Klarna</span>'+stripeMethodIcon('klarna')+'</div>'
+      : '<div class="'+cls+'">'+stripeMethodIcon('klarna')+'<span class="payment-last4">Klarna</span></div>';
   }
   return drawer?paymentDrawerCardBadge(p.card_brand,p.card_last4):cardBadge(p.card_brand,p.card_last4);
 }
