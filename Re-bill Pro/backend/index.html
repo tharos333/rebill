@@ -6240,7 +6240,7 @@ function paymentMethodDisplay(p,drawer){
   /* Standalone Link payments expose Link only, without underlying card details. */
   if(type==='link'){
     return drawer
-      ? '<div class="'+cls+'"><span class="payment-brand">Link</span>'+stripeMethodIcon('link')+'</div>'
+      ? '<div class="'+cls+'"><span class="payment-brand-name">Link</span>'+stripeMethodIcon('link')+'</div>'
       : '<div class="'+cls+'">'+stripeMethodIcon('link')+'<span class="payment-last4">Link</span></div>';
   }
   if(type==='klarna'){
