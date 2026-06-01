@@ -6242,23 +6242,26 @@ function paymentMethodDisplay(p,drawer){
   var type=normalizeStripeMethodKey(p&&p.payment_method_type);
   var cls=drawer?'payment-card drawer-payment-card':'payment-card';
   var walletLabels={apple_pay:'Apple Pay',google_pay:'Google Pay',link:'Link'};
+  var cardLabels={visa:'Visa',mastercard:'Mastercard',amex:'American Express'};
   if(wallet==='apple_pay'||wallet==='google_pay'||wallet==='link'){
     var walletImg=stripeMethodIcon(wallet);
-    if(drawer){
-      return '<div class="'+cls+'"><span class="payment-brand-name">'+walletLabels[wallet]+'</span>'+walletImg+'</div>';
-    }
     var networkImg=stripeMethodIcon(p.card_brand);
     var digits=p.card_last4?'<span class="payment-dots">••••</span><span class="payment-last4">'+p.card_last4+'</span>':'';
+    if(drawer){
+      var walletCardName=(p.card_brand&&cardLabels[normalizeStripeMethodKey(p.card_brand)])?(' / '+cardLabels[normalizeStripeMethodKey(p.card_brand)]):'';
+      return '<div class="'+cls+'"><span class="payment-brand-name">'+walletLabels[wallet]+walletCardName+'</span>'+walletImg+networkImg+digits+'</div>';
+    }
     return '<div class="'+cls+'">'+walletImg+networkImg+digits+'</div>';
   }
   /* Amazon Pay may include an underlying funding card in Stripe. */
   if(type==='amazon_pay'){
     var amazonImg=stripeMethodIcon('amazon_pay');
-    if(drawer){
-      return '<div class="'+cls+'"><span class="payment-brand-name">Amazon Pay</span>'+amazonImg+'</div>';
-    }
     var amazonNetworkImg=stripeMethodIcon(p.card_brand);
     var amazonDigits=p.card_last4?'<span class="payment-dots">••••</span><span class="payment-last4">'+p.card_last4+'</span>':'';
+    if(drawer){
+      var amazonCardName=(p.card_brand&&cardLabels[normalizeStripeMethodKey(p.card_brand)])?(' / '+cardLabels[normalizeStripeMethodKey(p.card_brand)]):'';
+      return '<div class="'+cls+'"><span class="payment-brand-name">Amazon Pay'+amazonCardName+'</span>'+amazonImg+amazonNetworkImg+amazonDigits+'</div>';
+    }
     if(p.card_brand||p.card_last4){
       return '<div class="'+cls+'">'+amazonImg+amazonNetworkImg+amazonDigits+'</div>';
     }
@@ -6974,7 +6977,6 @@ function renderPaymentDetailModal(p, syncing){
   var pid=p.stripe_payment_intent||'', invoice=p.stripe_invoice_id||'', account=p.account_name||'—';
   var hasPaymentMethod=!!(p.wallet_type||p.payment_method_type||p.card_brand||p.card_last4||p.card_funding||p.card_country||p.card_exp_month||p.card_exp_year);
   var cardHtml=hasPaymentMethod?paymentMethodDisplay(p,true):'';
-  var fundingSourceHtml=(isWalletPayment&&(p.card_brand||p.card_last4))?paymentDrawerCardBadge(p.card_brand,p.card_last4):'';
   var exp=(p.card_exp_month&&p.card_exp_year)?String(p.card_exp_month).padStart(2,'0')+' / '+String(p.card_exp_year).slice(-2):'—';
   var reference=p.stripe_payment_intent||p.id||'—';
   var finCur=pdMoneyCurrency(p);
@@ -7023,9 +7025,6 @@ function renderPaymentDetailModal(p, syncing){
   if(hasPaymentMethod){
     h+='<div class="pd-polished-method-group">';
     h+='<div class="pd-method-main">'+(cardHtml||'<span class="pd-polished-value muted">Card details unavailable</span>')+'</div>';
-    if(fundingSourceHtml){
-      h+='<div class="pd-polished-row"><div class="pd-polished-label">Funding source</div><div class="pd-polished-value">'+fundingSourceHtml+'</div></div>';
-    }
     h+='<div class="pd-polished-row"><div class="pd-polished-label">Funding</div><div class="pd-polished-value">'+escHtml(p.card_funding?p.card_funding.charAt(0).toUpperCase()+p.card_funding.slice(1):'—')+'</div></div>';
     h+='<div class="pd-polished-row"><div class="pd-polished-label">Country</div><div class="pd-polished-value">'+escHtml(p.card_country||'—')+'</div></div>';
     h+='<div class="pd-polished-row"><div class="pd-polished-label">Expires</div><div class="pd-polished-value">'+escHtml(exp)+'</div></div>';
