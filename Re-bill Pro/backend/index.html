@@ -5185,7 +5185,7 @@ html.light #customer-btn-subscription.active{
   <button class="nav-item" onclick="showPage('summary',this)">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="12" y2="17"/></svg>Daily Summary</button>
   <button class="nav-item" onclick="showPage('mrr',this)">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>MRR Growth</button>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>Revenue Growth</button>
 
   <button class="nav-item" onclick="showPage('recovery',this)">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 2v6h6"/><path d="M21.5 22v-6h-6"/><path d="M22 11.5A10 10 0 0 0 3.2 7.2"/><path d="M2 12.5a10 10 0 0 0 18.8 4.2"/></svg>Recovery Rate</button>
@@ -5706,23 +5706,25 @@ html.light #customer-btn-subscription.active{
   </div>
 </div>
 
-<!-- MRR Growth -->
+<!-- Revenue Growth -->
 <div id="page-mrr" class="page">
   <div class="page-header">
-    <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg><span>MRR Growth</span></h2><p>Revenue performance over time</p></div>
+    <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg><span>Revenue Growth</span></h2><p>Revenue performance over time</p></div>
     <select id="mrr-period" onchange="loadMrr()" class="btn btn-sm" style="cursor:pointer;">
+      <option value="all">All Time</option>
+      <option value="12months" selected>Last 12 Months</option>
+      <option value="6months">Last 6 Months</option>
+      <option value="year">This Year</option>
       <option value="month">This Month (daily)</option>
-      <option value="3months">Last 3 Months</option>
-      <option value="12months">Last 12 Months</option>
     </select>
   </div>
   <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px;">
-    <div class="stat-card"><div class="stat-label">This Month</div><div class="stat-value" id="mrr-this">—</div><div class="stat-sub">revenue</div></div>
-    <div class="stat-card"><div class="stat-label">Last Month</div><div class="stat-value" id="mrr-last">—</div><div class="stat-sub">revenue</div></div>
-    <div class="stat-card"><div class="stat-label">Growth</div><div class="stat-value" id="mrr-growth">—</div><div class="stat-sub">month over month</div></div>
+    <div class="stat-card"><div class="stat-label">This Month to Date</div><div class="stat-value" id="mrr-this">—</div><div class="stat-sub">revenue so far</div></div>
+    <div class="stat-card"><div class="stat-label">Previous Month, Same Days</div><div class="stat-value" id="mrr-last">—</div><div class="stat-sub">comparison period</div></div>
+    <div class="stat-card"><div class="stat-label">Growth</div><div class="stat-value" id="mrr-growth">—</div><div class="stat-sub">month-to-date comparison</div></div>
   </div>
   <div class="card">
-    <div class="card-header"><h3 id="mrr-chart-title">Daily revenue — this month</h3></div>
+    <div class="card-header"><h3 id="mrr-chart-title">Revenue — last 12 months</h3></div>
     <div style="padding:18px 18px 8px;position:relative;">
       <canvas id="mrr-canvas" style="width:100%;height:220px;display:block;"></canvas>
       <div id="mrr-tooltip" style="display:none;position:absolute;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:8px 12px;font-size:12px;font-family:var(--mono);pointer-events:none;z-index:10;min-width:120px;"></div>
@@ -7548,15 +7550,86 @@ async function saveTemplate(){var name=document.getElementById('tmpl-name').valu
 async function deleteTemplate(id){await api('/api/plan-templates/'+id,{method:'DELETE'});toast('Template deleted');loadTemplates();}
 async function loadMrr(){
   try{
-    var period=document.getElementById('mrr-period')?.value||'month';var titleEl=document.getElementById('mrr-chart-title');
-    var data=await api('/api/revenue-chart');var points=[];var now=new Date();
-    if(period==='month'){if(titleEl)titleEl.textContent='Daily revenue — '+now.toLocaleString('en-US',{month:'long',year:'numeric'});var daysInMonth=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();for(var d=1;d<=daysInMonth;d++){var dateStr=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');var found=data.find(function(r){return r.day&&r.day.startsWith(dateStr);});points.push({label:String(d),value:parseInt(found?.revenue||0),date:dateStr});}}
-    else if(period==='3months'){if(titleEl)titleEl.textContent='Revenue — last 3 months';var months3=await api('/api/mrr-history');months3.slice(-3).forEach(function(r){points.push({label:r.month,value:parseInt(r.revenue||0),date:r.month});});}
-    else{if(titleEl)titleEl.textContent='Revenue — last 12 months';var months12=await api('/api/mrr-history');months12.forEach(function(r){points.push({label:r.month,value:parseInt(r.revenue||0),date:r.month});});}
-    var thisMonth=data.reduce(function(s,r){if(r.day&&new Date(r.day).getMonth()===now.getMonth()&&new Date(r.day).getFullYear()===now.getFullYear())return s+(parseInt(r.revenue)||0);return s;},0);
-    var lastMonthDate=new Date(now.getFullYear(),now.getMonth()-1,1);var lastMonth=data.reduce(function(s,r){if(r.day&&new Date(r.day).getMonth()===lastMonthDate.getMonth()&&new Date(r.day).getFullYear()===lastMonthDate.getFullYear())return s+(parseInt(r.revenue)||0);return s;},0);
-    var growth=lastMonth>0?Math.round(((thisMonth-lastMonth)/lastMonth)*100):0;
-    var te=document.getElementById('mrr-this');if(te)te.textContent=fmt(thisMonth);var le=document.getElementById('mrr-last');if(le)le.textContent=fmt(lastMonth);var ge=document.getElementById('mrr-growth');if(ge){ge.textContent=(growth>=0?'+':'')+growth+'%';ge.style.color=growth>=0?'var(--green)':'var(--red)';}
+    var period=document.getElementById('mrr-period')?.value||'12months';
+    var titleEl=document.getElementById('mrr-chart-title');
+    var now=new Date();
+    var allDaily=await api('/api/revenue-chart?period=all');
+    var points=[];
+
+    function dateKey(d){
+      return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    }
+    function monthKey(d){
+      return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    }
+    function monthLabel(d){
+      return d.toLocaleString('en-US',{month:'short',year:'numeric'});
+    }
+    function dailyRevenue(key){
+      var found=allDaily.find(function(r){return r.day&&String(r.day).slice(0,10)===key;});
+      return parseInt(found&&found.revenue||0);
+    }
+    function monthlyRevenue(key){
+      return allDaily.reduce(function(sum,r){
+        return r.day&&String(r.day).slice(0,7)===key ? sum+(parseInt(r.revenue)||0) : sum;
+      },0);
+    }
+    function monthlyPoints(fromDate,toDate){
+      var cursor=new Date(fromDate.getFullYear(),fromDate.getMonth(),1);
+      var finish=new Date(toDate.getFullYear(),toDate.getMonth(),1);
+      var result=[];
+      while(cursor<=finish){
+        var key=monthKey(cursor);
+        result.push({label:monthLabel(cursor),value:monthlyRevenue(key),date:monthLabel(cursor)});
+        cursor=new Date(cursor.getFullYear(),cursor.getMonth()+1,1);
+      }
+      return result;
+    }
+
+    if(period==='month'){
+      if(titleEl)titleEl.textContent='Daily revenue — '+now.toLocaleString('en-US',{month:'long',year:'numeric'});
+      var daysInMonth=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
+      for(var d=1;d<=daysInMonth;d++){
+        var dayDate=new Date(now.getFullYear(),now.getMonth(),d);
+        var key=dateKey(dayDate);
+        points.push({label:String(d),value:dailyRevenue(key),date:dayDate.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})});
+      }
+    } else if(period==='all'){
+      if(titleEl)titleEl.textContent='Revenue — all time';
+      var dated=allDaily.filter(function(r){return !!r.day;}).map(function(r){return new Date(String(r.day).slice(0,10)+'T00:00:00');}).sort(function(a,b){return a-b;});
+      var firstMonth=dated.length?new Date(dated[0].getFullYear(),dated[0].getMonth(),1):new Date(now.getFullYear(),now.getMonth(),1);
+      points=monthlyPoints(firstMonth,now);
+    } else if(period==='year'){
+      if(titleEl)titleEl.textContent='Revenue — '+now.getFullYear();
+      points=monthlyPoints(new Date(now.getFullYear(),0,1),new Date(now.getFullYear(),11,1));
+    } else {
+      var count=period==='6months'?6:12;
+      if(titleEl)titleEl.textContent='Revenue — last '+count+' months';
+      points=monthlyPoints(new Date(now.getFullYear(),now.getMonth()-(count-1),1),now);
+    }
+
+    var currentMonthStart=new Date(now.getFullYear(),now.getMonth(),1);
+    var previousMonthStart=new Date(now.getFullYear(),now.getMonth()-1,1);
+    var compareEndDay=Math.min(now.getDate(),new Date(previousMonthStart.getFullYear(),previousMonthStart.getMonth()+1,0).getDate());
+    var thisMonthToDate=0;
+    var previousMonthSameDays=0;
+    for(var n=1;n<=now.getDate();n++){
+      thisMonthToDate+=dailyRevenue(dateKey(new Date(currentMonthStart.getFullYear(),currentMonthStart.getMonth(),n)));
+    }
+    for(var p=1;p<=compareEndDay;p++){
+      previousMonthSameDays+=dailyRevenue(dateKey(new Date(previousMonthStart.getFullYear(),previousMonthStart.getMonth(),p)));
+    }
+
+    var growth=previousMonthSameDays>0?Math.round(((thisMonthToDate-previousMonthSameDays)/previousMonthSameDays)*100):null;
+    var te=document.getElementById('mrr-this');
+    if(te)te.textContent=fmt(thisMonthToDate);
+    var le=document.getElementById('mrr-last');
+    if(le)le.textContent=fmt(previousMonthSameDays);
+    var ge=document.getElementById('mrr-growth');
+    if(ge){
+      ge.textContent=growth===null?'—':((growth>=0?'+':'')+growth+'%');
+      ge.style.color=growth===null?'var(--muted)':(growth>=0?'var(--green)':'var(--red)');
+    }
     drawMrrChart(points);
   }catch(e){}
 }
