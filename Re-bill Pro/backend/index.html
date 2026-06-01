@@ -6099,28 +6099,6 @@ function badgeLabel(s){
 }
 
 function badgeIcon(s){
-  const raw = String(s || '').toLowerCase();
-
-  if (raw.includes('success') || raw.includes('succeeded') || raw === 'active' || raw === 'ok' || raw === 'paid') {
-    return '<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.4 8.2l2.45 2.45L12.6 4.8" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  }
-
-  if (raw.includes('fail') || raw.includes('declin') || raw.includes('cancel')) {
-    return '<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M5 5l6 6M11 5l-6 6" stroke="currentColor" stroke-linecap="round"/></svg>';
-  }
-
-  if (raw.includes('pause')) {
-    return '<svg class="status-mini-icon paused-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 4.5v7M10 4.5v7" stroke="currentColor" stroke-linecap="round"/></svg>';
-  }
-
-  if (raw.includes('refund')) {
-    return '<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6.5 4.2L3.6 7.1l2.9 2.9" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.1 7.1h5.1a3.05 3.05 0 010 6.1H7.7" stroke="currentColor" stroke-linecap="round"/></svg>';
-  }
-
-  if (raw.includes('require') || raw.includes('pending') || raw.includes('processing') || raw.includes('method') || raw.includes('action')) {
-    return '<svg class="status-mini-icon payment-needed-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="2.6" y="4.2" width="10.8" height="7.6" rx="1.8" stroke="currentColor"/><path d="M3.3 6.5h9.4" stroke="currentColor" stroke-linecap="round"/><path d="M5 9.6h2.5" stroke="currentColor" stroke-linecap="round"/></svg>';
-  }
-
   return '';
 }
 
@@ -7012,13 +6990,13 @@ function renderPaymentDetailModal(p, syncing){
   }
   var h='';
   h+='<div class="payment-detail-shell pd-polished-drawer"><div class="payment-detail-top"><button class="payment-detail-close" onclick="closeModal(\'payment-detail-modal\')" aria-label="Close payment details"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button></div><div class="payment-detail-scroll">';
-  h+='<div class="pd-polished-head"><div class="pd-polished-title"><span class="pd-title-icon '+drawerStatusClass+'">'+iconSvg(drawerStatusIcon)+'</span><span>'+escHtml(headerTitle)+'</span></div><div class="pd-polished-amount '+statusClass+'">'+fmt(p.amount,p.currency)+'</div><div class="pd-polished-sub">'+escHtml(typeLabel)+'</div></div>';
+  h+='<div class="pd-polished-head"><div class="pd-polished-title"><span>'+escHtml(headerTitle)+'</span></div><div class="pd-polished-amount '+statusClass+'">'+fmt(p.amount,p.currency)+'</div><div class="pd-polished-sub">'+escHtml(typeLabel)+'</div></div>';
 
   h+='<div class="pd-meta-grid">';
   h+='<div class="pd-meta-card"><div class="pd-meta-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span>Date</span></div><div class="pd-meta-value">'+formatPdDate(p.created_at)+'</div></div>';
   h+='<div class="pd-meta-card"><div class="pd-meta-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Time</span></div><div class="pd-meta-value">'+formatPdLocalTime(p.created_at)+'</div></div>';
   h+='<div class="pd-meta-card"><div class="pd-meta-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 0 20"/><path d="M12 2a15.3 15.3 0 0 0 0 20"/></svg><span>Timezone</span></div><div class="pd-meta-value">Local</div></div>';
-  h+='<div class="pd-meta-card"><div class="pd-meta-label"><span class="pd-title-icon '+drawerStatusClass+'" style="width:14px;height:14px;">'+iconSvg(drawerStatusIcon)+'</span><span>Status</span></div><div class="pd-meta-value '+(isRedState?'red':(isSucceeded?'green':(isPaymentNeeded?'blue':'')))+'">'+escHtml(statusPill)+'</div></div></div>';
+  h+='<div class="pd-meta-card"><div class="pd-meta-label"><span>Status</span></div><div class="pd-meta-value '+(isRedState?'red':(isSucceeded?'green':(isPaymentNeeded?'blue':'')))+'">'+escHtml(statusPill)+'</div></div></div>';
 
   if(isFailed&&fullReason){h+='<div class="pd-fail-box">'+escHtml(fullReason)+'</div>';}
   if(syncing){h+='<div class="pd-sync-note">Fetching real Stripe fee/net…</div>';}
@@ -7159,7 +7137,7 @@ function customerDrawerRow(label,value,cls){
 }
 function customerStatusRow(status,statusCls){
   var clean=escapeCustomerHtml(status||'—');
-  return '<div class="customer-profile-row"><div class="customer-profile-label">Status</div><div class="customer-profile-value customer-profile-status-inline '+(statusCls||'')+'"><span></span>'+clean+'</div></div>';
+  return '<div class="customer-profile-row"><div class="customer-profile-label">Status</div><div class="customer-profile-value customer-profile-status-inline '+(statusCls||'')+'">'+clean+'</div></div>';
 }
 
 function customerDrawerIdRow(label,fullValue){
@@ -7435,13 +7413,6 @@ async function loadAccounts(){
           var details=Array.isArray(a.verification_details)?a.verification_details:[];
           var reason=a.account_status_reason?String(a.account_status_reason).replace(/"/g,'&quot;'):'';
           var statusIcon='';
-          if(st==='active'){
-            statusIcon='';
-          } else if(st==='restricted' || st==='verification'){
-            statusIcon='';
-          } else {
-            statusIcon='<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M5 5l6 6M11 5l-6 6" stroke="currentColor" stroke-linecap="round"/></svg>';
-          }
           var statusBadge='<span class="badge badge-'+color+(statusIcon?' has-status-icon':'')+'" title="'+reason+'"><span>'+label+'</span>'+statusIcon+'</span>';
           var defaultBadge=a.is_default?'<span class="badge badge-blue" style="margin-left:6px;">default</span>':'';
           var verificationHtml='';
