@@ -321,7 +321,7 @@ async function getCardDetailsFromPaymentIntent(stripe, pi) {
     if (charge && typeof charge === 'string') charge = await stripe.charges.retrieve(charge);
     const pmDetails = charge?.payment_method_details || null;
     details.payment_method_type = pmDetails?.type || null;
-    card = pmDetails?.card || null;
+    card = pmDetails?.card || pmDetails?.amazon_pay?.funding?.card || null;
     details.wallet_type = card?.wallet?.type || null;
     details.billing_name = charge?.billing_details?.name || null;
     details.billing_email = cleanEmail(charge?.billing_details?.email) || null;

@@ -6233,8 +6233,8 @@ function normalizeStripeMethodKey(value){
 }
 function stripeMethodIcon(key){
   key=normalizeStripeMethodKey(key);
-  var icons={apple_pay:'apple-pay.svg',google_pay:'google-pay.svg',link:'link.svg',klarna:'klarna.svg',visa:'visa.svg',mastercard:'mastercard.svg',amex:'american-express.svg'};
-  var labels={apple_pay:'Apple Pay',google_pay:'Google Pay',link:'Link',klarna:'Klarna',visa:'Visa',mastercard:'Mastercard',amex:'American Express'};
+  var icons={apple_pay:'apple-pay.svg',google_pay:'google-pay.svg',amazon_pay:'amazon-pay.svg',link:'link.svg',klarna:'klarna.svg',visa:'visa.svg',mastercard:'mastercard.svg',amex:'american-express.svg'};
+  var labels={apple_pay:'Apple Pay',google_pay:'Google Pay',amazon_pay:'Amazon Pay',link:'Link',klarna:'Klarna',visa:'Visa',mastercard:'Mastercard',amex:'American Express'};
   return icons[key]?'<img src="/icons/'+icons[key]+'" class="payment-img" alt="'+(labels[key]||key)+'" title="'+(labels[key]||key)+'">':'';
 }
 function paymentMethodDisplay(p,drawer){
@@ -6246,6 +6246,18 @@ function paymentMethodDisplay(p,drawer){
     var networkImg=stripeMethodIcon(p.card_brand);
     var digits=p.card_last4?'<span class="payment-dots">••••</span><span class="payment-last4">'+p.card_last4+'</span>':'';
     return '<div class="'+cls+'">'+walletImg+networkImg+digits+'</div>';
+  }
+  /* Amazon Pay may include an underlying funding card in Stripe. */
+  if(type==='amazon_pay'){
+    var amazonImg=stripeMethodIcon('amazon_pay');
+    var amazonNetworkImg=stripeMethodIcon(p.card_brand);
+    var amazonDigits=p.card_last4?'<span class="payment-dots">••••</span><span class="payment-last4">'+p.card_last4+'</span>':'';
+    if(p.card_brand||p.card_last4){
+      return '<div class="'+cls+'">'+amazonImg+amazonNetworkImg+amazonDigits+'</div>';
+    }
+    return drawer
+      ? '<div class="'+cls+'"><span class="payment-brand-name">Amazon Pay</span>'+amazonImg+'</div>'
+      : '<div class="'+cls+'">'+amazonImg+'<span class="payment-last4">Amazon Pay</span></div>';
   }
   /* Standalone Link payments expose Link only, without underlying card details. */
   if(type==='link'){
@@ -6947,7 +6959,7 @@ function renderPaymentDetailModal(p, syncing){
   var fullReason=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'';
   var isFailed=p.status==='failed', isSucceeded=p.status==='succeeded', isPaymentNeeded=badgeLabel(p.status)==='Payment needed', isCanceled=badgeLabel(p.status)==='Canceled';
   var isRedState=isFailed||isCanceled;
-  var typeLabel=(p.wallet_type||normalizeStripeMethodKey(p.payment_method_type)==='link')?((p.subscription_id||p.stripe_invoice_id)?'Subscription wallet payment':'One-time wallet payment'):paymentTypeLabel(p);
+  var typeLabel=(p.wallet_type||['link','amazon_pay'].includes(normalizeStripeMethodKey(p.payment_method_type)))?((p.subscription_id||p.stripe_invoice_id)?'Subscription wallet':'One-time wallet'):paymentTypeLabel(p);
   var headerTitle=isSucceeded?'Payment successful':(isFailed?'Payment failed':(isCanceled?'Payment canceled':(isPaymentNeeded?'Payment needed':'Payment details')));
   var statusPill=isFailed?'Failed':(isSucceeded?'Succeeded':(isCanceled?'Canceled':(isPaymentNeeded?'Payment needed':(p.status||'Unknown'))));
   var statusClass=isRedState?'failed':(isSucceeded?'success':'info');
