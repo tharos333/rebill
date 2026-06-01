@@ -5061,6 +5061,16 @@ html.light #customer-btn-subscription.active{
   margin-left:-3px!important;
 }
 
+
+/* Table rows only: stop long customer names from stretching columns */
+.table-customer-name{
+  display:block!important;
+  max-width:210px!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+}
+
 </style>
 </head>
 <body>
@@ -6239,7 +6249,9 @@ function paymentMethodDisplay(p,drawer){
   }
   /* Standalone Link payments expose Link only, without underlying card details. */
   if(type==='link'){
-    return '<div class="'+cls+'">'+stripeMethodIcon('link')+'</div>';
+    return drawer
+      ? '<div class="'+cls+'"><span class="payment-brand-name">Link</span>'+stripeMethodIcon('link')+'</div>'
+      : '<div class="'+cls+'">'+stripeMethodIcon('link')+'<span class="payment-last4">Link</span></div>';
   }
   if(type==='klarna'){
     return '<div class="'+cls+'">'+stripeMethodIcon('klarna')+'</div>';
@@ -6479,7 +6491,7 @@ function renderCustomers(list){
         <div class="customer-cell">
           <div class="avatar">${initials(c.name)}</div>
           <div>
-            <div class="customer-name" style="font-size:13px;">${c.name||'—'}</div>
+            <div class="customer-name table-customer-name" style="font-size:13px;">${c.name||'—'}</div>
           </div>
         </div>
       </td>
@@ -6889,7 +6901,7 @@ function renderPayments(list){
       :'<div class="avatar">'+initials(p.name)+'</div>';
     var customerHtml=isGhost
       ?'<div class="customer-name" style="font-size:13px;color:var(--red);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;margin-top:-1px;flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>No profile</div>'
-      :'<div class="customer-name" style="font-size:13px;">'+(p.name||'—')+'</div>';
+      :'<div class="customer-name table-customer-name" style="font-size:13px;">'+(p.name||'—')+'</div>';
     var pJson=encodeURIComponent(JSON.stringify(p));
     return '<tr style="'+rowBg+'cursor:pointer;" onclick="openPaymentModal(decodePaymentData(this))" data-payment="'+pJson+'"><td><div class="customer-cell">'+avatarHtml+'<div>'+customerHtml+'</div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+paymentMethodDisplay(p,false)+'</td><td>'+badge(p.status)+'</td><td>'+reasonHtml+'</td><td class="mono" style="font-size:12px;white-space:nowrap;">'+fmtDate(p.created_at)+'</td><td>'+refHtml+'</td><td>'+actions+'</td></tr>';
   }).join('');
