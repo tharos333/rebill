@@ -6545,7 +6545,7 @@ function renderCustomers(list){
         </div>
       </td>
       <td>${customerPrimaryPaymentDisplay(c,false)}</td>
-      <td style="font-size:12px;color:var(--muted);">${c.account_name||'—'}</td>
+      <td style="font-size:12px;color:var(--muted);" title="${escapeCustomerHtml(c.account_name||'—')}">${escapeCustomerHtml(tableAccountDisplayName(c.account_name))}</td>
       <td>${badge(displayStatus)}</td>
       <td style="font-size:12px;color:var(--muted);font-family:var(--mono);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.note||'—'}</td>
       <td class="mono" style="font-size:12px;white-space:nowrap;" title="${dateTitle}">${dateLabel}</td>
@@ -6933,6 +6933,11 @@ function renderPayPagination(total,totalPages){
   el.innerHTML=html;
 }
 var reasonLabels={'insufficient_funds':'Insufficient funds','card_declined':'Card declined','expired_card':'Card expired','incorrect_cvc':'Wrong CVC','lost_card':'Card reported lost','stolen_card':'Reported stolen','do_not_honor':'Bank declined','processing_error':'Processing error','fraudulent':'Fraud suspected','generic_decline':'Generic decline','no_such_customer':'Customer not found','authentication_required':'Auth required'};
+function tableAccountDisplayName(accountName){
+  var full=String(accountName||'').trim();
+  if(!full)return '—';
+  return full.replace(/^Stripe_Solo_[A-Za-z]{2,3}_/i,'').replace(/_/g,' ');
+}
 function renderPayments(list){
   var isViewer=localStorage.getItem('subloop_readonly')==='1';
   var tb=document.getElementById('payments-table');
@@ -6954,7 +6959,7 @@ function renderPayments(list){
       ?'<div class="customer-name" style="font-size:13px;color:var(--red);">No profile</div>'
       :'<div class="customer-name table-customer-name payment-table-customer-name" style="font-size:13px;" title="'+(p.name||'—')+'">'+(p.name||'—')+'</div>';
     var pJson=encodeURIComponent(JSON.stringify(p));
-    return '<tr style="'+rowBg+'cursor:pointer;" onclick="openPaymentModal(decodePaymentData(this))" data-payment="'+pJson+'"><td><div class="customer-cell">'+avatarHtml+'<div>'+customerHtml+'</div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+paymentMethodDisplay(p,false)+'</td><td class="payment-account-cell" title="'+(p.account_name||'—')+'">'+(p.account_name||'—')+'</td><td>'+badge(p.status)+'</td><td>'+reasonHtml+'</td><td class="mono" style="font-size:12px;white-space:nowrap;">'+fmtDate(p.created_at)+'</td><td>'+refHtml+'</td><td>'+actions+'</td></tr>';
+    return '<tr style="'+rowBg+'cursor:pointer;" onclick="openPaymentModal(decodePaymentData(this))" data-payment="'+pJson+'"><td><div class="customer-cell">'+avatarHtml+'<div>'+customerHtml+'</div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+paymentMethodDisplay(p,false)+'</td><td class="payment-account-cell" title="'+escHtml(p.account_name||'—')+'">'+escHtml(tableAccountDisplayName(p.account_name))+'</td><td>'+badge(p.status)+'</td><td>'+reasonHtml+'</td><td class="mono" style="font-size:12px;white-space:nowrap;">'+fmtDate(p.created_at)+'</td><td>'+refHtml+'</td><td>'+actions+'</td></tr>';
   }).join('');
 }
 function decodePaymentData(row){try{return JSON.parse(decodeURIComponent(row.getAttribute('data-payment')));}catch(e){return {};}}
