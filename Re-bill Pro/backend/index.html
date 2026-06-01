@@ -7417,7 +7417,7 @@ async function loadAccounts(){
           var reason=a.account_status_reason?String(a.account_status_reason).replace(/"/g,'&quot;'):'';
           var statusIcon='';
           if(st==='active'){
-            statusIcon='<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.4 8.2l2.45 2.45L12.6 4.8" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+            statusIcon='';
           } else if(st==='restricted' || st==='verification'){
             statusIcon='';
           } else {
