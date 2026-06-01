@@ -5712,19 +5712,19 @@ html.light #customer-btn-subscription.active{
     <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg><span>Revenue Growth</span></h2><p>Revenue performance over time</p></div>
     <select id="mrr-period" onchange="loadMrr()" class="btn btn-sm" style="cursor:pointer;">
       <option value="all">All Time</option>
-      <option value="12months" selected>Last 12 Months</option>
+      <option value="12months">Last 12 Months</option>
       <option value="6months">Last 6 Months</option>
-      <option value="year">This Year</option>
+      <option value="year" selected>This Year</option>
       <option value="month">This Month (daily)</option>
     </select>
   </div>
   <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px;">
-    <div class="stat-card"><div class="stat-label">This Month to Date</div><div class="stat-value" id="mrr-this">—</div><div class="stat-sub">revenue so far</div></div>
-    <div class="stat-card"><div class="stat-label">Previous Month, Same Days</div><div class="stat-value" id="mrr-last">—</div><div class="stat-sub">comparison period</div></div>
-    <div class="stat-card"><div class="stat-label">Growth</div><div class="stat-value" id="mrr-growth">—</div><div class="stat-sub">month-to-date comparison</div></div>
+    <div class="stat-card"><div class="stat-label">This Month</div><div class="stat-value" id="mrr-this">—</div><div class="stat-sub">revenue this month</div></div>
+    <div class="stat-card"><div class="stat-label">Last Month</div><div class="stat-value" id="mrr-last">—</div><div class="stat-sub">completed month</div></div>
+    <div class="stat-card"><div class="stat-label">Growth</div><div class="stat-value" id="mrr-growth">—</div><div class="stat-sub" id="mrr-growth-sub">month over month</div></div>
   </div>
   <div class="card">
-    <div class="card-header"><h3 id="mrr-chart-title">Revenue — last 12 months</h3></div>
+    <div class="card-header"><h3 id="mrr-chart-title">Revenue — this year</h3></div>
     <div style="padding:18px 18px 8px;position:relative;">
       <canvas id="mrr-canvas" style="width:100%;height:220px;display:block;"></canvas>
       <div id="mrr-tooltip" style="display:none;position:absolute;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:8px 12px;font-size:12px;font-family:var(--mono);pointer-events:none;z-index:10;min-width:120px;"></div>
@@ -7550,7 +7550,7 @@ async function saveTemplate(){var name=document.getElementById('tmpl-name').valu
 async function deleteTemplate(id){await api('/api/plan-templates/'+id,{method:'DELETE'});toast('Template deleted');loadTemplates();}
 async function loadMrr(){
   try{
-    var period=document.getElementById('mrr-period')?.value||'12months';
+    var period=document.getElementById('mrr-period')?.value||'year';
     var titleEl=document.getElementById('mrr-chart-title');
     var now=new Date();
     var allDaily=await api('/api/revenue-chart?period=all');
@@ -7601,35 +7601,28 @@ async function loadMrr(){
       points=monthlyPoints(firstMonth,now);
     } else if(period==='year'){
       if(titleEl)titleEl.textContent='Revenue — '+now.getFullYear();
-      points=monthlyPoints(new Date(now.getFullYear(),0,1),new Date(now.getFullYear(),11,1));
+      points=monthlyPoints(new Date(now.getFullYear(),0,1),now);
     } else {
       var count=period==='6months'?6:12;
       if(titleEl)titleEl.textContent='Revenue — last '+count+' months';
       points=monthlyPoints(new Date(now.getFullYear(),now.getMonth()-(count-1),1),now);
     }
 
-    var currentMonthStart=new Date(now.getFullYear(),now.getMonth(),1);
-    var previousMonthStart=new Date(now.getFullYear(),now.getMonth()-1,1);
-    var compareEndDay=Math.min(now.getDate(),new Date(previousMonthStart.getFullYear(),previousMonthStart.getMonth()+1,0).getDate());
-    var thisMonthToDate=0;
-    var previousMonthSameDays=0;
-    for(var n=1;n<=now.getDate();n++){
-      thisMonthToDate+=dailyRevenue(dateKey(new Date(currentMonthStart.getFullYear(),currentMonthStart.getMonth(),n)));
-    }
-    for(var p=1;p<=compareEndDay;p++){
-      previousMonthSameDays+=dailyRevenue(dateKey(new Date(previousMonthStart.getFullYear(),previousMonthStart.getMonth(),p)));
-    }
-
-    var growth=previousMonthSameDays>0?Math.round(((thisMonthToDate-previousMonthSameDays)/previousMonthSameDays)*100):null;
+    var thisMonthRevenue=monthlyRevenue(monthKey(now));
+    var previousMonth=new Date(now.getFullYear(),now.getMonth()-1,1);
+    var lastMonthRevenue=monthlyRevenue(monthKey(previousMonth));
     var te=document.getElementById('mrr-this');
-    if(te)te.textContent=fmt(thisMonthToDate);
+    if(te)te.textContent=fmt(thisMonthRevenue);
     var le=document.getElementById('mrr-last');
-    if(le)le.textContent=fmt(previousMonthSameDays);
+    if(le)le.textContent=fmt(lastMonthRevenue);
     var ge=document.getElementById('mrr-growth');
+    var gs=document.getElementById('mrr-growth-sub');
     if(ge){
-      ge.textContent=growth===null?'—':((growth>=0?'+':'')+growth+'%');
-      ge.style.color=growth===null?'var(--muted)':(growth>=0?'var(--green)':'var(--red)');
+      ge.textContent='Month in progress';
+      ge.style.color='var(--muted)';
+      ge.style.fontSize='20px';
     }
+    if(gs)gs.textContent='available after month closes';
     drawMrrChart(points);
   }catch(e){}
 }
@@ -7645,8 +7638,14 @@ function drawMrrChart(points){
   var maxVal=Math.max(...points.map(function(p){return p.value;}),1);var niceMax=Math.ceil(maxVal/100)*100||100;
   ctx.font='11px monospace';var ySteps=5;
   for(var i=0;i<=ySteps;i++){var yVal=(niceMax/ySteps)*i;var y=PAD.top+cH-(cH*(yVal/niceMax));ctx.strokeStyle=gridColor;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(PAD.left,y);ctx.lineTo(W-PAD.right,y);ctx.stroke();ctx.fillStyle=textColor;ctx.textAlign='right';ctx.fillText(yVal>=100?'$'+(yVal/100).toFixed(0):'$0',PAD.left-6,y+4);}
-  var step=Math.ceil(points.length/12);ctx.textAlign='center';ctx.fillStyle=textColor;
-  points.forEach(function(p,i){if(i%step===0||i===points.length-1){var x=PAD.left+(i/(points.length-1||1))*cW;ctx.fillText(p.label,x,H-PAD.bottom+16);}});
+  var step=Math.ceil(points.length/12);ctx.fillStyle=textColor;
+  points.forEach(function(p,i){
+    if(i%step===0||i===points.length-1){
+      var x=PAD.left+(i/(points.length-1||1))*cW;
+      ctx.textAlign=i===0?'left':(i===points.length-1?'right':'center');
+      ctx.fillText(p.label,x,H-PAD.bottom+16);
+    }
+  });
   ctx.beginPath();points.forEach(function(p,i){var x=PAD.left+(i/(points.length-1||1))*cW;var y=PAD.top+cH-(cH*(p.value/niceMax));if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);});
   ctx.lineTo(PAD.left+cW,PAD.top+cH);ctx.lineTo(PAD.left,PAD.top+cH);ctx.closePath();
   var grad=ctx.createLinearGradient(0,PAD.top,0,PAD.top+cH);grad.addColorStop(0,'rgba(108,99,255,0.25)');grad.addColorStop(1,'rgba(108,99,255,0.02)');ctx.fillStyle=grad;ctx.fill();
