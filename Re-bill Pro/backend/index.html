@@ -5141,6 +5141,15 @@ html.light #customer-btn-subscription.active{
   color:currentColor!important;
 }
 
+
+/* Settings: clarify that retry schedule is unavailable when Dunning is disabled */
+#setting-dunning-days-row.setting-disabled{
+  opacity:.52;
+}
+#setting-dunning-days:disabled{
+  cursor:not-allowed!important;
+}
+
 </style>
 </head>
 <body>
@@ -5217,7 +5226,7 @@ html.light #customer-btn-subscription.active{
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>Revenue Growth</button>
 
   <button class="nav-item" onclick="showPage('recovery',this)">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 2v6h6"/><path d="M21.5 22v-6h-6"/><path d="M22 11.5A10 10 0 0 0 3.2 7.2"/><path d="M2 12.5a10 10 0 0 0 18.8 4.2"/></svg>Recovery Rate</button>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 2v6h6"/><path d="M21.5 22v-6h-6"/><path d="M22 11.5A10 10 0 0 0 3.2 7.2"/><path d="M2 12.5a10 10 0 0 0 18.8 4.2"/></svg>Payment Recovery</button>
 
   <!-- Settings collapsible -->
   <button class="nav-section-toggle" id="settings-toggle" onclick="toggleSettingsNav()" style="display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:none;cursor:pointer;padding:10px 24px 4px;font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:1px;text-transform:uppercase;">
@@ -5252,7 +5261,7 @@ html.light #customer-btn-subscription.active{
 <!-- Dashboard -->
 <div id="page-dashboard" class="page active">
   <div class="page-header">
-    <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Dashboard</span></h2><p>Your subscription overview</p></div>
+    <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Dashboard</span></h2><p>Your business overview</p></div>
     <div class="topbar-actions" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       <div style="position:relative;">
         <input type="text" id="global-search-input" placeholder="Search..." oninput="globalSearch(this.value)" style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:7px 10px 7px 34px;font-size:13px;font-family:var(--mono);outline:none;width:220px;">
@@ -5270,8 +5279,8 @@ html.light #customer-btn-subscription.active{
     <div class="stat-card"><div class="stat-label">MRR</div><div class="stat-value" id="stat-mrr">—</div><div class="stat-sub">monthly recurring</div></div>
     <div class="stat-card"><div class="stat-label">Active subs</div><div class="stat-value" id="stat-subs">—</div><div class="stat-sub">subscriptions</div></div>
     <div class="stat-card"><div class="stat-label">Customers</div><div class="stat-value" id="stat-customers">—</div><div class="stat-sub" id="stat-new-customers">total</div></div>
-    <div class="stat-card"><div class="stat-label">Saved cards</div><div class="stat-value" id="stat-cards">—</div><div class="stat-sub">payment methods</div></div>
-    <div class="stat-card"><div class="stat-label">Failed</div><div class="stat-value" id="stat-failed" style="color:var(--red)">—</div><div class="stat-sub">failed payments</div></div>
+    <div class="stat-card"><div class="stat-label">Payment Methods</div><div class="stat-value" id="stat-cards">—</div><div class="stat-sub">saved payment methods</div></div>
+    <div class="stat-card"><div class="stat-label">Failed Payments</div><div class="stat-value" id="stat-failed" style="color:var(--red)">—</div><div class="stat-sub">failed payments</div></div>
     <div class="stat-card"><div class="stat-label">Revenue</div><div class="stat-value" id="stat-revenue">—</div><div class="stat-sub" id="stat-revenue-sub">total collected</div></div>
     <div class="stat-card"><div class="stat-label">Churn rate</div><div class="stat-value" id="stat-churn">—</div><div class="stat-sub">last 30 days</div></div>
     <div class="stat-card"><div class="stat-label">Success rate</div><div class="stat-value" id="stat-success" style="color:var(--green)">—</div><div class="stat-sub">payment success</div></div>
@@ -5312,7 +5321,7 @@ html.light #customer-btn-subscription.active{
   <div class="card">
     <div class="card-header"><h3>Recent payments</h3></div>
     <div class="scrollable"><table>
-      <thead><tr><th>Customer</th><th>Amount</th><th>Card</th><th>Status</th><th>Date</th></tr></thead>
+      <thead><tr><th>Customer</th><th>Amount</th><th>Payment Method</th><th>Status</th><th>Date</th></tr></thead>
       <tbody id="recent-payments-table"><tr><td colspan="5" class="empty">Loading...</td></tr></tbody>
     </table></div>
   </div>
@@ -5327,7 +5336,7 @@ html.light #customer-btn-subscription.active{
 <!-- Customers -->
 <div id="page-customers" class="page">
   <div class="page-header">
-    <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Customers</span></h2><p>All customers with payment methods</p></div>
+    <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Customers</span></h2><p>Manage customers and payment methods</p></div>
     <div class="page-header-actions">
       <button class="btn" onclick="window.location='/api/customers/export'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export CSV</button>
       <button class="btn btn-primary" onclick="openModal('add-customer-modal')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Customer</button>
@@ -5473,9 +5482,10 @@ html.light #customer-btn-subscription.active{
   <div class="pay-filter-bar" style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;">
     <!-- Status pill buttons -->
     <div style="display:flex;align-items:center;gap:5px;">
-      <button id="pay-btn-all" class="pay-filter-btn active" onclick="setPayStatus('')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #6D5EF8;background:rgba(109,94,248,0.18);color:#F5F5F7;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:0 0 12px rgba(109,94,248,0.25),inset 0 1px 0 rgba(255,255,255,0.08);">All <span id="pay-count-all" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>
-      <button id="pay-btn-succeeded" class="pay-filter-btn pay-filter-btn-succeeded" onclick="setPayStatus('succeeded')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#00C773;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">Succeeded <span id="pay-count-succeeded" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>
-      <button id="pay-btn-failed" class="pay-filter-btn pay-filter-btn-failed" onclick="setPayStatus('failed')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#FF5F6D;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">Failed <span id="pay-count-failed" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>
+      <button id="pay-btn-all" data-pay-status="" class="pay-filter-btn active" onclick="setPayStatus('')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #6D5EF8;background:rgba(109,94,248,0.18);color:#F5F5F7;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:0 0 12px rgba(109,94,248,0.25),inset 0 1px 0 rgba(255,255,255,0.08);">All <span id="pay-count-all" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>
+      <button id="pay-btn-succeeded" data-pay-status="succeeded" class="pay-filter-btn pay-filter-btn-succeeded" onclick="setPayStatus('succeeded')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#00C773;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">Succeeded <span id="pay-count-succeeded" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>
+      <button id="pay-btn-failed" data-pay-status="failed" class="pay-filter-btn pay-filter-btn-failed" onclick="setPayStatus('failed')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#FF5F6D;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">Failed <span id="pay-count-failed" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>
+      <span id="pay-extra-status-buttons" style="display:flex;align-items:center;gap:5px;"></span>
     </div>
     <!-- Divider -->
     <div class="pay-filter-divider" style="width:1px;height:28px;background:#2A2A38;margin:0 2px;"></div>
@@ -5573,7 +5583,7 @@ html.light #customer-btn-subscription.active{
 
 <!-- Payment Links -->
 <div id="page-links" class="page">
-  <div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>Payment Links</span></h2><p>Generate Stripe payment links that save cards automatically</p></div></div>
+  <div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>Payment Links</span></h2><p>Create payment links for recurring payments</p></div></div>
   <div class="card" style="max-width:500px;margin-bottom:14px;">
     <div class="card-header"><h3>Plan Templates <span id="template-count" style="color:var(--muted);font-weight:400;"></span></h3></div>
     <div style="padding:12px 18px 16px;">
@@ -5620,9 +5630,9 @@ html.light #customer-btn-subscription.active{
       <p style="font-size:12px;color:var(--muted);font-family:var(--mono);margin:10px 0 16px;">When a rebill fails, automatically retry before canceling.</p>
       <div class="setting-row">
         <div class="setting-info"><div class="setting-label">Enable Dunning</div><div class="setting-desc">Auto-retry failed payments before canceling</div></div>
-        <label class="switch"><input type="checkbox" id="setting-dunning" onchange="saveSetting('dunning_enabled',this.checked)"><span class="slider"></span></label>
+        <label class="switch"><input type="checkbox" id="setting-dunning" onchange="setDunningScheduleState(this.checked);saveSetting('dunning_enabled',this.checked)"><span class="slider"></span></label>
       </div>
-      <div class="setting-row">
+      <div class="setting-row" id="setting-dunning-days-row">
         <div class="setting-info"><div class="setting-label">Retry Schedule (days)</div><div class="setting-desc">Comma-separated days after failure to retry</div></div>
         <input type="text" id="setting-dunning-days" style="width:120px;" placeholder="3,7,14" onblur="saveSetting('dunning_days',this.value)">
       </div>
@@ -5766,7 +5776,7 @@ html.light #customer-btn-subscription.active{
   <div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 2v6h6"/><path d="M21.5 22v-6h-6"/><path d="M22 11.5A10 10 0 0 0 3.2 7.2"/><path d="M2 12.5a10 10 0 0 0 18.8 4.2"/></svg><span>Payment Recovery</span></h2><p>Failed payments later completed successfully</p></div></div>
   <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);">
     <div class="stat-card"><div class="stat-label">Failed (30 days)</div><div class="stat-value" id="rec-failed" style="color:var(--red)">—</div><div class="stat-sub">total failures</div></div>
-    <div class="stat-card"><div class="stat-label">Recovered</div><div class="stat-value" id="rec-recovered" style="color:var(--green)">—</div><div class="stat-sub">failed payments later paid</div></div>
+    <div class="stat-card"><div class="stat-label">Recovered (30 days)</div><div class="stat-value" id="rec-recovered" style="color:var(--green)">—</div><div class="stat-sub">failed payments later paid</div></div>
     <div class="stat-card"><div class="stat-label">Recovery Rate</div><div class="stat-value" id="rec-rate">—</div><div class="stat-sub">last 30 days</div></div>
   </div>
 </div>
@@ -6564,7 +6574,14 @@ async function loadActivity(){
     if(isViewer)list=list.filter(function(a){return['payment','failed','retry','charge','dunning','proration','resume'].includes(a.type);});
     if(!list.length){wrap.innerHTML='<div class="empty">'+(isViewer?'No payment activity yet':'No activity yet')+'</div>';return;}
     var colors={payment:'var(--green)',failed:'var(--red)',charge:'var(--accent)',dunning:'var(--amber)',resume:'var(--blue)',retry:'var(--green)',proration:'var(--accent)'};
-    wrap.innerHTML=list.map(function(a){return '<div class="activity-item"><div class="activity-dot" style="background:'+(colors[a.type]||'var(--muted)')+'"></div><div style="flex:1;"><div style="font-size:13px;">'+a.description+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;">'+fmtTime(a.created_at)+'</div></div></div>';}).join('');
+    wrap.innerHTML=list.map(function(a){
+      var text=String(a.description||'').toLowerCase();
+      var dotColor=colors[a.type]||'var(--muted)';
+      if(text.indexOf('payment failed')>=0||text.indexOf('payment declined')>=0)dotColor='var(--red)';
+      else if(text.indexOf('payment succeeded')>=0||text.indexOf('payment successful')>=0)dotColor='var(--green)';
+      else if(text.indexOf('admin user')>=0||text.indexOf('user created')>=0)dotColor='var(--muted)';
+      return '<div class="activity-item"><div class="activity-dot" style="background:'+dotColor+'"></div><div style="flex:1;"><div style="font-size:13px;">'+a.description+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;">'+fmtTime(a.created_at)+'</div></div></div>';
+    }).join('');
   }catch(e){}
 }
 async function loadCustomers(){
@@ -6954,6 +6971,7 @@ async function loadPayments(){
       sel.innerHTML=opts;
     }
     payCurrentPage=1;
+    buildExtraPaymentStatusButtons();
     toggleCustomDate();
     filterPayments();
   }catch(e){}
@@ -6962,24 +6980,57 @@ function renderPaymentSummary(list){var total=list.filter(p=>p.status==='succeed
 var payCurrentPage=1;
 var PAY_PER_PAGE=35;
 var payStatusFilter='';
+function paymentTopStatusKey(status){
+  var raw=String(status||'').toLowerCase().trim();
+  if(raw.indexOf('success')>=0||raw==='paid'||raw==='ok')return 'succeeded';
+  if(raw.indexOf('fail')>=0||raw.indexOf('declin')>=0)return 'failed';
+  if(raw.indexOf('cancel')>=0)return 'canceled';
+  if(raw.indexOf('refund')>=0)return 'refunded';
+  if(raw.indexOf('require')>=0||raw.indexOf('payment')>=0||raw.indexOf('method')>=0||raw.indexOf('action')>=0)return 'payment_needed';
+  if(raw.indexOf('processing')>=0)return 'processing';
+  if(raw.indexOf('pending')>=0)return 'pending';
+  return raw||'other';
+}
+function paymentTopStatusLabel(key){
+  var labels={canceled:'Canceled',refunded:'Refunded',payment_needed:'Payment needed',processing:'Processing',pending:'Pending',other:'Other'};
+  return labels[key]||badgeLabel(key);
+}
+function paymentTopStatusColor(key){
+  if(key==='failed'||key==='canceled')return '#FF5F6D';
+  if(key==='succeeded')return '#00C773';
+  return '#6CA5FF';
+}
+function buildExtraPaymentStatusButtons(){
+  var host=document.getElementById('pay-extra-status-buttons');
+  if(!host)return;
+  var seen={};
+  (allPayments||[]).forEach(function(p){
+    var key=paymentTopStatusKey(p.status);
+    if(key!=='succeeded'&&key!=='failed')seen[key]=true;
+  });
+  var preferred=['payment_needed','canceled','refunded','processing','pending','other'];
+  var keys=preferred.filter(function(k){return seen[k];}).concat(Object.keys(seen).filter(function(k){return preferred.indexOf(k)<0;}));
+  host.innerHTML=keys.map(function(key){
+    return '<button id="pay-btn-'+key+'" data-pay-status="'+key+'" class="pay-filter-btn" onclick="setPayStatus(\''+key+'\')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:'+paymentTopStatusColor(key)+';font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">'+paymentTopStatusLabel(key)+' <span id="pay-count-'+key+'" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>';
+  }).join('');
+}
 function setPayStatus(s){
   payStatusFilter=s;
   payCurrentPage=1;
-  ['all','succeeded','failed'].forEach(function(k){
-    var btn=document.getElementById('pay-btn-'+k);
-    if(!btn)return;
-    var isActive=(k==='all'&&s==='')||(k===s);
+  document.querySelectorAll('[data-pay-status]').forEach(function(btn){
+    var key=btn.getAttribute('data-pay-status')||'';
+    var isActive=key===s;
     btn.classList.toggle('active',isActive);
     if(isActive){
       btn.style.border='1px solid #6D5EF8';
       btn.style.background='rgba(109,94,248,0.18)';
       btn.style.boxShadow='0 0 12px rgba(109,94,248,0.25),inset 0 1px 0 rgba(255,255,255,0.08)';
-      btn.style.color=k==='succeeded'?'#00C773':k==='failed'?'#FF5F6D':'#F5F5F7';
-    } else {
+      btn.style.color=key==='succeeded'?'#00C773':key==='failed'||key==='canceled'?'#FF5F6D':'#F5F5F7';
+    }else{
       btn.style.border='1px solid #2A2A38';
       btn.style.background='#14141d';
       btn.style.boxShadow='inset 0 1px 0 rgba(255,255,255,0.04)';
-      btn.style.color=k==='succeeded'?'#00C773':k==='failed'?'#FF5F6D':'#8B8B99';
+      btn.style.color=paymentTopStatusColor(key);
     }
   });
   filterPayments();
@@ -7023,14 +7074,20 @@ function filterPayments(){
   });
 
   var allC=statusCountBase.length;
-  var sucC=statusCountBase.filter(function(p){return p.status==='succeeded';}).length;
-  var failC=statusCountBase.filter(function(p){return p.status==='failed';}).length;
+  var sucC=statusCountBase.filter(function(p){return paymentTopStatusKey(p.status)==='succeeded';}).length;
+  var failC=statusCountBase.filter(function(p){return paymentTopStatusKey(p.status)==='failed';}).length;
   var ca=document.getElementById('pay-count-all');if(ca)ca.textContent=allC;
   var cs=document.getElementById('pay-count-succeeded');if(cs)cs.textContent=sucC;
   var cf=document.getElementById('pay-count-failed');if(cf)cf.textContent=failC;
+  document.querySelectorAll('#pay-extra-status-buttons [data-pay-status]').forEach(function(btn){
+    var key=btn.getAttribute('data-pay-status');
+    var count=statusCountBase.filter(function(p){return paymentTopStatusKey(p.status)===key;}).length;
+    var el=document.getElementById('pay-count-'+key);
+    if(el)el.textContent=count;
+  });
 
   var filtered=statusCountBase.filter(function(p){
-    return !payStatusFilter||p.status===payStatusFilter;
+    return !payStatusFilter||paymentTopStatusKey(p.status)===payStatusFilter;
   });
   var total=filtered.length;
   var totalPages=Math.max(1,Math.ceil(total/PAY_PER_PAGE));
@@ -7274,7 +7331,13 @@ function openPaymentModal(p){
 }
 async function retryPayment(id){toast('Retrying…');try{const r=await api('/api/payments/'+id+'/retry',{method:'POST'});if(r.success){toast('✓ Succeeded — payment recovered');loadPayments();loadStats();loadRecovery();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
 async function loadWebhooks(){try{const list=await api('/api/webhook-logs');const tb=document.getElementById('webhook-table');if(!list.length){tb.innerHTML='<tr><td colspan="4" class="empty">No webhook events yet</td></tr>';return;}tb.innerHTML=list.map(w=>'<tr><td class="mono" style="font-size:12px;">'+w.event_type+'</td><td style="font-size:12px;color:var(--muted);">'+(w.account_name||'—')+'</td><td>'+badge(w.status||'ok').replace('Succeeded','Processed').replace('Success','Processed')+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+fmtTime(w.created_at)+'</td></tr>').join('');}catch(e){}}
-async function loadSettings(){try{appSettings=await api('/api/settings');document.getElementById('setting-dunning').checked=appSettings.dunning_enabled==='true';document.getElementById('setting-dunning-days').value=appSettings.dunning_days||'3,7,14';document.getElementById('setting-auto-resume').checked=appSettings.pause_auto_resume==='true';document.getElementById('setting-proration').checked=appSettings.proration_enabled==='true';document.getElementById('setting-webhook-logs').checked=appSettings.webhook_logs_enabled==='true';}catch(e){}}
+function setDunningScheduleState(enabled){
+  var field=document.getElementById('setting-dunning-days');
+  var row=document.getElementById('setting-dunning-days-row');
+  if(field)field.disabled=!enabled;
+  if(row)row.classList.toggle('setting-disabled',!enabled);
+}
+async function loadSettings(){try{appSettings=await api('/api/settings');var dunningEnabled=appSettings.dunning_enabled==='true';document.getElementById('setting-dunning').checked=dunningEnabled;document.getElementById('setting-dunning-days').value=appSettings.dunning_days||'3,7,14';setDunningScheduleState(dunningEnabled);document.getElementById('setting-auto-resume').checked=appSettings.pause_auto_resume==='true';document.getElementById('setting-proration').checked=appSettings.proration_enabled==='true';document.getElementById('setting-webhook-logs').checked=appSettings.webhook_logs_enabled==='true';}catch(e){}}
 async function saveSetting(key,value){await api('/api/settings',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({key,value:String(value)})});appSettings[key]=String(value);toast('✓ Setting saved');}
 async function loadSecurity(){
   try{
@@ -7642,7 +7705,11 @@ async function setDefaultAccount(id){await api('/api/stripe-accounts/'+id+'/defa
 async function deleteAccount(id){if(!confirm('Delete this account?'))return;await api('/api/stripe-accounts/'+id,{method:'DELETE'});toast('Account deleted');loadAccounts();}
 async function loadForecast(){try{const d=await api('/api/forecast');document.getElementById('forecast-30').textContent=fmt(d.forecast30||0);document.getElementById('forecast-60').textContent=fmt(d.forecast60||0);document.getElementById('forecast-90').textContent=fmt(d.forecast90||0);}catch(e){}}
 async function loadExpiry(){try{var days=document.getElementById('expiry-days')?document.getElementById('expiry-days').value:30;var list=await api('/api/expiring-cards?days='+days);var tb=document.getElementById('expiry-table');if(!list.length){tb.innerHTML='<tr><td colspan="5" class="empty">No expiring cards in this period</td></tr>';return;}var now=new Date();tb.innerHTML=list.map(function(c){var expMonth=String(c.card_exp_month||'?').padStart(2,'0');var expYear=String(c.card_exp_year||'?');var yr=parseInt(c.card_exp_year)||9999;var mo=parseInt(c.card_exp_month)||12;var isExpired=yr<now.getFullYear()||(yr===now.getFullYear()&&mo<=now.getMonth()+1);var color=isExpired?'var(--red)':'var(--amber)';return '<tr><td><div class="customer-cell"><div class="avatar">'+initials(c.name)+'</div><div><div class="customer-name">'+(c.name||'—')+'</div><div class="customer-email">'+(c.email||'')+'</div></div></div></td><td>'+cardBadge(c.card_brand,c.card_last4)+'</td><td><span style="color:'+color+';font-family:var(--mono);font-weight:600;">'+expMonth+'/'+expYear+'</span></td><td class="mono">'+fmtDate(c.next_billing_date)+'</td><td><button class="btn btn-sm" onclick="openPortal('+c.id+')">Update card ↗</button></td></tr>';}).join('');}catch(e){}}
-async function loadSummary(){try{const d=await api('/api/daily-summary');document.getElementById('sum-rev-today').textContent=fmt(parseInt(d.revenue_today)||0);document.getElementById('sum-pay-today').textContent=(d.payments_today||0)+' payments';document.getElementById('sum-fail-today').textContent=d.failed_today||0;document.getElementById('sum-rev-7d').textContent=fmt(parseInt(d.revenue_7d)||0);document.getElementById('sum-pay-7d').textContent=(d.payments_7d||0)+' payments';document.getElementById('sum-rev-month').textContent=fmt(parseInt(d.revenue_month)||0);document.getElementById('sum-pay-month').textContent=(d.payments_month||0)+' payments';document.getElementById('sum-active').textContent=d.active_total||0;document.getElementById('sum-new-7d').textContent='+'+(d.new_7d||0)+' this week';document.getElementById('sum-cust-today').textContent=d.new_today||0;}catch(e){}}
+function formatPaymentCount(value){
+  var count=Number(value||0);
+  return count+' '+(count===1?'payment':'payments');
+}
+async function loadSummary(){try{const d=await api('/api/daily-summary');document.getElementById('sum-rev-today').textContent=fmt(parseInt(d.revenue_today)||0);document.getElementById('sum-pay-today').textContent=formatPaymentCount(d.payments_today);document.getElementById('sum-fail-today').textContent=d.failed_today||0;document.getElementById('sum-rev-7d').textContent=fmt(parseInt(d.revenue_7d)||0);document.getElementById('sum-pay-7d').textContent=formatPaymentCount(d.payments_7d);document.getElementById('sum-rev-month').textContent=fmt(parseInt(d.revenue_month)||0);document.getElementById('sum-pay-month').textContent=formatPaymentCount(d.payments_month);document.getElementById('sum-active').textContent=d.active_total||0;document.getElementById('sum-new-7d').textContent='+'+(d.new_7d||0)+' this week';document.getElementById('sum-cust-today').textContent=d.new_today||0;}catch(e){}}
 async function sendManualInvoice(){const custId=document.getElementById('invoice-customer-id').value.trim();const amount=Math.round(parseFloat(document.getElementById('invoice-amount').value)*100);const desc=document.getElementById('invoice-desc').value;const result=document.getElementById('invoice-result');if(!custId||!amount){toast('Fill in all fields','error');return;}try{const r=await api('/api/customers/'+custId+'/charge-once',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount,description:desc})});result.style.display='block';if(r.success){result.style.background='var(--green-bg)';result.style.color='var(--green)';result.style.border='1px solid var(--green)';result.textContent='✓ Payment succeeded!';}else{result.style.background='var(--red-bg)';result.style.color='var(--red)';result.style.border='1px solid var(--red)';result.textContent='✗ '+(r.error||'Failed');}}catch(e){toast('Error','error');}}
 function openInvoiceModal(customerId){document.getElementById('invoice-modal-customer-id').value=customerId;document.getElementById('invoice-modal-amount').value='';document.getElementById('invoice-modal-desc').value='Manual invoice';document.getElementById('invoice-modal-result').style.display='none';openModal('invoice-modal');}
 async function sendInvoiceFromModal(){const customerId=document.getElementById('invoice-modal-customer-id').value;const amount=Math.round(parseFloat(document.getElementById('invoice-modal-amount').value)*100);const desc=document.getElementById('invoice-modal-desc').value;const result=document.getElementById('invoice-modal-result');if(!amount||amount<50){toast('Minimum $0.50','error');return;}try{const r=await api('/api/customers/'+customerId+'/charge-once',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount,description:desc})});result.style.display='block';if(r.success){result.style.cssText='background:var(--green-bg);color:var(--green);border:1px solid var(--green);padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);';result.textContent='✓ Charged successfully!';toast('✓ Invoice sent');}else{result.style.cssText='background:var(--red-bg);color:var(--red);border:1px solid var(--red);padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);';result.textContent='✗ '+(r.error||'Failed');toast('Failed','error');}}catch(e){toast('Error','error');}}
@@ -7786,7 +7853,7 @@ function drawMrrChart(points){
   var PAD={top:20,right:20,bottom:40,left:60};var cW=W-PAD.left-PAD.right;var cH=H-PAD.top-PAD.bottom;
   var maxVal=Math.max(...points.map(function(p){return p.value;}),1);var niceMax=Math.ceil(maxVal/100)*100||100;
   ctx.font='11px monospace';var ySteps=5;
-  for(var i=0;i<=ySteps;i++){var yVal=(niceMax/ySteps)*i;var y=PAD.top+cH-(cH*(yVal/niceMax));ctx.strokeStyle=gridColor;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(PAD.left,y);ctx.lineTo(W-PAD.right,y);ctx.stroke();ctx.fillStyle=textColor;ctx.textAlign='right';ctx.fillText(yVal>=100?'$'+(yVal/100).toFixed(0):'$0',PAD.left-6,y+4);}
+  for(var i=0;i<=ySteps;i++){var yVal=(niceMax/ySteps)*i;var y=PAD.top+cH-(cH*(yVal/niceMax));ctx.strokeStyle=gridColor;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(PAD.left,y);ctx.lineTo(W-PAD.right,y);ctx.stroke();ctx.fillStyle=textColor;ctx.textAlign='right';ctx.fillText(yVal>=100?'$'+new Intl.NumberFormat('en-US',{maximumFractionDigits:0}).format(yVal/100):'$0',PAD.left-6,y+4);}
   var step=Math.ceil(points.length/12);ctx.fillStyle=textColor;
   points.forEach(function(p,i){
     if(i%step===0||i===points.length-1){
