@@ -5350,11 +5350,11 @@ html.light #customer-btn-subscription.active{
             </select>
           </div>
           <div class="pay-advanced-field">
-            <label>Card</label>
-            <select id="customer-filter-card">
-              <option value="">All cards</option>
-              <option value="has">Saved card</option>
-              <option value="none">No saved card</option>
+            <label>Payment method</label>
+            <select id="customer-filter-method">
+              <option value="">All payment methods</option>
+              <option value="has">Has payment method</option>
+              <option value="none">No payment method</option>
             </select>
           </div>
           <div class="pay-advanced-field">
@@ -5411,7 +5411,7 @@ html.light #customer-btn-subscription.active{
     </div>
   </div>
   <div class="card"><div class="scrollable"><table>
-    <thead><tr><th>Customer</th><th>Primary payment method</th><th>Account</th><th>Payment country</th><th>Status</th><th>Note</th><th>Last payment</th><th>Total paid</th><th>Actions</th></tr></thead>
+    <thead><tr><th>Customer</th><th>Payment method</th><th>Account</th><th>Payment country</th><th>Status</th><th>Note</th><th>Last payment</th><th>Total paid</th><th>Actions</th></tr></thead>
     <tbody id="customers-table"><tr><td colspan="9" class="empty">Loading...</td></tr></tbody>
   </table></div></div>
   <div id="customer-pagination" style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap;"></div>
@@ -5500,21 +5500,18 @@ html.light #customer-btn-subscription.active{
         <div class="pay-advanced-title">Advanced Filters</div>
         <div class="pay-advanced-grid">
           <div class="pay-advanced-field">
-            <label>Card brand</label>
-            <select id="pay-filter-brand">
-              <option value="">All brands</option>
+            <label>Payment method</label>
+            <select id="pay-filter-method">
+              <option value="">All payment methods</option>
+              <option value="link">Link</option>
+              <option value="apple_pay">Apple Pay</option>
+              <option value="google_pay">Google Pay</option>
+              <option value="amazon_pay">Amazon Pay</option>
+              <option value="klarna">Klarna</option>
               <option value="visa">Visa</option>
               <option value="mastercard">Mastercard</option>
-              <option value="amex">Amex</option>
-              <option value="unknown">Unknown / no card</option>
-            </select>
-          </div>
-          <div class="pay-advanced-field">
-            <label>Card</label>
-            <select id="pay-filter-card-state">
-              <option value="">All</option>
-              <option value="has">Has card</option>
-              <option value="none">No card</option>
+              <option value="amex">American Express</option>
+              <option value="unknown">Unknown</option>
             </select>
           </div>
           <div class="pay-advanced-field">
@@ -6342,6 +6339,18 @@ function paymentMethodDisplay(p,drawer){
   return drawer?paymentDrawerCardBadge(p.card_brand,p.card_last4):cardBadge(p.card_brand,p.card_last4);
 }
 
+function visiblePaymentMethodFilterKey(p){
+  var wallet=normalizeStripeMethodKey(p&&p.wallet_type);
+  var type=normalizeStripeMethodKey(p&&p.payment_method_type);
+  var knownMethods={apple_pay:true,google_pay:true,amazon_pay:true,link:true,klarna:true};
+  if(knownMethods[wallet])return wallet;
+  if(knownMethods[type])return type;
+  var brand=normalizeStripeMethodKey(p&&p.card_brand);
+  if(brand)return brand;
+  if(p&&p.card_last4)return 'card';
+  return 'unknown';
+}
+
 function initApp(){
   var username=localStorage.getItem('subloop_username');
   if(username){
@@ -6717,7 +6726,7 @@ function filterCustomers(){
   var q=(document.getElementById('customer-search')?.value||'').toLowerCase();
   var account=document.getElementById('customer-account-filter')?.value||'';
   var statusFilter=document.getElementById('customer-filter-status')?.value||'';
-  var card=document.getElementById('customer-filter-card')?.value||'';
+  var method=document.getElementById('customer-filter-method')?.value||'';
   var activity=document.getElementById('customer-filter-activity')?.value||'';
   var dateFilter=document.getElementById('customer-filter-date')?.value||'';
   var sort=document.getElementById('customer-filter-sort')?.value||'last_desc';
@@ -6736,7 +6745,7 @@ function filterCustomers(){
   var filtered=allCustomers.filter(function(c){
     var status=customerEffectiveStatus(c);
     var customerType=customerTypeKey(c);
-    var hasCard=customerHasSavedCard(c);
+    var hasMethod=customerHasPrimaryPaymentMethod(c);
     var paidCount=customerSuccessfulPaymentCount(c);
     var totalMajor=Number(c.total_paid||0)/100;
     var matchPrimary=!customerPrimaryFilter||customerType===customerPrimaryFilter;
@@ -6747,7 +6756,7 @@ function filterCustomers(){
       String(c.email||'').toLowerCase().includes(q) ||
       String(c.card_last4||'').includes(q) ||
       String(c.stripe_customer_id||c.id||'').toLowerCase().includes(q);
-    var matchCard=!card||(card==='has'?hasCard:!hasCard);
+    var matchMethod=!method||(method==='has'?hasMethod:!hasMethod);
     var matchActivity=!activity||(activity==='once'?paidCount===1:paidCount>=2);
     var matchAmount=(isNaN(minTotal)||totalMajor>=minTotal)&&(isNaN(maxTotal)||totalMajor<=maxTotal);
     var matchDate=true;
@@ -6765,7 +6774,7 @@ function filterCustomers(){
         if(to){var toDate=new Date(to);toDate.setHours(23,59,59,999);matchDate=matchDate&&d<=toDate;}
       }
     }
-    return matchPrimary&&matchStatus&&matchAccount&&matchSearch&&matchCard&&matchActivity&&matchDate&&matchAmount;
+    return matchPrimary&&matchStatus&&matchAccount&&matchSearch&&matchMethod&&matchActivity&&matchDate&&matchAmount;
   });
 
   filtered.sort(function(a,b){
@@ -6800,7 +6809,7 @@ function applyAdvancedCustomerFilters(){
   if(popup)popup.classList.remove('open');
 }
 function clearAdvancedCustomerFilters(){
-  ['customer-filter-status','customer-filter-card','customer-filter-activity','customer-filter-date'].forEach(function(id){
+  ['customer-filter-status','customer-filter-method','customer-filter-activity','customer-filter-date'].forEach(function(id){
     var el=document.getElementById(id); if(el)el.value='';
   });
   var sort=document.getElementById('customer-filter-sort'); if(sort)sort.value='last_desc';
@@ -6815,7 +6824,7 @@ function resetCustomerFiltersOnRefresh(){
   customerPrimaryFilter='';
   var search=document.getElementById('customer-search'); if(search)search.value='';
   var account=document.getElementById('customer-account-filter'); if(account)account.value='';
-  ['customer-filter-status','customer-filter-card','customer-filter-activity','customer-filter-date'].forEach(function(id){
+  ['customer-filter-status','customer-filter-method','customer-filter-activity','customer-filter-date'].forEach(function(id){
     var el=document.getElementById(id); if(el)el.value='';
   });
   var sort=document.getElementById('customer-filter-sort'); if(sort)sort.value='last_desc';
@@ -6833,7 +6842,7 @@ function resetPaymentFiltersOnRefresh(){
   var search=document.getElementById('pay-search'); if(search)search.value='';
   var account=document.getElementById('pay-account-filter'); if(account)account.value='';
   var dateFilter=document.getElementById('pay-date-filter'); if(dateFilter)dateFilter.value='';
-  ['pay-date-from','pay-date-to','pay-filter-brand','pay-filter-card-state','pay-filter-failure','pay-filter-min-amount','pay-filter-max-amount'].forEach(function(id){
+  ['pay-date-from','pay-date-to','pay-filter-method','pay-filter-failure','pay-filter-min-amount','pay-filter-max-amount'].forEach(function(id){
     var el=document.getElementById(id); if(el)el.value='';
   });
   var popup=document.getElementById('pay-advanced-filters'); if(popup)popup.classList.remove('open');
@@ -6928,8 +6937,7 @@ function filterPayments(){
   if(!allPayments)return;
   var account=document.getElementById('pay-account-filter')?.value||'';
   var q=(document.getElementById('pay-search')?.value||'').toLowerCase();
-  var advBrand=(document.getElementById('pay-filter-brand')?.value||'').toLowerCase();
-  var advCardState=document.getElementById('pay-filter-card-state')?.value||'';
+  var advMethod=(document.getElementById('pay-filter-method')?.value||'').toLowerCase();
   var advFailure=document.getElementById('pay-filter-failure')?.value||'';
   var advMin=parseFloat(document.getElementById('pay-filter-min-amount')?.value||'');
   var advMax=parseFloat(document.getElementById('pay-filter-max-amount')?.value||'');
@@ -6948,14 +6956,12 @@ function filterPayments(){
     var matchQ=!q||(p.name||'').toLowerCase().includes(q)||(p.email||'').toLowerCase().includes(q)||(p.stripe_payment_intent||'').toLowerCase().includes(q)||(p.card_last4||'').includes(q);
     var matchD=true;
     if(dateF){var d=new Date(p.created_at);if(dateF==='today')matchD=d.toDateString()===now.toDateString();else if(dateF==='yesterday'){var y=new Date(now);y.setDate(y.getDate()-1);matchD=d.toDateString()===y.toDateString();}else if(dateF==='week'){var w=new Date(now);w.setDate(w.getDate()-7);matchD=d>=w;}else if(dateF==='month'){matchD=d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();}else if(dateF==='custom'){var from=document.getElementById('pay-date-from')?.value;var to=document.getElementById('pay-date-to')?.value;if(from)matchD=matchD&&d>=new Date(from);if(to){var toD=new Date(to);toD.setHours(23,59,59,999);matchD=matchD&&d<=toD;}}}
-    var brand=(p.card_brand||'').toLowerCase();
-    var hasCard=!!(p.card_last4||p.card_brand);
+    var visibleMethod=visiblePaymentMethodFilterKey(p);
     var amountMajor=Number(p.amount||0)/100;
-    var matchBrand=!advBrand||(advBrand==='unknown'?(!brand||!hasCard):brand===advBrand);
-    var matchCard=!advCardState||(advCardState==='has'?hasCard:!hasCard);
+    var matchMethod=!advMethod||visibleMethod===advMethod;
     var matchFailure=!advFailure||p.failure_reason===advFailure;
     var matchAmount=(isNaN(advMin)||amountMajor>=advMin)&&(isNaN(advMax)||amountMajor<=advMax);
-    return matchS&&matchA&&matchQ&&matchD&&matchBrand&&matchCard&&matchFailure&&matchAmount;
+    return matchS&&matchA&&matchQ&&matchD&&matchMethod&&matchFailure&&matchAmount;
   });
   var total=filtered.length;
   var totalPages=Math.max(1,Math.ceil(total/PAY_PER_PAGE));
@@ -6982,7 +6988,7 @@ function applyAdvancedPaymentFilters(){
   if(el)el.classList.remove('open');
 }
 function clearAdvancedPaymentFilters(){
-  ['pay-filter-brand','pay-filter-card-state','pay-filter-failure'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
+  ['pay-filter-method','pay-filter-failure'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
   ['pay-filter-min-amount','pay-filter-max-amount'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
   payCurrentPage=1;
   filterPayments();
