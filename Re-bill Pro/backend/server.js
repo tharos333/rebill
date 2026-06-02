@@ -1246,7 +1246,7 @@ app.post('/api/auth/verify', async (req, res) => {
     const { username, password } = req.body;
     const ip = requestClientIp(req);
     const maxAttempts = safeIntegerSetting(await settingsDb.get('max_login_attempts'), 5, 3, 20);
-    const lockoutMinutes = safeIntegerSetting(await settingsDb.get('lockout_minutes'), 15, 5, 60);
+    const lockoutMinutes = safeIntegerSetting(await settingsDb.get('lockout_minutes'), 15, 1, 60);
     const recentFailures = await security.recentFailures(ip, lockoutMinutes);
 
     if (recentFailures >= maxAttempts) {
