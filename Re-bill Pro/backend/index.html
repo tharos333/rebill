@@ -5118,7 +5118,7 @@ html.light #customer-btn-subscription.active{
   font-size:12px!important;
   color:var(--muted)!important;
   white-space:nowrap!important;
-  width:64px!important;
+  min-width:126px!important;
 }
 
 
@@ -6583,6 +6583,16 @@ async function loadCustomers(){
   }catch(e){}
 }
 
+function customerCountryName(countryCode){
+  var code=String(countryCode||'').trim().toUpperCase();
+  if(!code)return '—';
+  try{
+    var name=new Intl.DisplayNames(['en'],{type:'region'}).of(code);
+    if(name && name!==code)return name;
+  }catch(e){}
+  return code;
+}
+
 function customerCountryFullLabel(countryCode){
   var code=String(countryCode||'').trim().toUpperCase();
   if(!code)return '—';
@@ -6632,7 +6642,7 @@ function renderCustomers(list){
       </td>
       <td>${customerPrimaryPaymentDisplay(c,false)}</td>
       <td style="font-size:12px;color:var(--muted);" title="${escapeCustomerHtml(c.account_name||'—')}">${escapeCustomerHtml(tableAccountDisplayName(c.account_name))}</td>
-      <td class="customer-country-cell">${escapeCustomerHtml(String(c.primary_card_country||c.card_country||'—').toUpperCase())}</td>
+      <td class="customer-country-cell">${escapeCustomerHtml(customerCountryName(c.primary_card_country||c.card_country))}</td>
       <td>${badge(displayStatus)}</td>
       <td style="font-size:12px;color:var(--muted);font-family:var(--mono);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.note||'—'}</td>
       <td class="mono" style="font-size:12px;white-space:nowrap;" title="${dateTitle}">${dateLabel}</td>
