@@ -5506,7 +5506,7 @@ html.light #customer-btn-subscription.active{
       <div id="pay-advanced-filters" class="pay-advanced-filters" onclick="event.stopPropagation();">
         <div class="pay-advanced-title">Advanced Filters</div>
         <div class="pay-advanced-grid">
-          <div class="pay-advanced-field">
+          <div class="pay-advanced-field pay-advanced-wide">
             <label>Payment method</label>
             <select id="pay-filter-method">
               <option value="">All payment methods</option>
@@ -5535,9 +5535,11 @@ html.light #customer-btn-subscription.active{
               <option value="">Any reason</option>
               <option value="card_declined">Card declined</option>
               <option value="insufficient_funds">Insufficient funds</option>
+              <option value="payment_method_unsupported">Payment method unsupported</option>
+              <option value="payment_method_error">Payment method error</option>
+              <option value="payment_failed">Payment failed</option>
               <option value="authentication_required">Authentication required</option>
               <option value="expired_card">Expired card</option>
-              <option value="generic_decline">Generic decline</option>
               <option value="processing_error">Processing error</option>
               <option value="do_not_honor">Bank declined</option>
             </select>
@@ -6346,6 +6348,23 @@ function paymentMethodDisplay(p,drawer){
   return drawer?paymentDrawerCardBadge(p.card_brand,p.card_last4):cardBadge(p.card_brand,p.card_last4);
 }
 
+function paymentFailureFilterKey(p){
+  var raw=String((p&&p.failure_reason)||'').trim().toLowerCase();
+  if(!raw)return '';
+  var compact=raw.replace(/[\s.-]+/g,'_');
+
+  if(compact==='insufficient_funds'||raw.indexOf('insufficient')>=0)return 'insufficient_funds';
+  if(compact==='payment_method_unsupported'||raw.indexOf('does not support')>=0||raw.indexOf('not support')>=0||raw.indexOf('unsupported')>=0)return 'payment_method_unsupported';
+  if(compact==='payment_method_error'||raw.indexOf('provided paymentmet')>=0||raw.indexOf('provided payment method')>=0)return 'payment_method_error';
+  if(compact==='authentication_required'||raw.indexOf('authentication')>=0||raw.indexOf('authenticate')>=0)return 'authentication_required';
+  if(compact==='expired_card'||raw.indexOf('expired')>=0)return 'expired_card';
+  if(compact==='processing_error'||raw.indexOf('processing error')>=0)return 'processing_error';
+  if(compact==='do_not_honor'||raw.indexOf('do not honor')>=0||raw.indexOf('bank declined')>=0)return 'do_not_honor';
+  if(compact==='card_declined'||raw.indexOf('card was declined')>=0||raw.indexOf('card declined')>=0)return 'card_declined';
+  if(compact==='payment_failed'||raw.indexOf('payment failed')>=0||raw.indexOf('the payment failed')>=0)return 'payment_failed';
+  return compact;
+}
+
 function visiblePaymentMethodFilterKey(p){
   var wallet=normalizeStripeMethodKey(p&&p.wallet_type);
   var type=normalizeStripeMethodKey(p&&p.payment_method_type);
@@ -6966,7 +6985,7 @@ function filterPayments(){
     var visibleMethod=visiblePaymentMethodFilterKey(p);
     var amountMajor=Number(p.amount||0)/100;
     var matchMethod=!advMethod||visibleMethod===advMethod;
-    var matchFailure=!advFailure||p.failure_reason===advFailure;
+    var matchFailure=!advFailure||paymentFailureFilterKey(p)===advFailure;
     var matchAmount=(isNaN(advMin)||amountMajor>=advMin)&&(isNaN(advMax)||amountMajor<=advMax);
     return matchS&&matchA&&matchQ&&matchD&&matchMethod&&matchFailure&&matchAmount;
   });
