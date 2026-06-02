@@ -1163,7 +1163,7 @@ app.post('/api/security/2fa/setup', async (req, res) => {
 });
 app.post('/api/security/2fa/verify', async (req, res) => {
   try {
-    if (!speakeasy) return res.json({ valid: true, success: true });
+    if (!speakeasy) return res.status(503).json({ valid: false, success: false, error: 'Authenticator verification is unavailable' });
     const secret = await settingsDb.get('two_fa_secret_pending');
     if (!secret) return res.status(400).json({ error: 'No pending 2FA setup' });
     const valid = speakeasy.totp.verify({ secret, encoding: 'base32', token: req.body.token, window: 2 });
@@ -1176,14 +1176,14 @@ app.post('/api/security/2fa/verify', async (req, res) => {
 });
 app.post('/api/security/2fa/validate', async (req, res) => {
   try {
-    if (!speakeasy) return res.json({ valid: true });
     const enabled = await settingsDb.get('two_fa_enabled');
     if (enabled !== 'true') return res.json({ valid: true });
+    if (!speakeasy) return res.status(503).json({ valid: false, error: 'Authenticator verification is unavailable' });
     const secret = await settingsDb.get('two_fa_secret');
-    if (!secret) return res.json({ valid: true });
+    if (!secret) return res.status(503).json({ valid: false, error: 'Authenticator configuration is missing' });
     const valid = speakeasy.totp.verify({ secret, encoding: 'base32', token: req.body.token, window: 2 });
     res.json({ valid });
-  } catch(err) { res.json({ valid: false }); }
+  } catch(err) { res.status(500).json({ valid: false, error: 'Could not verify authenticator code' }); }
 });
 app.post('/api/security/2fa/disable', async (req, res) => {
   try { await settingsDb.set('two_fa_enabled', 'false'); await settingsDb.set('two_fa_secret', ''); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); }
@@ -1232,19 +1232,49 @@ app.post('/api/admin-users/:id/change-password', async (req, res) => {
 });
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
+function requestClientIp(req) {
+  const forwarded = String(req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  return forwarded || String(req.socket.remoteAddress || 'unknown');
+}
+function safeIntegerSetting(value, fallback, min, max) {
+  const parsed = parseInt(value, 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(min, Math.min(max, parsed));
+}
 app.post('/api/auth/verify', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+    const ip = requestClientIp(req);
+    const maxAttempts = safeIntegerSetting(await settingsDb.get('max_login_attempts'), 5, 3, 20);
+    const lockoutMinutes = safeIntegerSetting(await settingsDb.get('lockout_minutes'), 15, 5, 60);
+    const recentFailures = await security.recentFailures(ip, lockoutMinutes);
+
+    if (recentFailures >= maxAttempts) {
+      return res.status(429).json({
+        success: false,
+        locked: true,
+        lockout_minutes: lockoutMinutes,
+        error: `Too many failed login attempts. Try again after ${lockoutMinutes} minutes.`
+      });
+    }
+
     const user = await adminUsers.verify(username, password);
     if (user) {
       await adminUsers.updateLastLogin(user.id);
       await security.logAttempt(ip, true);
-      res.json({ success: true, role: user.role, username: user.username, permissions: user.permissions || [] });
-    } else {
-      await security.logAttempt(ip, false);
-      res.json({ success: false });
+      return res.json({ success: true, role: user.role, username: user.username, permissions: user.permissions || [] });
     }
+
+    await security.logAttempt(ip, false);
+    if (recentFailures + 1 >= maxAttempts) {
+      return res.status(429).json({
+        success: false,
+        locked: true,
+        lockout_minutes: lockoutMinutes,
+        error: `Too many failed login attempts. Login locked for ${lockoutMinutes} minutes.`
+      });
+    }
+    res.json({ success: false });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.post('/api/auth/check', async (req, res) => {

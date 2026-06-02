@@ -5976,13 +5976,35 @@ function toggleTheme(){const isLight=document.documentElement.classList.toggle('
 function updateLogos(isLight){const src=isLight?'https://i.ibb.co/6cD50Q6H/2.png':'https://i.ibb.co/xq0HVT9G/1.png';['sidebar-logo','login-logo'].forEach(id=>{const el=document.getElementById(id);if(el)el.src=src;});}
 function initTheme(){const isLight=localStorage.getItem('subloop_theme')==='light';if(isLight){document.documentElement.classList.add('light');const l=document.getElementById('theme-label');if(l)l.textContent='Light mode';}updateLogos(isLight);}
 initTheme();
+function showLoginError(message){
+  var err=document.getElementById('login-error');
+  err.textContent=message||'Incorrect username or password';
+  err.classList.add('visible');
+}
+function clearPendingLoginIdentity(){
+  localStorage.removeItem('subloop_username');
+  localStorage.removeItem('subloop_role');
+  localStorage.removeItem('subloop_permissions');
+}
 function doLogin(){
   var user=document.getElementById('login-user').value.trim();
   var pass=document.getElementById('login-pass').value;
   var err=document.getElementById('login-error');
+  err.textContent='Incorrect username or password';
   err.classList.remove('visible');
-  api('/api/auth/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:user,password:pass})})
-  .then(function(r){
+  fetch('/api/auth/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:user,password:pass})})
+  .then(function(response){
+    return response.json().catch(function(){return {};}).then(function(body){return {status:response.status,ok:response.ok,body:body};});
+  })
+  .then(function(result){
+    var r=result.body||{};
+    if(result.status===429||r.locked){
+      showLoginError(r.error||'Too many failed login attempts. Try again later.');
+      document.getElementById('login-pass').value='';
+      document.getElementById('login-pass').focus();
+      return;
+    }
+    if(!result.ok)throw new Error(r.error||'Login request failed');
     if(r.success){
       localStorage.setItem('subloop_username',user);
       localStorage.setItem('subloop_role',r.role||'admin');
@@ -5993,13 +6015,20 @@ function doLogin(){
           document.getElementById('login-step-2').style.display='block';
           setTimeout(function(){document.getElementById('otp-0').focus();},100);
         } else { completeLogin(); }
-      }).catch(function(){ completeLogin(); });
+      }).catch(function(){
+        clearPendingLoginIdentity();
+        showLoginError('Could not verify security settings. Please try again.');
+        document.getElementById('login-pass').value='';
+      });
     } else {
-      err.classList.add('visible');
+      showLoginError('Incorrect username or password');
       document.getElementById('login-pass').value='';
       document.getElementById('login-pass').focus();
     }
-  }).catch(function(){err.classList.add('visible');document.getElementById('login-pass').value='';});
+  }).catch(function(){
+    showLoginError('Unable to sign in right now. Please try again.');
+    document.getElementById('login-pass').value='';
+  });
 }
 window.doLogin=doLogin;
 

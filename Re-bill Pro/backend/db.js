@@ -385,7 +385,20 @@ const webhookLogs = {
 };
 const security = {
   logAttempt: async (ip, success) => { await pool.query('INSERT INTO login_attempts (ip, success) VALUES ($1,$2)', [ip, success]).catch(()=>{}); },
-  recentFailures: async (ip, minutes=15) => { const r = await pool.query("SELECT COUNT(*) FROM login_attempts WHERE ip=$1 AND success=false AND created_at > NOW()-INTERVAL '1 minute'*$2", [ip, minutes]); return parseInt(r.rows[0].count)||0; },
+  recentFailures: async (ip, minutes=15) => {
+    const r = await pool.query(`
+      SELECT COUNT(*) AS count
+      FROM login_attempts
+      WHERE ip=$1
+        AND success=false
+        AND created_at > NOW() - ($2::int * INTERVAL '1 minute')
+        AND created_at > COALESCE(
+          (SELECT MAX(created_at) FROM login_attempts WHERE ip=$1 AND success=true),
+          '-infinity'::timestamptz
+        )
+    `, [ip, minutes]);
+    return parseInt(r.rows[0]?.count, 10) || 0;
+  },
   clearAttempts: async (ip) => { await pool.query('DELETE FROM login_attempts WHERE ip=$1', [ip]).catch(()=>{}); },
   recentLogins: async (limit=20) => { const r = await pool.query('SELECT * FROM login_attempts ORDER BY created_at DESC LIMIT $1', [limit]); return r.rows; },
 };
