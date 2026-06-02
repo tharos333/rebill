@@ -5121,16 +5121,6 @@ html.light #customer-btn-subscription.active{
   width:64px!important;
 }
 
-
-/* Payments table: clearly identify wallet/provider and underlying card network */
-#page-payments .payment-method-name{
-  color:var(--muted)!important;
-  font-size:12px!important;
-  font-weight:600!important;
-  font-family:var(--font-ui)!important;
-  white-space:nowrap!important;
-}
-
 </style>
 </head>
 <body>
@@ -5510,26 +5500,21 @@ html.light #customer-btn-subscription.active{
         <div class="pay-advanced-title">Advanced Filters</div>
         <div class="pay-advanced-grid">
           <div class="pay-advanced-field">
-            <label>Payment method</label>
-            <select id="pay-filter-method">
-              <option value="">All payment methods</option>
-              <option value="card">Card</option>
-              <option value="link">Link</option>
-              <option value="apple_pay">Apple Pay</option>
-              <option value="google_pay">Google Pay</option>
-              <option value="amazon_pay">Amazon Pay</option>
-              <option value="klarna">Klarna</option>
-              <option value="unknown">Unknown</option>
+            <label>Card brand</label>
+            <select id="pay-filter-brand">
+              <option value="">All brands</option>
+              <option value="visa">Visa</option>
+              <option value="mastercard">Mastercard</option>
+              <option value="amex">Amex</option>
+              <option value="unknown">Unknown / no card</option>
             </select>
           </div>
           <div class="pay-advanced-field">
-            <label>Card network</label>
-            <select id="pay-filter-network">
-              <option value="">All card networks</option>
-              <option value="visa">Visa</option>
-              <option value="mastercard">Mastercard</option>
-              <option value="amex">American Express</option>
-              <option value="none">No card network data</option>
+            <label>Card</label>
+            <select id="pay-filter-card-state">
+              <option value="">All</option>
+              <option value="has">Has card</option>
+              <option value="none">No card</option>
             </select>
           </div>
           <div class="pay-advanced-field">
@@ -6317,38 +6302,46 @@ function paymentMethodDisplay(p,drawer){
   var wallet=normalizeStripeMethodKey(p&&p.wallet_type);
   var type=normalizeStripeMethodKey(p&&p.payment_method_type);
   var cls=drawer?'payment-card drawer-payment-card':'payment-card';
-  var methodLabels={apple_pay:'Apple Pay',google_pay:'Google Pay',amazon_pay:'Amazon Pay',link:'Link',klarna:'Klarna'};
+  var walletLabels={apple_pay:'Apple Pay',google_pay:'Google Pay',link:'Link'};
   var cardLabels={visa:'Visa',mastercard:'Mastercard',amex:'American Express'};
-  var method=(wallet==='apple_pay'||wallet==='google_pay'||wallet==='link'||wallet==='amazon_pay'||wallet==='klarna')?wallet:
-    ((type==='apple_pay'||type==='google_pay'||type==='link'||type==='amazon_pay'||type==='klarna')?type:'');
-  if(method){
-    var network=normalizeStripeMethodKey(p&&p.card_brand);
-    var methodName=methodLabels[method]||method;
-    var networkName=cardLabels[network]||'';
-    var displayName=methodName+(networkName?' / '+networkName:'');
-    var methodImg=stripeMethodIcon(method);
-    var networkImg=networkName?stripeMethodIcon(network):'';
-    var digits=p&&p.card_last4?'<span class="payment-dots">••••</span><span class="payment-last4">'+p.card_last4+'</span>':'';
+  if(wallet==='apple_pay'||wallet==='google_pay'||wallet==='link'){
+    var walletImg=stripeMethodIcon(wallet);
+    var networkImg=stripeMethodIcon(p.card_brand);
+    var digits=p.card_last4?'<span class="payment-dots">••••</span><span class="payment-last4">'+p.card_last4+'</span>':'';
     if(drawer){
-      return '<div class="'+cls+'"><span class="payment-brand-name">'+displayName+'</span>'+methodImg+networkImg+digits+'</div>';
+      var walletCardName=(p.card_brand&&cardLabels[normalizeStripeMethodKey(p.card_brand)])?(' / '+cardLabels[normalizeStripeMethodKey(p.card_brand)]):'';
+      return '<div class="'+cls+'"><span class="payment-brand-name">'+walletLabels[wallet]+walletCardName+'</span>'+walletImg+networkImg+digits+'</div>';
     }
-    return '<div class="'+cls+'"><span class="payment-method-name">'+displayName+'</span>'+methodImg+networkImg+digits+'</div>';
+    return '<div class="'+cls+'">'+walletImg+networkImg+digits+'</div>';
+  }
+  /* Amazon Pay may include an underlying funding card in Stripe. */
+  if(type==='amazon_pay'){
+    var amazonImg=stripeMethodIcon('amazon_pay');
+    var amazonNetworkImg=stripeMethodIcon(p.card_brand);
+    var amazonDigits=p.card_last4?'<span class="payment-dots">••••</span><span class="payment-last4">'+p.card_last4+'</span>':'';
+    if(drawer){
+      var amazonCardName=(p.card_brand&&cardLabels[normalizeStripeMethodKey(p.card_brand)])?(' / '+cardLabels[normalizeStripeMethodKey(p.card_brand)]):'';
+      return '<div class="'+cls+'"><span class="payment-brand-name">Amazon Pay'+amazonCardName+'</span>'+amazonImg+amazonNetworkImg+amazonDigits+'</div>';
+    }
+    if(p.card_brand||p.card_last4){
+      return '<div class="'+cls+'">'+amazonImg+amazonNetworkImg+amazonDigits+'</div>';
+    }
+    return '<div class="'+cls+'">'+amazonImg+'<span class="payment-last4">Amazon Pay</span></div>';
+  }
+  /* Standalone Link payments expose Link only, without underlying card details. */
+  if(type==='link'){
+    return drawer
+      ? '<div class="'+cls+'"><span class="payment-brand-name">Link</span>'+stripeMethodIcon('link')+'</div>'
+      : '<div class="'+cls+'">'+stripeMethodIcon('link')+'<span class="payment-last4">Link</span></div>';
+  }
+  if(type==='klarna'){
+    return drawer
+      ? '<div class="'+cls+'"><span class="payment-brand-name">Klarna</span>'+stripeMethodIcon('klarna')+'</div>'
+      : '<div class="'+cls+'">'+stripeMethodIcon('klarna')+'<span class="payment-last4">Klarna</span></div>';
   }
   return drawer?paymentDrawerCardBadge(p.card_brand,p.card_last4):cardBadge(p.card_brand,p.card_last4);
 }
-function paymentMethodFilterKey(p){
-  var wallet=normalizeStripeMethodKey(p&&p.wallet_type);
-  var type=normalizeStripeMethodKey(p&&p.payment_method_type);
-  var recognised={apple_pay:true,google_pay:true,amazon_pay:true,link:true,klarna:true};
-  if(recognised[wallet])return wallet;
-  if(recognised[type])return type;
-  if(type==='card'||p.card_brand||p.card_last4)return 'card';
-  return 'unknown';
-}
-function paymentNetworkFilterKey(p){
-  var network=normalizeStripeMethodKey(p&&p.card_brand);
-  return (network==='visa'||network==='mastercard'||network==='amex')?network:'none';
-}
+
 function initApp(){
   var username=localStorage.getItem('subloop_username');
   if(username){
@@ -6840,7 +6833,7 @@ function resetPaymentFiltersOnRefresh(){
   var search=document.getElementById('pay-search'); if(search)search.value='';
   var account=document.getElementById('pay-account-filter'); if(account)account.value='';
   var dateFilter=document.getElementById('pay-date-filter'); if(dateFilter)dateFilter.value='';
-  ['pay-date-from','pay-date-to','pay-filter-method','pay-filter-network','pay-filter-failure','pay-filter-min-amount','pay-filter-max-amount'].forEach(function(id){
+  ['pay-date-from','pay-date-to','pay-filter-brand','pay-filter-card-state','pay-filter-failure','pay-filter-min-amount','pay-filter-max-amount'].forEach(function(id){
     var el=document.getElementById(id); if(el)el.value='';
   });
   var popup=document.getElementById('pay-advanced-filters'); if(popup)popup.classList.remove('open');
@@ -6935,8 +6928,8 @@ function filterPayments(){
   if(!allPayments)return;
   var account=document.getElementById('pay-account-filter')?.value||'';
   var q=(document.getElementById('pay-search')?.value||'').toLowerCase();
-  var advMethod=(document.getElementById('pay-filter-method')?.value||'').toLowerCase();
-  var advNetwork=(document.getElementById('pay-filter-network')?.value||'').toLowerCase();
+  var advBrand=(document.getElementById('pay-filter-brand')?.value||'').toLowerCase();
+  var advCardState=document.getElementById('pay-filter-card-state')?.value||'';
   var advFailure=document.getElementById('pay-filter-failure')?.value||'';
   var advMin=parseFloat(document.getElementById('pay-filter-min-amount')?.value||'');
   var advMax=parseFloat(document.getElementById('pay-filter-max-amount')?.value||'');
@@ -6955,14 +6948,14 @@ function filterPayments(){
     var matchQ=!q||(p.name||'').toLowerCase().includes(q)||(p.email||'').toLowerCase().includes(q)||(p.stripe_payment_intent||'').toLowerCase().includes(q)||(p.card_last4||'').includes(q);
     var matchD=true;
     if(dateF){var d=new Date(p.created_at);if(dateF==='today')matchD=d.toDateString()===now.toDateString();else if(dateF==='yesterday'){var y=new Date(now);y.setDate(y.getDate()-1);matchD=d.toDateString()===y.toDateString();}else if(dateF==='week'){var w=new Date(now);w.setDate(w.getDate()-7);matchD=d>=w;}else if(dateF==='month'){matchD=d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();}else if(dateF==='custom'){var from=document.getElementById('pay-date-from')?.value;var to=document.getElementById('pay-date-to')?.value;if(from)matchD=matchD&&d>=new Date(from);if(to){var toD=new Date(to);toD.setHours(23,59,59,999);matchD=matchD&&d<=toD;}}}
-    var methodKey=paymentMethodFilterKey(p);
-    var networkKey=paymentNetworkFilterKey(p);
+    var brand=(p.card_brand||'').toLowerCase();
+    var hasCard=!!(p.card_last4||p.card_brand);
     var amountMajor=Number(p.amount||0)/100;
-    var matchMethod=!advMethod||methodKey===advMethod;
-    var matchNetwork=!advNetwork||networkKey===advNetwork;
+    var matchBrand=!advBrand||(advBrand==='unknown'?(!brand||!hasCard):brand===advBrand);
+    var matchCard=!advCardState||(advCardState==='has'?hasCard:!hasCard);
     var matchFailure=!advFailure||p.failure_reason===advFailure;
     var matchAmount=(isNaN(advMin)||amountMajor>=advMin)&&(isNaN(advMax)||amountMajor<=advMax);
-    return matchS&&matchA&&matchQ&&matchD&&matchMethod&&matchNetwork&&matchFailure&&matchAmount;
+    return matchS&&matchA&&matchQ&&matchD&&matchBrand&&matchCard&&matchFailure&&matchAmount;
   });
   var total=filtered.length;
   var totalPages=Math.max(1,Math.ceil(total/PAY_PER_PAGE));
@@ -6989,7 +6982,7 @@ function applyAdvancedPaymentFilters(){
   if(el)el.classList.remove('open');
 }
 function clearAdvancedPaymentFilters(){
-  ['pay-filter-method','pay-filter-network','pay-filter-failure'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
+  ['pay-filter-brand','pay-filter-card-state','pay-filter-failure'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
   ['pay-filter-min-amount','pay-filter-max-amount'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
   payCurrentPage=1;
   filterPayments();
