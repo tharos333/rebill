@@ -13,6 +13,7 @@ const crypto = require('crypto');
 // Set SUBLOOP_AUTH_SECRET in Railway for tokens that remain valid after a deploy/restart.
 const SUBLOOP_AUTH_SECRET = process.env.SUBLOOP_AUTH_SECRET || crypto.randomBytes(48).toString('hex');
 const ANALYST_DEFAULT_SECTIONS = ['dashboard','customers','payments','forecast','summary','mrr','recovery'];
+const CUSTOM_ASSIGNABLE_SECTIONS = ['dashboard','customers','payments','forecast','summary','mrr','recovery','activity','subscriptions','links'];
 function b64url(value) { return Buffer.from(value).toString('base64url'); }
 function issueAdminToken(user, purpose='access', maxAgeMinutes=480) {
   const payload = { id: user.id, username: user.username, purpose, exp: Date.now() + (maxAgeMinutes * 60 * 1000) };
@@ -41,11 +42,17 @@ function normalizeAllowedAccountIds(user) {
 }
 function isOwnerOrAdmin(user) { return !!user && (user.role === 'owner' || user.role === 'admin'); }
 function isReadOnlyUser(user) { return !!user && (user.role === 'analyst' || user.role === 'viewer'); }
+function sanitizeSections(role, permissions) {
+  const list = Array.isArray(permissions) ? [...new Set(permissions.map(String))] : [];
+  if (role === 'analyst' || role === 'viewer') return list.filter(section => ANALYST_DEFAULT_SECTIONS.includes(section));
+  if (role === 'custom') return list.filter(section => CUSTOM_ASSIGNABLE_SECTIONS.includes(section));
+  return [];
+}
 function userSections(user) {
   if (!user) return [];
   if (isOwnerOrAdmin(user)) return null;
-  const set = Array.isArray(user.permissions) && user.permissions.length ? user.permissions : (isReadOnlyUser(user) ? ANALYST_DEFAULT_SECTIONS : []);
-  return set;
+  const allowed = sanitizeSections(user.role, user.permissions);
+  return allowed.length ? allowed : (isReadOnlyUser(user) ? ANALYST_DEFAULT_SECTIONS : []);
 }
 function canUseSection(user, section) {
   const sections = userSections(user);
@@ -68,7 +75,7 @@ function sectionForApiPath(req) {
   if (path.startsWith('/customers')) return 'customers';
   if (path.startsWith('/subscriptions')) return 'subscriptions';
   if (path.startsWith('/payments')) return 'payments';
-  if (path.startsWith('/payment-links') || path.startsWith('/plan-templates')) return 'links';
+  if (path.startsWith('/payment-link-accounts') || path.startsWith('/payment-links') || path.startsWith('/plan-templates')) return 'links';
   if (path.startsWith('/stripe-accounts')) return 'accounts';
   if (path.startsWith('/forecast')) return 'forecast';
   if (path.startsWith('/daily-summary')) return 'summary';
@@ -702,7 +709,7 @@ app.use('/api', async (req, res, next) => {
     const user = await adminUsers.byId(data.id);
     if (!user) return res.status(401).json({ error: 'Access has been revoked' });
     req.currentUser = user;
-    const sensitive = ['/admin-users', '/settings', '/security', '/run-rebills', '/debug', '/stripe-accounts', '/payment-links', '/plan-templates'];
+    const sensitive = ['/admin-users', '/settings', '/security', '/run-rebills', '/debug', '/stripe-accounts'];
     if (sensitive.some(prefix => req.path.startsWith(prefix)) && !isOwnerOrAdmin(user)) {
       return res.status(403).json({ error: 'Owner or admin access required' });
     }
@@ -858,6 +865,15 @@ async function getStripeAccountDisplayStatus(accountRow) {
     };
   }
 }
+
+// Minimal account list for Payment Links. Custom users receive only assigned Stripe accounts.
+app.get('/api/payment-link-accounts', async (req, res) => {
+  try {
+    const r = await pool.query('SELECT id, name, is_default FROM stripe_accounts ORDER BY created_at DESC, id DESC');
+    const ids = scopedAccountIds(req);
+    res.json(ids === null ? r.rows : r.rows.filter(account => ids.includes(Number(account.id))));
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
 
 app.get('/api/stripe-accounts', async (req, res) => {
   try {
@@ -1215,8 +1231,8 @@ app.get('/api/plan-templates', async (req, res) => {
     res.json(r.rows);
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
-app.post('/api/plan-templates', async (req, res) => { try { const { name, amount, currency, interval_days } = req.body; await pool.query('INSERT INTO plan_templates (name,amount,currency,interval_days) VALUES ($1,$2,$3,$4)', [name, amount, currency||'usd', interval_days||30]); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
-app.delete('/api/plan-templates/:id', async (req, res) => { try { await pool.query('DELETE FROM plan_templates WHERE id=$1', [req.params.id]); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.post('/api/plan-templates', async (req, res) => { try { if (!isOwnerOrAdmin(req.currentUser)) return res.status(403).json({ error: 'Only an administrator can manage shared templates' }); const { name, amount, currency, interval_days } = req.body; await pool.query('INSERT INTO plan_templates (name,amount,currency,interval_days) VALUES ($1,$2,$3,$4)', [name, amount, currency||'usd', interval_days||30]); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.delete('/api/plan-templates/:id', async (req, res) => { try { if (!isOwnerOrAdmin(req.currentUser)) return res.status(403).json({ error: 'Only an administrator can manage shared templates' }); await pool.query('DELETE FROM plan_templates WHERE id=$1', [req.params.id]); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
 
 // ── Run Rebills ───────────────────────────────────────────────────────────────
 app.post('/api/run-rebills', async (req, res) => {
@@ -1346,7 +1362,7 @@ app.post('/api/admin-users', async (req, res) => {
     const safeRole = ['admin','analyst','viewer','custom'].includes(role) ? role : 'admin';
     const access = cleanAccountAccessInput(safeRole, account_scope, allowed_account_ids);
     if (!(await validateSelectedAccounts(access.accountScope, access.allowedAccountIds))) return res.status(400).json({ error: 'Select at least one valid Stripe account' });
-    await adminUsers.create(username, password, safeRole, permissions || [], access.accountScope, access.allowedAccountIds);
+    await adminUsers.create(username, password, safeRole, sanitizeSections(safeRole, permissions), access.accountScope, access.allowedAccountIds);
     await activityLog.add('security', `New admin user created: ${username}`);
     res.json({ success: true });
   } catch(err) {
@@ -1371,7 +1387,7 @@ app.patch('/api/admin-users/:id/permissions', async (req, res) => {
     const safeRole = ['admin','analyst','viewer','custom'].includes(role) ? role : current.role;
     const access = cleanAccountAccessInput(safeRole, account_scope, allowed_account_ids);
     if (!(await validateSelectedAccounts(access.accountScope, access.allowedAccountIds))) return res.status(400).json({ error: 'Select at least one valid Stripe account' });
-    await adminUsers.updateAccess(req.params.id, safeRole, permissions || [], access.accountScope, access.allowedAccountIds);
+    await adminUsers.updateAccess(req.params.id, safeRole, sanitizeSections(safeRole, permissions), access.accountScope, access.allowedAccountIds);
     res.json({ success: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });

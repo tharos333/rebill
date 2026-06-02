@@ -5288,6 +5288,16 @@ html.light #customer-btn-subscription.active{
 .admin-scope-chip{display:inline-flex;padding:5px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);font-size:11px;color:var(--muted);white-space:nowrap;}
 @media(max-width:720px){.permission-choice-grid,.account-choice-grid{grid-template-columns:1fr;}.scope-options{flex-direction:column;}.account-tools{flex-wrap:wrap;}}
 
+
+/* Admin access V3: clearer Stripe scope and role visual hierarchy */
+.scope-all-message{padding:11px 12px;border:1px solid rgba(109,94,248,.26);background:rgba(109,94,248,.08);border-radius:9px;color:var(--muted);font-size:12px;line-height:1.4;}
+#page-admins .admin-role-chip{font-weight:500!important;}
+#page-admins .admin-role-owner{background:var(--green-bg)!important;color:var(--green)!important;}
+#page-admins .admin-role-admin{background:rgba(109,94,248,.16)!important;color:#9b8dff!important;}
+#page-admins .admin-role-analyst{background:var(--blue-bg)!important;color:var(--blue)!important;}
+#page-admins .admin-role-custom{background:var(--amber-bg)!important;color:var(--amber)!important;}
+#page-admins .admin-scope-chip{max-width:360px;overflow:hidden;text-overflow:ellipsis;}
+
 </style>
 </head>
 <body>
@@ -5733,7 +5743,7 @@ html.light #customer-btn-subscription.active{
     <div class="card-header"><h3>Plan Templates <span id="template-count" style="color:var(--muted);font-weight:400;"></span></h3></div>
     <div style="padding:12px 18px 16px;">
       <div id="templates-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;min-height:32px;"><span style="font-size:12px;color:var(--muted);font-family:var(--mono);">Loading...</span></div>
-      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+      <div id="template-builder-row" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
         <div class="form-group" style="margin:0;flex:1;min-width:120px;"><label>Template name</label><input type="text" id="tmpl-name" placeholder="Monthly Pro"></div>
         <div class="form-group" style="margin:0;width:90px;"><label>Amount ($)</label><input type="number" id="tmpl-amount" placeholder="29" min="0.50" step="0.01"></div>
         <div class="form-group" style="margin:0;width:100px;"><label>Interval</label><select id="tmpl-interval"><option value="7">Weekly</option><option value="30" selected>Monthly</option><option value="90">Quarterly</option><option value="365">Yearly</option></select></div>
@@ -5966,7 +5976,7 @@ html.light #customer-btn-subscription.active{
   </div>
   <div class="card">
     <div class="scrollable"><table>
-      <thead><tr><th>Username</th><th>Role</th><th>Account access</th><th>Last login</th><th>Created</th><th>Actions</th></tr></thead>
+      <thead><tr><th>Username</th><th>Role</th><th>Stripe access</th><th>Last login</th><th>Created</th><th>Actions</th></tr></thead>
       <tbody id="admins-table"><tr><td colspan="6" class="empty">Loading...</td></tr></tbody>
     </table></div>
   </div>
@@ -6072,6 +6082,7 @@ html.light #customer-btn-subscription.active{
           <label class="scope-option"><input type="radio" name="admin-account-scope-radio" value="all" onchange="setAccountScope('admin',this.value)"><span>All Stripe accounts</span></label>
         </div>
         <input type="hidden" id="admin-account-scope" value="selected">
+        <div id="admin-account-all-message" class="scope-all-message" style="display:none;">This user can access all current and future Stripe accounts.</div>
         <div id="admin-account-tools" class="account-tools">
           <div class="access-search-wrap"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input id="admin-account-search" type="text" placeholder="Search accounts..." oninput="filterAccountChoices('admin',this.value)"></div>
           <span id="admin-account-selected-count" class="selected-count">Selected: 0</span>
@@ -6142,6 +6153,7 @@ html.light #customer-btn-subscription.active{
           <label class="scope-option"><input type="radio" name="edit-account-scope-radio" value="all" onchange="setAccountScope('edit',this.value)"><span>All Stripe accounts</span></label>
         </div>
         <input type="hidden" id="edit-account-scope" value="selected">
+        <div id="edit-account-all-message" class="scope-all-message" style="display:none;">This user can access all current and future Stripe accounts.</div>
         <div id="edit-account-tools" class="account-tools">
           <div class="access-search-wrap"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input id="edit-account-search" type="text" placeholder="Search accounts..." oninput="filterAccountChoices('edit',this.value)"></div>
           <span id="edit-account-selected-count" class="selected-count">Selected: 0</span>
@@ -6326,7 +6338,7 @@ function showPage(name,el){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   el.classList.add('active');
-  const loaders={dashboard:()=>{loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();},activity:loadActivity,customers:loadCustomers,subscriptions:loadSubscriptions,payments:loadPayments,settings:loadSettings,accounts:loadAccounts,security:loadSecurity,webhooks:loadWebhooks,forecast:loadForecast,summary:loadSummary,admins:loadAdmins,mrr:()=>{var period=document.getElementById('mrr-period');if(period)period.value='year';loadMrr();},recovery:loadRecovery,links:()=>{loadAccounts();loadTemplates();}};
+  const loaders={dashboard:()=>{loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();},activity:loadActivity,customers:loadCustomers,subscriptions:loadSubscriptions,payments:loadPayments,settings:loadSettings,accounts:loadAccounts,security:loadSecurity,webhooks:loadWebhooks,forecast:loadForecast,summary:loadSummary,admins:loadAdmins,mrr:()=>{var period=document.getElementById('mrr-period');if(period)period.value='year';loadMrr();},recovery:loadRecovery,links:()=>{loadPaymentLinkAccounts();loadTemplates();configurePaymentLinksAccessUI();}};
   var _username=localStorage.getItem('subloop_username');
   if(_username&&(getCurrentRole()==='custom'||getCurrentRole()==='viewer'||getCurrentRole()==='analyst')){
     api('/api/auth/check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:_username})})
@@ -7971,6 +7983,18 @@ async function loadAccounts(){
     const ms=document.getElementById('mc-account');if(ms)ms.innerHTML='<option value="">Default</option>'+opts;
   }catch(e){}
 }
+async function loadPaymentLinkAccounts(){
+  try{
+    var list=await api('/api/payment-link-accounts');
+    var select=document.getElementById('link-account');if(!select)return;
+    var options=(list||[]).map(function(a){return '<option value="'+a.id+'"'+(a.is_default?' selected':'')+'>'+a.name+'</option>';}).join('');
+    select.innerHTML=options||'<option value="">No permitted Stripe accounts</option>';
+  }catch(e){var select=document.getElementById('link-account');if(select)select.innerHTML='<option value="">No permitted Stripe accounts</option>';}
+}
+function configurePaymentLinksAccessUI(){
+  var canManageTemplates=getCurrentRole()==='owner'||getCurrentRole()==='admin';
+  var builder=document.getElementById('template-builder-row');if(builder)builder.style.display=canManageTemplates?'flex':'none';
+}
 async function addAccount(){const name=document.getElementById('acc-name').value.trim(),key=document.getElementById('acc-key').value.trim(),webhook=document.getElementById('acc-webhook').value.trim();if(!name||!key){toast('Name and key required','error');return;}const r=await api('/api/stripe-accounts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,secret_key:key,webhook_secret:webhook})});if(r.success){toast('✓ Account added');closeModal('add-account-modal');document.getElementById('acc-name').value='';document.getElementById('acc-key').value='';document.getElementById('acc-webhook').value='';loadAccounts();}else toast('Error: '+(r.error||'Failed'),'error');}
 async function setDefaultAccount(id){await api('/api/stripe-accounts/'+id+'/default',{method:'PATCH'});toast('✓ Default updated');loadAccounts();}
 async function deleteAccount(id){if(!confirm('Delete this account?'))return;await api('/api/stripe-accounts/'+id,{method:'DELETE'});toast('Account deleted');loadAccounts();}
@@ -7992,12 +8016,12 @@ async function loadAdmins(){
     await loadAccessStripeAccounts();
     if(!list||!list.length){tb.innerHTML='<tr><td colspan="6" class="empty">No admin users yet</td></tr>';return;}
     tb.innerHTML=list.map(function(a){
-      var roleColors={owner:'badge-green',admin:'badge-blue',viewer:'badge-amber',analyst:'badge-purple',custom:'badge-purple'};
-      var roleLabels={owner:'Owner',admin:'Admin',viewer:'Analyst',analyst:'Analyst — View only',custom:'Custom'};
-      var roleBadge='<span class="badge '+(roleColors[a.role]||'badge-blue')+'">'+(roleLabels[a.role]||a.role)+'</span>';
+      var roleClasses={owner:'admin-role-owner',admin:'admin-role-admin',viewer:'admin-role-analyst',analyst:'admin-role-analyst',custom:'admin-role-custom'};
+      var roleLabels={owner:'Owner',admin:'Admin',viewer:'Analyst — View only',analyst:'Analyst — View only',custom:'Custom'};
+      var roleBadge='<span class="badge admin-role-chip '+(roleClasses[a.role]||'admin-role-admin')+'">'+(roleLabels[a.role]||a.role)+'</span>';
       var accountAccess='All Stripe accounts';
       if(a.account_scope==='selected'){
-        var names=(a.allowed_account_ids||[]).map(function(id){var account=(allStripeAccounts||[]).find(function(x){return Number(x.id)===Number(id);});return account?compactAccessAccountLabel(account.name):'Account #'+id;});
+        var names=(a.allowed_account_ids||[]).map(function(id){var account=(allStripeAccounts||[]).find(function(x){return Number(x.id)===Number(id);});return account?accessAccountLabel(account.name):'Account #'+id;});
         accountAccess=names.length===1?names[0]+' only':names.length>1?names[0]+' +'+(names.length-1)+' more':'No assigned accounts';
       }
       var actions=a.role!=='owner'?'<button class="btn btn-sm" onclick="openEditAccess('+a.id+')">Edit access</button><button class="btn btn-sm btn-danger" onclick="deleteAdmin('+a.id+')">Remove</button>':'';
@@ -8006,6 +8030,7 @@ async function loadAdmins(){
   }catch(e){tb.innerHTML='<tr><td colspan="6" class="empty" style="color:var(--red);">Failed to load. <button class="btn btn-sm" onclick="loadAdmins()" style="margin-left:8px;">Retry</button></td></tr>';}
 }
 var ANALYST_DEFAULT_PERMS=['dashboard','customers','payments','forecast','summary','mrr','recovery'];
+var CUSTOM_ASSIGNABLE_PERMS=['dashboard','customers','payments','forecast','summary','mrr','recovery','activity','subscriptions','links'];
 var PERM_LIST=[
   {value:'dashboard',label:'Dashboard',desc:'Overview statistics and revenue charts'},
   {value:'customers',label:'Customers',desc:'View customer payment results'},
@@ -8016,15 +8041,14 @@ var PERM_LIST=[
   {value:'recovery',label:'Payment Recovery',desc:'Failed payment recovery results'},
   {value:'activity',label:'Activity Log',desc:'Full activity history'},
   {value:'subscriptions',label:'Subscriptions',desc:'Manage rebilling schedules'},
-  {value:'links',label:'Payment Links',desc:'Generate payment links'},
+  {value:'links',label:'Payment Links',desc:'Create links for assigned Stripe accounts'},
   {value:'accounts',label:'Stripe Accounts',desc:'Manage connected accounts'},
   {value:'settings',label:'Settings',desc:'Dunning and app settings'},
   {value:'security',label:'Security',desc:'Two-factor auth and login protection'},
   {value:'webhooks',label:'Webhook Logs',desc:'Incoming Stripe webhook events'}
 ];
-function compactAccessAccountLabel(name){
-  var short=String(name||'').replace(/^Stripe_Solo_/i,'');
-  return short||'Stripe account';
+function accessAccountLabel(name){
+  return String(name||'').trim()||'Stripe account';
 }
 async function loadAccessStripeAccounts(){
   if(!(allStripeAccounts||[]).length){try{allStripeAccounts=await api('/api/stripe-accounts');}catch(e){allStripeAccounts=[];}}
@@ -8036,24 +8060,30 @@ function setAccountScope(prefix,value){
 }
 function toggleAccountChoices(prefix){
   var selected=(document.getElementById(prefix+'-account-scope')||{}).value==='selected';
-  var list=document.getElementById(prefix+'-account-list');var tools=document.getElementById(prefix+'-account-tools');
-  if(list)list.style.display=selected?'grid':'none';if(tools)tools.style.display=selected?'flex':'none';
+  var list=document.getElementById(prefix+'-account-list');var tools=document.getElementById(prefix+'-account-tools');var allMessage=document.getElementById(prefix+'-account-all-message');
+  if(list)list.style.display=selected?'grid':'none';
+  if(tools)tools.style.display=selected?'flex':'none';
+  if(allMessage)allMessage.style.display=selected?'none':'block';
+  if(!selected){var search=document.getElementById(prefix+'-account-search');if(search)search.value='';filterAccountChoices(prefix,'');}
 }
 function toggleAdminAccountChoices(){toggleAccountChoices('admin');}
 function toggleEditAccountChoices(){toggleAccountChoices('edit');}
 function buildAccountChoices(prefix,selectedIds){
   var container=document.getElementById(prefix+'-account-list');if(!container)return;
   var selected=(selectedIds||[]).map(Number);
-  if(!(allStripeAccounts||[]).length){container.innerHTML='<div class="access-empty">No Stripe accounts available.</div>';updateSelectedAccountCount(prefix);return;}
+  if(!(allStripeAccounts||[]).length){container.innerHTML='<div class="access-empty">No Stripe accounts available.</div>';updateSelectedAccountCount(prefix);toggleAccountChoices(prefix);return;}
   container.innerHTML=allStripeAccounts.map(function(a){
-    var checked=selected.includes(Number(a.id))?'checked':'';var short=compactAccessAccountLabel(a.name);
-    return '<label class="account-choice" data-search="'+short.toLowerCase()+' '+String(a.name||'').toLowerCase()+'"><input type="checkbox" value="'+a.id+'" '+checked+' onchange="updateSelectedAccountCount(\''+prefix+'\')"><span>'+short+'</span></label>';
-  }).join('');
+    var checked=selected.includes(Number(a.id))?'checked':'';var full=accessAccountLabel(a.name);
+    return '<label class="account-choice" data-search="'+full.toLowerCase()+'"><input type="checkbox" value="'+a.id+'" '+checked+' onchange="updateSelectedAccountCount(\''+prefix+'\')"><span title="'+full+'">'+full+'</span></label>';
+  }).join('')+'<div id="'+prefix+'-account-no-match" class="access-empty" style="display:none;">No Stripe accounts found</div>';
   updateSelectedAccountCount(prefix);
+  filterAccountChoices(prefix,(document.getElementById(prefix+'-account-search')||{}).value||'');
+  toggleAccountChoices(prefix);
 }
 function filterAccountChoices(prefix,value){
-  var q=String(value||'').trim().toLowerCase();
-  document.querySelectorAll('#'+prefix+'-account-list .account-choice').forEach(function(card){card.style.display=!q||String(card.dataset.search||'').includes(q)?'flex':'none';});
+  var q=String(value||'').trim().toLowerCase();var visible=0;
+  document.querySelectorAll('#'+prefix+'-account-list .account-choice').forEach(function(card){var match=!q||String(card.dataset.search||'').includes(q);card.style.display=match?'flex':'none';if(match)visible++;});
+  var empty=document.getElementById(prefix+'-account-no-match');if(empty)empty.style.display=visible?'none':'block';
 }
 function checkedAccountIds(prefix){return Array.prototype.map.call(document.querySelectorAll('#'+prefix+'-account-list input:checked'),function(cb){return Number(cb.value);});}
 function updateSelectedAccountCount(prefix){var el=document.getElementById(prefix+'-account-selected-count');if(el)el.textContent='Selected: '+checkedAccountIds(prefix).length;}
@@ -8066,7 +8096,7 @@ function createPermissionCard(p, checked){
   function sync(){row.classList.toggle('selected',cb.checked);}
   cb.addEventListener('change',sync);row.appendChild(cb);row.appendChild(info);sync();return row;
 }
-function buildPermsList(forAnalyst){var container=document.getElementById('perms-list');if(!container)return;container.innerHTML='';var items=forAnalyst?PERM_LIST.filter(function(p){return ANALYST_DEFAULT_PERMS.includes(p.value);}):PERM_LIST;items.forEach(function(p){container.appendChild(createPermissionCard(p,false));});}
+function buildPermsList(forAnalyst){var container=document.getElementById('perms-list');if(!container)return;container.innerHTML='';var allowed=forAnalyst?ANALYST_DEFAULT_PERMS:CUSTOM_ASSIGNABLE_PERMS;var items=PERM_LIST.filter(function(p){return allowed.includes(p.value);});items.forEach(function(p){container.appendChild(createPermissionCard(p,false));});}
 function selectAllPerms(){document.querySelectorAll('#perms-list input[type=checkbox]').forEach(function(cb){cb.checked=true;cb.dispatchEvent(new Event('change'));});}
 function clearAllPerms(){document.querySelectorAll('#perms-list input[type=checkbox]').forEach(function(cb){cb.checked=false;cb.dispatchEvent(new Event('change'));});}
 async function openAddAdminModal(){
@@ -8110,7 +8140,7 @@ function globalSearch(q){
 }
 document.addEventListener('click',function(e){if(!e.target.closest('#global-search-input')&&!e.target.closest('#global-search-results')){var r=document.getElementById('global-search-results');if(r)r.style.display='none';}});
 async function loadChurnAlerts(){try{var d=await api('/api/churn-alerts');var section=document.getElementById('churn-alerts-section');var list=document.getElementById('churn-alerts-list');var count=document.getElementById('churn-count');var all=[...d.cancelled,...d.failing];if(!all.length){section.style.display='none';return;}section.style.display='block';count.textContent=all.length;var html='';d.cancelled.forEach(function(c){html+='<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(248,113,113,0.15);"><div class="avatar">'+initials(c.name)+'</div><div style="flex:1;"><div style="font-size:13px;font-weight:500;">'+(c.name||'—')+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+(c.email||'')+'</div></div><span class="badge badge-red">Canceled</span></div>';});d.failing.forEach(function(c){html+='<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(248,113,113,0.15);"><div class="avatar">'+initials(c.name)+'</div><div style="flex:1;"><div style="font-size:13px;font-weight:500;">'+(c.name||'—')+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+(c.email||'')+'</div></div><span class="badge badge-amber">'+c.dunning_count+' failures</span></div>';});list.innerHTML=html;}catch(e){}}
-async function loadTemplates(){try{var list=await api('/api/plan-templates');var el=document.getElementById('templates-list');var count=document.getElementById('template-count');if(!el)return;if(count)count.textContent='('+list.length+')';el.innerHTML='';if(!list.length){var empty=document.createElement('span');empty.style.cssText='font-size:12px;color:var(--muted);font-family:var(--mono);';empty.textContent='No templates yet — save one below';el.appendChild(empty);return;}list.forEach(function(t){var chip=document.createElement('div');chip.style.cssText='display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:5px 10px;cursor:pointer;';chip.addEventListener('click',function(){applyTemplate(t.amount,t.currency,t.interval_days,t.name);});var name=document.createElement('span');name.style.cssText='font-size:12px;font-weight:500;';name.textContent=t.name;var price=document.createElement('span');price.style.cssText='font-size:11px;color:var(--muted);font-family:var(--mono);';price.textContent=fmt(t.amount,t.currency)+'/'+t.interval_days+'d';var del=document.createElement('button');del.style.cssText='background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:0 2px;line-height:1;';del.textContent='✕';del.addEventListener('click',function(e){e.stopPropagation();deleteTemplate(t.id);});chip.appendChild(name);chip.appendChild(price);chip.appendChild(del);el.appendChild(chip);});}catch(e){}}
+async function loadTemplates(){try{var list=await api('/api/plan-templates');var el=document.getElementById('templates-list');var count=document.getElementById('template-count');if(!el)return;if(count)count.textContent='('+list.length+')';el.innerHTML='';if(!list.length){var empty=document.createElement('span');empty.style.cssText='font-size:12px;color:var(--muted);font-family:var(--mono);';empty.textContent='No templates yet — save one below';el.appendChild(empty);return;}list.forEach(function(t){var chip=document.createElement('div');chip.style.cssText='display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:5px 10px;cursor:pointer;';chip.addEventListener('click',function(){applyTemplate(t.amount,t.currency,t.interval_days,t.name);});var name=document.createElement('span');name.style.cssText='font-size:12px;font-weight:500;';name.textContent=t.name;var price=document.createElement('span');price.style.cssText='font-size:11px;color:var(--muted);font-family:var(--mono);';price.textContent=fmt(t.amount,t.currency)+'/'+t.interval_days+'d';var canManageTemplates=getCurrentRole()==='owner'||getCurrentRole()==='admin';chip.appendChild(name);chip.appendChild(price);if(canManageTemplates){var del=document.createElement('button');del.style.cssText='background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:0 2px;line-height:1;';del.textContent='✕';del.addEventListener('click',function(e){e.stopPropagation();deleteTemplate(t.id);});chip.appendChild(del);}el.appendChild(chip);});}catch(e){}}
 function applyTemplate(amount,currency,interval,name){document.getElementById('link-name').value=name;document.getElementById('link-amount').value=(amount/100).toFixed(2);document.getElementById('link-currency').value=currency;document.getElementById('link-interval').value=String(interval);toast('✓ Template applied');}
 async function saveTemplate(){var name=document.getElementById('tmpl-name').value.trim();var amount=Math.round(parseFloat(document.getElementById('tmpl-amount').value)*100);var interval=document.getElementById('tmpl-interval').value;if(!name||!amount){toast('Fill in name and amount','error');return;}await api('/api/plan-templates',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,amount,currency:'usd',interval_days:parseInt(interval)})});toast('✓ Template saved');document.getElementById('tmpl-name').value='';document.getElementById('tmpl-amount').value='';loadTemplates();}
 async function deleteTemplate(id){await api('/api/plan-templates/'+id,{method:'DELETE'});toast('Template deleted');loadTemplates();}
@@ -8249,7 +8279,7 @@ async function saveEditAccount(){
 function toggleSettingsNav(){var sub=document.getElementById('settings-subnav');var chev=document.getElementById('settings-chevron');var open=sub.style.display==='none';sub.style.display=open?'block':'none';if(chev)chev.style.transform=open?'rotate(180deg)':'rotate(0deg)';}
 function expandSettingsIfNeeded(name){var settingsPages=['admins','settings','security','webhooks'];if(settingsPages.includes(name)){var sub=document.getElementById('settings-subnav');var chev=document.getElementById('settings-chevron');if(sub&&sub.style.display==='none'){sub.style.display='block';if(chev)chev.style.transform='rotate(180deg)';}}}
 function showRestrictedPage(name){var existing=document.getElementById('page-restricted');if(!existing){var div=document.createElement('div');div.id='page-restricted';div.className='page';document.querySelector('.main').appendChild(div);}var pg=document.getElementById('page-restricted');var username=localStorage.getItem('subloop_username')||'User';var role=getCurrentRole()||'viewer';pg.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;padding:40px 20px;"><div style="width:72px;height:72px;border-radius:18px;background:var(--surface2);border:1.5px solid var(--border2);display:flex;align-items:center;justify-content:center;margin-bottom:24px;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:8px;letter-spacing:-0.3px;">Access Restricted</div><div style="font-size:13px;color:var(--muted);font-family:var(--mono);max-width:320px;line-height:1.6;margin-bottom:24px;">You do not have permission to view this page. Contact your administrator to request access.</div><div style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:12px 20px;font-size:12px;color:var(--muted);font-family:var(--mono);">Logged in as: <strong style="color:var(--text);">'+username+'</strong> &nbsp;·&nbsp; Role: <strong style="color:var(--accent);">'+role+'</strong></div></div>';pg.classList.add('active');}
-function buildEditPermsList(forAnalyst){var container=document.getElementById('edit-perms-list');if(!container)return;container.innerHTML='';var items=forAnalyst?PERM_LIST.filter(function(p){return ANALYST_DEFAULT_PERMS.includes(p.value);}):PERM_LIST;items.forEach(function(p){container.appendChild(createPermissionCard(p,false));});}
+function buildEditPermsList(forAnalyst){var container=document.getElementById('edit-perms-list');if(!container)return;container.innerHTML='';var allowed=forAnalyst?ANALYST_DEFAULT_PERMS:CUSTOM_ASSIGNABLE_PERMS;var items=PERM_LIST.filter(function(p){return allowed.includes(p.value);});items.forEach(function(p){container.appendChild(createPermissionCard(p,false));});}
 function toggleEditCustomPerms(){var role=document.getElementById('edit-access-role').value;var isAnalyst=role==='analyst'||role==='viewer';var scoped=isAnalyst||role==='custom';document.getElementById('edit-account-access').style.display=scoped?'block':'none';document.getElementById('edit-custom-perms').style.display=scoped?'block':'none';document.getElementById('edit-analyst-note').style.display=isAnalyst?'block':'none';if(scoped){buildEditPermsList(isAnalyst);toggleEditAccountChoices();}}
 function selectAllEditPerms(){document.querySelectorAll('#edit-perms-list input[type=checkbox]').forEach(function(cb){cb.checked=true;cb.dispatchEvent(new Event('change'));});}
 function clearAllEditPerms(){document.querySelectorAll('#edit-perms-list input[type=checkbox]').forEach(function(cb){cb.checked=false;cb.dispatchEvent(new Event('change'));});}
