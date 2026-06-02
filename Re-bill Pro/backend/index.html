@@ -5353,7 +5353,6 @@ html.light #customer-btn-subscription.active{
               <option value="">All statuses</option>
               <option value="active">Active</option>
               <option value="paused">Paused</option>
-              <option value="canceled">Canceled</option>
             </select>
           </div>
           <div class="pay-advanced-field">
@@ -6775,7 +6774,7 @@ function filterCustomers(){
     var paidCount=customerSuccessfulPaymentCount(c);
     var totalMajor=Number(c.total_paid||0)/100;
     var matchPrimary=!customerPrimaryFilter||customerType===customerPrimaryFilter;
-    var matchStatus=!statusFilter||customerSubscriptionHasStatus(c,statusFilter);
+    var matchStatus=!statusFilter||String(customerEffectiveStatus(c)||'').toLowerCase()===statusFilter;
     var matchAccount=!account||(c.account_name||'')===account;
     var matchSearch=!q ||
       String(c.name||'').toLowerCase().includes(q) ||
