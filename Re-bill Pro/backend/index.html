@@ -6757,23 +6757,14 @@ function filterCustomers(){
   var sort=document.getElementById('customer-filter-sort')?.value||'last_desc';
   var minTotal=parseFloat(document.getElementById('customer-filter-min-total')?.value||'');
   var maxTotal=parseFloat(document.getElementById('customer-filter-max-total')?.value||'');
-
-  var allCount=allCustomers.length;
-  var oneTimeCount=allCustomers.filter(function(c){return customerTypeKey(c)==='one-time';}).length;
-  var subscriptionCount=allCustomers.filter(function(c){return customerTypeKey(c)==='subscription';}).length;
-  var countAll=document.getElementById('customer-count-all'); if(countAll)countAll.textContent=allCount;
-  var countOneTime=document.getElementById('customer-count-onetime'); if(countOneTime)countOneTime.textContent=oneTimeCount;
-  var countSubscription=document.getElementById('customer-count-subscription'); if(countSubscription)countSubscription.textContent=subscriptionCount;
-  updateCustomerPrimaryButtons();
-
   var now=new Date();
-  var filtered=allCustomers.filter(function(c){
-    var status=customerEffectiveStatus(c);
-    var customerType=customerTypeKey(c);
+
+  // Base results use every active filter except the top customer-type tabs.
+  // This lets All / One-time / Subscription stay comparable and update dynamically.
+  var typeCountBase=allCustomers.filter(function(c){
     var hasMethod=customerHasPrimaryPaymentMethod(c);
     var paidCount=customerSuccessfulPaymentCount(c);
     var totalMajor=Number(c.total_paid||0)/100;
-    var matchPrimary=!customerPrimaryFilter||customerType===customerPrimaryFilter;
     var matchStatus=!statusFilter||String(customerEffectiveStatus(c)||'').toLowerCase()===statusFilter;
     var matchAccount=!account||(c.account_name||'')===account;
     var matchSearch=!q ||
@@ -6787,27 +6778,39 @@ function filterCustomers(){
     var matchDate=true;
     if(dateFilter){
       var time=customerDateValue(c,'last');
-      if(!time) return false;
+      if(!time)return false;
       var d=new Date(time);
-      if(dateFilter==='today') matchDate=d.toDateString()===now.toDateString();
+      if(dateFilter==='today')matchDate=d.toDateString()===now.toDateString();
       else if(dateFilter==='week'){var w=new Date(now);w.setDate(w.getDate()-7);matchDate=d>=w;}
       else if(dateFilter==='month'){var m=new Date(now);m.setDate(m.getDate()-30);matchDate=d>=m;}
       else if(dateFilter==='custom'){
         var from=document.getElementById('customer-date-from')?.value;
         var to=document.getElementById('customer-date-to')?.value;
-        if(from) matchDate=matchDate&&d>=new Date(from);
+        if(from)matchDate=matchDate&&d>=new Date(from);
         if(to){var toDate=new Date(to);toDate.setHours(23,59,59,999);matchDate=matchDate&&d<=toDate;}
       }
     }
-    return matchPrimary&&matchStatus&&matchAccount&&matchSearch&&matchMethod&&matchActivity&&matchDate&&matchAmount;
+    return matchStatus&&matchAccount&&matchSearch&&matchMethod&&matchActivity&&matchDate&&matchAmount;
+  });
+
+  var allCount=typeCountBase.length;
+  var oneTimeCount=typeCountBase.filter(function(c){return customerTypeKey(c)==='one-time';}).length;
+  var subscriptionCount=typeCountBase.filter(function(c){return customerTypeKey(c)==='subscription';}).length;
+  var countAll=document.getElementById('customer-count-all');if(countAll)countAll.textContent=allCount;
+  var countOneTime=document.getElementById('customer-count-onetime');if(countOneTime)countOneTime.textContent=oneTimeCount;
+  var countSubscription=document.getElementById('customer-count-subscription');if(countSubscription)countSubscription.textContent=subscriptionCount;
+  updateCustomerPrimaryButtons();
+
+  var filtered=typeCountBase.filter(function(c){
+    return !customerPrimaryFilter||customerTypeKey(c)===customerPrimaryFilter;
   });
 
   filtered.sort(function(a,b){
-    if(sort==='total_desc') return Number(b.total_paid||0)-Number(a.total_paid||0);
-    if(sort==='total_asc') return Number(a.total_paid||0)-Number(b.total_paid||0);
-    if(sort==='last_asc') return customerDateValue(a,'last')-customerDateValue(b,'last');
-    if(sort==='created_desc') return customerDateValue(b,'created')-customerDateValue(a,'created');
-    if(sort==='created_asc') return customerDateValue(a,'created')-customerDateValue(b,'created');
+    if(sort==='total_desc')return Number(b.total_paid||0)-Number(a.total_paid||0);
+    if(sort==='total_asc')return Number(a.total_paid||0)-Number(b.total_paid||0);
+    if(sort==='last_asc')return customerDateValue(a,'last')-customerDateValue(b,'last');
+    if(sort==='created_desc')return customerDateValue(b,'created')-customerDateValue(a,'created');
+    if(sort==='created_asc')return customerDateValue(a,'created')-customerDateValue(b,'created');
     return customerDateValue(b,'last')-customerDateValue(a,'last');
   });
   var total=filtered.length;
@@ -6966,27 +6969,45 @@ function filterPayments(){
   var advFailure=document.getElementById('pay-filter-failure')?.value||'';
   var advMin=parseFloat(document.getElementById('pay-filter-min-amount')?.value||'');
   var advMax=parseFloat(document.getElementById('pay-filter-max-amount')?.value||'');
-  // update counts
-  var allC=allPayments.length;
-  var sucC=allPayments.filter(function(p){return p.status==='succeeded';}).length;
-  var failC=allPayments.filter(function(p){return p.status==='failed';}).length;
-  var ca=document.getElementById('pay-count-all');if(ca)ca.textContent=allC;
-  var cs=document.getElementById('pay-count-succeeded');if(cs)cs.textContent=sucC;
-  var cf=document.getElementById('pay-count-failed');if(cf)cf.textContent=failC;
   var dateF=document.getElementById('pay-date-filter')?.value||'';
   var now=new Date();
-  var filtered=allPayments.filter(function(p){
-    var matchS=!payStatusFilter||p.status===payStatusFilter;
-    var matchA=!account||(p.account_name||'')=== account;
+
+  // Base results use every active filter except the top status tabs.
+  // This lets All / Succeeded / Failed remain comparable while still updating dynamically.
+  var statusCountBase=allPayments.filter(function(p){
+    var matchA=!account||(p.account_name||'')===account;
     var matchQ=!q||(p.name||'').toLowerCase().includes(q)||(p.email||'').toLowerCase().includes(q)||(p.stripe_payment_intent||'').toLowerCase().includes(q)||(p.card_last4||'').includes(q);
     var matchD=true;
-    if(dateF){var d=new Date(p.created_at);if(dateF==='today')matchD=d.toDateString()===now.toDateString();else if(dateF==='yesterday'){var y=new Date(now);y.setDate(y.getDate()-1);matchD=d.toDateString()===y.toDateString();}else if(dateF==='week'){var w=new Date(now);w.setDate(w.getDate()-7);matchD=d>=w;}else if(dateF==='month'){matchD=d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();}else if(dateF==='custom'){var from=document.getElementById('pay-date-from')?.value;var to=document.getElementById('pay-date-to')?.value;if(from)matchD=matchD&&d>=new Date(from);if(to){var toD=new Date(to);toD.setHours(23,59,59,999);matchD=matchD&&d<=toD;}}}
+    if(dateF){
+      var d=new Date(p.created_at);
+      if(dateF==='today')matchD=d.toDateString()===now.toDateString();
+      else if(dateF==='yesterday'){var y=new Date(now);y.setDate(y.getDate()-1);matchD=d.toDateString()===y.toDateString();}
+      else if(dateF==='week'){var w=new Date(now);w.setDate(w.getDate()-7);matchD=d>=w;}
+      else if(dateF==='month'){matchD=d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();}
+      else if(dateF==='custom'){
+        var from=document.getElementById('pay-date-from')?.value;
+        var to=document.getElementById('pay-date-to')?.value;
+        if(from)matchD=matchD&&d>=new Date(from);
+        if(to){var toD=new Date(to);toD.setHours(23,59,59,999);matchD=matchD&&d<=toD;}
+      }
+    }
     var visibleMethod=visiblePaymentMethodFilterKey(p);
     var amountMajor=Number(p.amount||0)/100;
     var matchMethod=!advMethod||visibleMethod===advMethod;
     var matchFailure=!advFailure||paymentFailureFilterKey(p)===advFailure;
     var matchAmount=(isNaN(advMin)||amountMajor>=advMin)&&(isNaN(advMax)||amountMajor<=advMax);
-    return matchS&&matchA&&matchQ&&matchD&&matchMethod&&matchFailure&&matchAmount;
+    return matchA&&matchQ&&matchD&&matchMethod&&matchFailure&&matchAmount;
+  });
+
+  var allC=statusCountBase.length;
+  var sucC=statusCountBase.filter(function(p){return p.status==='succeeded';}).length;
+  var failC=statusCountBase.filter(function(p){return p.status==='failed';}).length;
+  var ca=document.getElementById('pay-count-all');if(ca)ca.textContent=allC;
+  var cs=document.getElementById('pay-count-succeeded');if(cs)cs.textContent=sucC;
+  var cf=document.getElementById('pay-count-failed');if(cf)cf.textContent=failC;
+
+  var filtered=statusCountBase.filter(function(p){
+    return !payStatusFilter||p.status===payStatusFilter;
   });
   var total=filtered.length;
   var totalPages=Math.max(1,Math.ceil(total/PAY_PER_PAGE));
