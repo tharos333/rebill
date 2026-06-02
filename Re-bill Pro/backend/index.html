@@ -5251,6 +5251,43 @@ html.light #customer-btn-subscription.active{
   z-index:1!important;
 }
 
+
+/* Admin access modal: compact account scope controls with fixed footer */
+.admin-access-modal{width:760px!important;max-width:96vw!important;max-height:88vh!important;display:flex!important;flex-direction:column!important;padding:0!important;overflow:hidden!important;}
+.admin-access-head{padding:22px 24px 0;flex:none;}
+.admin-access-head h3{margin-bottom:4px;}
+.admin-access-body{padding:18px 24px;overflow-y:auto;min-height:0;}
+.admin-access-footer{position:sticky;bottom:0;z-index:3;margin:0!important;padding:14px 24px!important;background:var(--surface);border-top:1px solid var(--border);flex:none;}
+.access-panel,.access-section{margin:4px 0 15px;padding:14px;background:var(--surface2);border:1px solid var(--border);border-radius:11px;}
+.access-section-header{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:11px;}
+.access-section-title{font-size:13px;font-weight:600;color:var(--text);}
+.access-section-subtitle{font-size:11px;color:var(--muted);margin-top:3px;}
+.scope-options{display:flex;gap:8px;margin:12px 0;}
+.scope-option{flex:1;display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--border);border-radius:9px;background:var(--surface);cursor:pointer;color:var(--muted);font-size:12px;text-transform:none!important;letter-spacing:normal!important;}
+.scope-option.active{border-color:var(--accent);background:var(--accent-glow);color:var(--text);}
+.scope-option input{width:14px;height:14px;accent-color:var(--accent);}
+.account-tools{display:flex;align-items:center;gap:7px;margin:0 0 10px;}
+.access-search-wrap{flex:1;position:relative;display:flex;align-items:center;}
+.access-search-wrap svg{position:absolute;left:10px;color:var(--muted);pointer-events:none;}
+.access-search-wrap input{width:100%;height:34px;padding-left:31px!important;font-size:12px!important;}
+.selected-count{font-size:11px;color:var(--muted);white-space:nowrap;padding:0 3px;}
+.account-choice-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;max-height:196px;overflow-y:auto;padding:1px 4px 1px 1px;}
+.account-choice{display:flex!important;align-items:center!important;gap:9px!important;min-width:0;padding:9px 11px!important;background:var(--surface)!important;border:1px solid var(--border)!important;border-radius:8px!important;font-size:12px!important;cursor:pointer;text-transform:none!important;letter-spacing:normal!important;color:var(--text)!important;}
+.account-choice:has(input:checked){border-color:rgba(109,94,248,.65)!important;background:var(--accent-glow)!important;}
+.account-choice input{accent-color:var(--accent);width:15px;height:15px;flex:none;}
+.account-choice span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.access-empty{grid-column:1/-1;font-size:12px;color:var(--muted);padding:10px;}
+.permission-choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;}
+.permission-choice{display:flex;align-items:flex-start;gap:10px;padding:10px 11px;background:var(--surface);border:1px solid var(--border);border-radius:9px;cursor:pointer;text-transform:none!important;letter-spacing:normal!important;}
+.permission-choice.selected{border-color:rgba(109,94,248,.55);background:var(--accent-glow);}
+.permission-choice input{accent-color:var(--accent);width:15px;height:15px;margin-top:2px;flex:none;}
+.permission-title{font-size:12px;font-weight:600;color:var(--text);}
+.permission-desc{font-size:10px;color:var(--muted);margin-top:3px;line-height:1.35;}
+.access-actions{display:flex;gap:6px;}
+.analyst-note{margin-top:12px;padding:10px 12px;border:1px solid rgba(109,94,248,.35);background:rgba(109,94,248,.10);border-radius:9px;font-size:12px;color:var(--muted);}
+.admin-scope-chip{display:inline-flex;padding:5px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);font-size:11px;color:var(--muted);white-space:nowrap;}
+@media(max-width:720px){.permission-choice-grid,.account-choice-grid{grid-template-columns:1fr;}.scope-options{flex-direction:column;}.account-tools{flex-wrap:wrap;}}
+
 </style>
 </head>
 <body>
@@ -5929,8 +5966,8 @@ html.light #customer-btn-subscription.active{
   </div>
   <div class="card">
     <div class="scrollable"><table>
-      <thead><tr><th>Username</th><th>Role</th><th>Last login</th><th>Created</th><th>Actions</th></tr></thead>
-      <tbody id="admins-table"><tr><td colspan="5" class="empty">Loading...</td></tr></tbody>
+      <thead><tr><th>Username</th><th>Role</th><th>Account access</th><th>Last login</th><th>Created</th><th>Actions</th></tr></thead>
+      <tbody id="admins-table"><tr><td colspan="6" class="empty">Loading...</td></tr></tbody>
     </table></div>
   </div>
   <div class="card" style="max-width:600px;">
@@ -6009,44 +6046,50 @@ html.light #customer-btn-subscription.active{
   </div>
 </div>
 <div class="modal-bg" id="add-admin-modal">
-  <div class="modal" style="width:640px;max-width:97vw;max-height:90vh;overflow:auto;">
-    <h3>Add admin user</h3>
-    <p>Control which data and Stripe accounts this user can access</p>
-    <div class="form-row">
-      <div class="form-group"><label>Username</label><input type="text" id="admin-username" placeholder="e.g. john_admin" autocomplete="off"></div>
-      <div class="form-group"><label>Password</label><input type="password" id="admin-password" placeholder="Min 8 characters" autocomplete="new-password"></div>
+  <div class="modal admin-access-modal">
+    <div class="admin-access-head">
+      <h3>Add admin user</h3>
+      <p>Control which data and Stripe accounts this user can access</p>
     </div>
-    <div class="form-group"><label>Access level</label>
-      <select id="admin-role" onchange="toggleCustomPerms()">
-        <option value="admin">Admin — full access to everything</option>
-        <option value="analyst">Analyst — view only</option>
-        <option value="custom">Custom — choose sections manually</option>
-      </select>
-    </div>
-    <div id="admin-account-access" style="display:none;margin:4px 0 14px;padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;">
-      <div style="font-size:13px;font-weight:600;margin-bottom:3px;">Stripe account access</div>
-      <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:10px;">Limit reports and payments to assigned Stripe accounts</div>
-      <select id="admin-account-scope" onchange="toggleAdminAccountChoices()" style="margin-bottom:9px;">
-        <option value="selected">Selected Stripe accounts only</option>
-        <option value="all">All Stripe accounts</option>
-      </select>
-      <div id="admin-account-list" style="display:flex;flex-direction:column;gap:5px;"></div>
-    </div>
-    <div id="custom-perms" style="display:none;margin-top:4px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-        <div>
-          <div id="admin-perms-title" style="font-size:13px;font-weight:600;">Visible sections</div>
-          <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;">Choose which sections this user can access</div>
-        </div>
-        <div style="display:flex;gap:6px;">
-          <button class="btn btn-sm" onclick="selectAllPerms()" type="button">Select all</button>
-          <button class="btn btn-sm" onclick="clearAllPerms()" type="button">Clear</button>
-        </div>
+    <div class="admin-access-body">
+      <div class="form-row">
+        <div class="form-group"><label>Username</label><input type="text" id="admin-username" placeholder="e.g. john_admin" autocomplete="off"></div>
+        <div class="form-group"><label>Password</label><input type="password" id="admin-password" placeholder="Min 8 characters" autocomplete="new-password"></div>
       </div>
-      <div id="perms-list" style="max-height:250px;overflow-y:auto;display:flex;flex-direction:column;gap:5px;padding-right:4px;"></div>
+      <div class="form-group"><label>Access level</label>
+        <select id="admin-role" onchange="toggleCustomPerms()">
+          <option value="admin">Admin — full access to everything</option>
+          <option value="analyst">Analyst — view only</option>
+          <option value="custom">Custom — choose sections manually</option>
+        </select>
+      </div>
+      <div id="admin-account-access" class="access-panel" style="display:none;">
+        <div class="access-section-header">
+          <div><div class="access-section-title">Stripe account access</div><div class="access-section-subtitle">Limit reports and payments to assigned Stripe accounts</div></div>
+        </div>
+        <div class="scope-options">
+          <label class="scope-option active"><input type="radio" name="admin-account-scope-radio" value="selected" checked onchange="setAccountScope('admin',this.value)"><span>Selected accounts only</span></label>
+          <label class="scope-option"><input type="radio" name="admin-account-scope-radio" value="all" onchange="setAccountScope('admin',this.value)"><span>All Stripe accounts</span></label>
+        </div>
+        <input type="hidden" id="admin-account-scope" value="selected">
+        <div id="admin-account-tools" class="account-tools">
+          <div class="access-search-wrap"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input id="admin-account-search" type="text" placeholder="Search accounts..." oninput="filterAccountChoices('admin',this.value)"></div>
+          <span id="admin-account-selected-count" class="selected-count">Selected: 0</span>
+          <button type="button" class="btn btn-sm" onclick="selectAllAccounts('admin')">Select all</button>
+          <button type="button" class="btn btn-sm" onclick="clearAllAccounts('admin')">Clear</button>
+        </div>
+        <div id="admin-account-list" class="account-choice-grid"></div>
+      </div>
+      <div id="custom-perms" class="access-section" style="display:none;">
+        <div class="access-section-header">
+          <div><div id="admin-perms-title" class="access-section-title">Visible sections</div><div class="access-section-subtitle">Choose which reporting sections this user can access</div></div>
+          <div class="access-actions"><button class="btn btn-sm" onclick="selectAllPerms()" type="button">Select all</button><button class="btn btn-sm" onclick="clearAllPerms()" type="button">Clear</button></div>
+        </div>
+        <div id="perms-list" class="permission-choice-grid"></div>
+      </div>
+      <div id="admin-analyst-note" class="analyst-note" style="display:none;">Analyst users can view assigned account data only. Add, edit, retry, export and billing actions are disabled.</div>
     </div>
-    <div id="admin-analyst-note" style="display:none;margin-top:12px;padding:10px 12px;border:1px solid rgba(109,94,248,.35);background:rgba(109,94,248,.10);border-radius:9px;font-size:12px;color:var(--muted);">Analyst users can view assigned account data only. Add, edit, retry, export and billing actions are disabled.</div>
-    <div class="modal-footer">
+    <div class="modal-footer admin-access-footer">
       <button class="btn" onclick="closeModal('add-admin-modal')">Cancel</button>
       <button class="btn btn-primary" onclick="addAdmin()">Add Admin</button>
     </div>
@@ -6077,43 +6120,44 @@ html.light #customer-btn-subscription.active{
 </div>
 
 <div class="modal-bg" id="edit-access-modal">
-  <div class="modal" style="width:640px;max-width:97vw;max-height:90vh;overflow:auto;">
-    <h3>Edit access</h3>
-    <p id="edit-access-subtitle">Update role, sections and Stripe account access</p>
-    <input type="hidden" id="edit-access-id">
-    <div class="form-group">
-      <label>Access level</label>
-      <select id="edit-access-role" onchange="toggleEditCustomPerms()">
-        <option value="admin">Admin — full access to everything</option>
-        <option value="analyst">Analyst — view only</option>
-        <option value="custom">Custom — choose sections manually</option>
-      </select>
+  <div class="modal admin-access-modal">
+    <div class="admin-access-head">
+      <h3>Edit access</h3>
+      <p id="edit-access-subtitle">Update role, sections and Stripe account access</p>
     </div>
-    <div id="edit-account-access" style="display:none;margin:4px 0 14px;padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;">
-      <div style="font-size:13px;font-weight:600;margin-bottom:3px;">Stripe account access</div>
-      <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:10px;">Limit reports and payments to assigned Stripe accounts</div>
-      <select id="edit-account-scope" onchange="toggleEditAccountChoices()" style="margin-bottom:9px;">
-        <option value="selected">Selected Stripe accounts only</option>
-        <option value="all">All Stripe accounts</option>
-      </select>
-      <div id="edit-account-list" style="display:flex;flex-direction:column;gap:5px;"></div>
-    </div>
-    <div id="edit-custom-perms" style="display:none;margin-top:4px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-        <div>
-          <div style="font-size:13px;font-weight:600;">Visible sections</div>
-          <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;">Choose which sections this user can access</div>
-        </div>
-        <div style="display:flex;gap:6px;">
-          <button class="btn btn-sm" onclick="selectAllEditPerms()" type="button">Select all</button>
-          <button class="btn btn-sm" onclick="clearAllEditPerms()" type="button">Clear</button>
-        </div>
+    <div class="admin-access-body">
+      <input type="hidden" id="edit-access-id">
+      <div class="form-group"><label>Access level</label>
+        <select id="edit-access-role" onchange="toggleEditCustomPerms()">
+          <option value="admin">Admin — full access to everything</option>
+          <option value="analyst">Analyst — view only</option>
+          <option value="custom">Custom — choose sections manually</option>
+        </select>
       </div>
-      <div id="edit-perms-list" style="max-height:250px;overflow-y:auto;display:flex;flex-direction:column;gap:5px;padding-right:4px;"></div>
+      <div id="edit-account-access" class="access-panel" style="display:none;">
+        <div class="access-section-title">Stripe account access</div>
+        <div class="access-section-subtitle">Limit reports and payments to assigned Stripe accounts</div>
+        <div class="scope-options">
+          <label class="scope-option"><input type="radio" name="edit-account-scope-radio" value="selected" onchange="setAccountScope('edit',this.value)"><span>Selected accounts only</span></label>
+          <label class="scope-option"><input type="radio" name="edit-account-scope-radio" value="all" onchange="setAccountScope('edit',this.value)"><span>All Stripe accounts</span></label>
+        </div>
+        <input type="hidden" id="edit-account-scope" value="selected">
+        <div id="edit-account-tools" class="account-tools">
+          <div class="access-search-wrap"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input id="edit-account-search" type="text" placeholder="Search accounts..." oninput="filterAccountChoices('edit',this.value)"></div>
+          <span id="edit-account-selected-count" class="selected-count">Selected: 0</span>
+          <button type="button" class="btn btn-sm" onclick="selectAllAccounts('edit')">Select all</button>
+          <button type="button" class="btn btn-sm" onclick="clearAllAccounts('edit')">Clear</button>
+        </div>
+        <div id="edit-account-list" class="account-choice-grid"></div>
+      </div>
+      <div id="edit-custom-perms" class="access-section" style="display:none;">
+        <div class="access-section-header"><div><div class="access-section-title">Visible sections</div><div class="access-section-subtitle">Choose which reporting sections this user can access</div></div><div class="access-actions"><button class="btn btn-sm" onclick="selectAllEditPerms()" type="button">Select all</button><button class="btn btn-sm" onclick="clearAllEditPerms()" type="button">Clear</button></div></div>
+        <div id="edit-perms-list" class="permission-choice-grid"></div>
+      </div>
+      <div id="edit-analyst-note" class="analyst-note" style="display:none;">Analyst users can view assigned account data only. Add, edit, retry, export and billing actions are disabled.</div>
+      <div id="edit-access-error" style="display:none;background:var(--red-bg);border:1px solid var(--red);color:var(--red);border-radius:8px;padding:10px 14px;font-size:12px;font-family:var(--mono);margin-top:12px;"></div>
     </div>
-    <div id="edit-analyst-note" style="display:none;margin-top:12px;padding:10px 12px;border:1px solid rgba(109,94,248,.35);background:rgba(109,94,248,.10);border-radius:9px;font-size:12px;color:var(--muted);">Analyst users can view assigned account data only. Add, edit, retry, export and billing actions are disabled.</div>
-    <div id="edit-access-error" style="display:none;background:var(--red-bg);border:1px solid var(--red);color:var(--red);border-radius:8px;padding:10px 14px;font-size:12px;font-family:var(--mono);margin-top:12px;"></div>
-    <div class="modal-footer">
+    <div class="modal-footer admin-access-footer">
       <button class="btn" onclick="closeModal('edit-access-modal')">Cancel</button>
       <button class="btn btn-primary" onclick="saveEditAccess()">Save access</button>
     </div>
@@ -7942,26 +7986,24 @@ function openInvoiceModal(customerId){document.getElementById('invoice-modal-cus
 async function sendInvoiceFromModal(){const customerId=document.getElementById('invoice-modal-customer-id').value;const amount=Math.round(parseFloat(document.getElementById('invoice-modal-amount').value)*100);const desc=document.getElementById('invoice-modal-desc').value;const result=document.getElementById('invoice-modal-result');if(!amount||amount<50){toast('Minimum $0.50','error');return;}try{const r=await api('/api/customers/'+customerId+'/charge-once',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount,description:desc})});result.style.display='block';if(r.success){result.style.cssText='background:var(--green-bg);color:var(--green);border:1px solid var(--green);padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);';result.textContent='✓ Charged successfully!';toast('✓ Invoice sent');}else{result.style.cssText='background:var(--red-bg);color:var(--red);border:1px solid var(--red);padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);';result.textContent='✗ '+(r.error||'Failed');toast('Failed','error');}}catch(e){toast('Error','error');}}
 async function loadAdmins(){
   var tb=document.getElementById('admins-table');if(!tb)return;
-  tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:28px;color:var(--muted);font-size:13px;font-family:var(--mono);">Loading...</td></tr>';
+  tb.innerHTML='<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--muted);font-size:13px;font-family:var(--mono);">Loading...</td></tr>';
   try{
     var list=await api('/api/admin-users');allAdminUsers=list||[];
     await loadAccessStripeAccounts();
-    if(!list||!list.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:40px 20px;"><div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px;">No admin users yet</div></td></tr>';return;}
-    var rows=list.map(function(a){
+    if(!list||!list.length){tb.innerHTML='<tr><td colspan="6" class="empty">No admin users yet</td></tr>';return;}
+    tb.innerHTML=list.map(function(a){
       var roleColors={owner:'badge-green',admin:'badge-blue',viewer:'badge-amber',analyst:'badge-purple',custom:'badge-purple'};
-      var roleLabels={owner:'Owner',admin:'Admin',viewer:'Analyst',analyst:'Analyst',custom:'Custom'};
+      var roleLabels={owner:'Owner',admin:'Admin',viewer:'Analyst',analyst:'Analyst — View only',custom:'Custom'};
       var roleBadge='<span class="badge '+(roleColors[a.role]||'badge-blue')+'">'+(roleLabels[a.role]||a.role)+'</span>';
-      var accessText='All Stripe accounts';
+      var accountAccess='All Stripe accounts';
       if(a.account_scope==='selected'){
         var names=(a.allowed_account_ids||[]).map(function(id){var account=(allStripeAccounts||[]).find(function(x){return Number(x.id)===Number(id);});return account?compactAccessAccountLabel(account.name):'Account #'+id;});
-        accessText=names.length?names.join(' · '):'No assigned accounts';
+        accountAccess=names.length===1?names[0]+' only':names.length>1?names[0]+' +'+(names.length-1)+' more':'No assigned accounts';
       }
-      var access='<div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:3px;">'+accessText+'</div>';
       var actions=a.role!=='owner'?'<button class="btn btn-sm" onclick="openEditAccess('+a.id+')">Edit access</button><button class="btn btn-sm btn-danger" onclick="deleteAdmin('+a.id+')">Remove</button>':'';
-      return '<tr><td><strong style="font-size:13px;">'+a.username+'</strong></td><td>'+roleBadge+access+'</td><td class="mono" style="font-size:12px;color:var(--muted);">'+(a.last_login?fmtTime(a.last_login):'Never')+'</td><td class="mono" style="font-size:12px;color:var(--muted);">'+fmtDate(a.created_at)+'</td><td><div class="actions">'+actions+'</div></td></tr>';
-    });
-    tb.innerHTML=rows.join('');
-  }catch(e){tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--red);font-size:13px;">Failed to load. <button class="btn btn-sm" onclick="loadAdmins()" style="margin-left:8px;">Retry</button></td></tr>';}
+      return '<tr><td><strong style="font-size:13px;">'+a.username+'</strong></td><td>'+roleBadge+'</td><td><span class="admin-scope-chip">'+accountAccess+'</span></td><td class="mono" style="font-size:12px;color:var(--muted);">'+(a.last_login?fmtTime(a.last_login):'Never')+'</td><td class="mono" style="font-size:12px;color:var(--muted);">'+fmtDate(a.created_at)+'</td><td><div class="actions">'+actions+'</div></td></tr>';
+    }).join('');
+  }catch(e){tb.innerHTML='<tr><td colspan="6" class="empty" style="color:var(--red);">Failed to load. <button class="btn btn-sm" onclick="loadAdmins()" style="margin-left:8px;">Retry</button></td></tr>';}
 }
 var ANALYST_DEFAULT_PERMS=['dashboard','customers','payments','forecast','summary','mrr','recovery'];
 var PERM_LIST=[
@@ -7980,31 +8022,62 @@ var PERM_LIST=[
   {value:'security',label:'Security',desc:'Two-factor auth and login protection'},
   {value:'webhooks',label:'Webhook Logs',desc:'Incoming Stripe webhook events'}
 ];
-function compactAccessAccountLabel(name){return String(name||'').replace(/^Stripe_Solo_/i,'');}
+function compactAccessAccountLabel(name){
+  var short=String(name||'').replace(/^Stripe_Solo_/i,'');
+  return short||'Stripe account';
+}
 async function loadAccessStripeAccounts(){
   if(!(allStripeAccounts||[]).length){try{allStripeAccounts=await api('/api/stripe-accounts');}catch(e){allStripeAccounts=[];}}
 }
+function setAccountScope(prefix,value){
+  var hidden=document.getElementById(prefix+'-account-scope');if(hidden)hidden.value=value;
+  document.querySelectorAll('input[name="'+prefix+'-account-scope-radio"]').forEach(function(r){r.checked=r.value===value;var card=r.closest('.scope-option');if(card)card.classList.toggle('active',r.checked);});
+  toggleAccountChoices(prefix);
+}
+function toggleAccountChoices(prefix){
+  var selected=(document.getElementById(prefix+'-account-scope')||{}).value==='selected';
+  var list=document.getElementById(prefix+'-account-list');var tools=document.getElementById(prefix+'-account-tools');
+  if(list)list.style.display=selected?'grid':'none';if(tools)tools.style.display=selected?'flex':'none';
+}
+function toggleAdminAccountChoices(){toggleAccountChoices('admin');}
+function toggleEditAccountChoices(){toggleAccountChoices('edit');}
 function buildAccountChoices(prefix,selectedIds){
   var container=document.getElementById(prefix+'-account-list');if(!container)return;
   var selected=(selectedIds||[]).map(Number);
-  if(!(allStripeAccounts||[]).length){container.innerHTML='<div style="font-size:12px;color:var(--muted);">No Stripe accounts available.</div>';return;}
-  container.innerHTML=allStripeAccounts.map(function(a){var checked=selected.includes(Number(a.id))?'checked':'';return '<label style="display:flex;align-items:center;gap:9px;padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:12px;cursor:pointer;"><input type="checkbox" value="'+a.id+'" '+checked+' style="accent-color:var(--accent);"><span>'+compactAccessAccountLabel(a.name)+'</span><span style="color:var(--muted);margin-left:auto;font-family:var(--mono);font-size:10px;">'+a.name+'</span></label>';}).join('');
+  if(!(allStripeAccounts||[]).length){container.innerHTML='<div class="access-empty">No Stripe accounts available.</div>';updateSelectedAccountCount(prefix);return;}
+  container.innerHTML=allStripeAccounts.map(function(a){
+    var checked=selected.includes(Number(a.id))?'checked':'';var short=compactAccessAccountLabel(a.name);
+    return '<label class="account-choice" data-search="'+short.toLowerCase()+' '+String(a.name||'').toLowerCase()+'"><input type="checkbox" value="'+a.id+'" '+checked+' onchange="updateSelectedAccountCount(\''+prefix+'\')"><span>'+short+'</span></label>';
+  }).join('');
+  updateSelectedAccountCount(prefix);
+}
+function filterAccountChoices(prefix,value){
+  var q=String(value||'').trim().toLowerCase();
+  document.querySelectorAll('#'+prefix+'-account-list .account-choice').forEach(function(card){card.style.display=!q||String(card.dataset.search||'').includes(q)?'flex':'none';});
 }
 function checkedAccountIds(prefix){return Array.prototype.map.call(document.querySelectorAll('#'+prefix+'-account-list input:checked'),function(cb){return Number(cb.value);});}
-function toggleAdminAccountChoices(){var scope=document.getElementById('admin-account-scope').value;document.getElementById('admin-account-list').style.display=scope==='selected'?'flex':'none';}
-function toggleEditAccountChoices(){var scope=document.getElementById('edit-account-scope').value;document.getElementById('edit-account-list').style.display=scope==='selected'?'flex':'none';}
-function buildPermsList(forAnalyst){var container=document.getElementById('perms-list');if(!container)return;container.innerHTML='';var items=forAnalyst?PERM_LIST.filter(function(p){return ANALYST_DEFAULT_PERMS.includes(p.value);}):PERM_LIST;items.forEach(function(p){var row=document.createElement('label');row.style.cssText='display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;cursor:pointer;transition:all 0.15s;';var cb=document.createElement('input');cb.type='checkbox';cb.value=p.value;cb.style.cssText='accent-color:var(--accent);width:16px;height:16px;cursor:pointer;flex-shrink:0;';cb.addEventListener('change',function(){row.style.borderColor=cb.checked?'var(--accent)':'var(--border)';row.style.background=cb.checked?'var(--accent-glow)':'var(--surface2)';});row.addEventListener('click',function(e){if(e.target===cb)return;cb.checked=!cb.checked;cb.dispatchEvent(new Event('change'));});var info=document.createElement('div');info.style.flex='1';info.innerHTML='<div style="font-size:13px;font-weight:500;color:var(--text);">'+p.label+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;">'+p.desc+'</div>';row.appendChild(cb);row.appendChild(info);container.appendChild(row);});}
+function updateSelectedAccountCount(prefix){var el=document.getElementById(prefix+'-account-selected-count');if(el)el.textContent='Selected: '+checkedAccountIds(prefix).length;}
+function selectAllAccounts(prefix){document.querySelectorAll('#'+prefix+'-account-list .account-choice').forEach(function(card){if(card.style.display!=='none'){var cb=card.querySelector('input');if(cb)cb.checked=true;}});updateSelectedAccountCount(prefix);}
+function clearAllAccounts(prefix){document.querySelectorAll('#'+prefix+'-account-list input').forEach(function(cb){cb.checked=false;});updateSelectedAccountCount(prefix);}
+function createPermissionCard(p, checked){
+  var row=document.createElement('label');row.className='permission-choice';
+  var cb=document.createElement('input');cb.type='checkbox';cb.value=p.value;cb.checked=!!checked;
+  var info=document.createElement('div');info.innerHTML='<div class="permission-title">'+p.label+'</div><div class="permission-desc">'+p.desc+'</div>';
+  function sync(){row.classList.toggle('selected',cb.checked);}
+  cb.addEventListener('change',sync);row.appendChild(cb);row.appendChild(info);sync();return row;
+}
+function buildPermsList(forAnalyst){var container=document.getElementById('perms-list');if(!container)return;container.innerHTML='';var items=forAnalyst?PERM_LIST.filter(function(p){return ANALYST_DEFAULT_PERMS.includes(p.value);}):PERM_LIST;items.forEach(function(p){container.appendChild(createPermissionCard(p,false));});}
 function selectAllPerms(){document.querySelectorAll('#perms-list input[type=checkbox]').forEach(function(cb){cb.checked=true;cb.dispatchEvent(new Event('change'));});}
 function clearAllPerms(){document.querySelectorAll('#perms-list input[type=checkbox]').forEach(function(cb){cb.checked=false;cb.dispatchEvent(new Event('change'));});}
 async function openAddAdminModal(){
   await loadAccessStripeAccounts();
-  document.getElementById('admin-role').value='admin';document.getElementById('admin-account-scope').value='selected';buildAccountChoices('admin',[]);toggleCustomPerms();openModal('add-admin-modal');
+  document.getElementById('admin-role').value='admin';
+  document.getElementById('admin-account-search').value='';
+  setAccountScope('admin','selected');buildAccountChoices('admin',[]);toggleCustomPerms();openModal('add-admin-modal');
 }
 function toggleCustomPerms(){
   var role=document.getElementById('admin-role').value;var isAnalyst=role==='analyst';var scoped=role==='analyst'||role==='custom';
-  document.getElementById('admin-account-access').style.display=scoped?'block':'none';
-  document.getElementById('admin-analyst-note').style.display=isAnalyst?'block':'none';
-  document.getElementById('custom-perms').style.display=scoped?'block':'none';
+  document.getElementById('admin-account-access').style.display=scoped?'block':'none';document.getElementById('admin-analyst-note').style.display=isAnalyst?'block':'none';document.getElementById('custom-perms').style.display=scoped?'block':'none';
   if(scoped){buildPermsList(isAnalyst);if(isAnalyst)selectAllPerms();toggleAdminAccountChoices();}
 }
 async function addAdmin(){
@@ -8176,16 +8249,15 @@ async function saveEditAccount(){
 function toggleSettingsNav(){var sub=document.getElementById('settings-subnav');var chev=document.getElementById('settings-chevron');var open=sub.style.display==='none';sub.style.display=open?'block':'none';if(chev)chev.style.transform=open?'rotate(180deg)':'rotate(0deg)';}
 function expandSettingsIfNeeded(name){var settingsPages=['admins','settings','security','webhooks'];if(settingsPages.includes(name)){var sub=document.getElementById('settings-subnav');var chev=document.getElementById('settings-chevron');if(sub&&sub.style.display==='none'){sub.style.display='block';if(chev)chev.style.transform='rotate(180deg)';}}}
 function showRestrictedPage(name){var existing=document.getElementById('page-restricted');if(!existing){var div=document.createElement('div');div.id='page-restricted';div.className='page';document.querySelector('.main').appendChild(div);}var pg=document.getElementById('page-restricted');var username=localStorage.getItem('subloop_username')||'User';var role=getCurrentRole()||'viewer';pg.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;padding:40px 20px;"><div style="width:72px;height:72px;border-radius:18px;background:var(--surface2);border:1.5px solid var(--border2);display:flex;align-items:center;justify-content:center;margin-bottom:24px;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:8px;letter-spacing:-0.3px;">Access Restricted</div><div style="font-size:13px;color:var(--muted);font-family:var(--mono);max-width:320px;line-height:1.6;margin-bottom:24px;">You do not have permission to view this page. Contact your administrator to request access.</div><div style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:12px 20px;font-size:12px;color:var(--muted);font-family:var(--mono);">Logged in as: <strong style="color:var(--text);">'+username+'</strong> &nbsp;·&nbsp; Role: <strong style="color:var(--accent);">'+role+'</strong></div></div>';pg.classList.add('active');}
-function buildEditPermsList(forAnalyst){var container=document.getElementById('edit-perms-list');if(!container)return;container.innerHTML='';var items=forAnalyst?PERM_LIST.filter(function(p){return ANALYST_DEFAULT_PERMS.includes(p.value);}):PERM_LIST;items.forEach(function(p){var row=document.createElement('label');row.style.cssText='display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;cursor:pointer;transition:all 0.15s;';var cb=document.createElement('input');cb.type='checkbox';cb.value=p.value;cb.style.cssText='accent-color:var(--accent);width:16px;height:16px;cursor:pointer;flex-shrink:0;';cb.addEventListener('change',function(){row.style.borderColor=cb.checked?'var(--accent)':'var(--border)';row.style.background=cb.checked?'var(--accent-glow)':'var(--surface2)';});row.addEventListener('click',function(e){if(e.target===cb)return;cb.checked=!cb.checked;cb.dispatchEvent(new Event('change'));});var info=document.createElement('div');info.style.flex='1';info.innerHTML='<div style="font-size:13px;font-weight:500;color:var(--text);">'+p.label+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;">'+p.desc+'</div>';row.appendChild(cb);row.appendChild(info);container.appendChild(row);});}
+function buildEditPermsList(forAnalyst){var container=document.getElementById('edit-perms-list');if(!container)return;container.innerHTML='';var items=forAnalyst?PERM_LIST.filter(function(p){return ANALYST_DEFAULT_PERMS.includes(p.value);}):PERM_LIST;items.forEach(function(p){container.appendChild(createPermissionCard(p,false));});}
 function toggleEditCustomPerms(){var role=document.getElementById('edit-access-role').value;var isAnalyst=role==='analyst'||role==='viewer';var scoped=isAnalyst||role==='custom';document.getElementById('edit-account-access').style.display=scoped?'block':'none';document.getElementById('edit-custom-perms').style.display=scoped?'block':'none';document.getElementById('edit-analyst-note').style.display=isAnalyst?'block':'none';if(scoped){buildEditPermsList(isAnalyst);toggleEditAccountChoices();}}
 function selectAllEditPerms(){document.querySelectorAll('#edit-perms-list input[type=checkbox]').forEach(function(cb){cb.checked=true;cb.dispatchEvent(new Event('change'));});}
 function clearAllEditPerms(){document.querySelectorAll('#edit-perms-list input[type=checkbox]').forEach(function(cb){cb.checked=false;cb.dispatchEvent(new Event('change'));});}
 async function openEditAccess(id){
   var a=(allAdminUsers||[]).find(function(x){return x.id===id;});if(!a)return;await loadAccessStripeAccounts();
-  document.getElementById('edit-access-id').value=id;document.getElementById('edit-access-subtitle').textContent='Editing access for: '+a.username;document.getElementById('edit-access-role').value=a.role==='viewer'?'analyst':(a.role||'admin');document.getElementById('edit-access-error').style.display='none';document.getElementById('edit-account-scope').value=a.account_scope||'all';buildAccountChoices('edit',a.allowed_account_ids||[]);toggleEditCustomPerms();
+  document.getElementById('edit-access-id').value=id;document.getElementById('edit-access-subtitle').textContent='Editing access for: '+a.username;document.getElementById('edit-access-role').value=a.role==='viewer'?'analyst':(a.role||'admin');document.getElementById('edit-access-error').style.display='none';document.getElementById('edit-account-search').value='';setAccountScope('edit',a.account_scope||'all');buildAccountChoices('edit',a.allowed_account_ids||[]);toggleEditCustomPerms();
   var currentPerms=a.permissions||[];if((a.role==='viewer'||a.role==='analyst')&&!currentPerms.length)currentPerms=ANALYST_DEFAULT_PERMS.slice();
-  setTimeout(function(){document.querySelectorAll('#edit-perms-list input[type=checkbox]').forEach(function(cb){var checked=currentPerms.includes(cb.value);cb.checked=checked;cb.dispatchEvent(new Event('change'));});},30);
-  openModal('edit-access-modal');
+  setTimeout(function(){document.querySelectorAll('#edit-perms-list input[type=checkbox]').forEach(function(cb){cb.checked=currentPerms.includes(cb.value);cb.dispatchEvent(new Event('change'));});},30);openModal('edit-access-modal');
 }
 async function saveEditAccess(){
   var id=document.getElementById('edit-access-id').value;var role=document.getElementById('edit-access-role').value;var errEl=document.getElementById('edit-access-error');errEl.style.display='none';var scoped=role==='analyst'||role==='custom';var permissions=[];

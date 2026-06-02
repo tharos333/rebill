@@ -1633,6 +1633,8 @@ app.get('/api/debug/admins', async (req, res) => {
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
 const PORT = process.env.PORT || 8080;
+// Database migrations, including admin access columns, finish once before accepting requests.
+// API permission checks then use fast SELECT queries only; they never run ALTER TABLE during page loads.
 init().then(() => {
   app.listen(PORT, () => console.log(`Subloop running on port ${PORT}`));
 }).catch(err => { console.error('DB init failed:', err.message); process.exit(1); });

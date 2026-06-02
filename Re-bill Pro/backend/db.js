@@ -110,6 +110,7 @@ async function init() {
     ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT '[]'::jsonb;
     ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS account_scope TEXT DEFAULT 'all';
     ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS allowed_account_ids JSONB DEFAULT '[]'::jsonb;
+    ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ;
     CREATE TABLE IF NOT EXISTS login_attempts (
       id SERIAL PRIMARY KEY,
       ip TEXT,
@@ -407,21 +408,13 @@ const security = {
   recentLogins: async (limit=20) => { const r = await pool.query('SELECT * FROM login_attempts ORDER BY created_at DESC LIMIT $1', [limit]); return r.rows; },
 };
 const adminUsers = {
-  ensureAccessColumns: async () => {
-    await pool.query("ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT '[]'");
-    await pool.query("ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS account_scope TEXT DEFAULT 'all'");
-    await pool.query("ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS allowed_account_ids JSONB DEFAULT '[]'");
-    await pool.query('ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ');
-  },
   all: async () => {
-    await adminUsers.ensureAccessColumns();
     const r = await pool.query("SELECT id, username, role, COALESCE(permissions, '[]') as permissions, COALESCE(account_scope,'all') AS account_scope, COALESCE(allowed_account_ids,'[]') AS allowed_account_ids, created_at, last_login FROM admin_users ORDER BY created_at ASC");
     return r.rows;
   },
-  byId: async (id) => { await adminUsers.ensureAccessColumns(); const r = await pool.query("SELECT id, username, role, COALESCE(permissions,'[]') AS permissions, COALESCE(account_scope,'all') AS account_scope, COALESCE(allowed_account_ids,'[]') AS allowed_account_ids, created_at, last_login FROM admin_users WHERE id=$1", [id]); return r.rows[0]; },
-  byUsername: async (username) => { await adminUsers.ensureAccessColumns(); const r = await pool.query('SELECT * FROM admin_users WHERE LOWER(username)=LOWER($1)', [username]); return r.rows[0]; },
+  byId: async (id) => { const r = await pool.query("SELECT id, username, role, COALESCE(permissions,'[]') AS permissions, COALESCE(account_scope,'all') AS account_scope, COALESCE(allowed_account_ids,'[]') AS allowed_account_ids, created_at, last_login FROM admin_users WHERE id=$1", [id]); return r.rows[0]; },
+  byUsername: async (username) => { const r = await pool.query('SELECT * FROM admin_users WHERE LOWER(username)=LOWER($1)', [username]); return r.rows[0]; },
   create: async (username, password, role='admin', permissions=[], accountScope='all', allowedAccountIds=[]) => {
-    await adminUsers.ensureAccessColumns();
     const crypto = require('crypto');
     const hash = crypto.createHash('sha256').update(password).digest('hex');
     await pool.query('INSERT INTO admin_users (username, password_hash, role, permissions, account_scope, allowed_account_ids) VALUES ($1,$2,$3,$4,$5,$6)', [username, hash, role, JSON.stringify(permissions), accountScope, JSON.stringify(allowedAccountIds)]);
@@ -430,10 +423,9 @@ const adminUsers = {
   updateLastLogin: async (id) => { await pool.query('UPDATE admin_users SET last_login=NOW() WHERE id=$1', [id]); },
   changePassword: async (id, newPassword) => { const crypto = require('crypto'); const hash = crypto.createHash('sha256').update(newPassword).digest('hex'); await pool.query('UPDATE admin_users SET password_hash=$1 WHERE id=$2', [hash, id]); },
   updateAccess: async (id, role, permissions, accountScope, allowedAccountIds) => {
-    await adminUsers.ensureAccessColumns();
     await pool.query('UPDATE admin_users SET role=$1, permissions=$2, account_scope=$3, allowed_account_ids=$4 WHERE id=$5', [role, JSON.stringify(permissions || []), accountScope || 'all', JSON.stringify(allowedAccountIds || []), id]);
   },
   updatePermissions: async (id, permissions) => { await pool.query('UPDATE admin_users SET permissions=$1 WHERE id=$2', [JSON.stringify(permissions), id]); },
-  verify: async (username, password) => { await adminUsers.ensureAccessColumns(); const crypto = require('crypto'); const hash = crypto.createHash('sha256').update(password).digest('hex'); const r = await pool.query('SELECT * FROM admin_users WHERE LOWER(username)=LOWER($1) AND password_hash=$2', [username, hash]); return r.rows[0] || null; },
+  verify: async (username, password) => { const crypto = require('crypto'); const hash = crypto.createHash('sha256').update(password).digest('hex'); const r = await pool.query('SELECT * FROM admin_users WHERE LOWER(username)=LOWER($1) AND password_hash=$2', [username, hash]); return r.rows[0] || null; },
 };
 module.exports = { init, pool, settingsDb, stripeAccounts, customers, subscriptions, payments, activityLog, webhookLogs, security, adminUsers };
