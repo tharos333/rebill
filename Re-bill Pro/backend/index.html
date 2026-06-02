@@ -5150,6 +5150,77 @@ html.light #customer-btn-subscription.active{
   cursor:not-allowed!important;
 }
 
+
+/* Payments top status bar: secondary statuses in a compact More menu */
+#page-payments .pay-more-status-wrap{
+  position:relative;
+  align-items:center;
+}
+#page-payments .pay-more-status-btn{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  padding:6px 11px 6px 13px;
+  border-radius:12px;
+  border:1px solid #2A2A38;
+  background:#14141d;
+  color:#8B8B99;
+  font-size:13px;
+  font-weight:600;
+  cursor:pointer;
+  transition:all .18s;
+  font-family:var(--sans);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
+}
+#page-payments .pay-more-status-btn .pay-filter-count{
+  color:#8B8B99;
+  font-size:12px;
+  font-weight:500;
+}
+#page-payments .pay-more-chevron{
+  opacity:.8;
+  transition:transform .16s ease;
+}
+#page-payments .pay-more-status-wrap.open .pay-more-chevron{
+  transform:rotate(180deg);
+}
+#page-payments .pay-more-status-menu{
+  position:absolute;
+  top:calc(100% + 8px);
+  left:0;
+  z-index:90;
+  display:none;
+  min-width:188px;
+  padding:6px;
+  background:#14141d;
+  border:1px solid #2A2A38;
+  border-radius:12px;
+  box-shadow:0 15px 32px rgba(0,0,0,.38);
+}
+#page-payments .pay-more-status-wrap.open .pay-more-status-menu{
+  display:block;
+}
+#page-payments .pay-more-option{
+  width:100%;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:18px;
+  padding:9px 10px;
+  border:0;
+  border-radius:8px;
+  background:transparent;
+  color:var(--text);
+  font-family:var(--sans);
+  font-size:12px;
+  font-weight:600;
+  cursor:pointer;
+}
+#page-payments .pay-more-option:hover,
+#page-payments .pay-more-option.selected{
+  background:rgba(109,94,248,.14);
+}
+
 </style>
 </head>
 <body>
@@ -5279,7 +5350,7 @@ html.light #customer-btn-subscription.active{
     <div class="stat-card"><div class="stat-label">MRR</div><div class="stat-value" id="stat-mrr">—</div><div class="stat-sub">monthly recurring</div></div>
     <div class="stat-card"><div class="stat-label">Active subs</div><div class="stat-value" id="stat-subs">—</div><div class="stat-sub">subscriptions</div></div>
     <div class="stat-card"><div class="stat-label">Customers</div><div class="stat-value" id="stat-customers">—</div><div class="stat-sub" id="stat-new-customers">total</div></div>
-    <div class="stat-card"><div class="stat-label">Payment Methods</div><div class="stat-value" id="stat-cards">—</div><div class="stat-sub">saved payment methods</div></div>
+    <div class="stat-card"><div class="stat-label">Payment Methods</div><div class="stat-value" id="stat-cards">—</div><div class="stat-sub">on file</div></div>
     <div class="stat-card"><div class="stat-label">Failed Payments</div><div class="stat-value" id="stat-failed" style="color:var(--red)">—</div><div class="stat-sub">failed payments</div></div>
     <div class="stat-card"><div class="stat-label">Revenue</div><div class="stat-value" id="stat-revenue">—</div><div class="stat-sub" id="stat-revenue-sub">total collected</div></div>
     <div class="stat-card"><div class="stat-label">Churn rate</div><div class="stat-value" id="stat-churn">—</div><div class="stat-sub">last 30 days</div></div>
@@ -5485,7 +5556,14 @@ html.light #customer-btn-subscription.active{
       <button id="pay-btn-all" data-pay-status="" class="pay-filter-btn active" onclick="setPayStatus('')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #6D5EF8;background:rgba(109,94,248,0.18);color:#F5F5F7;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:0 0 12px rgba(109,94,248,0.25),inset 0 1px 0 rgba(255,255,255,0.08);">All <span id="pay-count-all" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>
       <button id="pay-btn-succeeded" data-pay-status="succeeded" class="pay-filter-btn pay-filter-btn-succeeded" onclick="setPayStatus('succeeded')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#00C773;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">Succeeded <span id="pay-count-succeeded" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>
       <button id="pay-btn-failed" data-pay-status="failed" class="pay-filter-btn pay-filter-btn-failed" onclick="setPayStatus('failed')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#FF5F6D;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">Failed <span id="pay-count-failed" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>
-      <span id="pay-extra-status-buttons" style="display:flex;align-items:center;gap:5px;"></span>
+      <div id="pay-more-status-wrap" class="pay-more-status-wrap" style="display:none;">
+        <button id="pay-more-status-btn" type="button" class="pay-filter-btn pay-more-status-btn" onclick="togglePayMoreStatuses(event)">
+          <span id="pay-more-label">More</span>
+          <span id="pay-count-more" class="pay-filter-count">0</span>
+          <svg class="pay-more-chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div id="pay-more-status-menu" class="pay-more-status-menu"></div>
+      </div>
     </div>
     <!-- Divider -->
     <div class="pay-filter-divider" style="width:1px;height:28px;background:#2A2A38;margin:0 2px;"></div>
@@ -7000,19 +7078,44 @@ function paymentTopStatusColor(key){
   if(key==='succeeded')return '#00C773';
   return '#6CA5FF';
 }
+var payExtraStatusKeys=[];
+var payMoreStatusMenuBound=false;
+function closePayMoreStatuses(){
+  var wrap=document.getElementById('pay-more-status-wrap');
+  if(wrap)wrap.classList.remove('open');
+}
+function togglePayMoreStatuses(event){
+  if(event)event.stopPropagation();
+  var wrap=document.getElementById('pay-more-status-wrap');
+  if(wrap)wrap.classList.toggle('open');
+}
 function buildExtraPaymentStatusButtons(){
-  var host=document.getElementById('pay-extra-status-buttons');
-  if(!host)return;
+  var wrap=document.getElementById('pay-more-status-wrap');
+  var menu=document.getElementById('pay-more-status-menu');
+  if(!wrap||!menu)return;
   var seen={};
   (allPayments||[]).forEach(function(p){
     var key=paymentTopStatusKey(p.status);
     if(key!=='succeeded'&&key!=='failed')seen[key]=true;
   });
   var preferred=['payment_needed','canceled','refunded','processing','pending','other'];
-  var keys=preferred.filter(function(k){return seen[k];}).concat(Object.keys(seen).filter(function(k){return preferred.indexOf(k)<0;}));
-  host.innerHTML=keys.map(function(key){
-    return '<button id="pay-btn-'+key+'" data-pay-status="'+key+'" class="pay-filter-btn" onclick="setPayStatus(\''+key+'\')" style="display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:'+paymentTopStatusColor(key)+';font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">'+paymentTopStatusLabel(key)+' <span id="pay-count-'+key+'" class="pay-filter-count" style="color:#8B8B99;font-size:12px;font-weight:500;">0</span></button>';
+  payExtraStatusKeys=preferred.filter(function(k){return seen[k];}).concat(Object.keys(seen).filter(function(k){return preferred.indexOf(k)<0;}));
+  if(!payExtraStatusKeys.length){
+    wrap.style.display='none';
+    menu.innerHTML='';
+    return;
+  }
+  wrap.style.display='inline-flex';
+  menu.innerHTML=payExtraStatusKeys.map(function(key){
+    return '<button type="button" class="pay-more-option" data-pay-extra-status="'+key+'" onclick="setPayStatus(\''+key+'\');closePayMoreStatuses();event.stopPropagation();"><span style="color:'+paymentTopStatusColor(key)+'">'+paymentTopStatusLabel(key)+'</span><span id="pay-count-'+key+'" class="pay-filter-count">0</span></button>';
   }).join('');
+  if(!payMoreStatusMenuBound){
+    document.addEventListener('click',function(event){
+      var current=document.getElementById('pay-more-status-wrap');
+      if(current&&!current.contains(event.target))closePayMoreStatuses();
+    });
+    payMoreStatusMenuBound=true;
+  }
 }
 function setPayStatus(s){
   payStatusFilter=s;
@@ -7025,13 +7128,27 @@ function setPayStatus(s){
       btn.style.border='1px solid #6D5EF8';
       btn.style.background='rgba(109,94,248,0.18)';
       btn.style.boxShadow='0 0 12px rgba(109,94,248,0.25),inset 0 1px 0 rgba(255,255,255,0.08)';
-      btn.style.color=key==='succeeded'?'#00C773':key==='failed'||key==='canceled'?'#FF5F6D':'#F5F5F7';
+      btn.style.color=key==='succeeded'?'#00C773':key==='failed'?'#FF5F6D':'#F5F5F7';
     }else{
       btn.style.border='1px solid #2A2A38';
       btn.style.background='#14141d';
       btn.style.boxShadow='inset 0 1px 0 rgba(255,255,255,0.04)';
-      btn.style.color=paymentTopStatusColor(key);
+      btn.style.color=key==='succeeded'?'#00C773':key==='failed'?'#FF5F6D':'#8B8B99';
     }
+  });
+  var isExtraSelected=payExtraStatusKeys.indexOf(s)>=0;
+  var moreBtn=document.getElementById('pay-more-status-btn');
+  var moreLabel=document.getElementById('pay-more-label');
+  if(moreLabel)moreLabel.textContent=isExtraSelected?paymentTopStatusLabel(s):'More';
+  if(moreBtn){
+    moreBtn.classList.toggle('active',isExtraSelected);
+    moreBtn.style.border=isExtraSelected?'1px solid #6D5EF8':'1px solid #2A2A38';
+    moreBtn.style.background=isExtraSelected?'rgba(109,94,248,0.18)':'#14141d';
+    moreBtn.style.boxShadow=isExtraSelected?'0 0 12px rgba(109,94,248,0.25),inset 0 1px 0 rgba(255,255,255,0.08)':'inset 0 1px 0 rgba(255,255,255,0.04)';
+    moreBtn.style.color=isExtraSelected?paymentTopStatusColor(s):'#8B8B99';
+  }
+  document.querySelectorAll('[data-pay-extra-status]').forEach(function(btn){
+    btn.classList.toggle('selected',btn.getAttribute('data-pay-extra-status')===s);
   });
   filterPayments();
 }
@@ -7079,12 +7196,17 @@ function filterPayments(){
   var ca=document.getElementById('pay-count-all');if(ca)ca.textContent=allC;
   var cs=document.getElementById('pay-count-succeeded');if(cs)cs.textContent=sucC;
   var cf=document.getElementById('pay-count-failed');if(cf)cf.textContent=failC;
-  document.querySelectorAll('#pay-extra-status-buttons [data-pay-status]').forEach(function(btn){
-    var key=btn.getAttribute('data-pay-status');
+  var moreTotal=0;
+  payExtraStatusKeys.forEach(function(key){
     var count=statusCountBase.filter(function(p){return paymentTopStatusKey(p.status)===key;}).length;
+    moreTotal+=count;
     var el=document.getElementById('pay-count-'+key);
     if(el)el.textContent=count;
   });
+  var moreCount=document.getElementById('pay-count-more');
+  if(moreCount)moreCount.textContent=payExtraStatusKeys.indexOf(payStatusFilter)>=0
+    ? statusCountBase.filter(function(p){return paymentTopStatusKey(p.status)===payStatusFilter;}).length
+    : moreTotal;
 
   var filtered=statusCountBase.filter(function(p){
     return !payStatusFilter||paymentTopStatusKey(p.status)===payStatusFilter;
