@@ -5405,6 +5405,7 @@ html.light #customer-btn-subscription.active{
     <thead><tr><th>Customer</th><th>Primary payment method</th><th>Account</th><th>Status</th><th>Note</th><th>Last payment</th><th>Total paid</th><th>Actions</th></tr></thead>
     <tbody id="customers-table"><tr><td colspan="8" class="empty">Loading...</td></tr></tbody>
   </table></div></div>
+  <div id="customer-pagination" style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap;"></div>
 </div>
 
 <!-- Subscriptions -->
@@ -6675,6 +6676,22 @@ function customerDateValue(c,field){
   var date=raw?new Date(raw):null;
   return date && !isNaN(date.getTime()) ? date.getTime() : 0;
 }
+var customerCurrentPage=1;
+var CUSTOMER_PER_PAGE=35;
+function renderCustomerPagination(total,totalPages){
+  var el=document.getElementById('customer-pagination');
+  if(!el)return;
+  if(totalPages<=1){el.innerHTML='';return;}
+  var html='<span style="font-size:12px;color:var(--muted);">Page '+customerCurrentPage+' of '+totalPages+'</span>';
+  html+='<button class="btn btn-sm" onclick="customerCurrentPage=Math.max(1,customerCurrentPage-1);filterCustomers();" '+(customerCurrentPage===1?'disabled':'')+'>← Prev</button>';
+  var start=Math.max(1,customerCurrentPage-3),end=Math.min(totalPages,customerCurrentPage+3);
+  for(var i=start;i<=end;i++){
+    var active=i===customerCurrentPage;
+    html+='<button class="btn btn-sm'+(active?' btn-primary':'')+'" onclick="customerCurrentPage='+i+';filterCustomers();">'+i+'</button>';
+  }
+  html+='<button class="btn btn-sm" onclick="customerCurrentPage=Math.min('+totalPages+',customerCurrentPage+1);filterCustomers();" '+(customerCurrentPage===totalPages?'disabled':'')+'> Next →</button>';
+  el.innerHTML=html;
+}
 function filterCustomers(){
   if(!Array.isArray(allCustomers))return;
   var q=(document.getElementById('customer-search')?.value||'').toLowerCase();
@@ -6739,7 +6756,13 @@ function filterCustomers(){
     if(sort==='created_asc') return customerDateValue(a,'created')-customerDateValue(b,'created');
     return customerDateValue(b,'last')-customerDateValue(a,'last');
   });
-  renderCustomers(filtered);
+  var total=filtered.length;
+  var totalPages=Math.max(1,Math.ceil(total/CUSTOMER_PER_PAGE));
+  if(customerCurrentPage>totalPages)customerCurrentPage=totalPages;
+  var start=(customerCurrentPage-1)*CUSTOMER_PER_PAGE;
+  var page=filtered.slice(start,start+CUSTOMER_PER_PAGE);
+  renderCustomers(page);
+  renderCustomerPagination(total,totalPages);
 }
 function toggleAdvancedCustomerFilters(event){
   if(event)event.stopPropagation();
@@ -6768,6 +6791,7 @@ function clearAdvancedCustomerFilters(){
   filterCustomers();
 }
 function resetCustomerFiltersOnRefresh(){
+  customerCurrentPage=1;
   customerPrimaryFilter='';
   var search=document.getElementById('customer-search'); if(search)search.value='';
   var account=document.getElementById('customer-account-filter'); if(account)account.value='';
