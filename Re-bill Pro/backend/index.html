@@ -5118,7 +5118,7 @@ html.light #customer-btn-subscription.active{
   font-size:12px!important;
   color:var(--muted)!important;
   white-space:nowrap!important;
-  min-width:126px!important;
+  min-width:158px!important;
 }
 
 
@@ -5126,6 +5126,19 @@ html.light #customer-btn-subscription.active{
 #page-customers table thead th:nth-child(4){
   white-space:nowrap!important;
   min-width:112px!important;
+}
+
+
+/* Payments: saved-note button uses a clean UI icon instead of emoji */
+#page-payments .payment-note-btn{
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:5px!important;
+}
+#page-payments .payment-note-icon{
+  display:block!important;
+  flex-shrink:0!important;
+  color:currentColor!important;
 }
 
 </style>
@@ -6642,7 +6655,7 @@ function renderCustomers(list){
       </td>
       <td>${customerPrimaryPaymentDisplay(c,false)}</td>
       <td style="font-size:12px;color:var(--muted);" title="${escapeCustomerHtml(c.account_name||'—')}">${escapeCustomerHtml(tableAccountDisplayName(c.account_name))}</td>
-      <td class="customer-country-cell">${escapeCustomerHtml(customerCountryName(c.primary_card_country||c.card_country))}</td>
+      <td class="customer-country-cell">${escapeCustomerHtml(customerCountryFullLabel(c.primary_card_country||c.card_country))}</td>
       <td>${badge(displayStatus)}</td>
       <td style="font-size:12px;color:var(--muted);font-family:var(--mono);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.note||'—'}</td>
       <td class="mono" style="font-size:12px;white-space:nowrap;" title="${dateTitle}">${dateLabel}</td>
@@ -7087,7 +7100,7 @@ function renderPayments(list){
     var refHtml=buildRefCell(p.stripe_payment_intent);
     var actions='<div style="display:flex;gap:4px;align-items:center;">';
     if(!isViewer&&p.status==='failed'&&!isGhost)actions+='<button class="btn btn-sm btn-success" onclick="event.stopPropagation();retryPayment('+p.id+')">Retry</button>';
-    actions+='<button class="btn btn-sm" onclick="event.stopPropagation();openPaymentNote('+p.id+')" title="'+(p.note||'Add note')+'">'+(p.note?'📝 Note':'Note')+'</button>';
+    actions+='<button class="btn btn-sm payment-note-btn" onclick="event.stopPropagation();openPaymentNote('+p.id+')" title="'+(p.note||'Add note')+'">'+(p.note?'<svg class="payment-note-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/></svg><span>Note</span>':'Note')+'</button>';
     actions+='</div>';
     var rowBg=(p.status==='failed'||isGhost)?'background:rgba(248,113,113,0.04);':'';
     var avatarHtml=isGhost
