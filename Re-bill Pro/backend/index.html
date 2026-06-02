@@ -7332,7 +7332,12 @@ var reasonLabels={'insufficient_funds':'Insufficient funds','card_declined':'Car
 function tableAccountDisplayName(accountName){
   var full=String(accountName||'').trim();
   if(!full)return '—';
-  return full.replace(/^Stripe_Solo_[A-Za-z]{2,3}_/i,'').replace(/_/g,' ');
+  var compact=full.replace(/^Stripe_Solo_/i,'');
+  var match=compact.match(/^([A-Za-z]{2,3})_(.+)$/);
+  if(match){
+    return match[1].toUpperCase()+'_'+match[2].replace(/_/g,' ');
+  }
+  return compact.replace(/_/g,' ');
 }
 function renderPayments(list){
   var isViewer=localStorage.getItem('subloop_readonly')==='1';
