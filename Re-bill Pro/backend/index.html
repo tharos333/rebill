@@ -5112,6 +5112,15 @@ html.light #customer-btn-subscription.active{
   white-space:nowrap!important;
 }
 
+
+/* Customers table: compact payment-method country code */
+#page-customers .customer-country-cell{
+  font-size:12px!important;
+  color:var(--muted)!important;
+  white-space:nowrap!important;
+  width:64px!important;
+}
+
 </style>
 </head>
 <body>
@@ -5402,8 +5411,8 @@ html.light #customer-btn-subscription.active{
     </div>
   </div>
   <div class="card"><div class="scrollable"><table>
-    <thead><tr><th>Customer</th><th>Primary payment method</th><th>Account</th><th>Status</th><th>Note</th><th>Last payment</th><th>Total paid</th><th>Actions</th></tr></thead>
-    <tbody id="customers-table"><tr><td colspan="8" class="empty">Loading...</td></tr></tbody>
+    <thead><tr><th>Customer</th><th>Primary payment method</th><th>Account</th><th>Country</th><th>Status</th><th>Note</th><th>Last payment</th><th>Total paid</th><th>Actions</th></tr></thead>
+    <tbody id="customers-table"><tr><td colspan="9" class="empty">Loading...</td></tr></tbody>
   </table></div></div>
   <div id="customer-pagination" style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap;"></div>
 </div>
@@ -6540,6 +6549,16 @@ async function loadCustomers(){
   }catch(e){}
 }
 
+function customerCountryFullLabel(countryCode){
+  var code=String(countryCode||'').trim().toUpperCase();
+  if(!code)return '—';
+  try{
+    var name=new Intl.DisplayNames(['en'],{type:'region'}).of(code);
+    if(name && name!==code)return name+' ('+code+')';
+  }catch(e){}
+  return code;
+}
+
 function customerOriginalCurrency(c){
   if(c.last_payment_currency || c.currency || c.default_currency) return c.last_payment_currency || c.currency || c.default_currency;
   try{
@@ -6556,7 +6575,7 @@ function customerOriginalCurrency(c){
 
 function renderCustomers(list){
   const tb=document.getElementById('customers-table');
-  if(!list.length){tb.innerHTML='<tr><td colspan="8" class="empty">No customers yet</td></tr>';return;}
+  if(!list.length){tb.innerHTML='<tr><td colspan="9" class="empty">No customers yet</td></tr>';return;}
   tb.innerHTML=list.map(c=>{
     const dateLabel = c.last_payment_at ? fmtDate(c.last_payment_at) : '—';
     const dateTitle = c.last_payment_at ? 'Last successful payment date' : 'No successful payment yet';
@@ -6579,6 +6598,7 @@ function renderCustomers(list){
       </td>
       <td>${customerPrimaryPaymentDisplay(c,false)}</td>
       <td style="font-size:12px;color:var(--muted);" title="${escapeCustomerHtml(c.account_name||'—')}">${escapeCustomerHtml(tableAccountDisplayName(c.account_name))}</td>
+      <td class="customer-country-cell">${escapeCustomerHtml(String(c.card_country||'—').toUpperCase())}</td>
       <td>${badge(displayStatus)}</td>
       <td style="font-size:12px;color:var(--muted);font-family:var(--mono);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.note||'—'}</td>
       <td class="mono" style="font-size:12px;white-space:nowrap;" title="${dateTitle}">${dateLabel}</td>
@@ -7356,7 +7376,7 @@ function buildCustomerDrawer(data){
   if(hasCard){
     h+='<div class="customer-profile-card-line">'+customerPrimaryPaymentDisplay(c,true)+'</div>';
     h+=customerDrawerRow('Funding',escapeCustomerHtml(c.primary_card_funding||c.card_funding||'—'));
-    h+=customerDrawerRow('Country',escapeCustomerHtml((c.primary_card_country||c.card_country||'—').toUpperCase()));
+    h+=customerDrawerRow('Country',escapeCustomerHtml(customerCountryFullLabel(c.primary_card_country||c.card_country)));
     h+=customerDrawerRow('Expires',escapeCustomerHtml(expiry));
   }else{
     h+='<div class="customer-profile-empty">No payment method details available</div>';
