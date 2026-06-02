@@ -409,7 +409,7 @@ const adminUsers = {
     const r = await pool.query("SELECT id, username, role, COALESCE(permissions, '[]') as permissions, created_at, last_login FROM admin_users ORDER BY created_at ASC");
     return r.rows;
   },
-  byUsername: async (username) => { const r = await pool.query('SELECT * FROM admin_users WHERE username=$1', [username]); return r.rows[0]; },
+  byUsername: async (username) => { const r = await pool.query('SELECT * FROM admin_users WHERE LOWER(username)=LOWER($1)', [username]); return r.rows[0]; },
   create: async (username, password, role='admin', permissions=[]) => { const crypto = require('crypto'); const hash = crypto.createHash('sha256').update(password).digest('hex'); await pool.query('INSERT INTO admin_users (username, password_hash, role, permissions) VALUES ($1,$2,$3,$4)', [username, hash, role, JSON.stringify(permissions)]); },
   delete: async (id) => { await pool.query('DELETE FROM admin_users WHERE id=$1', [id]); },
   updateLastLogin: async (id) => { await pool.query('UPDATE admin_users SET last_login=NOW() WHERE id=$1', [id]); },

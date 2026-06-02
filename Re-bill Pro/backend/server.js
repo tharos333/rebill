@@ -1122,7 +1122,7 @@ app.get('/api/activity', async (req, res) => {
     let list = await activityLog.recent(100);
     if (username) {
       try {
-        const userRow = await pool.query('SELECT role FROM admin_users WHERE username=$1', [username]);
+        const userRow = await pool.query('SELECT role FROM admin_users WHERE LOWER(username)=LOWER($1)', [username]);
         if (userRow.rows[0] && userRow.rows[0].role === 'viewer') {
           list = list.filter(a => ['payment','failed','retry','charge','dunning','proration','resume'].includes(a.type));
         }
@@ -1281,9 +1281,9 @@ app.post('/api/auth/check', async (req, res) => {
   try {
     const { username } = req.body;
     if (!username) return res.json({ valid: false });
-    const r = await pool.query('SELECT id, username, role, permissions FROM admin_users WHERE username=$1', [username]);
+    const r = await pool.query('SELECT id, username, role, permissions FROM admin_users WHERE LOWER(username)=LOWER($1)', [username]);
     if (!r.rows[0]) return res.json({ valid: false });
-    res.json({ valid: true, role: r.rows[0].role, permissions: r.rows[0].permissions || [] });
+    res.json({ valid: true, username: r.rows[0].username, role: r.rows[0].role, permissions: r.rows[0].permissions || [] });
   } catch(err) { res.json({ valid: true, role: 'owner', permissions: [] }); }
 });
 

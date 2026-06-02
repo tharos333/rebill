@@ -6006,7 +6006,7 @@ function doLogin(){
     }
     if(!result.ok)throw new Error(r.error||'Login request failed');
     if(r.success){
-      localStorage.setItem('subloop_username',user);
+      localStorage.setItem('subloop_username',r.username||user);
       localStorage.setItem('subloop_role',r.role||'admin');
       localStorage.setItem('subloop_permissions',JSON.stringify(r.permissions||[]));
       api('/api/security/2fa/status').then(function(s){
@@ -6107,7 +6107,7 @@ function showPage(name,el){
   var _username=localStorage.getItem('subloop_username');
   if(_username&&(getCurrentRole()==='custom'||getCurrentRole()==='viewer')){
     api('/api/auth/check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:_username})})
-    .then(function(r){if(!r.valid){forceLogout();return;}localStorage.setItem('subloop_role',r.role||'admin');localStorage.setItem('subloop_permissions',JSON.stringify(r.permissions||[]));if(r.role==='viewer')localStorage.setItem('subloop_readonly','1');else localStorage.removeItem('subloop_readonly');applyAccessControl();}).catch(function(){});
+    .then(function(r){if(!r.valid){forceLogout();return;}if(r.username)localStorage.setItem('subloop_username',r.username);localStorage.setItem('subloop_role',r.role||'admin');localStorage.setItem('subloop_permissions',JSON.stringify(r.permissions||[]));if(r.role==='viewer')localStorage.setItem('subloop_readonly','1');else localStorage.removeItem('subloop_readonly');applyAccessControl();}).catch(function(){});
   }
   expandSettingsIfNeeded(name);
   if(!canAccess(name)){
@@ -6338,6 +6338,7 @@ function initApp(){
     api('/api/auth/check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:username})})
     .then(function(r){
       if(!r.valid){forceLogout();return;}
+      if(r.username)localStorage.setItem('subloop_username',r.username);
       localStorage.setItem('subloop_role',r.role||'admin');
       localStorage.setItem('subloop_permissions',JSON.stringify(r.permissions||[]));
       localStorage.removeItem('subloop_readonly');
