@@ -102,10 +102,14 @@ async function init() {
       password_hash TEXT NOT NULL,
       role TEXT DEFAULT 'admin',
       permissions JSONB DEFAULT '[]'::jsonb,
+      account_scope TEXT DEFAULT 'all',
+      allowed_account_ids JSONB DEFAULT '[]'::jsonb,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       last_login TIMESTAMPTZ
     );
     ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT '[]'::jsonb;
+    ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS account_scope TEXT DEFAULT 'all';
+    ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS allowed_account_ids JSONB DEFAULT '[]'::jsonb;
     CREATE TABLE IF NOT EXISTS login_attempts (
       id SERIAL PRIMARY KEY,
       ip TEXT,
@@ -370,14 +374,14 @@ const subscriptions = {
   markDunning: async (id, retryDate) => { await pool.query("UPDATE subscriptions SET status='dunning', next_billing_date=$1, dunning_count=dunning_count+1, last_failed_at=NOW() WHERE id=$2", [retryDate, id]); },
 };
 const payments = {
-  recent: async (limit=50) => { const r = await pool.query('SELECT p.*, c.email, c.name, COALESCE(p.card_brand,c.card_brand) AS card_brand, COALESCE(p.card_last4,c.card_last4) AS card_last4, sa.name AS account_name FROM payments p JOIN customers c ON c.id=p.customer_id LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id ORDER BY p.created_at DESC LIMIT $1', [limit]); return r.rows; },
+  recent: async (limit=50) => { const r = await pool.query('SELECT p.*, c.email, c.name, c.stripe_account_id, COALESCE(p.card_brand,c.card_brand) AS card_brand, COALESCE(p.card_last4,c.card_last4) AS card_last4, sa.name AS account_name FROM payments p JOIN customers c ON c.id=p.customer_id LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id ORDER BY p.created_at DESC LIMIT $1', [limit]); return r.rows; },
   byCustomer: async (cid) => { const r = await pool.query('SELECT * FROM payments WHERE customer_id=$1 ORDER BY created_at DESC', [cid]); return r.rows; },
   stats: async () => { const r = await pool.query(`SELECT COUNT(CASE WHEN status='succeeded' THEN 1 END) as succeeded_count, COUNT(CASE WHEN status='failed' THEN 1 END) as failed_count, COALESCE(SUM(CASE WHEN status='succeeded' THEN amount ELSE 0 END),0) as total_revenue, COUNT(CASE WHEN status='succeeded' AND created_at >= NOW()-INTERVAL '30 days' THEN 1 END) as count_30d, COALESCE(SUM(CASE WHEN status='succeeded' AND created_at >= NOW()-INTERVAL '30 days' THEN amount ELSE 0 END),0) as revenue_30d FROM payments`); return r.rows[0]; },
   insert: async (data) => { await pool.query('INSERT INTO payments (customer_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,card_brand,card_last4,card_exp_month,card_exp_year,card_country,card_funding,stripe_invoice_id,stripe_fee,net_amount,balance_transaction_id,financial_currency,retry_of_payment_id,was_failed,recovered_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)', [data.customer_id, data.subscription_id, data.stripe_payment_intent, data.amount, data.currency, data.status, data.failure_reason, data.card_brand||null, data.card_last4||null, data.card_exp_month||null, data.card_exp_year||null, data.card_country||null, data.card_funding||null, data.stripe_invoice_id||null, data.stripe_fee??null, data.net_amount??null, data.balance_transaction_id||null, data.financial_currency||null, data.retry_of_payment_id||null, data.was_failed ?? (data.status==='failed'), data.recovered_at||null]); },
 };
 const activityLog = {
   add: async (type, description, customer_id=null, amount=null) => { await pool.query('INSERT INTO activity_log (type,description,customer_id,amount) VALUES ($1,$2,$3,$4)', [type, description, customer_id, amount]).catch(()=>{}); },
-  recent: async (limit=50) => { const r = await pool.query('SELECT a.*, c.name as customer_name, c.email FROM activity_log a LEFT JOIN customers c ON c.id=a.customer_id ORDER BY a.created_at DESC LIMIT $1', [limit]); return r.rows; },
+  recent: async (limit=50) => { const r = await pool.query('SELECT a.*, c.name as customer_name, c.email, c.stripe_account_id FROM activity_log a LEFT JOIN customers c ON c.id=a.customer_id ORDER BY a.created_at DESC LIMIT $1', [limit]); return r.rows; },
 };
 const webhookLogs = {
   add: async (data) => { await pool.query('INSERT INTO webhook_logs (event_type,account_name,status,error) VALUES ($1,$2,$3,$4)', [data.event_type, data.account_name||null, data.status||'ok', data.error||null]).catch(()=>{}); },
@@ -403,18 +407,33 @@ const security = {
   recentLogins: async (limit=20) => { const r = await pool.query('SELECT * FROM login_attempts ORDER BY created_at DESC LIMIT $1', [limit]); return r.rows; },
 };
 const adminUsers = {
-  all: async () => {
+  ensureAccessColumns: async () => {
     await pool.query("ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT '[]'");
+    await pool.query("ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS account_scope TEXT DEFAULT 'all'");
+    await pool.query("ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS allowed_account_ids JSONB DEFAULT '[]'");
     await pool.query('ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ');
-    const r = await pool.query("SELECT id, username, role, COALESCE(permissions, '[]') as permissions, created_at, last_login FROM admin_users ORDER BY created_at ASC");
+  },
+  all: async () => {
+    await adminUsers.ensureAccessColumns();
+    const r = await pool.query("SELECT id, username, role, COALESCE(permissions, '[]') as permissions, COALESCE(account_scope,'all') AS account_scope, COALESCE(allowed_account_ids,'[]') AS allowed_account_ids, created_at, last_login FROM admin_users ORDER BY created_at ASC");
     return r.rows;
   },
-  byUsername: async (username) => { const r = await pool.query('SELECT * FROM admin_users WHERE LOWER(username)=LOWER($1)', [username]); return r.rows[0]; },
-  create: async (username, password, role='admin', permissions=[]) => { const crypto = require('crypto'); const hash = crypto.createHash('sha256').update(password).digest('hex'); await pool.query('INSERT INTO admin_users (username, password_hash, role, permissions) VALUES ($1,$2,$3,$4)', [username, hash, role, JSON.stringify(permissions)]); },
+  byId: async (id) => { await adminUsers.ensureAccessColumns(); const r = await pool.query("SELECT id, username, role, COALESCE(permissions,'[]') AS permissions, COALESCE(account_scope,'all') AS account_scope, COALESCE(allowed_account_ids,'[]') AS allowed_account_ids, created_at, last_login FROM admin_users WHERE id=$1", [id]); return r.rows[0]; },
+  byUsername: async (username) => { await adminUsers.ensureAccessColumns(); const r = await pool.query('SELECT * FROM admin_users WHERE LOWER(username)=LOWER($1)', [username]); return r.rows[0]; },
+  create: async (username, password, role='admin', permissions=[], accountScope='all', allowedAccountIds=[]) => {
+    await adminUsers.ensureAccessColumns();
+    const crypto = require('crypto');
+    const hash = crypto.createHash('sha256').update(password).digest('hex');
+    await pool.query('INSERT INTO admin_users (username, password_hash, role, permissions, account_scope, allowed_account_ids) VALUES ($1,$2,$3,$4,$5,$6)', [username, hash, role, JSON.stringify(permissions), accountScope, JSON.stringify(allowedAccountIds)]);
+  },
   delete: async (id) => { await pool.query('DELETE FROM admin_users WHERE id=$1', [id]); },
   updateLastLogin: async (id) => { await pool.query('UPDATE admin_users SET last_login=NOW() WHERE id=$1', [id]); },
   changePassword: async (id, newPassword) => { const crypto = require('crypto'); const hash = crypto.createHash('sha256').update(newPassword).digest('hex'); await pool.query('UPDATE admin_users SET password_hash=$1 WHERE id=$2', [hash, id]); },
+  updateAccess: async (id, role, permissions, accountScope, allowedAccountIds) => {
+    await adminUsers.ensureAccessColumns();
+    await pool.query('UPDATE admin_users SET role=$1, permissions=$2, account_scope=$3, allowed_account_ids=$4 WHERE id=$5', [role, JSON.stringify(permissions || []), accountScope || 'all', JSON.stringify(allowedAccountIds || []), id]);
+  },
   updatePermissions: async (id, permissions) => { await pool.query('UPDATE admin_users SET permissions=$1 WHERE id=$2', [JSON.stringify(permissions), id]); },
-  verify: async (username, password) => { const crypto = require('crypto'); const hash = crypto.createHash('sha256').update(password).digest('hex'); const r = await pool.query('SELECT * FROM admin_users WHERE LOWER(username)=LOWER($1) AND password_hash=$2', [username, hash]); return r.rows[0] || null; },
+  verify: async (username, password) => { await adminUsers.ensureAccessColumns(); const crypto = require('crypto'); const hash = crypto.createHash('sha256').update(password).digest('hex'); const r = await pool.query('SELECT * FROM admin_users WHERE LOWER(username)=LOWER($1) AND password_hash=$2', [username, hash]); return r.rows[0] || null; },
 };
 module.exports = { init, pool, settingsDb, stripeAccounts, customers, subscriptions, payments, activityLog, webhookLogs, security, adminUsers };

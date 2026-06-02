@@ -8,6 +8,88 @@ try { speakeasy = require('speakeasy'); QRCode = require('qrcode'); } catch(e) {
 const Stripe = require('stripe');
 const crypto = require('crypto');
 
+
+// Admin access tokens and Stripe-account scoping.
+// Set SUBLOOP_AUTH_SECRET in Railway for tokens that remain valid after a deploy/restart.
+const SUBLOOP_AUTH_SECRET = process.env.SUBLOOP_AUTH_SECRET || crypto.randomBytes(48).toString('hex');
+const ANALYST_DEFAULT_SECTIONS = ['dashboard','customers','payments','forecast','summary','mrr','recovery'];
+function b64url(value) { return Buffer.from(value).toString('base64url'); }
+function issueAdminToken(user, purpose='access', maxAgeMinutes=480) {
+  const payload = { id: user.id, username: user.username, purpose, exp: Date.now() + (maxAgeMinutes * 60 * 1000) };
+  const body = b64url(JSON.stringify(payload));
+  const sig = crypto.createHmac('sha256', SUBLOOP_AUTH_SECRET).update(body).digest('base64url');
+  return body + '.' + sig;
+}
+function parseAdminToken(token, purpose='access') {
+  try {
+    if (!token || !token.includes('.')) return null;
+    const [body, sig] = token.split('.');
+    const expected = crypto.createHmac('sha256', SUBLOOP_AUTH_SECRET).update(body).digest('base64url');
+    if (sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
+    const data = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
+    if (!data || data.purpose !== purpose || Number(data.exp) < Date.now()) return null;
+    return data;
+  } catch (_err) { return null; }
+}
+function bearerToken(req) {
+  const header = String(req.headers.authorization || '');
+  return header.startsWith('Bearer ') ? header.slice(7) : '';
+}
+function normalizeAllowedAccountIds(user) {
+  const list = Array.isArray(user?.allowed_account_ids) ? user.allowed_account_ids : [];
+  return list.map(Number).filter(Number.isInteger);
+}
+function isOwnerOrAdmin(user) { return !!user && (user.role === 'owner' || user.role === 'admin'); }
+function isReadOnlyUser(user) { return !!user && (user.role === 'analyst' || user.role === 'viewer'); }
+function userSections(user) {
+  if (!user) return [];
+  if (isOwnerOrAdmin(user)) return null;
+  const set = Array.isArray(user.permissions) && user.permissions.length ? user.permissions : (isReadOnlyUser(user) ? ANALYST_DEFAULT_SECTIONS : []);
+  return set;
+}
+function canUseSection(user, section) {
+  const sections = userSections(user);
+  return sections === null || sections.includes(section);
+}
+function scopedAccountIds(req) {
+  if (!req.currentUser || isOwnerOrAdmin(req.currentUser) || req.currentUser.account_scope !== 'selected') return null;
+  return normalizeAllowedAccountIds(req.currentUser);
+}
+function rowWithinScope(req, row) {
+  const ids = scopedAccountIds(req);
+  return ids === null || ids.includes(Number(row?.stripe_account_id));
+}
+function accessResponse(user) {
+  return { role: user.role, username: user.username, permissions: user.permissions || [], account_scope: user.account_scope || 'all', allowed_account_ids: normalizeAllowedAccountIds(user) };
+}
+function sectionForApiPath(req) {
+  const path = req.path;
+  if (path.startsWith('/stats') || path.startsWith('/revenue-chart') || path.startsWith('/churn-alerts')) return 'dashboard';
+  if (path.startsWith('/customers')) return 'customers';
+  if (path.startsWith('/subscriptions')) return 'subscriptions';
+  if (path.startsWith('/payments')) return 'payments';
+  if (path.startsWith('/payment-links') || path.startsWith('/plan-templates')) return 'links';
+  if (path.startsWith('/stripe-accounts')) return 'accounts';
+  if (path.startsWith('/forecast')) return 'forecast';
+  if (path.startsWith('/daily-summary')) return 'summary';
+  if (path.startsWith('/mrr-history')) return 'mrr';
+  if (path.startsWith('/recovery-rate')) return 'recovery';
+  if (path.startsWith('/activity')) return 'activity';
+  if (path.startsWith('/settings')) return 'settings';
+  if (path.startsWith('/security')) return 'security';
+  if (path.startsWith('/webhook-logs')) return 'webhooks';
+  if (path.startsWith('/admin-users')) return 'admins';
+  return null;
+}
+function requireOwnerOrAdmin(req, res) {
+  if (!isOwnerOrAdmin(req.currentUser)) { res.status(403).json({ error: 'Owner or admin access required' }); return false; }
+  return true;
+}
+function ensureRowScope(req, res, row) {
+  if (!row || !rowWithinScope(req, row)) { res.status(403).json({ error: 'This Stripe account is not assigned to your access.' }); return false; }
+  return true;
+}
+
 // Estimated currency conversion for analytics/dashboard only.
 // Amounts are stored in their original Stripe currency; these helpers convert analytics totals to USD cents.
 const USD_ESTIMATE_RATES = {
@@ -609,6 +691,29 @@ app.use(express.json());
 app.use('/icons', express.static(path.join(__dirname, 'public', 'icons')));
 app.use(express.static(path.join(__dirname)));
 
+
+// Require a verified session token for the application API and enforce page/read-only permissions.
+app.use('/api', async (req, res, next) => {
+  const openPaths = ['/auth/verify', '/auth/check', '/security/2fa/validate'];
+  if (openPaths.includes(req.path)) return next();
+  try {
+    const data = parseAdminToken(bearerToken(req), 'access');
+    if (!data) return res.status(401).json({ error: 'Authentication required' });
+    const user = await adminUsers.byId(data.id);
+    if (!user) return res.status(401).json({ error: 'Access has been revoked' });
+    req.currentUser = user;
+    const sensitive = ['/admin-users', '/settings', '/security', '/run-rebills', '/debug', '/stripe-accounts', '/payment-links', '/plan-templates'];
+    if (sensitive.some(prefix => req.path.startsWith(prefix)) && !isOwnerOrAdmin(user)) {
+      return res.status(403).json({ error: 'Owner or admin access required' });
+    }
+    const section = sectionForApiPath(req);
+    const readonlySupportingSubscriptionRead = section === 'subscriptions' && req.method === 'GET' && isReadOnlyUser(user) && (canUseSection(user, 'dashboard') || canUseSection(user, 'customers'));
+    if (section && !canUseSection(user, section) && !readonlySupportingSubscriptionRead) return res.status(403).json({ error: 'Access restricted' });
+    if (isReadOnlyUser(user) && req.method !== 'GET') return res.status(403).json({ error: 'View-only access' });
+    next();
+  } catch (err) { res.status(401).json({ error: 'Authentication required' }); }
+});
+
 // ── Stripe Accounts ───────────────────────────────────────────────────────────
 function formatStripeRequirementKey(key) {
   const raw = String(key || '');
@@ -774,7 +879,8 @@ app.get('/api/stripe-accounts', async (req, res) => {
       return { ...safeAccount, ...health };
     }));
 
-    res.json(accounts);
+    const ids = scopedAccountIds(req);
+    res.json(ids === null ? accounts : accounts.filter(account => ids.includes(Number(account.id))));
   } catch(err) {
     res.status(500).json({ error: err.message });
   }
@@ -784,6 +890,7 @@ app.get('/api/stripe-accounts/:id/verification-debug', async (req, res) => {
   try {
     const account = await stripeAccounts.byId(req.params.id);
     if (!account) return res.status(404).json({ error: 'Stripe account not found' });
+    if (!ensureRowScope(req, res, { stripe_account_id: account.id })) return;
     if (!account.secret_key || !String(account.secret_key).startsWith('sk_')) {
       return res.status(400).json({ error: 'Missing or invalid secret key' });
     }
@@ -887,11 +994,12 @@ app.patch('/api/stripe-accounts/:id/default', async (req, res) => {
 app.delete('/api/stripe-accounts/:id', async (req, res) => { try { await stripeAccounts.delete(req.params.id); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
 
 // ── Customers ─────────────────────────────────────────────────────────────────
-app.get('/api/customers', async (req, res) => { try { res.json(await customers.all()); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.get('/api/customers', async (req, res) => { try { const list=await customers.all(); res.json(list.filter(c => rowWithinScope(req,c))); } catch(err) { res.status(500).json({ error: err.message }); } });
 app.get('/api/customers/:id/details', async (req, res) => {
   try {
     const data = await customers.detail(req.params.id);
     if (!data.customer) return res.status(404).json({ error: 'Customer not found' });
+    if (!ensureRowScope(req, res, data.customer)) return;
     res.json(data);
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
@@ -899,17 +1007,20 @@ app.post('/api/customers', async (req, res) => {
   try {
     const { name, email, stripe_customer_id, stripe_payment_method, card_brand, card_last4, card_exp_month, card_exp_year, stripe_account_id, note } = req.body;
     if (!email || !stripe_customer_id) return res.status(400).json({ error: 'Email and Stripe ID required' });
+    if (!ensureRowScope(req, res, { stripe_account_id })) return;
     await customers.upsert({ name, email, stripe_customer_id, stripe_payment_method, stripe_account_id, card_brand, card_last4, card_exp_month, card_exp_year });
     const c = await customers.byStripeId(stripe_customer_id);
     if (note) await customers.updateNote(c.id, note);
     res.json({ success: true, id: c.id });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
-app.patch('/api/customers/:id/status', async (req, res) => { try { await customers.updateStatus(req.params.id, req.body.status); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
-app.patch('/api/customers/:id/note', async (req, res) => { try { await customers.updateNote(req.params.id, req.body.note); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.patch('/api/customers/:id/status', async (req, res) => { try { const c=await customers.byId(req.params.id); if(!c) return res.status(404).json({ error:'Customer not found' }); if(!ensureRowScope(req,res,c)) return; await customers.updateStatus(req.params.id, req.body.status); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.patch('/api/customers/:id/note', async (req, res) => { try { const c=await customers.byId(req.params.id); if(!c) return res.status(404).json({ error:'Customer not found' }); if(!ensureRowScope(req,res,c)) return; await customers.updateNote(req.params.id, req.body.note); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
 app.post('/api/customers/:id/portal', async (req, res) => {
   try {
     const c = await customers.byId(req.params.id);
+    if (!c) return res.status(404).json({ error: 'Customer not found' });
+    if (!ensureRowScope(req, res, c)) return;
     const acc = await stripeAccounts.byId(c.stripe_account_id);
     const stripe = require('stripe')(acc.secret_key);
     const session = await stripe.billingPortal.sessions.create({ customer: c.stripe_customer_id, return_url: process.env.BASE_URL || 'https://rebill-production.up.railway.app' });
@@ -920,6 +1031,8 @@ app.post('/api/customers/:id/charge-once', async (req, res) => {
   try {
     const { amount, description, currency } = req.body;
     const c = await customers.byId(req.params.id);
+    if (!c) return res.status(404).json({ error: 'Customer not found' });
+    if (!ensureRowScope(req, res, c)) return;
     const acc = await stripeAccounts.byId(c.stripe_account_id);
     const stripe = require('stripe')(acc.secret_key);
     const pi = await stripe.paymentIntents.create({ amount, currency: currency||'usd', customer: c.stripe_customer_id, payment_method: c.stripe_payment_method, confirm: true, description: description||'Manual invoice', off_session: true });
@@ -929,17 +1042,25 @@ app.post('/api/customers/:id/charge-once', async (req, res) => {
 });
 app.get('/api/customers/export', async (req, res) => {
   try {
-    const list = await customers.all();
+    const list = (await customers.all()).filter(c => rowWithinScope(req,c));
     const csv = ['Name,Email,Card,Status,Last Payment,Created,Total Paid'].concat(list.map(c=>`${c.name},${c.email},${c.card_brand||''} ${c.card_last4||''},${c.status},${c.last_payment_at||''},${c.created_at||''},${(c.total_paid||0)/100}`)).join('\n');
     res.setHeader('Content-Type','text/csv'); res.setHeader('Content-Disposition','attachment; filename=customers.csv'); res.send(csv);
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
 // ── Subscriptions ─────────────────────────────────────────────────────────────
-app.get('/api/subscriptions', async (req, res) => { try { res.json(await subscriptions.all()); } catch(err) { res.status(500).json({ error: err.message }); } });
-app.post('/api/subscriptions', async (req, res) => { try { await subscriptions.create(req.body); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
+async function scopedSubscription(req, res, id) {
+  const r = await pool.query('SELECT s.*, c.stripe_account_id FROM subscriptions s JOIN customers c ON c.id=s.customer_id WHERE s.id=$1', [id]);
+  const sub = r.rows[0];
+  if (!sub) { res.status(404).json({ error: 'Subscription not found' }); return null; }
+  if (!ensureRowScope(req, res, sub)) return null;
+  return sub;
+}
+app.get('/api/subscriptions', async (req, res) => { try { const list=await subscriptions.all(); res.json(list.filter(sub => rowWithinScope(req,sub))); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.post('/api/subscriptions', async (req, res) => { try { const c=await customers.byId(req.body.customer_id); if(!c) return res.status(404).json({ error:'Customer not found' }); if(!ensureRowScope(req,res,c)) return; await subscriptions.create(req.body); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
 app.patch('/api/subscriptions/:id', async (req, res) => {
   try {
+    if (!(await scopedSubscription(req, res, req.params.id))) return;
     const { status, amount, next_billing_date, resume_date } = req.body;
     if (status) await subscriptions.updateStatus(req.params.id, status);
     if (amount) await subscriptions.updateAmount(req.params.id, parseInt(amount));
@@ -950,6 +1071,7 @@ app.patch('/api/subscriptions/:id', async (req, res) => {
 });
 app.patch('/api/subscriptions/:id/status', async (req, res) => {
   try {
+    if (!(await scopedSubscription(req, res, req.params.id))) return;
     const { status, resume_date } = req.body;
     await subscriptions.updateStatus(req.params.id, status);
     if (status === 'paused' && resume_date) await subscriptions.setResumeDate(req.params.id, resume_date);
@@ -959,12 +1081,14 @@ app.patch('/api/subscriptions/:id/status', async (req, res) => {
 });
 app.patch('/api/subscriptions/:id/amount', async (req, res) => {
   try {
+    if (!(await scopedSubscription(req, res, req.params.id))) return;
     await subscriptions.updateAmount(req.params.id, parseInt(req.body.amount));
     res.json({ success: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.post('/api/subscriptions/:id/charge', async (req, res) => {
   try {
+    if (!(await scopedSubscription(req, res, req.params.id))) return;
     const allSubs = await subscriptions.all();
     const sub = allSubs.find(s => s.id === parseInt(req.params.id));
     if (!sub) return res.status(404).json({ error: 'Not found' });
@@ -978,10 +1102,10 @@ app.post('/api/subscriptions/:id/charge', async (req, res) => {
     res.json({ success: true, paymentIntentId: pi.id });
   } catch(err) { res.status(500).json({ success: false, error: err.message }); }
 });
-app.delete('/api/subscriptions/:id', async (req, res) => { try { await subscriptions.updateStatus(req.params.id, 'cancelled'); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.delete('/api/subscriptions/:id', async (req, res) => { try { if (!(await scopedSubscription(req,res,req.params.id))) return; await subscriptions.updateStatus(req.params.id, 'cancelled'); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
 
 // ── Payments ──────────────────────────────────────────────────────────────────
-app.get('/api/payments', async (req, res) => { try { res.json(await payments.recent(1000)); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.get('/api/payments', async (req, res) => { try { const list=await payments.recent(1000); res.json(list.filter(p => rowWithinScope(req,p))); } catch(err) { res.status(500).json({ error: err.message }); } });
 app.get('/api/payments/:id/financials', async (req, res) => {
   try {
     await ensureWebhookColumns();
@@ -992,6 +1116,7 @@ app.get('/api/payments/:id/financials', async (req, res) => {
       WHERE p.id=$1`, [req.params.id]);
     const payment = r.rows[0];
     if (!payment) return res.status(404).json({ error: 'Payment not found' });
+    if (!ensureRowScope(req, res, payment)) return;
     if (!payment.stripe_payment_intent) return res.json(payment);
     if (!payment.secret_key) return res.status(400).json({ error: 'Stripe account secret key not found for this payment' });
     const stripe = require('stripe')(payment.secret_key);
@@ -1021,6 +1146,7 @@ app.post('/api/payments/:id/retry', async (req, res) => {
     const r = await pool.query('SELECT p.*, c.stripe_customer_id, c.stripe_payment_method, c.stripe_account_id, c.email, c.name FROM payments p JOIN customers c ON c.id=p.customer_id WHERE p.id=$1', [req.params.id]);
     const p = r.rows[0];
     if (!p) return res.status(404).json({ error: 'Not found' });
+    if (!ensureRowScope(req, res, p)) return;
     if (p.status !== 'failed') return res.status(400).json({ error: 'Only failed payments can be retried' });
     const acc = await stripeAccounts.byId(p.stripe_account_id);
     const stripe = require('stripe')(acc.secret_key);
@@ -1033,6 +1159,9 @@ app.post('/api/payments/:id/retry', async (req, res) => {
 });
 app.patch('/api/payments/:id/note', async (req, res) => {
   try {
+    const paymentScope = await pool.query('SELECT c.stripe_account_id FROM payments p JOIN customers c ON c.id=p.customer_id WHERE p.id=$1', [req.params.id]);
+    if (!paymentScope.rows[0]) return res.status(404).json({ error: 'Payment not found' });
+    if (!ensureRowScope(req, res, paymentScope.rows[0])) return;
     await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS note TEXT');
     await pool.query('UPDATE payments SET note=$1 WHERE id=$2', [req.body.note, req.params.id]);
     res.json({ success: true });
@@ -1040,7 +1169,7 @@ app.patch('/api/payments/:id/note', async (req, res) => {
 });
 app.get('/api/payments/export', async (req, res) => {
   try {
-    const list = await payments.recent(10000);
+    const list = (await payments.recent(10000)).filter(p => rowWithinScope(req,p));
     const csv = ['Customer,Email,Amount,Status,Date'].concat(list.map(p=>`${p.name||''},${p.email||''},${(p.amount||0)/100},${p.status},${p.created_at}`)).join('\n');
     res.setHeader('Content-Type','text/csv'); res.setHeader('Content-Disposition','attachment; filename=payments.csv'); res.send(csv);
   } catch(err) { res.status(500).json({ error: err.message }); }
@@ -1052,6 +1181,7 @@ app.post('/api/payment-links', async (req, res) => {
     const { name, amount, currency, interval_days, stripe_account_id } = req.body;
     const acc = stripe_account_id ? await stripeAccounts.byId(stripe_account_id) : await stripeAccounts.default();
     if (!acc) return res.status(400).json({ error: 'No Stripe account found' });
+    if (!ensureRowScope(req, res, { stripe_account_id: acc.id })) return;
     const stripe = require('stripe')(acc.secret_key);
     const product = await stripe.products.create({ name: name||'Subscription', metadata: { source: 'subloop' } });
     const intervalMap = { 7: 'week', 14: 'week', 30: 'month', 90: 'month', 365: 'year' };
@@ -1118,8 +1248,8 @@ app.post('/api/run-rebills', async (req, res) => {
 // ── Activity ──────────────────────────────────────────────────────────────────
 app.get('/api/activity', async (req, res) => {
   try {
-    const username = req.headers['x-username'];
-    let list = await activityLog.recent(100);
+    const username = req.currentUser ? req.currentUser.username : req.headers['x-username'];
+    let list = (await activityLog.recent(100)).filter(row => rowWithinScope(req,row));
     if (username) {
       try {
         const userRow = await pool.query('SELECT role FROM admin_users WHERE LOWER(username)=LOWER($1)', [username]);
@@ -1142,7 +1272,7 @@ app.patch('/api/settings', async (req, res) => {
 });
 
 // ── Webhook Logs ──────────────────────────────────────────────────────────────
-app.get('/api/webhook-logs', async (req, res) => { try { res.json(await webhookLogs.recent(50)); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.get('/api/webhook-logs', async (req, res) => { try { const list=await webhookLogs.recent(50); const ids=scopedAccountIds(req); if(ids===null) return res.json(list); const visible=await pool.query('SELECT name FROM stripe_accounts WHERE id=ANY($1::int[])',[ids]); const names=new Set(visible.rows.map(r=>r.name)); res.json(list.filter(w=>names.has(w.account_name))); } catch(err) { res.status(500).json({ error: err.message }); } });
 
 // ── Security ──────────────────────────────────────────────────────────────────
 app.get('/api/security/login-history', async (req, res) => { try { res.json(await security.recentLogins(20)); } catch(err) { res.status(500).json({ error: err.message }); } });
@@ -1176,13 +1306,18 @@ app.post('/api/security/2fa/verify', async (req, res) => {
 });
 app.post('/api/security/2fa/validate', async (req, res) => {
   try {
+    const challenge = parseAdminToken(req.body.login_challenge, '2fa');
+    if (!challenge) return res.status(401).json({ valid: false, error: 'Login session expired. Please sign in again.' });
+    const user = await adminUsers.byId(challenge.id);
+    if (!user) return res.status(401).json({ valid: false, error: 'Access has been revoked.' });
     const enabled = await settingsDb.get('two_fa_enabled');
-    if (enabled !== 'true') return res.json({ valid: true });
+    if (enabled !== 'true') return res.json({ valid: true, token: issueAdminToken(user), ...accessResponse(user) });
     if (!speakeasy) return res.status(503).json({ valid: false, error: 'Authenticator verification is unavailable' });
     const secret = await settingsDb.get('two_fa_secret');
     if (!secret) return res.status(503).json({ valid: false, error: 'Authenticator configuration is missing' });
     const valid = speakeasy.totp.verify({ secret, encoding: 'base32', token: req.body.token, window: 2 });
-    res.json({ valid });
+    if (!valid) return res.json({ valid: false });
+    res.json({ valid: true, token: issueAdminToken(user), ...accessResponse(user) });
   } catch(err) { res.status(500).json({ valid: false, error: 'Could not verify authenticator code' }); }
 });
 app.post('/api/security/2fa/disable', async (req, res) => {
@@ -1190,13 +1325,28 @@ app.post('/api/security/2fa/disable', async (req, res) => {
 });
 
 // ── Admin Users ───────────────────────────────────────────────────────────────
+function cleanAccountAccessInput(role, accountScope, allowedAccountIds) {
+  const readonlyRole = role === 'analyst' || role === 'viewer';
+  const scope = (readonlyRole || role === 'custom') && accountScope === 'selected' ? 'selected' : 'all';
+  const ids = Array.isArray(allowedAccountIds) ? [...new Set(allowedAccountIds.map(Number).filter(Number.isInteger))] : [];
+  return { accountScope: scope, allowedAccountIds: scope === 'selected' ? ids : [] };
+}
+async function validateSelectedAccounts(scope, ids) {
+  if (scope !== 'selected') return true;
+  if (!ids.length) return false;
+  const r = await pool.query('SELECT COUNT(*) AS n FROM stripe_accounts WHERE id=ANY($1::int[])', [ids]);
+  return Number(r.rows[0]?.n) === ids.length;
+}
 app.get('/api/admin-users', async (req, res) => { try { res.json(await adminUsers.all()); } catch(err) { res.status(500).json({ error: err.message }); } });
 app.post('/api/admin-users', async (req, res) => {
   try {
-    const { username, password, role, permissions } = req.body;
+    const { username, password, role, permissions, account_scope, allowed_account_ids } = req.body;
     if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
     if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
-    await adminUsers.create(username, password, role || 'admin', permissions || []);
+    const safeRole = ['admin','analyst','viewer','custom'].includes(role) ? role : 'admin';
+    const access = cleanAccountAccessInput(safeRole, account_scope, allowed_account_ids);
+    if (!(await validateSelectedAccounts(access.accountScope, access.allowedAccountIds))) return res.status(400).json({ error: 'Select at least one valid Stripe account' });
+    await adminUsers.create(username, password, safeRole, permissions || [], access.accountScope, access.allowedAccountIds);
     await activityLog.add('security', `New admin user created: ${username}`);
     res.json({ success: true });
   } catch(err) {
@@ -1214,11 +1364,14 @@ app.delete('/api/admin-users/:id', async (req, res) => {
 });
 app.patch('/api/admin-users/:id/permissions', async (req, res) => {
   try {
-    const { role, permissions } = req.body;
-    const current = await pool.query('SELECT role FROM admin_users WHERE id=$1', [req.params.id]);
-    if (current.rows[0]?.role === 'owner') return res.status(400).json({ error: 'Cannot change owner role' });
-    if (role) await pool.query('UPDATE admin_users SET role=$1 WHERE id=$2', [role, req.params.id]);
-    await adminUsers.updatePermissions(req.params.id, permissions || []);
+    const { role, permissions, account_scope, allowed_account_ids } = req.body;
+    const current = await adminUsers.byId(req.params.id);
+    if (!current) return res.status(404).json({ error: 'Admin not found' });
+    if (current.role === 'owner') return res.status(400).json({ error: 'Cannot change owner role' });
+    const safeRole = ['admin','analyst','viewer','custom'].includes(role) ? role : current.role;
+    const access = cleanAccountAccessInput(safeRole, account_scope, allowed_account_ids);
+    if (!(await validateSelectedAccounts(access.accountScope, access.allowedAccountIds))) return res.status(400).json({ error: 'Select at least one valid Stripe account' });
+    await adminUsers.updateAccess(req.params.id, safeRole, permissions || [], access.accountScope, access.allowedAccountIds);
     res.json({ success: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
@@ -1262,7 +1415,9 @@ app.post('/api/auth/verify', async (req, res) => {
     if (user) {
       await adminUsers.updateLastLogin(user.id);
       await security.logAttempt(ip, true);
-      return res.json({ success: true, role: user.role, username: user.username, permissions: user.permissions || [] });
+      const twoFaEnabled = (await settingsDb.get('two_fa_enabled')) === 'true';
+      if (twoFaEnabled) return res.json({ success: true, requires_2fa: true, login_challenge: issueAdminToken(user, '2fa', 5), ...accessResponse(user) });
+      return res.json({ success: true, token: issueAdminToken(user), ...accessResponse(user) });
     }
 
     await security.logAttempt(ip, false);
@@ -1279,17 +1434,18 @@ app.post('/api/auth/verify', async (req, res) => {
 });
 app.post('/api/auth/check', async (req, res) => {
   try {
-    const { username } = req.body;
-    if (!username) return res.json({ valid: false });
-    const r = await pool.query('SELECT id, username, role, permissions FROM admin_users WHERE LOWER(username)=LOWER($1)', [username]);
-    if (!r.rows[0]) return res.json({ valid: false });
-    res.json({ valid: true, username: r.rows[0].username, role: r.rows[0].role, permissions: r.rows[0].permissions || [] });
-  } catch(err) { res.json({ valid: true, role: 'owner', permissions: [] }); }
+    const token = parseAdminToken(bearerToken(req), 'access');
+    if (!token) return res.json({ valid: false });
+    const user = await adminUsers.byId(token.id);
+    if (!user) return res.json({ valid: false });
+    res.json({ valid: true, ...accessResponse(user) });
+  } catch(err) { res.json({ valid: false }); }
 });
 
 // ── Stats & Dashboard ─────────────────────────────────────────────────────────
 app.get('/api/stats', async (req, res) => {
   try {
+    const ids = scopedAccountIds(req);
     const r = await pool.query(`
       SELECT
         COALESCE(SUM(CASE WHEN s.status='active' THEN ${usdAmountSql('s')} ELSE 0 END),0) as mrr,
@@ -1303,42 +1459,39 @@ app.get('/api/stats', async (req, res) => {
       FROM customers c
       LEFT JOIN subscriptions s ON s.customer_id=c.id
       LEFT JOIN payments p ON p.customer_id=c.id
-    `);
+      WHERE ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[]))
+    `, [ids]);
     const row = r.rows[0];
-    const sc = await pool.query("SELECT COUNT(*) as n FROM payments WHERE status='succeeded' AND created_at >= NOW()-INTERVAL '30 days'");
-    const fc = await pool.query("SELECT COUNT(*) as n FROM payments WHERE status='failed' AND created_at >= NOW()-INTERVAL '30 days'");
+    const sc = await pool.query("SELECT COUNT(*) as n FROM payments p JOIN customers c ON c.id=p.customer_id WHERE p.status='succeeded' AND p.created_at >= NOW()-INTERVAL '30 days' AND ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[]))", [ids]);
+    const fc = await pool.query("SELECT COUNT(*) as n FROM payments p JOIN customers c ON c.id=p.customer_id WHERE p.status='failed' AND p.created_at >= NOW()-INTERVAL '30 days' AND ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[]))", [ids]);
     const total = parseInt(sc.rows[0].n)+parseInt(fc.rows[0].n);
-    const custStats = await pool.query("SELECT COUNT(*) as total, COUNT(CASE WHEN status='cancelled' AND created_at >= NOW()-INTERVAL '30 days' THEN 1 END) as churned_30d FROM customers");
+    const custStats = await pool.query("SELECT COUNT(*) as total, COUNT(CASE WHEN status='cancelled' AND created_at >= NOW()-INTERVAL '30 days' THEN 1 END) as churned_30d FROM customers WHERE ($1::int[] IS NULL OR stripe_account_id=ANY($1::int[]))", [ids]);
     const cs = custStats.rows[0];
     const churnRate = parseInt(cs.total)>0?((parseInt(cs.churned_30d)||0)/parseInt(cs.total)*100).toFixed(1):0;
     const avgLtv = parseInt(cs.total)>0?Math.round(parseInt(row.total_revenue)/parseInt(cs.total)):0;
-    res.json({
-      ...row,
-      payment_success_rate: total>0?Math.round((parseInt(sc.rows[0].n)/total)*100):100,
-      churn_rate: churnRate,
-      avg_ltv: avgLtv,
-      revenue_30d: row.revenue_month
-    });
+    res.json({ ...row, payment_success_rate: total>0?Math.round((parseInt(sc.rows[0].n)/total)*100):100, churn_rate: churnRate, avg_ltv: avgLtv, revenue_30d: row.revenue_month });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.get('/api/revenue-chart', async (req, res) => {
   try {
+    const ids = scopedAccountIds(req);
     const allTime = String(req.query.period || '').toLowerCase() === 'all';
-    const dateFilter = allTime ? '' : " WHERE created_at >= NOW() - INTERVAL '60 days'";
-    const r = await pool.query(`SELECT DATE(created_at) as day, SUM(CASE WHEN status='succeeded' THEN ${usdAmountSql()} ELSE 0 END) as revenue, COUNT(CASE WHEN status='succeeded' THEN 1 END) as count FROM payments${dateFilter} GROUP BY DATE(created_at) ORDER BY day ASC`);
+    const dateCondition = allTime ? '' : " AND p.created_at >= NOW() - INTERVAL '60 days'";
+    const r = await pool.query(`SELECT DATE(p.created_at) as day, SUM(CASE WHEN p.status='succeeded' THEN ${usdAmountSql('p')} ELSE 0 END) as revenue, COUNT(CASE WHEN p.status='succeeded' THEN 1 END) as count FROM payments p JOIN customers c ON c.id=p.customer_id WHERE ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[]))${dateCondition} GROUP BY DATE(p.created_at) ORDER BY day ASC`, [ids]);
     res.json(r.rows);
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.get('/api/daily-summary', async (req, res) => {
   try {
-    const r = await pool.query(`SELECT COALESCE(SUM(CASE WHEN status='succeeded' AND created_at >= CURRENT_DATE THEN ${usdAmountSql()} ELSE 0 END),0) as revenue_today, COALESCE(COUNT(CASE WHEN status='succeeded' AND created_at >= CURRENT_DATE THEN 1 END),0) as payments_today, COALESCE(COUNT(CASE WHEN status='failed' AND created_at >= CURRENT_DATE THEN 1 END),0) as failed_today, COALESCE(SUM(CASE WHEN status='succeeded' AND created_at >= CURRENT_DATE - INTERVAL '7 days' THEN ${usdAmountSql()} ELSE 0 END),0) as revenue_7d, COALESCE(COUNT(CASE WHEN status='succeeded' AND created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END),0) as payments_7d, COALESCE(SUM(CASE WHEN status='succeeded' AND created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN ${usdAmountSql()} ELSE 0 END),0) as revenue_month, COALESCE(COUNT(CASE WHEN status='succeeded' AND created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN 1 END),0) as payments_month FROM payments`);
-    const c = await pool.query(`SELECT COUNT(*) as active_total, COUNT(CASE WHEN created_at >= CURRENT_DATE THEN 1 END) as new_today, COUNT(CASE WHEN created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as new_7d FROM customers WHERE status='active'`);
+    const ids = scopedAccountIds(req);
+    const r = await pool.query(`SELECT COALESCE(SUM(CASE WHEN p.status='succeeded' AND p.created_at >= CURRENT_DATE THEN ${usdAmountSql('p')} ELSE 0 END),0) as revenue_today, COALESCE(COUNT(CASE WHEN p.status='succeeded' AND p.created_at >= CURRENT_DATE THEN 1 END),0) as payments_today, COALESCE(COUNT(CASE WHEN p.status='failed' AND p.created_at >= CURRENT_DATE THEN 1 END),0) as failed_today, COALESCE(SUM(CASE WHEN p.status='succeeded' AND p.created_at >= CURRENT_DATE - INTERVAL '7 days' THEN ${usdAmountSql('p')} ELSE 0 END),0) as revenue_7d, COALESCE(COUNT(CASE WHEN p.status='succeeded' AND p.created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END),0) as payments_7d, COALESCE(SUM(CASE WHEN p.status='succeeded' AND p.created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN ${usdAmountSql('p')} ELSE 0 END),0) as revenue_month, COALESCE(COUNT(CASE WHEN p.status='succeeded' AND p.created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN 1 END),0) as payments_month FROM payments p JOIN customers c ON c.id=p.customer_id WHERE ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[]))`, [ids]);
+    const c = await pool.query(`SELECT COUNT(*) as active_total, COUNT(CASE WHEN created_at >= CURRENT_DATE THEN 1 END) as new_today, COUNT(CASE WHEN created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as new_7d FROM customers WHERE status='active' AND ($1::int[] IS NULL OR stripe_account_id=ANY($1::int[]))`, [ids]);
     res.json({ ...r.rows[0], ...c.rows[0] });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.get('/api/forecast', async (req, res) => {
   try {
-    const allSubs = await subscriptions.all();
+    const allSubs = (await subscriptions.all()).filter(sub => rowWithinScope(req, sub));
     const activeSubs = allSubs.filter(s => s.status === 'active');
     const now = new Date();
     let forecast30=0, forecast60=0, forecast90=0;
@@ -1355,26 +1508,31 @@ app.get('/api/forecast', async (req, res) => {
 });
 app.get('/api/churn-alerts', async (req, res) => {
   try {
-    const cancelled = await pool.query(`SELECT c.id,c.name,c.email,s.updated_at as churned_at FROM subscriptions s JOIN customers c ON c.id=s.customer_id WHERE s.status='cancelled' AND s.updated_at >= NOW()-INTERVAL '7 days' ORDER BY s.updated_at DESC LIMIT 20`);
-    const failing = await pool.query(`SELECT c.id,c.name,c.email,s.dunning_count FROM subscriptions s JOIN customers c ON c.id=s.customer_id WHERE s.dunning_count >= 3 AND s.status != 'cancelled' ORDER BY s.dunning_count DESC LIMIT 20`);
+    const ids = scopedAccountIds(req);
+    const cancelled = await pool.query(`SELECT c.id,c.name,c.email,s.updated_at as churned_at FROM subscriptions s JOIN customers c ON c.id=s.customer_id WHERE s.status='cancelled' AND s.updated_at >= NOW()-INTERVAL '7 days' AND ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[])) ORDER BY s.updated_at DESC LIMIT 20`, [ids]);
+    const failing = await pool.query(`SELECT c.id,c.name,c.email,s.dunning_count FROM subscriptions s JOIN customers c ON c.id=s.customer_id WHERE s.dunning_count >= 3 AND s.status != 'cancelled' AND ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[])) ORDER BY s.dunning_count DESC LIMIT 20`, [ids]);
     res.json({ cancelled: cancelled.rows, failing: failing.rows });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.get('/api/mrr-history', async (req, res) => {
   try {
-    const r = await pool.query(`SELECT TO_CHAR(DATE_TRUNC('month', created_at), 'Mon YY') as month, DATE_TRUNC('month', created_at) as month_date, SUM(CASE WHEN status='succeeded' THEN ${usdAmountSql()} ELSE 0 END) as revenue FROM payments WHERE created_at >= NOW() - INTERVAL '12 months' GROUP BY DATE_TRUNC('month', created_at) ORDER BY month_date ASC`);
+    const ids = scopedAccountIds(req);
+    const r = await pool.query(`SELECT TO_CHAR(DATE_TRUNC('month', p.created_at), 'Mon YY') as month, DATE_TRUNC('month', p.created_at) as month_date, SUM(CASE WHEN p.status='succeeded' THEN ${usdAmountSql('p')} ELSE 0 END) as revenue FROM payments p JOIN customers c ON c.id=p.customer_id WHERE p.created_at >= NOW() - INTERVAL '12 months' AND ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[])) GROUP BY DATE_TRUNC('month', p.created_at) ORDER BY month_date ASC`, [ids]);
     res.json(r.rows);
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.get('/api/recovery-rate', async (req, res) => {
   try {
     await ensureWebhookColumns();
+    const ids = scopedAccountIds(req);
     const r = await pool.query(`
       WITH failed AS (
         SELECT p.*
         FROM payments p
+        JOIN customers fc ON fc.id=p.customer_id
         WHERE (p.status='failed' OR COALESCE(p.was_failed,false)=true)
           AND p.created_at >= NOW()-INTERVAL '30 days'
+          AND ($1::int[] IS NULL OR fc.stripe_account_id=ANY($1::int[]))
       ),
       recovered_successes AS (
         /* 1) A retry started through Subloop and linked to a failed payment. */
@@ -1428,7 +1586,7 @@ app.get('/api/recovery-rate', async (req, res) => {
       SELECT
         (SELECT COUNT(*) FROM failed) AS total_failed,
         (SELECT COUNT(*) FROM recovered_successes) AS recovered
-    `);
+    `, [ids]);
     const row = r.rows[0] || {};
     const tf = parseInt(row.total_failed) || 0;
     const recovered = parseInt(row.recovered) || 0;
@@ -1438,12 +1596,13 @@ app.get('/api/recovery-rate', async (req, res) => {
 });
 app.get('/api/search', async (req, res) => {
   try {
+    const ids = scopedAccountIds(req);
     const q = '%'+(req.query.q||'').trim()+'%';
     if (!req.query.q || req.query.q.trim().length < 2) return res.json({ customers:[], payments:[], subscriptions:[] });
     const [cust, pmts, subs] = await Promise.all([
-      pool.query(`SELECT id,name,email,card_brand,card_last4,status FROM customers WHERE name ILIKE $1 OR email ILIKE $1 LIMIT 5`, [q]),
-      pool.query(`SELECT p.id,c.name,c.email,p.amount,p.currency,p.status,p.created_at FROM payments p JOIN customers c ON c.id=p.customer_id WHERE c.name ILIKE $1 OR c.email ILIKE $1 ORDER BY p.created_at DESC LIMIT 5`, [q]),
-      pool.query(`SELECT s.id,c.name,c.email,s.amount,s.currency,s.status FROM subscriptions s JOIN customers c ON c.id=s.customer_id WHERE c.name ILIKE $1 OR c.email ILIKE $1 LIMIT 5`, [q]),
+      pool.query(`SELECT id,name,email,card_brand,card_last4,status FROM customers WHERE (name ILIKE $1 OR email ILIKE $1) AND ($2::int[] IS NULL OR stripe_account_id=ANY($2::int[])) LIMIT 5`, [q, ids]),
+      pool.query(`SELECT p.id,c.name,c.email,p.amount,p.currency,p.status,p.created_at FROM payments p JOIN customers c ON c.id=p.customer_id WHERE (c.name ILIKE $1 OR c.email ILIKE $1) AND ($2::int[] IS NULL OR c.stripe_account_id=ANY($2::int[])) ORDER BY p.created_at DESC LIMIT 5`, [q, ids]),
+      pool.query(`SELECT s.id,c.name,c.email,s.amount,s.currency,s.status FROM subscriptions s JOIN customers c ON c.id=s.customer_id WHERE (c.name ILIKE $1 OR c.email ILIKE $1) AND ($2::int[] IS NULL OR c.stripe_account_id=ANY($2::int[])) LIMIT 5`, [q, ids]),
     ]);
     res.json({ customers: cust.rows, payments: pmts.rows, subscriptions: subs.rows });
   } catch(err) { res.status(500).json({ error: err.message }); }
