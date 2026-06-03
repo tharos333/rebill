@@ -5331,6 +5331,9 @@ html.light #customer-btn-subscription.active{
 body.view-only-access .view-write-only{
   display:none!important;
 }
+body.view-only-access #payment-link-create-card{
+  display:none!important;
+}
 
 
 /* Admin Users: profile-style user details modal */
@@ -5787,7 +5790,7 @@ body.view-only-access .view-write-only{
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:11px;top:50%;transform:translateY(-50%);pointer-events:none;"><circle cx="10.8" cy="10.8" r="6.8"/><path d="M16 16l4.2 4.2"/></svg>
         <div id="global-search-results" style="display:none;position:absolute;top:calc(100% + 6px);left:0;width:340px;background:var(--surface);border:1px solid var(--border2);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.3);z-index:200;max-height:320px;overflow-y:auto;"></div>
       </div>
-      <button class="btn view-write-only" onclick="runRebills()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/></svg>Run Rebills Now</button>
+      <button id="run-rebills-btn" class="btn view-write-only" onclick="runRebills()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/></svg>Run Rebills Now</button>
       <button class="btn btn-disconnect" onclick="disconnectApp()" title="Disconnect">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         Disconnect
@@ -6122,7 +6125,7 @@ body.view-only-access .view-write-only{
       </div>
     </div>
   </div>
-  <div class="card" style="max-width:500px;">
+  <div id="payment-link-create-card" class="card" style="max-width:500px;">
     <div class="card-header"><h3>Create Payment Link</h3></div>
     <div style="padding:18px;">
       <div class="form-group"><label>Product name</label><input type="text" id="link-name" value="Monthly Subscription"></div>
@@ -6320,7 +6323,7 @@ body.view-only-access .view-write-only{
     <div class="stat-card"><div class="stat-label">Revenue This Month</div><div class="stat-value" id="sum-rev-month">—</div><div class="stat-sub" id="sum-pay-month">payments</div></div>
     <div class="stat-card"><div class="stat-label">Active Customers</div><div class="stat-value" id="sum-active">—</div><div class="stat-sub" id="sum-new-7d">new this week</div></div>
   </div>
-  <div class="card view-write-only" style="max-width:600px;">
+  <div id="manual-invoice-card" class="card view-write-only" style="max-width:600px;">
     <div class="card-header"><h3>Manual Invoice</h3></div>
     <div style="padding:18px;">
       <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Charge any customer a one-time amount outside their subscription.</p>
@@ -6439,14 +6442,14 @@ body.view-only-access .view-write-only{
       </div>
       <div class="form-group"><label>Access level</label>
         <select id="admin-role" onchange="toggleCustomPerms()">
-          <option value="admin">Admin — full access to everything</option>
+          <option value="admin">Admin — full management access</option>
           <option value="analyst">Analyst — view only</option>
-          <option value="custom">Custom — choose sections manually</option>
+          <option value="custom">Custom — manage selected sections</option>
         </select>
       </div>
       <div id="admin-account-access" class="access-panel" style="display:none;">
         <div class="access-section-header">
-          <div><div class="access-section-title">Stripe account access</div><div class="access-section-subtitle">Limit reports and payments to assigned Stripe accounts</div></div>
+          <div><div class="access-section-title">Stripe account access</div><div id="admin-account-access-subtitle" class="access-section-subtitle">Choose which Stripe account data this user can access</div></div>
         </div>
         <div class="scope-options">
           <label class="scope-option active"><input type="radio" name="admin-account-scope-radio" value="selected" checked onchange="setAccountScope('admin',this.value)"><span>Selected accounts only</span></label>
@@ -6464,12 +6467,12 @@ body.view-only-access .view-write-only{
       </div>
       <div id="custom-perms" class="access-section" style="display:none;">
         <div class="access-section-header">
-          <div><div id="admin-perms-title" class="access-section-title">Visible sections</div><div class="access-section-subtitle">Choose which reporting sections this user can access</div></div>
+          <div><div id="admin-perms-title" class="access-section-title">Visible sections</div><div id="admin-perms-subtitle" class="access-section-subtitle">Choose which sections this user can view</div></div>
           <div class="access-actions"><button class="btn btn-sm" onclick="selectAllPerms()" type="button">Select all</button><button class="btn btn-sm" onclick="clearAllPerms()" type="button">Clear</button></div>
         </div>
         <div id="perms-list" class="permission-choice-grid"></div>
       </div>
-      <div id="admin-analyst-note" class="analyst-note" style="display:none;">Analyst users can view assigned account data only. Add, edit, retry, export and billing actions are disabled.</div>
+      <div id="admin-analyst-note" class="analyst-note" style="display:none;">View-only users can open selected sections and assigned-account data only. Add, edit, retry, export and billing actions are disabled.</div>
     </div>
     <div class="modal-footer admin-access-footer">
       <button class="btn" onclick="closeModal('add-admin-modal')">Cancel</button>
@@ -6511,14 +6514,14 @@ body.view-only-access .view-write-only{
       <input type="hidden" id="edit-access-id">
       <div class="form-group"><label>Access level</label>
         <select id="edit-access-role" onchange="toggleEditCustomPerms()">
-          <option value="admin">Admin — full access to everything</option>
+          <option value="admin">Admin — full management access</option>
           <option value="analyst">Analyst — view only</option>
-          <option value="custom">Custom — choose sections manually</option>
+          <option value="custom">Custom — manage selected sections</option>
         </select>
       </div>
       <div id="edit-account-access" class="access-panel" style="display:none;">
         <div class="access-section-title">Stripe account access</div>
-        <div class="access-section-subtitle">Limit reports and payments to assigned Stripe accounts</div>
+        <div id="edit-account-access-subtitle" class="access-section-subtitle">Choose which Stripe account data this user can access</div>
         <div class="scope-options">
           <label class="scope-option"><input type="radio" name="edit-account-scope-radio" value="selected" onchange="setAccountScope('edit',this.value)"><span>Selected accounts only</span></label>
           <label class="scope-option"><input type="radio" name="edit-account-scope-radio" value="all" onchange="setAccountScope('edit',this.value)"><span>All Stripe accounts</span></label>
@@ -6534,10 +6537,10 @@ body.view-only-access .view-write-only{
         <div id="edit-account-list" class="account-choice-grid"></div>
       </div>
       <div id="edit-custom-perms" class="access-section" style="display:none;">
-        <div class="access-section-header"><div><div class="access-section-title">Visible sections</div><div class="access-section-subtitle">Choose which reporting sections this user can access</div></div><div class="access-actions"><button class="btn btn-sm" onclick="selectAllEditPerms()" type="button">Select all</button><button class="btn btn-sm" onclick="clearAllEditPerms()" type="button">Clear</button></div></div>
+        <div class="access-section-header"><div><div id="edit-perms-title" class="access-section-title">Visible sections</div><div id="edit-perms-subtitle" class="access-section-subtitle">Choose which sections this user can view</div></div><div class="access-actions"><button class="btn btn-sm" onclick="selectAllEditPerms()" type="button">Select all</button><button class="btn btn-sm" onclick="clearAllEditPerms()" type="button">Clear</button></div></div>
         <div id="edit-perms-list" class="permission-choice-grid"></div>
       </div>
-      <div id="edit-analyst-note" class="analyst-note" style="display:none;">Analyst users can view assigned account data only. Add, edit, retry, export and billing actions are disabled.</div>
+      <div id="edit-analyst-note" class="analyst-note" style="display:none;">View-only users can open selected sections and assigned-account data only. Add, edit, retry, export and billing actions are disabled.</div>
       <div id="edit-access-error" style="display:none;background:var(--red-bg);border:1px solid var(--red);color:var(--red);border-radius:8px;padding:10px 14px;font-size:12px;font-family:var(--mono);margin-top:12px;"></div>
     </div>
     <div class="modal-footer admin-access-footer">
@@ -6693,12 +6696,44 @@ function canAccess(section){
   if(role==='custom'){ var perms=getCurrentPermissions(); return perms.includes(section); }
   return false;
 }
+function setPageSubtitle(section,text){
+  var page=document.getElementById('page-'+section);
+  var subtitle=page&&page.querySelector('.page-header h2 + p');
+  if(subtitle)subtitle.textContent=text;
+}
+function canManageOperationalSection(section){
+  var role=getCurrentRole();
+  return role==='owner'||role==='admin'||(role==='custom'&&canAccess(section));
+}
+function applyRoleBasedPageCopy(){
+  var role=getCurrentRole();
+  var assigned=(localStorage.getItem('subloop_account_scope')||'all')==='selected';
+  var defaults={dashboard:'Your business overview',activity:'All actions and events',customers:'Manage customers and payment methods',subscriptions:'All rebilling schedules',payments:'Full payment history',links:'Create payment links for recurring payments',accounts:'Manage multiple Stripe accounts',forecast:'Projected revenue based on active subscriptions',summary:'Your business at a glance',mrr:'Revenue performance over time',recovery:'Failed payments later completed successfully',webhooks:'Incoming Stripe events'};
+  Object.keys(defaults).forEach(function(k){setPageSubtitle(k,defaults[k]);});
+  if(role==='viewer'||role==='analyst'){
+    var suffix=assigned?' for assigned Stripe accounts':'';
+    var copy={dashboard:'View business results'+suffix,activity:'View activity history'+suffix,customers:'View customer payment results'+suffix,subscriptions:'View rebilling schedules'+suffix,payments:'View payment history and statuses'+suffix,links:'View payment link templates'+suffix,accounts:assigned?'View assigned Stripe accounts':'View connected Stripe accounts',forecast:'View projected revenue'+suffix,summary:'View daily results'+suffix,mrr:'View revenue performance'+suffix,recovery:'View failed payment recovery results'+suffix,webhooks:'View Stripe events'+suffix};
+    Object.keys(copy).forEach(function(k){setPageSubtitle(k,copy[k]);});
+  }else if(role==='custom'){
+    var suffix=assigned?' for assigned Stripe accounts':'';
+    var copy={dashboard:'Overview'+suffix,activity:'Activity'+suffix,customers:'Manage customers'+suffix,subscriptions:'Manage rebilling schedules'+suffix,payments:'Manage payments'+suffix,links:'Create payment links'+suffix,accounts:assigned?'View assigned Stripe accounts':'View connected Stripe accounts',forecast:'Projected revenue'+suffix,summary:'Daily results'+suffix,mrr:'Revenue performance'+suffix,recovery:'Failed payment recovery'+suffix,webhooks:'Stripe events'+suffix};
+    Object.keys(copy).forEach(function(k){setPageSubtitle(k,copy[k]);});
+  }
+}
+function applyOperationalActionVisibility(){
+  var runBtn=document.getElementById('run-rebills-btn');
+  if(runBtn)runBtn.style.display=canManageOperationalSection('subscriptions')?'inline-flex':'none';
+  var invoiceCard=document.getElementById('manual-invoice-card');
+  if(invoiceCard)invoiceCard.style.display=canManageOperationalSection('customers')?'block':'none';
+}
 function applyAccessControl(){
   var role=getCurrentRole();
   var readonly=role==='viewer'||role==='analyst';
   document.body.classList.toggle('view-only-access',readonly);
   if(readonly) localStorage.setItem('subloop_readonly','1');
   else localStorage.removeItem('subloop_readonly');
+  applyRoleBasedPageCopy();
+  applyOperationalActionVisibility();
   if(!role||role==='owner'||role==='admin') return;
   document.querySelectorAll('.nav-item').forEach(function(btn){
     var onclick=btn.getAttribute('onclick')||'';
@@ -6713,7 +6748,7 @@ function applyAccessControl(){
 function enforceReadonly(){
   if(localStorage.getItem('subloop_readonly')!=='1') return;
   document.querySelectorAll('.btn-primary,.btn-danger,.btn-success').forEach(function(btn){if(!btn.closest('.login-screen')&&!btn.closest('.login-box'))btn.style.display='none';});
-  document.querySelectorAll('.actions').forEach(function(d){d.innerHTML='<span style="font-size:11px;color:var(--muted);font-family:var(--mono);">view only</span>';});
+  document.querySelectorAll('.actions:not(.readonly-allowed-actions)').forEach(function(d){d.innerHTML='<span style="font-size:11px;color:var(--muted);font-family:var(--mono);">view only</span>';});
   document.querySelectorAll('#payments-table .btn').forEach(function(btn){btn.style.display='none';});
   var summaryCard=document.querySelector('#page-summary .card:last-of-type');
   if(summaryCard){var h3=summaryCard.querySelector('h3');if(h3&&h3.textContent.includes('Manual Invoice'))summaryCard.style.display='none';}
@@ -7183,11 +7218,11 @@ async function loadChart(){
 async function loadUpcoming(){
   try{
     const subs=await api('/api/subscriptions');const tb=document.getElementById('upcoming-table');
-    var isViewer=isViewOnlyAccess();
-    if(!subs.length){tb.innerHTML='<tr><td colspan="'+(isViewer?4:5)+'" class="empty">No subscriptions yet.</td></tr>';return;}
+    var canManageSubs=canManageOperationalSection('subscriptions');
+    if(!subs.length){tb.innerHTML='<tr><td colspan="'+(canManageSubs?5:4)+'" class="empty">No subscriptions yet.</td></tr>';return;}
     tb.innerHTML=subs.slice(0,10).map(function(s){
       var row='<tr><td><div class="customer-cell"><div class="avatar">'+initials(s.name)+'</div><div><div class="customer-name">'+(s.name||'—')+'</div><div class="customer-email">'+(s.email||'')+'</div></div></div></td><td class="mono">'+fmt(s.amount,s.currency)+'</td><td class="mono">'+fmtDate(s.next_billing_date)+'</td><td>'+(String(s.status||'').toLowerCase()==='paused'?badge(s.status).replace('class="badge ','class="badge dashboard-upcoming-paused '):badge(s.status))+'</td>';
-      if(!isViewer)row+='<td><div class="actions">'+(s.status==='active'?'<button class="btn btn-sm" onclick="chargeNow('+s.id+')">Charge</button>':'')+(s.status==='active'?'<button class="btn btn-sm btn-danger" onclick="openPauseModal('+s.id+')">Pause</button>':'')+(['paused','cancelled','canceled'].includes(String(s.status||'').toLowerCase())?'<button class="btn btn-sm" onclick="setSubStatus('+s.id+',\'active\')">Resume</button>':'')+'</div></td>';
+      if(canManageSubs)row+='<td><div class="actions">'+(s.status==='active'?'<button class="btn btn-sm" onclick="chargeNow('+s.id+')">Charge</button>':'')+(s.status==='active'?'<button class="btn btn-sm btn-danger" onclick="openPauseModal('+s.id+')">Pause</button>':'')+(['paused','cancelled','canceled'].includes(String(s.status||'').toLowerCase())?'<button class="btn btn-sm" onclick="setSubStatus('+s.id+',\'active\')">Resume</button>':'')+'</div></td>';
       return row+'</tr>';
     }).join('');
   }catch(e){}
@@ -8460,7 +8495,8 @@ async function loadAccounts(){
           }else{
             manageActions='<button class="btn btn-sm" onclick="debugStripeAccount('+a.id+')" title="View verification details">View details</button>';
           }
-          return '<tr style="'+rowBg+'"><td><strong style="font-size:13px;">'+a.name+'</strong></td><td class="mono" style="font-size:12px;color:var(--muted);">'+(a.key_preview||'—')+'</td><td>'+statusBadge+defaultBadge+'</td><td>'+verificationHtml+'</td><td><div class="actions">'+manageActions+'</div></td></tr>';
+          var actionClass=canManageStripeAccounts()?'actions':'actions readonly-allowed-actions';
+          return '<tr style="'+rowBg+'"><td><strong style="font-size:13px;">'+a.name+'</strong></td><td class="mono" style="font-size:12px;color:var(--muted);">'+(a.key_preview||'—')+'</td><td>'+statusBadge+defaultBadge+'</td><td>'+verificationHtml+'</td><td><div class="'+actionClass+'">'+manageActions+'</div></td></tr>';
         }).join('');
       }
     }
@@ -8513,24 +8549,51 @@ async function loadAdmins(){
   }catch(e){tb.innerHTML='<tr><td colspan="5" class="empty" style="color:var(--red);">Failed to load. <button class="btn btn-sm" onclick="loadAdmins()" style="margin-left:8px;">Retry</button></td></tr>';}
 }
 var ANALYST_DEFAULT_PERMS=['dashboard','customers','payments','forecast','summary','mrr','recovery'];
-var ANALYST_ASSIGNABLE_PERMS=ANALYST_DEFAULT_PERMS.concat(['accounts']);
-var CUSTOM_ASSIGNABLE_PERMS=['dashboard','customers','payments','forecast','summary','mrr','recovery','activity','subscriptions','links','accounts'];
+var SAFE_ASSIGNABLE_PERMS=['dashboard','activity','customers','subscriptions','payments','links','accounts','forecast','summary','mrr','recovery','webhooks'];
+var ANALYST_ASSIGNABLE_PERMS=SAFE_ASSIGNABLE_PERMS.slice();
+var CUSTOM_ASSIGNABLE_PERMS=SAFE_ASSIGNABLE_PERMS.slice();
 var PERM_LIST=[
   {value:'dashboard',label:'Dashboard',desc:'Overview statistics and revenue charts'},
   {value:'activity',label:'Activity Log',desc:'Full activity history'},
-  {value:'customers',label:'Customers',desc:'View customer payment results'},
-  {value:'subscriptions',label:'Subscriptions',desc:'Manage rebilling schedules'},
-  {value:'payments',label:'Payments',desc:'View payment history and statuses'},
-  {value:'links',label:'Payment Links',desc:'Create links for assigned Stripe accounts'},
-  {value:'accounts',label:'Stripe Accounts',desc:'View assigned Stripe accounts'},
+  {value:'customers',label:'Customers',desc:'Customer payment results'},
+  {value:'subscriptions',label:'Subscriptions',desc:'Rebilling schedules'},
+  {value:'payments',label:'Payments',desc:'Payment history and statuses'},
+  {value:'links',label:'Payment Links',desc:'Payment links for assigned accounts'},
+  {value:'accounts',label:'Stripe Accounts',desc:'Assigned Stripe account details'},
   {value:'forecast',label:'Revenue Forecast',desc:'Projected revenue for active subscriptions'},
   {value:'summary',label:'Daily Summary',desc:'Daily revenue and customer summary'},
   {value:'mrr',label:'Revenue Growth',desc:'Revenue performance over time'},
   {value:'recovery',label:'Payment Recovery',desc:'Failed payment recovery results'},
-  {value:'settings',label:'Settings',desc:'Dunning and app settings'},
-  {value:'security',label:'Security',desc:'Two-factor auth and login protection'},
-  {value:'webhooks',label:'Webhook Logs',desc:'Incoming Stripe webhook events'}
+  {value:'webhooks',label:'Webhook Logs',desc:'Stripe event history'}
 ];
+var VIEW_ONLY_PERMISSION_COPY={
+  dashboard:'View statistics and revenue charts',
+  activity:'View activity history',
+  customers:'View customer payment results',
+  subscriptions:'View rebilling schedules',
+  payments:'View payment history and statuses',
+  links:'View payment link templates',
+  accounts:'View assigned Stripe accounts',
+  forecast:'View projected revenue',
+  summary:'View daily revenue and customer summary',
+  mrr:'View revenue performance over time',
+  recovery:'View failed payment recovery results',
+  webhooks:'View Stripe event history'
+};
+var CUSTOM_PERMISSION_COPY={
+  dashboard:'View statistics for assigned accounts',
+  activity:'View activity for assigned accounts',
+  customers:'Manage customers for assigned accounts',
+  subscriptions:'Manage rebilling schedules',
+  payments:'Manage payments and notes',
+  links:'Create links for assigned Stripe accounts',
+  accounts:'View assigned Stripe accounts only',
+  forecast:'View projected revenue',
+  summary:'View daily revenue and customer summary',
+  mrr:'View revenue performance over time',
+  recovery:'View failed payment recovery results',
+  webhooks:'View Stripe event history'
+};
 function accessAccountLabel(name){
   return String(name||'').trim()||'Stripe account';
 }
@@ -8573,6 +8636,9 @@ function checkedAccountIds(prefix){return Array.prototype.map.call(document.quer
 function updateSelectedAccountCount(prefix){var el=document.getElementById(prefix+'-account-selected-count');if(el)el.textContent='Selected: '+checkedAccountIds(prefix).length;}
 function selectAllAccounts(prefix){document.querySelectorAll('#'+prefix+'-account-list .account-choice').forEach(function(card){if(card.style.display!=='none'){var cb=card.querySelector('input');if(cb)cb.checked=true;}});updateSelectedAccountCount(prefix);}
 function clearAllAccounts(prefix){document.querySelectorAll('#'+prefix+'-account-list input').forEach(function(cb){cb.checked=false;});updateSelectedAccountCount(prefix);}
+function permissionForRole(p, forAnalyst){
+  return {value:p.value,label:p.label,desc:(forAnalyst?VIEW_ONLY_PERMISSION_COPY:CUSTOM_PERMISSION_COPY)[p.value]||p.desc};
+}
 function createPermissionCard(p, checked){
   var row=document.createElement('label');row.className='permission-choice';
   var cb=document.createElement('input');cb.type='checkbox';cb.value=p.value;cb.checked=!!checked;
@@ -8580,7 +8646,8 @@ function createPermissionCard(p, checked){
   function sync(){row.classList.toggle('selected',cb.checked);}
   cb.addEventListener('change',sync);row.appendChild(cb);row.appendChild(info);sync();return row;
 }
-function buildPermsList(forAnalyst){var container=document.getElementById('perms-list');if(!container)return;container.innerHTML='';var allowed=forAnalyst?ANALYST_ASSIGNABLE_PERMS:CUSTOM_ASSIGNABLE_PERMS;var items=PERM_LIST.filter(function(p){return allowed.includes(p.value);});items.forEach(function(p){container.appendChild(createPermissionCard(p,false));});}
+function buildPermsList(forAnalyst){var container=document.getElementById('perms-list');if(!container)return;container.innerHTML='';var allowed=forAnalyst?ANALYST_ASSIGNABLE_PERMS:CUSTOM_ASSIGNABLE_PERMS;var items=PERM_LIST.filter(function(p){return allowed.includes(p.value);});items.forEach(function(p){container.appendChild(createPermissionCard(permissionForRole(p,forAnalyst),false));});}
+function setNewAdminPerms(values){document.querySelectorAll('#perms-list input[type=checkbox]').forEach(function(cb){cb.checked=(values||[]).includes(cb.value);cb.dispatchEvent(new Event('change'));});}
 function selectAllPerms(){document.querySelectorAll('#perms-list input[type=checkbox]').forEach(function(cb){cb.checked=true;cb.dispatchEvent(new Event('change'));});}
 function clearAllPerms(){document.querySelectorAll('#perms-list input[type=checkbox]').forEach(function(cb){cb.checked=false;cb.dispatchEvent(new Event('change'));});}
 var currentAdminDetailUserId=null;
@@ -8612,7 +8679,8 @@ async function openAdminDetails(id){
   var stripeAccess=adminDetailsText(adminStripeAccessLabels(user),', ');
   var visibleSections=adminDetailsText(adminSectionLabels(user),', ');
   document.getElementById('admin-details-hero').innerHTML='<div><div class="admin-profile-name-line"><div class="admin-profile-name">'+escHtml(user.username||'—')+'</div>'+roleBadge+'</div><div class="admin-profile-sub">User access profile</div></div>';
-  document.getElementById('admin-details-access').innerHTML='<div class="admin-access-line"><div class="admin-access-key">Stripe accounts</div><div class="admin-access-value">'+(stripeAccess||'—')+'</div></div><div class="admin-access-line"><div class="admin-access-key">Allowed sections</div><div class="admin-access-value">'+(visibleSections||'—')+'</div></div>';
+  var sectionsLabel=(user.role==='viewer'||user.role==='analyst')?'Visible sections':(user.role==='custom'?'Managed sections':'Sections');
+  document.getElementById('admin-details-access').innerHTML='<div class="admin-access-line"><div class="admin-access-key">Stripe accounts</div><div class="admin-access-value">'+(stripeAccess||'—')+'</div></div><div class="admin-access-line"><div class="admin-access-key">'+sectionsLabel+'</div><div class="admin-access-value">'+(visibleSections||'—')+'</div></div>';
   document.getElementById('admin-details-meta').innerHTML='<div class="admin-profile-meta-item"><span class="admin-profile-meta-label">Last login</span><div class="admin-profile-meta-value">'+escHtml(user.last_login?fmtTime(user.last_login):'Never')+'</div></div><div class="admin-profile-meta-item"><span class="admin-profile-meta-label">Created</span><div class="admin-profile-meta-value">'+escHtml(fmtDate(user.created_at))+'</div></div>';
   var canManageAccess=user.role!=='owner';
   var panel=document.getElementById('admin-reset-password-panel');
@@ -8648,16 +8716,25 @@ async function openAddAdminModal(){
   document.getElementById('admin-account-search').value='';
   setAccountScope('admin','selected');buildAccountChoices('admin',[]);toggleCustomPerms();openModal('add-admin-modal');
 }
+function setAccessEditorCopy(prefix,isAnalyst){
+  var title=document.getElementById(prefix+'-perms-title');
+  var sub=document.getElementById(prefix+'-perms-subtitle');
+  var accountSub=document.getElementById(prefix+'-account-access-subtitle');
+  if(title)title.textContent=isAnalyst?'Visible sections':'Managed sections';
+  if(sub)sub.textContent=isAnalyst?'Choose which sections this user can view':'Choose which sections this user can work with';
+  if(accountSub)accountSub.textContent=isAnalyst?'Choose which Stripe account data this user can view':'Limit management and results to selected Stripe accounts';
+}
 function toggleCustomPerms(){
   var role=document.getElementById('admin-role').value;var isAnalyst=role==='analyst';var scoped=role==='analyst'||role==='custom';
   document.getElementById('admin-account-access').style.display=scoped?'block':'none';document.getElementById('admin-analyst-note').style.display=isAnalyst?'block':'none';document.getElementById('custom-perms').style.display=scoped?'block':'none';
-  if(scoped){buildPermsList(isAnalyst);if(isAnalyst)selectAllPerms();toggleAdminAccountChoices();}
+  setAccessEditorCopy('admin',isAnalyst);
+  if(scoped){buildPermsList(isAnalyst);if(isAnalyst)setNewAdminPerms(ANALYST_DEFAULT_PERMS);toggleAdminAccountChoices();}
 }
 async function addAdmin(){
   var username=document.getElementById('admin-username').value.trim();var password=document.getElementById('admin-password').value;var role=document.getElementById('admin-role').value;
   if(!username||!password){toast('Fill in all fields','error');return;}if(password.length<8){toast('Password must be at least 8 characters','error');return;}
   var scoped=role==='analyst'||role==='custom';var permissions=[];
-  if(scoped){document.querySelectorAll('#perms-list input[type=checkbox]:checked').forEach(function(cb){permissions.push(cb.value);});if(!permissions.length){toast('Select at least one visible section','error');return;}}
+  if(scoped){document.querySelectorAll('#perms-list input[type=checkbox]:checked').forEach(function(cb){permissions.push(cb.value);});if(!permissions.length){toast(role==='custom'?'Select at least one managed section':'Select at least one visible section','error');return;}}
   var accountScope=scoped?document.getElementById('admin-account-scope').value:'all';var accountIds=accountScope==='selected'?checkedAccountIds('admin'):[];
   if(accountScope==='selected'&&!accountIds.length){toast('Select at least one Stripe account','error');return;}
   try{var r=await api('/api/admin-users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:username,password:password,role:role,permissions:permissions,account_scope:accountScope,allowed_account_ids:accountIds})});if(r.success){toast('✓ Admin added');closeModal('add-admin-modal');document.getElementById('admin-username').value='';document.getElementById('admin-password').value='';loadAdmins();}else toast('Error: '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}
@@ -8823,8 +8900,8 @@ async function saveEditAccount(){
 function toggleSettingsNav(){var sub=document.getElementById('settings-subnav');var chev=document.getElementById('settings-chevron');var open=sub.style.display==='none';sub.style.display=open?'block':'none';if(chev)chev.style.transform=open?'rotate(180deg)':'rotate(0deg)';}
 function expandSettingsIfNeeded(name){var settingsPages=['admins','settings','security','webhooks'];if(settingsPages.includes(name)){var sub=document.getElementById('settings-subnav');var chev=document.getElementById('settings-chevron');if(sub&&sub.style.display==='none'){sub.style.display='block';if(chev)chev.style.transform='rotate(180deg)';}}}
 function showRestrictedPage(name){var existing=document.getElementById('page-restricted');if(!existing){var div=document.createElement('div');div.id='page-restricted';div.className='page';document.querySelector('.main').appendChild(div);}var pg=document.getElementById('page-restricted');var username=localStorage.getItem('subloop_username')||'User';var role=getCurrentRole()||'viewer';pg.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;padding:40px 20px;"><div style="width:72px;height:72px;border-radius:18px;background:var(--surface2);border:1.5px solid var(--border2);display:flex;align-items:center;justify-content:center;margin-bottom:24px;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:8px;letter-spacing:-0.3px;">Access Restricted</div><div style="font-size:13px;color:var(--muted);font-family:var(--mono);max-width:320px;line-height:1.6;margin-bottom:24px;">You do not have permission to view this page. Contact your administrator to request access.</div><div style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:12px 20px;font-size:12px;color:var(--muted);font-family:var(--mono);">Logged in as: <strong style="color:var(--text);">'+username+'</strong> &nbsp;·&nbsp; Role: <strong style="color:var(--accent);">'+role+'</strong></div></div>';pg.classList.add('active');}
-function buildEditPermsList(forAnalyst){var container=document.getElementById('edit-perms-list');if(!container)return;container.innerHTML='';var allowed=forAnalyst?ANALYST_ASSIGNABLE_PERMS:CUSTOM_ASSIGNABLE_PERMS;var items=PERM_LIST.filter(function(p){return allowed.includes(p.value);});items.forEach(function(p){container.appendChild(createPermissionCard(p,false));});}
-function toggleEditCustomPerms(){var role=document.getElementById('edit-access-role').value;var isAnalyst=role==='analyst'||role==='viewer';var scoped=isAnalyst||role==='custom';document.getElementById('edit-account-access').style.display=scoped?'block':'none';document.getElementById('edit-custom-perms').style.display=scoped?'block':'none';document.getElementById('edit-analyst-note').style.display=isAnalyst?'block':'none';if(scoped){buildEditPermsList(isAnalyst);toggleEditAccountChoices();}}
+function buildEditPermsList(forAnalyst){var container=document.getElementById('edit-perms-list');if(!container)return;container.innerHTML='';var allowed=forAnalyst?ANALYST_ASSIGNABLE_PERMS:CUSTOM_ASSIGNABLE_PERMS;var items=PERM_LIST.filter(function(p){return allowed.includes(p.value);});items.forEach(function(p){container.appendChild(createPermissionCard(permissionForRole(p,forAnalyst),false));});}
+function toggleEditCustomPerms(){var role=document.getElementById('edit-access-role').value;var isAnalyst=role==='analyst'||role==='viewer';var scoped=isAnalyst||role==='custom';document.getElementById('edit-account-access').style.display=scoped?'block':'none';document.getElementById('edit-custom-perms').style.display=scoped?'block':'none';document.getElementById('edit-analyst-note').style.display=isAnalyst?'block':'none';setAccessEditorCopy('edit',isAnalyst);if(scoped){buildEditPermsList(isAnalyst);toggleEditAccountChoices();}}
 function selectAllEditPerms(){document.querySelectorAll('#edit-perms-list input[type=checkbox]').forEach(function(cb){cb.checked=true;cb.dispatchEvent(new Event('change'));});}
 function clearAllEditPerms(){document.querySelectorAll('#edit-perms-list input[type=checkbox]').forEach(function(cb){cb.checked=false;cb.dispatchEvent(new Event('change'));});}
 async function openEditAccess(id){
@@ -8835,7 +8912,7 @@ async function openEditAccess(id){
 }
 async function saveEditAccess(){
   var id=document.getElementById('edit-access-id').value;var role=document.getElementById('edit-access-role').value;var errEl=document.getElementById('edit-access-error');errEl.style.display='none';var scoped=role==='analyst'||role==='custom';var permissions=[];
-  if(scoped){document.querySelectorAll('#edit-perms-list input[type=checkbox]:checked').forEach(function(cb){permissions.push(cb.value);});if(!permissions.length){errEl.textContent='Select at least one visible section';errEl.style.display='block';return;}}
+  if(scoped){document.querySelectorAll('#edit-perms-list input[type=checkbox]:checked').forEach(function(cb){permissions.push(cb.value);});if(!permissions.length){errEl.textContent=role==='custom'?'Select at least one managed section':'Select at least one visible section';errEl.style.display='block';return;}}
   var accountScope=scoped?document.getElementById('edit-account-scope').value:'all';var accountIds=accountScope==='selected'?checkedAccountIds('edit'):[];
   if(accountScope==='selected'&&!accountIds.length){errEl.textContent='Select at least one Stripe account';errEl.style.display='block';return;}
   try{var r=await api('/api/admin-users/'+id+'/permissions',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:role,permissions:permissions,account_scope:accountScope,allowed_account_ids:accountIds})});if(r.success){toast('✓ Access updated');closeModal('edit-access-modal');loadAdmins();}else{errEl.textContent=r.error||'Failed to update';errEl.style.display='block';}}catch(e){errEl.textContent='Server error';errEl.style.display='block';}

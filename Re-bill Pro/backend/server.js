@@ -13,8 +13,10 @@ const crypto = require('crypto');
 // Set SUBLOOP_AUTH_SECRET in Railway for tokens that remain valid after a deploy/restart.
 const SUBLOOP_AUTH_SECRET = process.env.SUBLOOP_AUTH_SECRET || crypto.randomBytes(48).toString('hex');
 const ANALYST_DEFAULT_SECTIONS = ['dashboard','customers','payments','forecast','summary','mrr','recovery'];
-const ANALYST_ASSIGNABLE_SECTIONS = [...ANALYST_DEFAULT_SECTIONS, 'accounts'];
-const CUSTOM_ASSIGNABLE_SECTIONS = ['dashboard','customers','payments','forecast','summary','mrr','recovery','activity','subscriptions','links','accounts'];
+// View-only users may be assigned any non-administrative operating/reporting page, but cannot write.
+const ANALYST_ASSIGNABLE_SECTIONS = ['dashboard','activity','customers','subscriptions','payments','links','accounts','forecast','summary','mrr','recovery','webhooks'];
+// Custom users manage selected operating pages only; all operations remain constrained to their account scope.
+const CUSTOM_ASSIGNABLE_SECTIONS = ['dashboard','activity','customers','subscriptions','payments','links','accounts','forecast','summary','mrr','recovery','webhooks'];
 function b64url(value) { return Buffer.from(value).toString('base64url'); }
 function issueAdminToken(user, purpose='access', maxAgeMinutes=480) {
   const payload = { id: user.id, username: user.username, purpose, exp: Date.now() + (maxAgeMinutes * 60 * 1000) };
@@ -710,17 +712,29 @@ app.use('/api', async (req, res, next) => {
     const user = await adminUsers.byId(data.id);
     if (!user) return res.status(401).json({ error: 'Access has been revoked' });
     req.currentUser = user;
-    const sensitive = ['/admin-users', '/settings', '/security', '/run-rebills', '/debug'];
+    const sensitive = ['/admin-users', '/settings', '/security', '/debug'];
     if (sensitive.some(prefix => req.path.startsWith(prefix)) && !isOwnerOrAdmin(user)) {
       return res.status(403).json({ error: 'Owner or admin access required' });
     }
-    // Assigned users may view their permitted Stripe accounts, but only Owner/Admin can change Stripe accounts.
+    // Stripe connection management stays protected: scoped users may inspect assigned accounts only.
     if (req.path.startsWith('/stripe-accounts') && req.method !== 'GET' && !isOwnerOrAdmin(user)) {
       return res.status(403).json({ error: 'Owner or admin access required' });
     }
+    // A Custom user with Subscriptions management may run rebills, restricted below to assigned accounts.
+    if (req.path.startsWith('/run-rebills') && !isOwnerOrAdmin(user)) {
+      if (isReadOnlyUser(user)) return res.status(403).json({ error: 'View-only access' });
+      if (!(user.role === 'custom' && canUseSection(user, 'subscriptions'))) {
+        return res.status(403).json({ error: 'Subscriptions management access required' });
+      }
+    }
     const section = sectionForApiPath(req);
-    const readonlySupportingSubscriptionRead = section === 'subscriptions' && req.method === 'GET' && isReadOnlyUser(user) && (canUseSection(user, 'dashboard') || canUseSection(user, 'customers'));
-    if (section && !canUseSection(user, section) && !readonlySupportingSubscriptionRead) return res.status(403).json({ error: 'Access restricted' });
+    // Dashboard reads recent payments/subscriptions/activity; customer details read subscription status.
+    // These supporting reads grant no write actions and remain Stripe-account scoped.
+    const dashboardSupportingRead = req.method === 'GET' && canUseSection(user, 'dashboard') && ['subscriptions','payments','activity'].includes(section);
+    const customerSupportingRead = req.method === 'GET' && canUseSection(user, 'customers') && section === 'subscriptions';
+    if (section && !canUseSection(user, section) && !dashboardSupportingRead && !customerSupportingRead) {
+      return res.status(403).json({ error: 'Access restricted' });
+    }
     if (isReadOnlyUser(user) && req.method !== 'GET') return res.status(403).json({ error: 'View-only access' });
     next();
   } catch (err) { res.status(401).json({ error: 'Authentication required' }); }
@@ -1245,10 +1259,16 @@ app.delete('/api/plan-templates/:id', async (req, res) => { try { if (!isOwnerOr
 app.post('/api/run-rebills', async (req, res) => {
   try {
     const due = await subscriptions.due();
-    let charged = 0, failed = 0;
+    const eligible = [];
     for (const sub of due) {
+      const customer = await customers.byId(sub.customer_id);
+      if (customer && rowWithinScope(req, customer)) eligible.push({ sub, customer });
+    }
+    let charged = 0, failed = 0;
+    for (const item of eligible) {
+      const sub = item.sub;
+      const c = item.customer;
       try {
-        const c = await customers.byId(sub.customer_id);
         const acc = await stripeAccounts.byId(c.stripe_account_id);
         const stripe = require('stripe')(acc.secret_key);
         const pi = await stripe.paymentIntents.create({ amount: sub.amount, currency: sub.currency||'usd', customer: c.stripe_customer_id, payment_method: c.stripe_payment_method, confirm: true, off_session: true });
@@ -1264,7 +1284,7 @@ app.post('/api/run-rebills', async (req, res) => {
         }
       } catch(e) { failed++; }
     }
-    res.json({ success: true, charged, failed, total: due.length });
+    res.json({ success: true, charged, failed, total: eligible.length });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
