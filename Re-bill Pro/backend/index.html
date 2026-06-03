@@ -5317,6 +5317,24 @@ body.view-only-access .view-write-only{
   height:14px!important;
 }
 
+
+/* Admin Users: compact details popup */
+.admin-details-modal{width:560px!important;max-width:calc(100vw - 32px)!important;max-height:88vh!important;padding:0!important;overflow:hidden!important;}
+.admin-details-head{padding:21px 22px 16px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;border-bottom:1px solid var(--border);}
+.admin-details-head h3{margin:0 0 4px;}.admin-details-head p{margin:0;color:var(--muted);font-size:12px;}
+.admin-details-close{width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:9px;border:1px solid var(--border2);background:var(--surface2);color:var(--muted);cursor:pointer;flex:none;}
+.admin-details-close:hover{color:var(--text);border-color:var(--muted);}.admin-details-close svg{width:15px;height:15px;}
+.admin-details-body{padding:15px 22px 4px;overflow-y:auto;max-height:43vh;}
+.admin-detail-row{display:grid;grid-template-columns:142px minmax(0,1fr);align-items:start;gap:14px;min-height:40px;padding:10px 0;border-bottom:1px solid var(--border);}
+.admin-detail-label{color:var(--muted);font-size:12px;}.admin-detail-value{color:var(--text);font-size:12px;text-align:right;overflow-wrap:anywhere;}
+.admin-detail-list{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:5px;}.admin-detail-pill{padding:4px 8px;border:1px solid var(--border2);border-radius:7px;background:var(--surface2);color:var(--text);font-size:11px;}
+.admin-protected-pill{color:var(--muted);font-size:11px;border:1px solid var(--border2);border-radius:7px;padding:4px 8px;background:var(--surface2);}
+.admin-reset-password-panel{margin:14px 22px 0;padding:14px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);}
+.admin-reset-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px;}.admin-reset-subtitle{font-size:11px;color:var(--muted);margin-bottom:12px;}
+.admin-reset-password-panel .form-row{gap:9px;margin-bottom:0;}.admin-reset-password-panel .form-group{margin-bottom:11px;}
+.admin-detail-error{margin:0 0 11px;padding:9px 10px;border-radius:7px;border:1px solid var(--red);color:var(--red);background:var(--red-bg);font-size:11px;}
+.admin-details-footer{margin-top:14px!important;padding:13px 22px!important;border-top:1px solid var(--border);background:var(--surface);}
+
 </style>
 </head>
 <body>
@@ -5995,8 +6013,8 @@ body.view-only-access .view-write-only{
   </div>
   <div class="card">
     <div class="scrollable"><table>
-      <thead><tr><th>Username</th><th>Role</th><th>Stripe access</th><th>Last login</th><th>Created</th><th>Actions</th></tr></thead>
-      <tbody id="admins-table"><tr><td colspan="6" class="empty">Loading...</td></tr></tbody>
+      <thead><tr><th>Username</th><th>Role</th><th>Last login</th><th>Created</th><th>Actions</th></tr></thead>
+      <tbody id="admins-table"><tr><td colspan="5" class="empty">Loading...</td></tr></tbody>
     </table></div>
   </div>
   <div class="card" style="max-width:600px;">
@@ -6194,6 +6212,24 @@ body.view-only-access .view-write-only{
     </div>
   </div>
 </div>
+<div class="modal-bg" id="admin-details-modal">
+  <div class="modal admin-details-modal">
+    <div class="admin-details-head">
+      <div><h3>User details</h3><p>Access and security information for this user</p></div>
+      <button class="admin-details-close" onclick="closeModal('admin-details-modal')" aria-label="Close user details"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button>
+    </div>
+    <div id="admin-details-body" class="admin-details-body"></div>
+    <div id="admin-reset-password-panel" class="admin-reset-password-panel" style="display:none;">
+      <div class="admin-reset-title">Reset password</div>
+      <div class="admin-reset-subtitle">Set a new password. The existing password is never displayed.</div>
+      <div class="form-row"><div class="form-group"><label>New password</label><input type="password" id="admin-detail-new-password" placeholder="Min 8 characters" autocomplete="new-password"></div><div class="form-group"><label>Confirm password</label><input type="password" id="admin-detail-confirm-password" placeholder="Confirm password" autocomplete="new-password"></div></div>
+      <div id="admin-detail-password-error" class="admin-detail-error" style="display:none;"></div>
+      <button class="btn btn-primary" onclick="resetAdminPasswordFromDetails()">Reset password</button>
+    </div>
+    <div class="modal-footer admin-details-footer"><button class="btn" onclick="closeModal('admin-details-modal')">Close</button></div>
+  </div>
+</div>
+
 <div class="modal-bg" id="verification-debug-modal">
   <div class="modal" style="width:760px;max-width:96vw;max-height:88vh;overflow:auto;">
     <h3>Stripe Account Check</h3>
@@ -8077,24 +8113,20 @@ function openInvoiceModal(customerId){document.getElementById('invoice-modal-cus
 async function sendInvoiceFromModal(){const customerId=document.getElementById('invoice-modal-customer-id').value;const amount=Math.round(parseFloat(document.getElementById('invoice-modal-amount').value)*100);const desc=document.getElementById('invoice-modal-desc').value;const result=document.getElementById('invoice-modal-result');if(!amount||amount<50){toast('Minimum $0.50','error');return;}try{const r=await api('/api/customers/'+customerId+'/charge-once',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount,description:desc})});result.style.display='block';if(r.success){result.style.cssText='background:var(--green-bg);color:var(--green);border:1px solid var(--green);padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);';result.textContent='✓ Charged successfully!';toast('✓ Invoice sent');}else{result.style.cssText='background:var(--red-bg);color:var(--red);border:1px solid var(--red);padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);';result.textContent='✗ '+(r.error||'Failed');toast('Failed','error');}}catch(e){toast('Error','error');}}
 async function loadAdmins(){
   var tb=document.getElementById('admins-table');if(!tb)return;
-  tb.innerHTML='<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--muted);font-size:13px;font-family:var(--mono);">Loading...</td></tr>';
+  tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:28px;color:var(--muted);font-size:13px;font-family:var(--mono);">Loading...</td></tr>';
   try{
     var list=await api('/api/admin-users');allAdminUsers=list||[];
     await loadAccessStripeAccounts();
-    if(!list||!list.length){tb.innerHTML='<tr><td colspan="6" class="empty">No admin users yet</td></tr>';return;}
+    if(!list||!list.length){tb.innerHTML='<tr><td colspan="5" class="empty">No admin users yet</td></tr>';return;}
     tb.innerHTML=list.map(function(a){
       var roleClasses={owner:'admin-role-owner',admin:'admin-role-admin',viewer:'admin-role-analyst',analyst:'admin-role-analyst',custom:'admin-role-custom'};
       var roleLabels={owner:'Owner',admin:'Admin',viewer:'Analyst — View only',analyst:'Analyst — View only',custom:'Custom'};
       var roleBadge='<span class="badge admin-role-chip '+(roleClasses[a.role]||'admin-role-admin')+'">'+(roleLabels[a.role]||a.role)+'</span>';
-      var accountAccess='All Stripe accounts';
-      if(a.account_scope==='selected'){
-        var names=(a.allowed_account_ids||[]).map(function(id){var account=(allStripeAccounts||[]).find(function(x){return Number(x.id)===Number(id);});return account?accessAccountLabel(account.name):'Account #'+id;});
-        accountAccess=names.length===1?names[0]+' only':names.length>1?names[0]+' +'+(names.length-1)+' more':'No assigned accounts';
-      }
-      var actions=a.role!=='owner'?'<button class="btn btn-sm" onclick="openEditAccess('+a.id+')">Edit access</button><button class="btn btn-sm btn-danger" onclick="deleteAdmin('+a.id+')">Remove</button>':'';
-      return '<tr><td><strong style="font-size:13px;">'+a.username+'</strong></td><td>'+roleBadge+'</td><td><span class="admin-scope-chip">'+accountAccess+'</span></td><td class="mono" style="font-size:12px;color:var(--muted);">'+(a.last_login?fmtTime(a.last_login):'Never')+'</td><td class="mono" style="font-size:12px;color:var(--muted);">'+fmtDate(a.created_at)+'</td><td><div class="actions">'+actions+'</div></td></tr>';
+      var details='<button class="btn btn-sm" onclick="openAdminDetails('+a.id+')">Details</button>';
+      var management=a.role!=='owner'?'<button class="btn btn-sm" onclick="openEditAccess('+a.id+')">Edit access</button><button class="btn btn-sm btn-danger" onclick="deleteAdmin('+a.id+')">Remove</button>':'';
+      return '<tr><td><strong style="font-size:13px;">'+escHtml(a.username||'—')+'</strong></td><td>'+roleBadge+'</td><td class="mono" style="font-size:12px;color:var(--muted);">'+(a.last_login?fmtTime(a.last_login):'Never')+'</td><td class="mono" style="font-size:12px;color:var(--muted);">'+fmtDate(a.created_at)+'</td><td><div class="actions">'+details+management+'</div></td></tr>';
     }).join('');
-  }catch(e){tb.innerHTML='<tr><td colspan="6" class="empty" style="color:var(--red);">Failed to load. <button class="btn btn-sm" onclick="loadAdmins()" style="margin-left:8px;">Retry</button></td></tr>';}
+  }catch(e){tb.innerHTML='<tr><td colspan="5" class="empty" style="color:var(--red);">Failed to load. <button class="btn btn-sm" onclick="loadAdmins()" style="margin-left:8px;">Retry</button></td></tr>';}
 }
 var ANALYST_DEFAULT_PERMS=['dashboard','customers','payments','forecast','summary','mrr','recovery'];
 var CUSTOM_ASSIGNABLE_PERMS=['dashboard','customers','payments','forecast','summary','mrr','recovery','activity','subscriptions','links'];
@@ -8166,6 +8198,14 @@ function createPermissionCard(p, checked){
 function buildPermsList(forAnalyst){var container=document.getElementById('perms-list');if(!container)return;container.innerHTML='';var allowed=forAnalyst?ANALYST_DEFAULT_PERMS:CUSTOM_ASSIGNABLE_PERMS;var items=PERM_LIST.filter(function(p){return allowed.includes(p.value);});items.forEach(function(p){container.appendChild(createPermissionCard(p,false));});}
 function selectAllPerms(){document.querySelectorAll('#perms-list input[type=checkbox]').forEach(function(cb){cb.checked=true;cb.dispatchEvent(new Event('change'));});}
 function clearAllPerms(){document.querySelectorAll('#perms-list input[type=checkbox]').forEach(function(cb){cb.checked=false;cb.dispatchEvent(new Event('change'));});}
+var currentAdminDetailUserId=null;
+function adminRoleLabel(role){return ({owner:'Owner',admin:'Admin',viewer:'Analyst — View only',analyst:'Analyst — View only',custom:'Custom'})[role]||String(role||'—');}
+function adminSectionLabels(user){if(user.role==='owner'||user.role==='admin')return ['All sections'];var perms=(user.permissions||[]).slice();if((user.role==='viewer'||user.role==='analyst')&&!perms.length)perms=ANALYST_DEFAULT_PERMS.slice();return perms.map(function(k){var item=PERM_LIST.find(function(p){return p.value===k;});return item?item.label:k;});}
+function adminStripeAccessLabels(user){if(user.account_scope!=='selected')return ['All Stripe accounts'];var labels=(user.allowed_account_ids||[]).map(function(id){var a=(allStripeAccounts||[]).find(function(x){return Number(x.id)===Number(id);});return a?accessAccountLabel(a.name):'Account #'+id;});return labels.length?labels:['No assigned accounts'];}
+function adminDetailPills(values){return '<div class="admin-detail-list">'+values.map(function(v){return '<span class="admin-detail-pill">'+escHtml(String(v))+'</span>';}).join('')+'</div>';}
+async function openAdminDetails(id){var user=(allAdminUsers||[]).find(function(a){return Number(a.id)===Number(id);});if(!user)return;await loadAccessStripeAccounts();currentAdminDetailUserId=user.id;var roleClasses={owner:'admin-role-owner',admin:'admin-role-admin',viewer:'admin-role-analyst',analyst:'admin-role-analyst',custom:'admin-role-custom'};var roleBadge='<span class="badge admin-role-chip '+(roleClasses[user.role]||'admin-role-admin')+'">'+escHtml(adminRoleLabel(user.role))+'</span>';var body='';body+='<div class="admin-detail-row"><div class="admin-detail-label">Username</div><div class="admin-detail-value"><strong>'+escHtml(user.username||'—')+'</strong></div></div>';body+='<div class="admin-detail-row"><div class="admin-detail-label">Role</div><div class="admin-detail-value">'+roleBadge+'</div></div>';body+='<div class="admin-detail-row"><div class="admin-detail-label">Stripe access</div><div class="admin-detail-value">'+adminDetailPills(adminStripeAccessLabels(user))+'</div></div>';body+='<div class="admin-detail-row"><div class="admin-detail-label">Visible sections</div><div class="admin-detail-value">'+adminDetailPills(adminSectionLabels(user))+'</div></div>';body+='<div class="admin-detail-row"><div class="admin-detail-label">Password</div><div class="admin-detail-value"><span class="admin-protected-pill">Protected</span></div></div>';body+='<div class="admin-detail-row"><div class="admin-detail-label">Last login</div><div class="admin-detail-value mono">'+escHtml(user.last_login?fmtTime(user.last_login):'Never')+'</div></div>';body+='<div class="admin-detail-row"><div class="admin-detail-label">Created</div><div class="admin-detail-value mono">'+escHtml(fmtDate(user.created_at))+'</div></div>';document.getElementById('admin-details-body').innerHTML=body;var panel=document.getElementById('admin-reset-password-panel');panel.style.display=user.role==='owner'?'none':'block';document.getElementById('admin-detail-new-password').value='';document.getElementById('admin-detail-confirm-password').value='';document.getElementById('admin-detail-password-error').style.display='none';openModal('admin-details-modal');}
+async function resetAdminPasswordFromDetails(){if(!currentAdminDetailUserId)return;var password=document.getElementById('admin-detail-new-password').value;var confirm=document.getElementById('admin-detail-confirm-password').value;var err=document.getElementById('admin-detail-password-error');err.style.display='none';if(!password||password.length<8){err.textContent='Password must be at least 8 characters';err.style.display='block';return;}if(password!==confirm){err.textContent='Passwords do not match';err.style.display='block';return;}try{var r=await api('/api/admin-users/'+currentAdminDetailUserId+'/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:password})});if(r.success){toast('✓ Password reset');document.getElementById('admin-detail-new-password').value='';document.getElementById('admin-detail-confirm-password').value='';return;}err.textContent=r.error||'Failed to reset password';err.style.display='block';}catch(e){err.textContent='Server error';err.style.display='block';}}
+
 async function openAddAdminModal(){
   await loadAccessStripeAccounts();
   document.getElementById('admin-role').value='admin';
