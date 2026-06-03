@@ -5304,6 +5304,19 @@ body.view-only-access .view-write-only{
   display:none!important;
 }
 
+
+/* Admin Access V3.4: status icons remain informational and visible for read-only users */
+#payment-detail-modal .pd-title-icon svg{
+  display:block!important;
+  width:100%!important;
+  height:100%!important;
+}
+#payment-detail-modal .pd-meta-label .pd-title-icon svg{
+  display:block!important;
+  width:14px!important;
+  height:14px!important;
+}
+
 </style>
 </head>
 <body>
@@ -6424,6 +6437,28 @@ function badgeLabel(s){
 }
 
 function badgeIcon(s){
+  const raw = String(s || '').toLowerCase();
+
+  if (raw.includes('success') || raw.includes('succeeded') || raw === 'active' || raw === 'ok' || raw === 'paid') {
+    return '<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.4 8.2l2.45 2.45L12.6 4.8" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  }
+
+  if (raw.includes('fail') || raw.includes('declin') || raw.includes('cancel')) {
+    return '<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M5 5l6 6M11 5l-6 6" stroke="currentColor" stroke-linecap="round"/></svg>';
+  }
+
+  if (raw.includes('pause')) {
+    return '<svg class="status-mini-icon paused-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 4.5v7M10 4.5v7" stroke="currentColor" stroke-linecap="round"/></svg>';
+  }
+
+  if (raw.includes('refund')) {
+    return '<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6.5 4.2L3.6 7.1l2.9 2.9" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.1 7.1h5.1a3.05 3.05 0 010 6.1H7.7" stroke="currentColor" stroke-linecap="round"/></svg>';
+  }
+
+  if (raw.includes('require') || raw.includes('pending') || raw.includes('processing') || raw.includes('method') || raw.includes('action')) {
+    return '<svg class="status-mini-icon payment-needed-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="2.6" y="4.2" width="10.8" height="7.6" rx="1.8" stroke="currentColor"/><path d="M3.3 6.5h9.4" stroke="currentColor" stroke-linecap="round"/><path d="M5 9.6h2.5" stroke="currentColor" stroke-linecap="round"/></svg>';
+  }
+
   return '';
 }
 
