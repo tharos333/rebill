@@ -2060,8 +2060,22 @@ html.light .badge.badge-amber{
 .pd-customer-main{min-width:0}
 .pd-customer-name{font-size:13px;font-weight:650;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pd-customer-email{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.pd-copy-mini{margin-left:6px;border:0;background:transparent;color:var(--muted);cursor:pointer;vertical-align:middle;padding:1px}
-.pd-copy-mini:hover{color:var(--text)}
+.pd-copy-mini{
+  flex:0 0 auto!important;
+  width:16px!important;
+  height:16px!important;
+  margin-left:6px!important;
+  padding:0!important;
+  border:0!important;
+  background:transparent!important;
+  color:var(--muted)!important;
+  cursor:pointer!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  vertical-align:middle!important;
+}
+.pd-copy-mini:hover{color:var(--text)!important;}
 .pd-note-link{color:var(--accent);font-weight:600;cursor:pointer}
 .pd-retry-btn{margin-top:14px}
 html.light .pd-stripe-drawer.payment-detail-shell{background:#fff;border-left-color:rgba(0,0,0,.10)}
@@ -2123,8 +2137,22 @@ html.light .pd-stripe-drawer .pd-hero-amount.failed{color:var(--red)}
 .pd-simple-customer-main{min-width:0}
 .pd-simple-customer-name{font-size:13px;font-weight:650;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pd-simple-customer-email{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.pd-copy-mini{margin-left:6px;border:0;background:transparent;color:var(--muted);cursor:pointer;vertical-align:middle;padding:1px}
-.pd-copy-mini:hover{color:var(--text)}
+.pd-copy-mini{
+  flex:0 0 auto!important;
+  width:16px!important;
+  height:16px!important;
+  margin-left:6px!important;
+  padding:0!important;
+  border:0!important;
+  background:transparent!important;
+  color:var(--muted)!important;
+  cursor:pointer!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  vertical-align:middle!important;
+}
+.pd-copy-mini:hover{color:var(--text)!important;}
 .pd-note-link{color:var(--accent);font-weight:600;cursor:pointer}
 html.light .pd-simple-drawer.payment-detail-shell{background:#fff;border-left-color:rgba(0,0,0,.10)}
 html.light .pd-simple-summary{background:#fafafa;border-color:rgba(0,0,0,.10)}
@@ -5537,6 +5565,110 @@ body.view-only-access .view-write-only{
   gap:8px!important;
 }
 
+
+/* Admin Access V3.20: compact Edit access modal matching Add admin user */
+#edit-access-modal .admin-access-modal{
+  width:710px!important;
+  max-width:calc(100vw - 32px)!important;
+  max-height:min(86vh,760px)!important;
+  border-radius:14px!important;
+}
+#edit-access-modal .admin-access-head{
+  padding:21px 22px 17px!important;
+  border-bottom:1px solid rgba(145,145,163,.12);
+}
+#edit-access-modal .admin-access-head h3{
+  margin:0 0 4px!important;
+  font-size:16px!important;
+}
+#edit-access-modal .admin-access-head p{
+  margin:0!important;
+  font-size:12px!important;
+  color:var(--muted)!important;
+}
+#edit-access-modal .admin-access-body{
+  padding:16px 22px 12px!important;
+}
+#edit-access-modal .form-group{
+  margin-bottom:12px!important;
+}
+#edit-access-modal .access-panel,
+#edit-access-modal .access-section{
+  margin:3px 0 12px!important;
+  padding:13px!important;
+  border-radius:10px!important;
+  background:rgba(255,255,255,.018)!important;
+  border-color:rgba(145,145,163,.16)!important;
+}
+#edit-access-modal .access-section-header{
+  margin-bottom:9px!important;
+}
+#edit-access-modal .access-section-title{
+  font-size:12px!important;
+}
+#edit-access-modal .access-section-subtitle{
+  font-size:10.5px!important;
+}
+#edit-access-modal .scope-options{
+  gap:7px!important;
+  margin:10px 0!important;
+}
+#edit-access-modal .scope-option{
+  padding:9px 11px!important;
+  border-radius:8px!important;
+}
+#edit-access-modal .scope-all-message{
+  padding:10px 11px!important;
+  border-radius:8px!important;
+  font-size:11.5px!important;
+}
+#edit-access-modal .account-tools{
+  margin:0 0 8px!important;
+  gap:6px!important;
+}
+#edit-access-modal .access-search-wrap input{
+  height:32px!important;
+}
+#edit-access-modal .account-choice-grid{
+  gap:5px!important;
+  max-height:143px!important;
+  padding:1px 3px 1px 1px!important;
+}
+#edit-access-modal .account-choice{
+  padding:7px 10px!important;
+  border-radius:7px!important;
+  font-size:11.5px!important;
+  min-height:32px!important;
+  background:transparent!important;
+}
+#edit-access-modal .permission-choice-grid{
+  gap:5px!important;
+}
+#edit-access-modal .permission-choice{
+  padding:8px 10px!important;
+  gap:9px!important;
+  border-radius:8px!important;
+  background:transparent!important;
+}
+#edit-access-modal .permission-title{
+  font-size:11.5px!important;
+}
+#edit-access-modal .permission-desc{
+  font-size:9.8px!important;
+  margin-top:2px!important;
+}
+#edit-access-modal .analyst-note{
+  margin-top:10px!important;
+  padding:9px 11px!important;
+  font-size:11px!important;
+}
+#edit-access-modal .admin-access-footer{
+  padding:12px 22px!important;
+  border-top-color:rgba(145,145,163,.12)!important;
+  gap:8px!important;
+}
+
+
 </style>
 </head>
 <body>
@@ -7819,7 +7951,7 @@ function renderPaymentDetailModal(p, syncing){
   function copyIcon(v){
     var safe=escHtml(String(v||'')).replace(/'/g,'&#39;');
     if(isViewer||!v||v==='—')return '';
-    return '<button class="pd-copy-mini" title="Copy" onclick="copyPdValue(\''+safe+'\')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2 2v1"/></svg></button>';
+    return '<button class="pd-copy-mini" title="Copy" onclick="copyPdValue(\''+safe+'\')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
   }
   var h='';
   h+='<div class="payment-detail-shell pd-polished-drawer"><div class="payment-detail-top"><button class="payment-detail-close" onclick="closeModal(\'payment-detail-modal\')" aria-label="Close payment details"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button></div><div class="payment-detail-scroll">';
