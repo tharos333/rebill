@@ -5327,11 +5327,18 @@ body.view-only-access .view-write-only{
   overflow:hidden!important;
 }
 .admin-profile-head{
-  padding:22px 24px 20px;
+  padding:18px 18px 20px 24px;
   display:flex;
   justify-content:space-between;
   align-items:flex-start;
   gap:16px;
+}
+.admin-profile-close{
+  width:38px!important;
+  height:38px!important;
+  min-width:38px!important;
+  min-height:38px!important;
+  flex:none;
 }
 .admin-profile-identity{
   display:flex;
@@ -5416,8 +5423,20 @@ body.view-only-access .view-write-only{
   color:var(--red);background:var(--red-bg);font-size:11px;
 }
 .admin-details-footer{
-  margin-top:20px!important;padding:13px 24px!important;
-  border-top:1px solid rgba(145,145,163,.13)!important;background:var(--surface);
+  margin-top:20px!important;
+  padding:13px 24px!important;
+  border-top:1px solid rgba(145,145,163,.13)!important;
+  background:var(--surface);
+  justify-content:flex-start!important;
+}
+.admin-details-remove-btn{
+  border-color:rgba(255,84,92,.34)!important;
+  color:var(--red)!important;
+  background:rgba(255,84,92,.08)!important;
+}
+.admin-details-remove-btn:hover{
+  border-color:rgba(255,84,92,.52)!important;
+  background:rgba(255,84,92,.13)!important;
 }
 
 </style>
@@ -6301,6 +6320,7 @@ body.view-only-access .view-write-only{
   <div class="modal admin-details-modal">
     <div class="admin-profile-head">
       <div id="admin-details-hero" class="admin-profile-identity"></div>
+      <button class="payment-detail-close admin-profile-close" onclick="closeModal('admin-details-modal')" aria-label="Close user details">×</button>
     </div>
     <div class="admin-profile-content">
       <div class="admin-profile-section">
@@ -6324,7 +6344,9 @@ body.view-only-access .view-write-only{
         </div>
       </div>
     </div>
-    <div class="modal-footer admin-details-footer"><button class="btn" onclick="closeModal('admin-details-modal')">Close</button></div>
+    <div id="admin-details-footer" class="modal-footer admin-details-footer" style="display:none;">
+      <button id="admin-remove-access-btn" class="btn admin-details-remove-btn" onclick="removeAdminAccessFromDetails()">Remove access</button>
+    </div>
   </div>
 </div>
 
@@ -8327,10 +8349,31 @@ async function openAdminDetails(id){
   document.getElementById('admin-details-hero').innerHTML='<div><div class="admin-profile-name-line"><div class="admin-profile-name">'+escHtml(user.username||'—')+'</div>'+roleBadge+'</div><div class="admin-profile-sub">User access profile</div></div>';
   document.getElementById('admin-details-access').innerHTML='<div class="admin-access-line"><div class="admin-access-key">Stripe accounts</div><div class="admin-access-value">'+(stripeAccess||'—')+'</div></div><div class="admin-access-line"><div class="admin-access-key">Allowed sections</div><div class="admin-access-value">'+(visibleSections||'—')+'</div></div>';
   document.getElementById('admin-details-meta').innerHTML='<div class="admin-profile-meta-item"><span class="admin-profile-meta-label">Last login</span><div class="admin-profile-meta-value">'+escHtml(user.last_login?fmtTime(user.last_login):'Never')+'</div></div><div class="admin-profile-meta-item"><span class="admin-profile-meta-label">Created</span><div class="admin-profile-meta-value">'+escHtml(fmtDate(user.created_at))+'</div></div>';
+  var canManageAccess=user.role!=='owner';
   var panel=document.getElementById('admin-reset-password-panel');
-  panel.style.display=user.role==='owner'?'none':'block';
+  var footer=document.getElementById('admin-details-footer');
+  panel.style.display=canManageAccess?'block':'none';
+  footer.style.display=canManageAccess?'flex':'none';
   toggleAdminPasswordReset(false);
   openModal('admin-details-modal');
+}
+async function removeAdminAccessFromDetails(){
+  var user=(allAdminUsers||[]).find(function(a){return Number(a.id)===Number(currentAdminDetailUserId);});
+  if(!user||user.role==='owner')return;
+  var message='Remove access for '+(user.username||'this user')+'?\n\nThis user will no longer be able to log in or access assigned Stripe accounts.';
+  if(!confirm(message))return;
+  try{
+    var result=await api('/api/admin-users/'+user.id,{method:'DELETE'});
+    if(result.success){
+      closeModal('admin-details-modal');
+      toast('✓ Access removed');
+      loadAdmins();
+    }else{
+      toast('Error: '+(result.error||'Failed'),'error');
+    }
+  }catch(e){
+    toast('Error','error');
+  }
 }
 async function resetAdminPasswordFromDetails(){if(!currentAdminDetailUserId)return;var password=document.getElementById('admin-detail-new-password').value;var confirm=document.getElementById('admin-detail-confirm-password').value;var err=document.getElementById('admin-detail-password-error');err.style.display='none';if(!password||password.length<8){err.textContent='Password must be at least 8 characters';err.style.display='block';return;}if(password!==confirm){err.textContent='Passwords do not match';err.style.display='block';return;}try{var r=await api('/api/admin-users/'+currentAdminDetailUserId+'/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:password})});if(r.success){toast('✓ Password reset');toggleAdminPasswordReset(false);return;}err.textContent=r.error||'Failed to reset password';err.style.display='block';}catch(e){err.textContent='Server error';err.style.display='block';}}
 
