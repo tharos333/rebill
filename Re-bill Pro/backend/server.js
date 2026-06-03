@@ -13,7 +13,8 @@ const crypto = require('crypto');
 // Set SUBLOOP_AUTH_SECRET in Railway for tokens that remain valid after a deploy/restart.
 const SUBLOOP_AUTH_SECRET = process.env.SUBLOOP_AUTH_SECRET || crypto.randomBytes(48).toString('hex');
 const ANALYST_DEFAULT_SECTIONS = ['dashboard','customers','payments','forecast','summary','mrr','recovery'];
-const CUSTOM_ASSIGNABLE_SECTIONS = ['dashboard','customers','payments','forecast','summary','mrr','recovery','activity','subscriptions','links'];
+const ANALYST_ASSIGNABLE_SECTIONS = [...ANALYST_DEFAULT_SECTIONS, 'accounts'];
+const CUSTOM_ASSIGNABLE_SECTIONS = ['dashboard','customers','payments','forecast','summary','mrr','recovery','activity','subscriptions','links','accounts'];
 function b64url(value) { return Buffer.from(value).toString('base64url'); }
 function issueAdminToken(user, purpose='access', maxAgeMinutes=480) {
   const payload = { id: user.id, username: user.username, purpose, exp: Date.now() + (maxAgeMinutes * 60 * 1000) };
@@ -44,7 +45,7 @@ function isOwnerOrAdmin(user) { return !!user && (user.role === 'owner' || user.
 function isReadOnlyUser(user) { return !!user && (user.role === 'analyst' || user.role === 'viewer'); }
 function sanitizeSections(role, permissions) {
   const list = Array.isArray(permissions) ? [...new Set(permissions.map(String))] : [];
-  if (role === 'analyst' || role === 'viewer') return list.filter(section => ANALYST_DEFAULT_SECTIONS.includes(section));
+  if (role === 'analyst' || role === 'viewer') return list.filter(section => ANALYST_ASSIGNABLE_SECTIONS.includes(section));
   if (role === 'custom') return list.filter(section => CUSTOM_ASSIGNABLE_SECTIONS.includes(section));
   return [];
 }
@@ -709,8 +710,12 @@ app.use('/api', async (req, res, next) => {
     const user = await adminUsers.byId(data.id);
     if (!user) return res.status(401).json({ error: 'Access has been revoked' });
     req.currentUser = user;
-    const sensitive = ['/admin-users', '/settings', '/security', '/run-rebills', '/debug', '/stripe-accounts'];
+    const sensitive = ['/admin-users', '/settings', '/security', '/run-rebills', '/debug'];
     if (sensitive.some(prefix => req.path.startsWith(prefix)) && !isOwnerOrAdmin(user)) {
+      return res.status(403).json({ error: 'Owner or admin access required' });
+    }
+    // Assigned users may view their permitted Stripe accounts, but only Owner/Admin can change Stripe accounts.
+    if (req.path.startsWith('/stripe-accounts') && req.method !== 'GET' && !isOwnerOrAdmin(user)) {
       return res.status(403).json({ error: 'Owner or admin access required' });
     }
     const section = sectionForApiPath(req);

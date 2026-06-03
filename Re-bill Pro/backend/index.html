@@ -8404,9 +8404,13 @@ function visibleStripeAccountsForCurrentUser(list){
   var allowed=currentAllowedStripeAccountIds();
   return (list||[]).filter(function(account){return allowed.includes(Number(account.id));});
 }
+function canManageStripeAccounts(){
+  var role=getCurrentRole();
+  return role==='owner'||role==='admin';
+}
 function applyStripeAccountsPageScopeUI(){
   var addBtn=document.getElementById('stripe-add-account-btn');
-  if(addBtn)addBtn.style.display=usesSelectedStripeScope()?'none':'inline-flex';
+  if(addBtn)addBtn.style.display=canManageStripeAccounts()?'inline-flex':'none';
 }
 
 async function loadAccounts(){
@@ -8449,8 +8453,14 @@ async function loadAccounts(){
           } else {
             verificationHtml='<span style="color:var(--muted);font-size:12px;font-family:var(--mono);">'+(reason||'—')+'</span>';
           }
-          var setDefBtn=!a.is_default?'<button class="btn btn-sm" onclick="setDefaultAccount('+a.id+')">Set Default</button>':'';
-          return '<tr style="'+rowBg+'"><td><strong style="font-size:13px;">'+a.name+'</strong></td><td class="mono" style="font-size:12px;color:var(--muted);">'+(a.key_preview||'—')+'</td><td>'+statusBadge+defaultBadge+'</td><td>'+verificationHtml+'</td><td><div class="actions">'+setDefBtn+'<button class="btn btn-sm" onclick="debugStripeAccount('+a.id+')" title="Check verification details">Check</button><button class="btn btn-sm" onclick="openEditAcc('+a.id+')">Edit</button><button class="btn btn-sm btn-danger" onclick="deleteAccount('+a.id+')">Delete</button></div></td></tr>';
+          var manageActions='';
+          if(canManageStripeAccounts()){
+            var setDefBtn=!a.is_default?'<button class="btn btn-sm" onclick="setDefaultAccount('+a.id+')">Set Default</button>':'';
+            manageActions=setDefBtn+'<button class="btn btn-sm" onclick="debugStripeAccount('+a.id+')" title="Check verification details">Check</button><button class="btn btn-sm" onclick="openEditAcc('+a.id+')">Edit</button><button class="btn btn-sm btn-danger" onclick="deleteAccount('+a.id+')">Delete</button>';
+          }else{
+            manageActions='<button class="btn btn-sm" onclick="debugStripeAccount('+a.id+')" title="View verification details">View details</button>';
+          }
+          return '<tr style="'+rowBg+'"><td><strong style="font-size:13px;">'+a.name+'</strong></td><td class="mono" style="font-size:12px;color:var(--muted);">'+(a.key_preview||'—')+'</td><td>'+statusBadge+defaultBadge+'</td><td>'+verificationHtml+'</td><td><div class="actions">'+manageActions+'</div></td></tr>';
         }).join('');
       }
     }
