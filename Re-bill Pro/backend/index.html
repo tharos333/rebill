@@ -5336,26 +5336,11 @@ body.view-only-access .view-write-only{
 .admin-profile-identity{
   display:flex;
   align-items:center;
-  gap:14px;
   min-width:0;
-}
-.admin-profile-avatar{
-  width:46px;height:46px;border-radius:14px;
-  display:flex;align-items:center;justify-content:center;flex:none;
-  font-size:18px;font-weight:600;color:#fff;
-  background:linear-gradient(145deg,#6c5cff,#4e43c9);
-  box-shadow:0 0 0 1px rgba(255,255,255,.06) inset;
 }
 .admin-profile-name-line{display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin-bottom:4px;}
 .admin-profile-name{color:var(--text);font-size:17px;font-weight:600;line-height:22px;}
 .admin-profile-sub{color:var(--muted);font-size:12px;line-height:18px;}
-.admin-details-close{
-  width:32px;height:32px;display:flex;align-items:center;justify-content:center;
-  border-radius:9px;border:1px solid var(--border2);background:var(--surface2);
-  color:var(--muted);cursor:pointer;flex:none;
-}
-.admin-details-close:hover{color:var(--text);border-color:var(--muted);}
-.admin-details-close svg{width:15px;height:15px;}
 #admin-details-modal .admin-role-chip{
   display:inline-flex!important;align-items:center;line-height:1!important;
   padding:6px 10px!important;font-size:11px!important;font-weight:500!important;
@@ -5375,11 +5360,22 @@ body.view-only-access .view-write-only{
 .admin-access-key{color:var(--muted);font-size:12px;line-height:20px;}
 .admin-access-value{color:var(--text);font-size:12px;line-height:20px;overflow-wrap:anywhere;}
 .admin-profile-meta{
+  position:relative;
   display:grid;grid-template-columns:1fr 1fr;gap:0;margin:18px 0 0;padding:15px 0;
   border-top:1px solid rgba(145,145,163,.13);border-bottom:1px solid rgba(145,145,163,.13);
 }
-.admin-profile-meta-item:first-child{padding-right:18px;border-right:1px solid rgba(145,145,163,.13);}
-.admin-profile-meta-item:last-child{padding-left:18px;}
+.admin-profile-meta::after{
+  content:'';
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:1px;
+  height:38px;
+  transform:translate(-50%,-50%);
+  background:rgba(145,145,163,.13);
+}
+.admin-profile-meta-item:first-child{padding-right:25px;}
+.admin-profile-meta-item:last-child{padding-left:25px;}
 .admin-profile-meta-label{
   display:block;margin-bottom:7px;color:var(--muted);font-size:10px;font-weight:600;
   letter-spacing:.08em;text-transform:uppercase;
@@ -6283,7 +6279,6 @@ body.view-only-access .view-write-only{
   <div class="modal admin-details-modal">
     <div class="admin-profile-head">
       <div id="admin-details-hero" class="admin-profile-identity"></div>
-      <button class="admin-details-close" onclick="closeModal('admin-details-modal')" aria-label="Close user details"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button>
     </div>
     <div class="admin-profile-content">
       <div class="admin-profile-section">
@@ -8284,7 +8279,6 @@ function adminRoleLabel(role){return ({owner:'Owner',admin:'Admin',viewer:'Analy
 function adminSectionLabels(user){if(user.role==='owner'||user.role==='admin')return ['All sections'];var perms=(user.permissions||[]).slice();if((user.role==='viewer'||user.role==='analyst')&&!perms.length)perms=ANALYST_DEFAULT_PERMS.slice();return perms.map(function(k){var item=PERM_LIST.find(function(p){return p.value===k;});return item?item.label:k;});}
 function adminStripeAccessLabels(user){if(user.account_scope!=='selected')return ['All Stripe accounts'];var labels=(user.allowed_account_ids||[]).map(function(id){var a=(allStripeAccounts||[]).find(function(x){return Number(x.id)===Number(id);});return a?accessAccountLabel(a.name):'Account #'+id;});return labels.length?labels:['No assigned accounts'];}
 function adminDetailsText(values,separator){return (values||[]).map(function(v){return escHtml(String(v));}).join(separator||', ');}
-function adminUserInitial(username){return String(username||'?').trim().charAt(0).toUpperCase()||'?';}
 function toggleAdminPasswordReset(show){
   var form=document.getElementById('admin-reset-form');
   var summary=document.getElementById('admin-security-summary');
@@ -8308,7 +8302,7 @@ async function openAdminDetails(id){
   var roleBadge='<span class="badge admin-role-chip '+(roleClasses[user.role]||'admin-role-admin')+'">'+escHtml(adminRoleLabel(user.role))+'</span>';
   var stripeAccess=adminDetailsText(adminStripeAccessLabels(user),', ');
   var visibleSections=adminDetailsText(adminSectionLabels(user),', ');
-  document.getElementById('admin-details-hero').innerHTML='<div class="admin-profile-avatar">'+adminUserInitial(user.username)+'</div><div><div class="admin-profile-name-line"><div class="admin-profile-name">'+escHtml(user.username||'—')+'</div>'+roleBadge+'</div><div class="admin-profile-sub">User access profile</div></div>';
+  document.getElementById('admin-details-hero').innerHTML='<div><div class="admin-profile-name-line"><div class="admin-profile-name">'+escHtml(user.username||'—')+'</div>'+roleBadge+'</div><div class="admin-profile-sub">User access profile</div></div>';
   document.getElementById('admin-details-access').innerHTML='<div class="admin-access-line"><div class="admin-access-key">Stripe accounts</div><div class="admin-access-value">'+(stripeAccess||'—')+'</div></div><div class="admin-access-line"><div class="admin-access-key">Allowed sections</div><div class="admin-access-value">'+(visibleSections||'—')+'</div></div>';
   document.getElementById('admin-details-meta').innerHTML='<div class="admin-profile-meta-item"><span class="admin-profile-meta-label">Last login</span><div class="admin-profile-meta-value">'+escHtml(user.last_login?fmtTime(user.last_login):'Never')+'</div></div><div class="admin-profile-meta-item"><span class="admin-profile-meta-label">Created</span><div class="admin-profile-meta-value">'+escHtml(fmtDate(user.created_at))+'</div></div>';
   var panel=document.getElementById('admin-reset-password-panel');
