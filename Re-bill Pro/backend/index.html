@@ -6235,7 +6235,7 @@ body.view-only-access .view-write-only{
 <div id="page-accounts" class="page">
   <div class="page-header">
     <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg><span>Stripe Accounts</span></h2><p>Manage multiple Stripe accounts</p></div>
-    <button class="btn btn-primary" onclick="openModal('add-account-modal')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Account</button>
+    <button id="stripe-add-account-btn" class="btn btn-primary" onclick="openModal('add-account-modal')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Account</button>
   </div>
   <div class="card"><div class="scrollable"><table>
     <thead><tr><th>Name</th><th>Key</th><th>Status</th><th>Verification</th><th>Actions</th></tr></thead>
@@ -6759,7 +6759,7 @@ function showPage(name,el){
   var _username=localStorage.getItem('subloop_username');
   if(_username&&(getCurrentRole()==='custom'||getCurrentRole()==='viewer'||getCurrentRole()==='analyst')){
     api('/api/auth/check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:_username})})
-    .then(function(r){if(!r.valid){forceLogout();return;}if(r.username)localStorage.setItem('subloop_username',r.username);localStorage.setItem('subloop_role',r.role||'admin');localStorage.setItem('subloop_permissions',JSON.stringify(r.permissions||[]));if(r.role==='viewer'||r.role==='analyst')localStorage.setItem('subloop_readonly','1');else localStorage.removeItem('subloop_readonly');applyAccessControl();}).catch(function(){});
+    .then(function(r){if(!r.valid){forceLogout();return;}if(r.username)localStorage.setItem('subloop_username',r.username);localStorage.setItem('subloop_role',r.role||'admin');localStorage.setItem('subloop_permissions',JSON.stringify(r.permissions||[]));if(r.account_scope)localStorage.setItem('subloop_account_scope',r.account_scope);if(Array.isArray(r.allowed_account_ids))localStorage.setItem('subloop_allowed_account_ids',JSON.stringify(r.allowed_account_ids));if(r.role==='viewer'||r.role==='analyst')localStorage.setItem('subloop_readonly','1');else localStorage.removeItem('subloop_readonly');applyAccessControl();}).catch(function(){});
   }
   expandSettingsIfNeeded(name);
   if(!canAccess(name)){
@@ -8365,13 +8365,37 @@ function copyVerificationDebug(){
   }else fallbackCopy(txt);
 }
 
+
+function currentStripeAccountScope(){
+  return localStorage.getItem('subloop_account_scope')||'all';
+}
+function currentAllowedStripeAccountIds(){
+  try{return (JSON.parse(localStorage.getItem('subloop_allowed_account_ids')||'[]')||[]).map(function(id){return Number(id);});}
+  catch(e){return [];}
+}
+function usesSelectedStripeScope(){
+  var role=getCurrentRole();
+  return (role==='custom'||role==='viewer'||role==='analyst')&&currentStripeAccountScope()==='selected';
+}
+function visibleStripeAccountsForCurrentUser(list){
+  if(!usesSelectedStripeScope())return list||[];
+  var allowed=currentAllowedStripeAccountIds();
+  return (list||[]).filter(function(account){return allowed.includes(Number(account.id));});
+}
+function applyStripeAccountsPageScopeUI(){
+  var addBtn=document.getElementById('stripe-add-account-btn');
+  if(addBtn)addBtn.style.display=usesSelectedStripeScope()?'none':'inline-flex';
+}
+
 async function loadAccounts(){
   try{
-    const list=await api('/api/stripe-accounts');
+    const allAccounts=await api('/api/stripe-accounts');
+    const list=visibleStripeAccountsForCurrentUser(allAccounts);
+    applyStripeAccountsPageScopeUI();
     const tb=document.getElementById('accounts-table');
     if(tb){
       if(!list.length){
-        tb.innerHTML='<tr><td colspan="5" class="empty">No accounts yet</td></tr>';
+        tb.innerHTML='<tr><td colspan="5" class="empty">'+(usesSelectedStripeScope()?'No assigned Stripe accounts':'No accounts yet')+'</td></tr>';
       } else {
         tb.innerHTML=list.map(function(a){
           var st=(a.account_status||a.status||'active').toLowerCase();
@@ -8457,19 +8481,20 @@ async function loadAdmins(){
   }catch(e){tb.innerHTML='<tr><td colspan="5" class="empty" style="color:var(--red);">Failed to load. <button class="btn btn-sm" onclick="loadAdmins()" style="margin-left:8px;">Retry</button></td></tr>';}
 }
 var ANALYST_DEFAULT_PERMS=['dashboard','customers','payments','forecast','summary','mrr','recovery'];
-var CUSTOM_ASSIGNABLE_PERMS=['dashboard','customers','payments','forecast','summary','mrr','recovery','activity','subscriptions','links'];
+var ANALYST_ASSIGNABLE_PERMS=ANALYST_DEFAULT_PERMS.concat(['accounts']);
+var CUSTOM_ASSIGNABLE_PERMS=['dashboard','customers','payments','forecast','summary','mrr','recovery','activity','subscriptions','links','accounts'];
 var PERM_LIST=[
   {value:'dashboard',label:'Dashboard',desc:'Overview statistics and revenue charts'},
+  {value:'activity',label:'Activity Log',desc:'Full activity history'},
   {value:'customers',label:'Customers',desc:'View customer payment results'},
+  {value:'subscriptions',label:'Subscriptions',desc:'Manage rebilling schedules'},
   {value:'payments',label:'Payments',desc:'View payment history and statuses'},
+  {value:'links',label:'Payment Links',desc:'Create links for assigned Stripe accounts'},
+  {value:'accounts',label:'Stripe Accounts',desc:'View assigned Stripe accounts'},
   {value:'forecast',label:'Revenue Forecast',desc:'Projected revenue for active subscriptions'},
   {value:'summary',label:'Daily Summary',desc:'Daily revenue and customer summary'},
   {value:'mrr',label:'Revenue Growth',desc:'Revenue performance over time'},
   {value:'recovery',label:'Payment Recovery',desc:'Failed payment recovery results'},
-  {value:'activity',label:'Activity Log',desc:'Full activity history'},
-  {value:'subscriptions',label:'Subscriptions',desc:'Manage rebilling schedules'},
-  {value:'links',label:'Payment Links',desc:'Create links for assigned Stripe accounts'},
-  {value:'accounts',label:'Stripe Accounts',desc:'Manage connected accounts'},
   {value:'settings',label:'Settings',desc:'Dunning and app settings'},
   {value:'security',label:'Security',desc:'Two-factor auth and login protection'},
   {value:'webhooks',label:'Webhook Logs',desc:'Incoming Stripe webhook events'}
@@ -8523,12 +8548,12 @@ function createPermissionCard(p, checked){
   function sync(){row.classList.toggle('selected',cb.checked);}
   cb.addEventListener('change',sync);row.appendChild(cb);row.appendChild(info);sync();return row;
 }
-function buildPermsList(forAnalyst){var container=document.getElementById('perms-list');if(!container)return;container.innerHTML='';var allowed=forAnalyst?ANALYST_DEFAULT_PERMS:CUSTOM_ASSIGNABLE_PERMS;var items=PERM_LIST.filter(function(p){return allowed.includes(p.value);});items.forEach(function(p){container.appendChild(createPermissionCard(p,false));});}
+function buildPermsList(forAnalyst){var container=document.getElementById('perms-list');if(!container)return;container.innerHTML='';var allowed=forAnalyst?ANALYST_ASSIGNABLE_PERMS:CUSTOM_ASSIGNABLE_PERMS;var items=PERM_LIST.filter(function(p){return allowed.includes(p.value);});items.forEach(function(p){container.appendChild(createPermissionCard(p,false));});}
 function selectAllPerms(){document.querySelectorAll('#perms-list input[type=checkbox]').forEach(function(cb){cb.checked=true;cb.dispatchEvent(new Event('change'));});}
 function clearAllPerms(){document.querySelectorAll('#perms-list input[type=checkbox]').forEach(function(cb){cb.checked=false;cb.dispatchEvent(new Event('change'));});}
 var currentAdminDetailUserId=null;
 function adminRoleLabel(role){return ({owner:'Owner',admin:'Admin',viewer:'Analyst — View only',analyst:'Analyst — View only',custom:'Custom'})[role]||String(role||'—');}
-function adminSectionLabels(user){if(user.role==='owner'||user.role==='admin')return ['All sections'];var perms=(user.permissions||[]).slice();if((user.role==='viewer'||user.role==='analyst')&&!perms.length)perms=ANALYST_DEFAULT_PERMS.slice();return perms.map(function(k){var item=PERM_LIST.find(function(p){return p.value===k;});return item?item.label:k;});}
+function adminSectionLabels(user){if(user.role==='owner'||user.role==='admin')return ['All sections'];var perms=(user.permissions||[]).slice();if((user.role==='viewer'||user.role==='analyst')&&!perms.length)perms=ANALYST_DEFAULT_PERMS.slice();var ordered=PERM_LIST.map(function(p){return p.value;}).filter(function(k){return perms.includes(k);});perms.forEach(function(k){if(!ordered.includes(k))ordered.push(k);});return ordered.map(function(k){var item=PERM_LIST.find(function(p){return p.value===k;});return item?item.label:k;});}
 function adminStripeAccessLabels(user){if(user.account_scope!=='selected')return ['All Stripe accounts'];var labels=(user.allowed_account_ids||[]).map(function(id){var a=(allStripeAccounts||[]).find(function(x){return Number(x.id)===Number(id);});return a?accessAccountLabel(a.name):'Account #'+id;});return labels.length?labels:['No assigned accounts'];}
 function adminDetailsText(values,separator){return (values||[]).map(function(v){return escHtml(String(v));}).join(separator||', ');}
 function toggleAdminPasswordReset(show){
@@ -8766,7 +8791,7 @@ async function saveEditAccount(){
 function toggleSettingsNav(){var sub=document.getElementById('settings-subnav');var chev=document.getElementById('settings-chevron');var open=sub.style.display==='none';sub.style.display=open?'block':'none';if(chev)chev.style.transform=open?'rotate(180deg)':'rotate(0deg)';}
 function expandSettingsIfNeeded(name){var settingsPages=['admins','settings','security','webhooks'];if(settingsPages.includes(name)){var sub=document.getElementById('settings-subnav');var chev=document.getElementById('settings-chevron');if(sub&&sub.style.display==='none'){sub.style.display='block';if(chev)chev.style.transform='rotate(180deg)';}}}
 function showRestrictedPage(name){var existing=document.getElementById('page-restricted');if(!existing){var div=document.createElement('div');div.id='page-restricted';div.className='page';document.querySelector('.main').appendChild(div);}var pg=document.getElementById('page-restricted');var username=localStorage.getItem('subloop_username')||'User';var role=getCurrentRole()||'viewer';pg.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;padding:40px 20px;"><div style="width:72px;height:72px;border-radius:18px;background:var(--surface2);border:1.5px solid var(--border2);display:flex;align-items:center;justify-content:center;margin-bottom:24px;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:8px;letter-spacing:-0.3px;">Access Restricted</div><div style="font-size:13px;color:var(--muted);font-family:var(--mono);max-width:320px;line-height:1.6;margin-bottom:24px;">You do not have permission to view this page. Contact your administrator to request access.</div><div style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:12px 20px;font-size:12px;color:var(--muted);font-family:var(--mono);">Logged in as: <strong style="color:var(--text);">'+username+'</strong> &nbsp;·&nbsp; Role: <strong style="color:var(--accent);">'+role+'</strong></div></div>';pg.classList.add('active');}
-function buildEditPermsList(forAnalyst){var container=document.getElementById('edit-perms-list');if(!container)return;container.innerHTML='';var allowed=forAnalyst?ANALYST_DEFAULT_PERMS:CUSTOM_ASSIGNABLE_PERMS;var items=PERM_LIST.filter(function(p){return allowed.includes(p.value);});items.forEach(function(p){container.appendChild(createPermissionCard(p,false));});}
+function buildEditPermsList(forAnalyst){var container=document.getElementById('edit-perms-list');if(!container)return;container.innerHTML='';var allowed=forAnalyst?ANALYST_ASSIGNABLE_PERMS:CUSTOM_ASSIGNABLE_PERMS;var items=PERM_LIST.filter(function(p){return allowed.includes(p.value);});items.forEach(function(p){container.appendChild(createPermissionCard(p,false));});}
 function toggleEditCustomPerms(){var role=document.getElementById('edit-access-role').value;var isAnalyst=role==='analyst'||role==='viewer';var scoped=isAnalyst||role==='custom';document.getElementById('edit-account-access').style.display=scoped?'block':'none';document.getElementById('edit-custom-perms').style.display=scoped?'block':'none';document.getElementById('edit-analyst-note').style.display=isAnalyst?'block':'none';if(scoped){buildEditPermsList(isAnalyst);toggleEditAccountChoices();}}
 function selectAllEditPerms(){document.querySelectorAll('#edit-perms-list input[type=checkbox]').forEach(function(cb){cb.checked=true;cb.dispatchEvent(new Event('change'));});}
 function clearAllEditPerms(){document.querySelectorAll('#edit-perms-list input[type=checkbox]').forEach(function(cb){cb.checked=false;cb.dispatchEvent(new Event('change'));});}
