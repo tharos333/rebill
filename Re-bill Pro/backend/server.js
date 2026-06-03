@@ -1058,6 +1058,7 @@ app.post('/api/customers/:id/charge-once', async (req, res) => {
 });
 app.get('/api/customers/export', async (req, res) => {
   try {
+    if (isReadOnlyUser(req.currentUser)) return res.status(403).json({ error: 'View-only access cannot export customer data' });
     const list = (await customers.all()).filter(c => rowWithinScope(req,c));
     const csv = ['Name,Email,Card,Status,Last Payment,Created,Total Paid'].concat(list.map(c=>`${c.name},${c.email},${c.card_brand||''} ${c.card_last4||''},${c.status},${c.last_payment_at||''},${c.created_at||''},${(c.total_paid||0)/100}`)).join('\n');
     res.setHeader('Content-Type','text/csv'); res.setHeader('Content-Disposition','attachment; filename=customers.csv'); res.send(csv);
@@ -1185,6 +1186,7 @@ app.patch('/api/payments/:id/note', async (req, res) => {
 });
 app.get('/api/payments/export', async (req, res) => {
   try {
+    if (isReadOnlyUser(req.currentUser)) return res.status(403).json({ error: 'View-only access cannot export payment data' });
     const list = (await payments.recent(10000)).filter(p => rowWithinScope(req,p));
     const csv = ['Customer,Email,Amount,Status,Date'].concat(list.map(p=>`${p.name||''},${p.email||''},${(p.amount||0)/100},${p.status},${p.created_at}`)).join('\n');
     res.setHeader('Content-Type','text/csv'); res.setHeader('Content-Disposition','attachment; filename=payments.csv'); res.send(csv);

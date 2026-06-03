@@ -5272,7 +5272,7 @@ html.light #customer-btn-subscription.active{
 .access-search-wrap input{width:100%;height:34px;padding-left:31px!important;font-size:12px!important;}
 .selected-count{font-size:11px;color:var(--muted);white-space:nowrap;padding:0 3px;}
 .account-choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;max-height:196px;overflow-y:auto;padding:1px 4px 1px 1px;}
-.account-choice{display:flex!important;align-items:center!important;gap:9px!important;min-width:0;padding:9px 11px!important;background:var(--surface)!important;border:1px solid var(--border)!important;border-radius:8px!important;font-size:12px!important;cursor:pointer;text-transform:none!important;letter-spacing:normal!important;color:var(--text)!important;}
+.account-choice{display:flex;align-items:center!important;gap:9px!important;min-width:0;padding:9px 11px!important;background:var(--surface)!important;border:1px solid var(--border)!important;border-radius:8px!important;font-size:12px!important;cursor:pointer;text-transform:none!important;letter-spacing:normal!important;color:var(--text)!important;}
 .account-choice:has(input:checked){border-color:rgba(109,94,248,.65)!important;background:var(--accent-glow)!important;}
 .account-choice input{accent-color:var(--accent);width:15px;height:15px;flex:none;}
 .account-choice span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -5297,6 +5297,12 @@ html.light #customer-btn-subscription.active{
 #page-admins .admin-role-analyst{background:var(--blue-bg)!important;color:var(--blue)!important;}
 #page-admins .admin-role-custom{background:var(--amber-bg)!important;color:var(--amber)!important;}
 #page-admins .admin-scope-chip{max-width:360px;overflow:hidden;text-overflow:ellipsis;}
+
+
+/* Admin Access V3.3: Analyst view-only screens show data without action controls */
+body.view-only-access .view-write-only{
+  display:none!important;
+}
 
 </style>
 </head>
@@ -5416,7 +5422,7 @@ html.light #customer-btn-subscription.active{
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:11px;top:50%;transform:translateY(-50%);pointer-events:none;"><circle cx="10.8" cy="10.8" r="6.8"/><path d="M16 16l4.2 4.2"/></svg>
         <div id="global-search-results" style="display:none;position:absolute;top:calc(100% + 6px);left:0;width:340px;background:var(--surface);border:1px solid var(--border2);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.3);z-index:200;max-height:320px;overflow-y:auto;"></div>
       </div>
-      <button class="btn" onclick="runRebills()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/></svg>Run Rebills Now</button>
+      <button class="btn view-write-only" onclick="runRebills()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/></svg>Run Rebills Now</button>
       <button class="btn btn-disconnect" onclick="disconnectApp()" title="Disconnect">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         Disconnect
@@ -5462,7 +5468,7 @@ html.light #customer-btn-subscription.active{
   <div class="card">
     <div class="card-header"><h3>Upcoming rebills</h3></div>
     <div class="scrollable"><table>
-      <thead><tr><th>Customer</th><th>Amount</th><th>Next billing</th><th>Status</th><th>Action</th></tr></thead>
+      <thead><tr><th>Customer</th><th>Amount</th><th>Next billing</th><th>Status</th><th class="view-write-only">Action</th></tr></thead>
       <tbody id="upcoming-table"><tr><td colspan="5" class="empty">Loading...</td></tr></tbody>
     </table></div>
   </div>
@@ -5486,8 +5492,8 @@ html.light #customer-btn-subscription.active{
   <div class="page-header">
     <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Customers</span></h2><p>Manage customers and payment methods</p></div>
     <div class="page-header-actions">
-      <button class="btn" onclick="window.location='/api/customers/export'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export CSV</button>
-      <button class="btn btn-primary" onclick="openModal('add-customer-modal')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Customer</button>
+      <button class="btn view-write-only" onclick="window.location='/api/customers/export'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export CSV</button>
+      <button class="btn btn-primary view-write-only" onclick="openModal('add-customer-modal')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Customer</button>
     </div>
   </div>
   <div class="pay-filter-bar" style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;">
@@ -5587,7 +5593,7 @@ html.light #customer-btn-subscription.active{
     </div>
   </div>
   <div class="card"><div class="scrollable"><table>
-    <thead><tr><th>Customer</th><th>Payment method</th><th>Account</th><th>Payment country</th><th>Status</th><th>Note</th><th>Last payment</th><th>Total paid</th><th>Actions</th></tr></thead>
+    <thead><tr><th>Customer</th><th>Payment method</th><th>Account</th><th>Payment country</th><th>Status</th><th>Note</th><th>Last payment</th><th>Total paid</th><th class="view-write-only">Actions</th></tr></thead>
     <tbody id="customers-table"><tr><td colspan="9" class="empty">Loading...</td></tr></tbody>
   </table></div></div>
   <div id="customer-pagination" style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap;"></div>
@@ -5598,7 +5604,7 @@ html.light #customer-btn-subscription.active{
   <div class="page-header">
     <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg><span>Subscriptions</span></h2><p>All rebilling schedules</p></div>
     <div class="page-header-actions">
-      <div id="sub-default-btn">
+      <div id="sub-default-btn" class="view-write-only">
         <button class="btn btn-sm" onclick="enterBulkMode()">Select</button>
       </div>
       <div id="sub-bulk-btns" style="display:none;align-items:center;gap:6px;flex-wrap:wrap;">
@@ -5615,7 +5621,7 @@ html.light #customer-btn-subscription.active{
   <div class="card"><div class="scrollable"><table>
     <thead><tr>
       <th id="bulk-cb-header" style="width:36px;display:none;"><input type="checkbox" id="select-all-checkbox" onchange="toggleSelectAll()" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;"></th>
-      <th>Customer</th><th>Amount</th><th>Interval</th><th>Next billing</th><th>Status</th><th>Actions</th>
+      <th>Customer</th><th>Amount</th><th>Interval</th><th>Next billing</th><th>Status</th><th class="view-write-only">Actions</th>
     </tr></thead>
     <tbody id="subscriptions-table"><tr><td colspan="7" class="empty">Loading...</td></tr></tbody>
   </table></div></div>
@@ -5625,7 +5631,7 @@ html.light #customer-btn-subscription.active{
 <div id="page-payments" class="page">
   <div class="page-header">
     <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="6" y1="15" x2="10" y2="15"/></svg><span>Payments</span></h2><p>Full payment history</p></div>
-    <button class="btn" onclick="window.location='/api/payments/export'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export CSV</button>
+    <button class="btn view-write-only" onclick="window.location='/api/payments/export'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export CSV</button>
   </div>
   <div id="payments-filter-toolbar" class="pay-filter-bar" style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;">
     <!-- Status pill buttons -->
@@ -5730,7 +5736,7 @@ html.light #customer-btn-subscription.active{
     </div>
   </div>
   <div class="card"><div class="scrollable"><table>
-    <thead><tr><th>Customer</th><th>Amount</th><th>Payment method</th><th>Account</th><th>Status</th><th>Failure Reason</th><th>Date</th><th>Reference</th><th>Action</th></tr></thead>
+    <thead><tr><th>Customer</th><th>Amount</th><th>Payment method</th><th>Account</th><th>Status</th><th>Failure Reason</th><th>Date</th><th>Reference</th><th class="view-write-only">Action</th></tr></thead>
     <tbody id="payments-table"><tr><td colspan="9" class="empty">Loading...</td></tr></tbody>
   </table></div></div>
   <div id="pay-pagination" style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap;"></div>
@@ -5949,7 +5955,7 @@ html.light #customer-btn-subscription.active{
     <div class="stat-card"><div class="stat-label">Revenue This Month</div><div class="stat-value" id="sum-rev-month">—</div><div class="stat-sub" id="sum-pay-month">payments</div></div>
     <div class="stat-card"><div class="stat-label">Active Customers</div><div class="stat-value" id="sum-active">—</div><div class="stat-sub" id="sum-new-7d">new this week</div></div>
   </div>
-  <div class="card" style="max-width:600px;">
+  <div class="card view-write-only" style="max-width:600px;">
     <div class="card-header"><h3>Manual Invoice</h3></div>
     <div style="padding:18px;">
       <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Charge any customer a one-time amount outside their subscription.</p>
@@ -6272,6 +6278,15 @@ function completeLogin(){
 var ALL_SECTIONS=['dashboard','activity','customers','subscriptions','payments','links','accounts','forecast','expiry','summary','admins','settings','security','webhooks'];
 function getCurrentRole(){ return localStorage.getItem('subloop_role')||'owner'; }
 function getCurrentPermissions(){ try{ return JSON.parse(localStorage.getItem('subloop_permissions')||'[]'); }catch(e){ return []; } }
+function isViewOnlyAccess(){
+  var role=getCurrentRole();
+  return role==='viewer'||role==='analyst'||localStorage.getItem('subloop_readonly')==='1';
+}
+function blockViewOnlyAction(){
+  if(!isViewOnlyAccess()) return false;
+  toast('View-only access — actions are disabled','error');
+  return true;
+}
 function canAccess(section){
   var role=getCurrentRole();
   if(!role||role==='owner'||role==='admin') return true;
@@ -6281,6 +6296,10 @@ function canAccess(section){
 }
 function applyAccessControl(){
   var role=getCurrentRole();
+  var readonly=role==='viewer'||role==='analyst';
+  document.body.classList.toggle('view-only-access',readonly);
+  if(readonly) localStorage.setItem('subloop_readonly','1');
+  else localStorage.removeItem('subloop_readonly');
   if(!role||role==='owner'||role==='admin') return;
   document.querySelectorAll('.nav-item').forEach(function(btn){
     var onclick=btn.getAttribute('onclick')||'';
@@ -6291,7 +6310,6 @@ function applyAccessControl(){
       else{btn.style.opacity='';btn.title='';}
     }
   });
-  if(role==='viewer'||role==='analyst') localStorage.setItem('subloop_readonly','1');
 }
 function enforceReadonly(){
   if(localStorage.getItem('subloop_readonly')!=='1') return;
@@ -6744,8 +6762,13 @@ async function loadChart(){
 async function loadUpcoming(){
   try{
     const subs=await api('/api/subscriptions');const tb=document.getElementById('upcoming-table');
-    if(!subs.length){tb.innerHTML='<tr><td colspan="5" class="empty">No subscriptions yet.</td></tr>';return;}
-    tb.innerHTML=subs.slice(0,10).map(s=>'<tr><td><div class="customer-cell"><div class="avatar">'+initials(s.name)+'</div><div><div class="customer-name">'+(s.name||'—')+'</div><div class="customer-email">'+(s.email||'')+'</div></div></div></td><td class="mono">'+fmt(s.amount,s.currency)+'</td><td class="mono">'+fmtDate(s.next_billing_date)+'</td><td>'+(String(s.status||'').toLowerCase()==='paused'?badge(s.status).replace('class="badge ','class="badge dashboard-upcoming-paused '):badge(s.status))+'</td><td><div class="actions">'+(s.status==='active'?'<button class="btn btn-sm" onclick="chargeNow('+s.id+')">Charge</button>':'')+(s.status==='active'?'<button class="btn btn-sm btn-danger" onclick="openPauseModal('+s.id+')">Pause</button>':'')+(['paused','cancelled','canceled'].includes(String(s.status||'').toLowerCase())?'<button class="btn btn-sm" onclick="setSubStatus('+s.id+',\'active\')">Resume</button>':'')+'</div></td></tr>').join('');
+    var isViewer=isViewOnlyAccess();
+    if(!subs.length){tb.innerHTML='<tr><td colspan="'+(isViewer?4:5)+'" class="empty">No subscriptions yet.</td></tr>';return;}
+    tb.innerHTML=subs.slice(0,10).map(function(s){
+      var row='<tr><td><div class="customer-cell"><div class="avatar">'+initials(s.name)+'</div><div><div class="customer-name">'+(s.name||'—')+'</div><div class="customer-email">'+(s.email||'')+'</div></div></div></td><td class="mono">'+fmt(s.amount,s.currency)+'</td><td class="mono">'+fmtDate(s.next_billing_date)+'</td><td>'+(String(s.status||'').toLowerCase()==='paused'?badge(s.status).replace('class="badge ','class="badge dashboard-upcoming-paused '):badge(s.status))+'</td>';
+      if(!isViewer)row+='<td><div class="actions">'+(s.status==='active'?'<button class="btn btn-sm" onclick="chargeNow('+s.id+')">Charge</button>':'')+(s.status==='active'?'<button class="btn btn-sm btn-danger" onclick="openPauseModal('+s.id+')">Pause</button>':'')+(['paused','cancelled','canceled'].includes(String(s.status||'').toLowerCase())?'<button class="btn btn-sm" onclick="setSubStatus('+s.id+',\'active\')">Resume</button>':'')+'</div></td>';
+      return row+'</tr>';
+    }).join('');
   }catch(e){}
 }
 async function loadRecentPayments(){
@@ -6847,7 +6870,8 @@ function customerOriginalCurrency(c){
 
 function renderCustomers(list){
   const tb=document.getElementById('customers-table');
-  if(!list.length){tb.innerHTML='<tr><td colspan="9" class="empty">No customers yet</td></tr>';return;}
+  const isViewer=isViewOnlyAccess();
+  if(!list.length){tb.innerHTML='<tr><td colspan="'+(isViewer?8:9)+'" class="empty">No customers yet</td></tr>';return;}
   tb.innerHTML=list.map(c=>{
     const dateLabel = c.last_payment_at ? fmtDate(c.last_payment_at) : '—';
     const dateTitle = c.last_payment_at ? 'Last successful payment date' : 'No successful payment yet';
@@ -6875,13 +6899,13 @@ function renderCustomers(list){
       <td style="font-size:12px;color:var(--muted);font-family:var(--mono);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.note||'—'}</td>
       <td class="mono" style="font-size:12px;white-space:nowrap;" title="${dateTitle}">${dateLabel}</td>
       <td class="mono">${fmt(c.total_paid||0, customerOriginalCurrency(c))}</td>
-      <td>
+      ${isViewer?'':`<td>
         <div class="actions">
           <button class="btn btn-sm" onclick="event.stopPropagation();openNoteModal(${c.id},'${noteValue}')">Note</button>
           <button class="btn btn-sm" onclick="event.stopPropagation();openPortal(${c.id})">Card ↗</button>
           ${statusAction}
         </div>
-      </td>
+      </td>`}
     </tr>`;
   }).join('');
 }
@@ -7123,7 +7147,8 @@ window.addEventListener('pageshow',function(){
 async function loadSubscriptions(){try{allSubscriptions=await api('/api/subscriptions');renderSubscriptions(allSubscriptions);}catch(e){}}
 function renderSubscriptions(list){
   var tb=document.getElementById('subscriptions-table');
-  if(!list.length){tb.innerHTML='<tr><td colspan="7" class="empty">No subscriptions yet</td></tr>';return;}
+  var isViewer=isViewOnlyAccess();
+  if(!list.length){tb.innerHTML='<tr><td colspan="'+(isViewer?5:7)+'" class="empty">No subscriptions yet</td></tr>';return;}
   var rows=[];
   list.forEach(function(s){
     var sel=bulkMode&&selectedSubs.has(s.id);var bg=sel?'background:var(--accent-glow);':'';
@@ -7138,7 +7163,11 @@ function renderSubscriptions(list){
     var editSpan='<button class="btn btn-sm" onclick="showEditAmount('+s.id+','+s.amount+')">Edit $</button><span id="edit-'+s.id+'"></span>';
     var dunningBadge=s.dunning_count>0?'<br><span style="font-size:10px;color:var(--amber);">Retry #'+s.dunning_count+'</span>':'';
     var resumeDate=s.resume_date?'<br><span style="font-size:10px;color:var(--blue);">Resumes '+fmtDate(s.resume_date)+'</span>':'';
-    rows.push('<tr id="sub-row-'+s.id+'" style="'+bg+'"><td style="width:36px;display:'+cbDisplay+';"><input type="checkbox" class="sub-checkbox" data-id="'+s.id+'" '+cbChecked+' onchange="toggleSubSelect('+s.id+')" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;"></td><td><div class="customer-cell"><div class="avatar">'+initials(s.name)+'</div><div><div class="customer-name">'+(s.name||'—')+'</div><div class="customer-email">'+(s.email||'')+'</div></div></div></td><td class="mono">'+fmt(s.amount,s.currency)+'</td><td class="mono">'+(s.interval_days||30)+' days</td><td class="mono">'+fmtDate(s.next_billing_date)+resumeDate+'</td><td>'+badge(s.status)+dunningBadge+'</td><td><div class="actions">'+chargeBtn+editSpan+pauseBtn+resumeBtn+retryBtn+cancelBtn+'</div></td></tr>');
+    var row='<tr id="sub-row-'+s.id+'" style="'+bg+'">';
+    if(!isViewer)row+='<td style="width:36px;display:'+cbDisplay+';"><input type="checkbox" class="sub-checkbox" data-id="'+s.id+'" '+cbChecked+' onchange="toggleSubSelect('+s.id+')" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;"></td>';
+    row+='<td><div class="customer-cell"><div class="avatar">'+initials(s.name)+'</div><div><div class="customer-name">'+(s.name||'—')+'</div><div class="customer-email">'+(s.email||'')+'</div></div></div></td><td class="mono">'+fmt(s.amount,s.currency)+'</td><td class="mono">'+(s.interval_days||30)+' days</td><td class="mono">'+fmtDate(s.next_billing_date)+resumeDate+'</td><td>'+badge(s.status)+dunningBadge+'</td>';
+    if(!isViewer)row+='<td><div class="actions">'+chargeBtn+editSpan+pauseBtn+resumeBtn+retryBtn+cancelBtn+'</div></td>';
+    rows.push(row+'</tr>');
   });
   tb.innerHTML=rows.join('');
 }
@@ -7432,15 +7461,15 @@ function tableAccountDisplayName(accountName){
 function renderPayments(list){
   var isViewer=localStorage.getItem('subloop_readonly')==='1';
   var tb=document.getElementById('payments-table');
-  if(!list.length){tb.innerHTML='<tr><td colspan="9" class="empty">No payments found</td></tr>';return;}
+  if(!list.length){tb.innerHTML='<tr><td colspan="'+(isViewer?8:9)+'" class="empty">No payments found</td></tr>';return;}
   tb.innerHTML=list.map(function(p){
     var isGhost=((p.email||'').toLowerCase().endsWith('@stripe.local')||(p.name||'').startsWith('pi_')||(p.name||'').startsWith('external_'));
     var shortReason=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'';
     var reasonHtml=shortReason?'<div style="font-size:12px;color:var(--red);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+p.failure_reason+'">'+shortReason+'</div>':'<span style="color:var(--muted);font-size:12px;">—</span>';
-    var refHtml=buildRefCell(p.stripe_payment_intent);
+    var refHtml=isViewer?buildRefReadOnlyCell(p.stripe_payment_intent):buildRefCell(p.stripe_payment_intent);
     var actions='<div style="display:flex;gap:4px;align-items:center;">';
     if(!isViewer&&p.status==='failed'&&!isGhost)actions+='<button class="btn btn-sm btn-success" onclick="event.stopPropagation();retryPayment('+p.id+')">Retry</button>';
-    actions+='<button class="btn btn-sm payment-note-btn" onclick="event.stopPropagation();openPaymentNote('+p.id+')" title="'+(p.note||'Add note')+'">'+(p.note?'<svg class="payment-note-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/></svg><span>Note</span>':'Note')+'</button>';
+    if(!isViewer)actions+='<button class="btn btn-sm payment-note-btn" onclick="event.stopPropagation();openPaymentNote('+p.id+')" title="'+(p.note||'Add note')+'">'+(p.note?'<svg class="payment-note-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/></svg><span>Note</span>':'Note')+'</button>';
     actions+='</div>';
     var rowBg=(p.status==='failed'||isGhost)?'background:rgba(248,113,113,0.04);':'';
     var avatarHtml=isGhost
@@ -7450,7 +7479,7 @@ function renderPayments(list){
       ?'<div class="customer-name" style="font-size:13px;color:var(--red);">No profile</div>'
       :'<div class="customer-name table-customer-name payment-table-customer-name" style="font-size:13px;" title="'+(p.name||'—')+'">'+(p.name||'—')+'</div>';
     var pJson=encodeURIComponent(JSON.stringify(p));
-    return '<tr style="'+rowBg+'cursor:pointer;" onclick="openPaymentModal(decodePaymentData(this))" data-payment="'+pJson+'"><td><div class="customer-cell">'+avatarHtml+'<div>'+customerHtml+'</div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+paymentMethodDisplay(p,false)+'</td><td class="payment-account-cell" title="'+escHtml(p.account_name||'—')+'">'+escHtml(tableAccountDisplayName(p.account_name))+'</td><td>'+badge(p.status)+'</td><td>'+reasonHtml+'</td><td class="mono" style="font-size:12px;white-space:nowrap;">'+fmtDate(p.created_at)+'</td><td>'+refHtml+'</td><td>'+actions+'</td></tr>';
+    return '<tr style="'+rowBg+'cursor:pointer;" onclick="openPaymentModal(decodePaymentData(this))" data-payment="'+pJson+'"><td><div class="customer-cell">'+avatarHtml+'<div>'+customerHtml+'</div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+paymentMethodDisplay(p,false)+'</td><td class="payment-account-cell" title="'+escHtml(p.account_name||'—')+'">'+escHtml(tableAccountDisplayName(p.account_name))+'</td><td>'+badge(p.status)+'</td><td>'+reasonHtml+'</td><td class="mono" style="font-size:12px;white-space:nowrap;">'+fmtDate(p.created_at)+'</td><td>'+refHtml+'</td>'+(isViewer?'':'<td>'+actions+'</td>')+'</tr>';
   }).join('');
 }
 function decodePaymentData(row){try{return JSON.parse(decodeURIComponent(row.getAttribute('data-payment')));}catch(e){return {};}}
@@ -7522,8 +7551,8 @@ function renderPaymentDetailModal(p, syncing){
   }
   function copyIcon(v){
     var safe=escHtml(String(v||'')).replace(/'/g,'&#39;');
-    if(!v||v==='—')return '';
-    return '<button class="pd-copy-mini" title="Copy" onclick="copyPdValue(\''+safe+'\')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
+    if(isViewer||!v||v==='—')return '';
+    return '<button class="pd-copy-mini" title="Copy" onclick="copyPdValue(\''+safe+'\')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2 2v1"/></svg></button>';
   }
   var h='';
   h+='<div class="payment-detail-shell pd-polished-drawer"><div class="payment-detail-top"><button class="payment-detail-close" onclick="closeModal(\'payment-detail-modal\')" aria-label="Close payment details"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button></div><div class="payment-detail-scroll">';
@@ -7565,7 +7594,7 @@ function renderPaymentDetailModal(p, syncing){
   h+='<div class="pd-polished-row"><div class="pd-polished-label">Stripe Account</div><div class="pd-polished-value">'+escHtml(account||'—')+'</div></div>';
   h+='<div class="pd-polished-row"><div class="pd-polished-label">Invoice</div><div class="pd-polished-value mono">'+escHtml(invoice||'—')+'</div></div>';
   h+='<div class="pd-polished-row"><div class="pd-polished-label">Currency</div><div class="pd-polished-value mono">'+escHtml((p.currency||'—').toUpperCase())+'</div></div>';
-  h+='<div class="pd-polished-row"><div class="pd-polished-label">Note</div><div class="pd-polished-value"><span class="pd-note-link" onclick="closeModal(\'payment-detail-modal\');openPaymentNote('+p.id+')">'+escHtml(p.note||'Add note')+'</span></div></div>';
+  h+='<div class="pd-polished-row"><div class="pd-polished-label">Note</div><div class="pd-polished-value">'+(isViewer?escHtml(p.note||'—'):'<span class="pd-note-link" onclick="closeModal(\'payment-detail-modal\');openPaymentNote('+p.id+')">'+escHtml(p.note||'Add note')+'</span>')+'</div></div>';
   h+='</section>';
 
   h+='<section class="pd-polished-section"><h3 class="pd-polished-heading">Customer</h3>';
@@ -7612,7 +7641,7 @@ function openPaymentModal(p){
     }).catch(function(){renderPaymentDetailModal(p,false);});
   }
 }
-async function retryPayment(id){toast('Retrying…');try{const r=await api('/api/payments/'+id+'/retry',{method:'POST'});if(r.success){toast('✓ Succeeded — payment recovered');loadPayments();loadStats();loadRecovery();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
+async function retryPayment(id){if(blockViewOnlyAction())return;toast('Retrying…');try{const r=await api('/api/payments/'+id+'/retry',{method:'POST'});if(r.success){toast('✓ Succeeded — payment recovered');loadPayments();loadStats();loadRecovery();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
 async function loadWebhooks(){try{const list=await api('/api/webhook-logs');const tb=document.getElementById('webhook-table');if(!list.length){tb.innerHTML='<tr><td colspan="4" class="empty">No webhook events yet</td></tr>';return;}tb.innerHTML=list.map(w=>'<tr><td class="mono" style="font-size:12px;">'+w.event_type+'</td><td style="font-size:12px;color:var(--muted);">'+(w.account_name||'—')+'</td><td>'+badge(w.status||'ok').replace('Succeeded','Processed').replace('Success','Processed')+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+fmtTime(w.created_at)+'</td></tr>').join('');}catch(e){}}
 function setDunningScheduleState(enabled){
   var field=document.getElementById('setting-dunning-days');
@@ -7638,8 +7667,8 @@ async function setup2FA(){try{const r=await api('/api/security/2fa/setup',{metho
 async function confirm2FA(){const token=document.getElementById('2fa-verify-code').value;if(token.length!==6){toast('Enter 6-digit code','error');return;}try{const r=await api('/api/security/2fa/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});if(r.success){toast('✓ 2FA enabled!');update2FAView(true);}else toast('Invalid code','error');}catch(e){toast('Error','error');}}
 function cancel2FASetup(){document.getElementById('2fa-setup-view').style.display='none';document.getElementById('2fa-disabled-view').style.display='block';}
 async function disable2FA(){if(!confirm('Disable 2FA?'))return;await api('/api/security/2fa/disable',{method:'POST'});toast('2FA disabled');update2FAView(false);}
-async function chargeNow(subId){toast('Charging…');try{const r=await api('/api/subscriptions/'+subId+'/charge',{method:'POST'});if(r.success){toast('✓ Payment succeeded');loadUpcoming();loadStats();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
-function openPauseModal(subId){document.getElementById('pause-sub-id').value=subId;document.getElementById('pause-resume-date').value='';openModal('pause-modal');}
+async function chargeNow(subId){if(blockViewOnlyAction())return;toast('Charging…');try{const r=await api('/api/subscriptions/'+subId+'/charge',{method:'POST'});if(r.success){toast('✓ Payment succeeded');loadUpcoming();loadStats();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
+function openPauseModal(subId){if(blockViewOnlyAction())return;document.getElementById('pause-sub-id').value=subId;document.getElementById('pause-resume-date').value='';openModal('pause-modal');}
 async function confirmPause(){const id=document.getElementById('pause-sub-id').value;const resumeDate=document.getElementById('pause-resume-date').value;await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'paused',resume_date:resumeDate||null})});toast('Subscription paused');closeModal('pause-modal');loadUpcoming();loadSubscriptions();}
 function resumeSub(id){setSubStatus(id,'active');}
 async function resumeSubscriptionFromCustomer(id){
@@ -7648,7 +7677,7 @@ async function resumeSubscriptionFromCustomer(id){
   if(currentCustomerDrawerId){openCustomerDrawer(currentCustomerDrawerId);}
 }
 function cancelSub(id){setSubStatus(id,'cancelled');}
-async function setSubStatus(id,status){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});toast('Subscription '+(status==='cancelled'?'canceled':status));loadUpcoming();loadSubscriptions();loadStats();}
+async function setSubStatus(id,status){if(blockViewOnlyAction())return;await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});toast('Subscription '+(status==='cancelled'?'canceled':status));loadUpcoming();loadSubscriptions();loadStats();}
 let currentCustomerDrawerId=null;
 function escapeCustomerHtml(v){return String(v==null?'':v).replace(/[&<>"']/g,function(m){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m];});}
 function customerValueClass(status){return status==='failed'||status==='paused'?'value-red':(status==='succeeded'||status==='active'?'value-green':'');}
@@ -7670,7 +7699,7 @@ var _customerCopyStore = window._customerCopyStore || {};
 var _customerCopyIdx = window._customerCopyIdx || 0;
 function customerCopyButton(value){
   var v=String(value||'');
-  if(!v || v==='—') return '';
+  if(isViewOnlyAccess() || !v || v==='—') return '';
   var key='custcopy_'+(++_customerCopyIdx);
   _customerCopyStore[key]=v;
   return '<button class="customer-profile-copy" title="Copy" data-k="'+key+'" onclick="event.stopPropagation();copyPdValue(_customerCopyStore[this.dataset.k])"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
@@ -7693,6 +7722,7 @@ var _customerNoteStore = window._customerNoteStore || {};
 var _customerNoteIdx = window._customerNoteIdx || 0;
 function customerDrawerNoteRow(c){
   const safeNote = escapeCustomerHtml(c.note || 'No note added');
+  if(isViewOnlyAccess())return '<div class="customer-profile-row"><div class="customer-profile-label">Note</div><div class="customer-profile-value customer-profile-note-value"><span>'+safeNote+'</span></div></div>';
   var key='custnote_'+(++_customerNoteIdx);
   _customerNoteStore[key]=c.note || '';
   return '<div class="customer-profile-row customer-profile-note-row" data-k="'+key+'" onclick="closeCustomerDrawer();openNoteModal('+c.id+',_customerNoteStore[this.dataset.k])"><div class="customer-profile-label">Note</div><div class="customer-profile-value customer-profile-note-value"><span>'+safeNote+'</span><span class="customer-profile-note-edit">Edit</span></div></div>';
@@ -7826,17 +7856,19 @@ function buildCustomerDrawer(data){
 
   h+='</div>';
 
-  h+='<div class="customer-profile-actions">';
-  h+='<button class="btn" onclick="openPortal('+c.id+')">View card</button>';
-  var drawerPausedSub=customerPausedSubscription(c);
-  if(String(c.status||'').toLowerCase()==='paused'){
-    h+='<button class="btn" onclick="setCustStatus('+c.id+',\'active\')">Resume customer</button>';
-  }else if(drawerPausedSub){
-    h+='<button class="btn" onclick="resumeSubscriptionFromCustomer('+drawerPausedSub.id+')">Resume subscription</button>';
-  }else{
-    h+='<button class="btn btn-danger" onclick="setCustStatus('+c.id+',\'paused\')">Pause customer</button>';
+  if(!isViewOnlyAccess()){
+    h+='<div class="customer-profile-actions">';
+    h+='<button class="btn" onclick="openPortal('+c.id+')">View card</button>';
+    var drawerPausedSub=customerPausedSubscription(c);
+    if(String(c.status||'').toLowerCase()==='paused'){
+      h+='<button class="btn" onclick="setCustStatus('+c.id+',\'active\')">Resume customer</button>';
+    }else if(drawerPausedSub){
+      h+='<button class="btn" onclick="resumeSubscriptionFromCustomer('+drawerPausedSub.id+')">Resume subscription</button>';
+    }else{
+      h+='<button class="btn btn-danger" onclick="setCustStatus('+c.id+',\'paused\')">Pause customer</button>';
+    }
+    h+='</div>';
   }
-  h+='</div>';
 
   return h;
 }
@@ -7863,15 +7895,15 @@ async function openCustomerDrawer(id){
   }
 }
 function closeCustomerDrawer(){var customerModal=document.getElementById('customer-detail-modal');customerModal.classList.remove('open','customer-anim-prep','customer-anim-in','customer-drawer-anim-prep','customer-drawer-anim-in');document.body.classList.remove('drawer-open');currentCustomerDrawerId=null;}
-async function setCustStatus(id,status){await api('/api/customers/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});toast('Customer '+status);loadCustomers();if(currentCustomerDrawerId===id){openCustomerDrawer(id);}}
-async function openPortal(customerId){try{const r=await api('/api/customers/'+customerId+'/portal',{method:'POST'});if(r.url)window.open(r.url,'_blank');else toast('Could not open portal','error');}catch(e){toast('Error','error');}}
+async function setCustStatus(id,status){if(blockViewOnlyAction())return;await api('/api/customers/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});toast('Customer '+status);loadCustomers();if(currentCustomerDrawerId===id){openCustomerDrawer(id);}}
+async function openPortal(customerId){if(blockViewOnlyAction())return;try{const r=await api('/api/customers/'+customerId+'/portal',{method:'POST'});if(r.url)window.open(r.url,'_blank');else toast('Could not open portal','error');}catch(e){toast('Error','error');}}
 async function runRebills(){toast('Running rebill job…');try{const r=await api('/api/run-rebills',{method:'POST'});if(r.success){toast('✓ Done: '+r.succeeded+' charged, '+r.failed+' failed'+(r.resumed>0?', '+r.resumed+' resumed':''));loadStats();loadUpcoming();}}catch(e){toast('Error','error');}}
 async function addCustomer(){
   const body={name:document.getElementById('mc-name').value.trim(),email:document.getElementById('mc-email').value.trim(),stripe_customer_id:document.getElementById('mc-stripe-id').value.trim(),stripe_payment_method:document.getElementById('mc-pm-id').value.trim()||null,card_brand:document.getElementById('mc-brand').value.trim()||null,card_last4:document.getElementById('mc-last4').value.trim()||null,card_exp_month:document.getElementById('mc-exp-m').value||null,card_exp_year:document.getElementById('mc-exp-y').value||null,stripe_account_id:document.getElementById('mc-account').value||null,note:document.getElementById('mc-note').value.trim()||null};
   if(!body.email||!body.stripe_customer_id){toast('Email and Stripe ID required','error');return;}
   try{const r=await api('/api/customers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(r.success){toast('✓ Customer added');closeModal('add-customer-modal');loadCustomers();}else toast('Error: '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}
 }
-function openNoteModal(id,note){document.getElementById('note-customer-id').value=id;document.getElementById('note-text').value=decodeURIComponent(note);openModal('note-modal');}
+function openNoteModal(id,note){if(blockViewOnlyAction())return;document.getElementById('note-customer-id').value=id;document.getElementById('note-text').value=decodeURIComponent(note);openModal('note-modal');}
 async function saveNote(){const id=document.getElementById('note-customer-id').value,note=document.getElementById('note-text').value;await api('/api/customers/'+id+'/note',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({note})});toast('✓ Note saved');closeModal('note-modal');loadCustomers();}
 async function createPaymentLink(){
   const btn=document.getElementById('create-link-btn');btn.textContent='Creating…';btn.disabled=true;
@@ -8005,7 +8037,7 @@ function formatPaymentCount(value){
   return count+' '+(count===1?'payment':'payments');
 }
 async function loadSummary(){try{const d=await api('/api/daily-summary');document.getElementById('sum-rev-today').textContent=fmt(parseInt(d.revenue_today)||0);document.getElementById('sum-pay-today').textContent=formatPaymentCount(d.payments_today);document.getElementById('sum-fail-today').textContent=d.failed_today||0;document.getElementById('sum-rev-7d').textContent=fmt(parseInt(d.revenue_7d)||0);document.getElementById('sum-pay-7d').textContent=formatPaymentCount(d.payments_7d);document.getElementById('sum-rev-month').textContent=fmt(parseInt(d.revenue_month)||0);document.getElementById('sum-pay-month').textContent=formatPaymentCount(d.payments_month);document.getElementById('sum-active').textContent=d.active_total||0;document.getElementById('sum-new-7d').textContent='+'+(d.new_7d||0)+' this week';document.getElementById('sum-cust-today').textContent=d.new_today||0;}catch(e){}}
-async function sendManualInvoice(){const custId=document.getElementById('invoice-customer-id').value.trim();const amount=Math.round(parseFloat(document.getElementById('invoice-amount').value)*100);const desc=document.getElementById('invoice-desc').value;const result=document.getElementById('invoice-result');if(!custId||!amount){toast('Fill in all fields','error');return;}try{const r=await api('/api/customers/'+custId+'/charge-once',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount,description:desc})});result.style.display='block';if(r.success){result.style.background='var(--green-bg)';result.style.color='var(--green)';result.style.border='1px solid var(--green)';result.textContent='✓ Payment succeeded!';}else{result.style.background='var(--red-bg)';result.style.color='var(--red)';result.style.border='1px solid var(--red)';result.textContent='✗ '+(r.error||'Failed');}}catch(e){toast('Error','error');}}
+async function sendManualInvoice(){if(blockViewOnlyAction())return;const custId=document.getElementById('invoice-customer-id').value.trim();const amount=Math.round(parseFloat(document.getElementById('invoice-amount').value)*100);const desc=document.getElementById('invoice-desc').value;const result=document.getElementById('invoice-result');if(!custId||!amount){toast('Fill in all fields','error');return;}try{const r=await api('/api/customers/'+custId+'/charge-once',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount,description:desc})});result.style.display='block';if(r.success){result.style.background='var(--green-bg)';result.style.color='var(--green)';result.style.border='1px solid var(--green)';result.textContent='✓ Payment succeeded!';}else{result.style.background='var(--red-bg)';result.style.color='var(--red)';result.style.border='1px solid var(--red)';result.textContent='✗ '+(r.error||'Failed');}}catch(e){toast('Error','error');}}
 function openInvoiceModal(customerId){document.getElementById('invoice-modal-customer-id').value=customerId;document.getElementById('invoice-modal-amount').value='';document.getElementById('invoice-modal-desc').value='Manual invoice';document.getElementById('invoice-modal-result').style.display='none';openModal('invoice-modal');}
 async function sendInvoiceFromModal(){const customerId=document.getElementById('invoice-modal-customer-id').value;const amount=Math.round(parseFloat(document.getElementById('invoice-modal-amount').value)*100);const desc=document.getElementById('invoice-modal-desc').value;const result=document.getElementById('invoice-modal-result');if(!amount||amount<50){toast('Minimum $0.50','error');return;}try{const r=await api('/api/customers/'+customerId+'/charge-once',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount,description:desc})});result.style.display='block';if(r.success){result.style.cssText='background:var(--green-bg);color:var(--green);border:1px solid var(--green);padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);';result.textContent='✓ Charged successfully!';toast('✓ Invoice sent');}else{result.style.cssText='background:var(--red-bg);color:var(--red);border:1px solid var(--red);padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);';result.textContent='✗ '+(r.error||'Failed');toast('Failed','error');}}catch(e){toast('Error','error');}}
 async function loadAdmins(){
@@ -8251,9 +8283,10 @@ function drawMrrChart(points){
   canvas.onmouseleave=function(){tooltip.style.display='none';drawMrrChart(points);};
 }
 async function loadRecovery(){try{var d=await api('/api/recovery-rate');var rf=document.getElementById('rec-failed');if(rf)rf.textContent=d.total_failed||0;var rr=document.getElementById('rec-recovered');if(rr)rr.textContent=d.recovered||0;var rt=document.getElementById('rec-rate');if(rt){rt.textContent=(d.rate||0)+'%';rt.style.color=(d.rate||0)>=50?'var(--green)':'var(--red)';}}catch(e){}}
-async function openPaymentNote(id){document.getElementById('payment-note-id').value=id;document.getElementById('payment-note-text').value='Loading...';openModal('payment-note-modal');try{var list=await api('/api/payments');var p=list.find(function(x){return x.id===id;});document.getElementById('payment-note-text').value=p&&p.note?p.note:'';}catch(e){document.getElementById('payment-note-text').value='';}}
+async function openPaymentNote(id){if(blockViewOnlyAction())return;document.getElementById('payment-note-id').value=id;document.getElementById('payment-note-text').value='Loading...';openModal('payment-note-modal');try{var list=await api('/api/payments');var p=list.find(function(x){return x.id===id;});document.getElementById('payment-note-text').value=p&&p.note?p.note:'';}catch(e){document.getElementById('payment-note-text').value='';}}
 async function savePaymentNote(){var id=document.getElementById('payment-note-id').value;var note=document.getElementById('payment-note-text').value;await api('/api/payments/'+id+'/note',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({note})});toast('✓ Note saved');closeModal('payment-note-modal');loadPayments();}
 var _refStore={};var _refIdx=0;
+function buildRefReadOnlyCell(pi){if(!pi)return '—';var short=pi.slice(0,8)+'...'+pi.slice(-4);return '<span class="mono" style="font-size:11px;color:var(--muted);display:inline-block;min-width:96px;" title="'+escHtml(pi)+'">'+short+'</span>';}
 function buildRefCell(pi){if(!pi)return '—';var short=pi.slice(0,8)+'...'+pi.slice(-4);var key='ref_'+(++_refIdx);_refStore[key]=pi;return '<div style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;"><span class="mono" style="font-size:11px;color:var(--muted);display:inline-block;min-width:96px;">'+short+'</span><button class="btn btn-sm" style="padding:1px 5px;font-size:10px;" onclick="event.stopPropagation();copyStoredRef(this.dataset.k)" data-k="'+key+'">Copy</button></div>';}
 function copyStoredRef(keyOrEl){var key=typeof keyOrEl==='string'?keyOrEl:keyOrEl.dataset.k;var val=_refStore[key];if(!val)return;if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(val).then(function(){toast('Copied!');}).catch(function(){fallbackCopy(val);});}else{fallbackCopy(val);}}
 function fallbackCopy(text){var ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;left:-9999px;top:-9999px;';document.body.appendChild(ta);ta.select();try{document.execCommand('copy');toast('Copied!');}catch(e){toast('Copy failed','error');}document.body.removeChild(ta);}
