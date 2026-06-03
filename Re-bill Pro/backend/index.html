@@ -5318,22 +5318,28 @@ body.view-only-access .view-write-only{
 }
 
 
-/* Admin Users: compact details popup */
-.admin-details-modal{width:560px!important;max-width:calc(100vw - 32px)!important;max-height:88vh!important;padding:0!important;overflow:hidden!important;}
+/* Admin Users: simple aligned details popup */
+.admin-details-modal{width:512px!important;max-width:calc(100vw - 32px)!important;max-height:88vh!important;padding:0!important;overflow:hidden!important;}
 .admin-details-head{padding:21px 22px 16px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;border-bottom:1px solid var(--border);}
 .admin-details-head h3{margin:0 0 4px;}.admin-details-head p{margin:0;color:var(--muted);font-size:12px;}
 .admin-details-close{width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:9px;border:1px solid var(--border2);background:var(--surface2);color:var(--muted);cursor:pointer;flex:none;}
 .admin-details-close:hover{color:var(--text);border-color:var(--muted);}.admin-details-close svg{width:15px;height:15px;}
-.admin-details-body{padding:15px 22px 4px;overflow-y:auto;max-height:43vh;}
-.admin-detail-row{display:grid;grid-template-columns:142px minmax(0,1fr);align-items:start;gap:14px;min-height:40px;padding:10px 0;border-bottom:1px solid var(--border);}
-.admin-detail-label{color:var(--muted);font-size:12px;}.admin-detail-value{color:var(--text);font-size:12px;text-align:right;overflow-wrap:anywhere;}
-.admin-detail-list{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:5px;}.admin-detail-pill{padding:4px 8px;border:1px solid var(--border2);border-radius:7px;background:var(--surface2);color:var(--text);font-size:11px;}
-.admin-protected-pill{color:var(--muted);font-size:11px;border:1px solid var(--border2);border-radius:7px;padding:4px 8px;background:var(--surface2);}
-.admin-reset-password-panel{margin:14px 22px 0;padding:14px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);}
-.admin-reset-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px;}.admin-reset-subtitle{font-size:11px;color:var(--muted);margin-bottom:12px;}
-.admin-reset-password-panel .form-row{gap:9px;margin-bottom:0;}.admin-reset-password-panel .form-group{margin-bottom:11px;}
+.admin-details-body{padding:12px 22px 2px;overflow-y:auto;max-height:44vh;}
+.admin-detail-row{display:grid;grid-template-columns:124px minmax(0,1fr);align-items:start;gap:16px;padding:11px 0;border-bottom:1px solid var(--border);}
+.admin-detail-label{color:var(--muted);font-size:12px;line-height:19px;}
+.admin-detail-value{color:var(--text);font-size:12px;line-height:19px;text-align:left;overflow-wrap:anywhere;}
+.admin-detail-value strong{font-weight:600;}
+.admin-detail-role .admin-role-chip{vertical-align:middle;}
+.admin-detail-plain{color:var(--text);font-size:12px;line-height:19px;}
+.admin-detail-sections{color:var(--text);font-size:12px;line-height:20px;}
+.admin-detail-muted{color:var(--muted);font-size:12px;}
+.admin-reset-password-panel{margin:16px 22px 0;padding:0;border:0;background:transparent;}
+.admin-reset-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px;}
+.admin-reset-subtitle{font-size:11px;color:var(--muted);margin-bottom:12px;}
+.admin-reset-password-panel .form-row{gap:9px;margin-bottom:0;}
+.admin-reset-password-panel .form-group{margin-bottom:11px;}
 .admin-detail-error{margin:0 0 11px;padding:9px 10px;border-radius:7px;border:1px solid var(--red);color:var(--red);background:var(--red-bg);font-size:11px;}
-.admin-details-footer{margin-top:14px!important;padding:13px 22px!important;border-top:1px solid var(--border);background:var(--surface);}
+.admin-details-footer{margin-top:16px!important;padding:13px 22px!important;border-top:1px solid var(--border);background:var(--surface);}
 
 </style>
 </head>
@@ -8202,8 +8208,34 @@ var currentAdminDetailUserId=null;
 function adminRoleLabel(role){return ({owner:'Owner',admin:'Admin',viewer:'Analyst — View only',analyst:'Analyst — View only',custom:'Custom'})[role]||String(role||'—');}
 function adminSectionLabels(user){if(user.role==='owner'||user.role==='admin')return ['All sections'];var perms=(user.permissions||[]).slice();if((user.role==='viewer'||user.role==='analyst')&&!perms.length)perms=ANALYST_DEFAULT_PERMS.slice();return perms.map(function(k){var item=PERM_LIST.find(function(p){return p.value===k;});return item?item.label:k;});}
 function adminStripeAccessLabels(user){if(user.account_scope!=='selected')return ['All Stripe accounts'];var labels=(user.allowed_account_ids||[]).map(function(id){var a=(allStripeAccounts||[]).find(function(x){return Number(x.id)===Number(id);});return a?accessAccountLabel(a.name):'Account #'+id;});return labels.length?labels:['No assigned accounts'];}
-function adminDetailPills(values){return '<div class="admin-detail-list">'+values.map(function(v){return '<span class="admin-detail-pill">'+escHtml(String(v))+'</span>';}).join('')+'</div>';}
-async function openAdminDetails(id){var user=(allAdminUsers||[]).find(function(a){return Number(a.id)===Number(id);});if(!user)return;await loadAccessStripeAccounts();currentAdminDetailUserId=user.id;var roleClasses={owner:'admin-role-owner',admin:'admin-role-admin',viewer:'admin-role-analyst',analyst:'admin-role-analyst',custom:'admin-role-custom'};var roleBadge='<span class="badge admin-role-chip '+(roleClasses[user.role]||'admin-role-admin')+'">'+escHtml(adminRoleLabel(user.role))+'</span>';var body='';body+='<div class="admin-detail-row"><div class="admin-detail-label">Username</div><div class="admin-detail-value"><strong>'+escHtml(user.username||'—')+'</strong></div></div>';body+='<div class="admin-detail-row"><div class="admin-detail-label">Role</div><div class="admin-detail-value">'+roleBadge+'</div></div>';body+='<div class="admin-detail-row"><div class="admin-detail-label">Stripe access</div><div class="admin-detail-value">'+adminDetailPills(adminStripeAccessLabels(user))+'</div></div>';body+='<div class="admin-detail-row"><div class="admin-detail-label">Visible sections</div><div class="admin-detail-value">'+adminDetailPills(adminSectionLabels(user))+'</div></div>';body+='<div class="admin-detail-row"><div class="admin-detail-label">Password</div><div class="admin-detail-value"><span class="admin-protected-pill">Protected</span></div></div>';body+='<div class="admin-detail-row"><div class="admin-detail-label">Last login</div><div class="admin-detail-value mono">'+escHtml(user.last_login?fmtTime(user.last_login):'Never')+'</div></div>';body+='<div class="admin-detail-row"><div class="admin-detail-label">Created</div><div class="admin-detail-value mono">'+escHtml(fmtDate(user.created_at))+'</div></div>';document.getElementById('admin-details-body').innerHTML=body;var panel=document.getElementById('admin-reset-password-panel');panel.style.display=user.role==='owner'?'none':'block';document.getElementById('admin-detail-new-password').value='';document.getElementById('admin-detail-confirm-password').value='';document.getElementById('admin-detail-password-error').style.display='none';openModal('admin-details-modal');}
+function adminDetailsText(values, separator){
+  return (values||[]).map(function(v){return escHtml(String(v));}).join(separator||', ');
+}
+async function openAdminDetails(id){
+  var user=(allAdminUsers||[]).find(function(a){return Number(a.id)===Number(id);});
+  if(!user)return;
+  await loadAccessStripeAccounts();
+  currentAdminDetailUserId=user.id;
+  var roleClasses={owner:'admin-role-owner',admin:'admin-role-admin',viewer:'admin-role-analyst',analyst:'admin-role-analyst',custom:'admin-role-custom'};
+  var roleBadge='<span class="badge admin-role-chip '+(roleClasses[user.role]||'admin-role-admin')+'">'+escHtml(adminRoleLabel(user.role))+'</span>';
+  var stripeAccess=adminDetailsText(adminStripeAccessLabels(user),', ');
+  var visibleSections=adminDetailsText(adminSectionLabels(user),', ');
+  var body='';
+  body+='<div class="admin-detail-row"><div class="admin-detail-label">Username</div><div class="admin-detail-value"><strong>'+escHtml(user.username||'—')+'</strong></div></div>';
+  body+='<div class="admin-detail-row"><div class="admin-detail-label">Role</div><div class="admin-detail-value admin-detail-role">'+roleBadge+'</div></div>';
+  body+='<div class="admin-detail-row"><div class="admin-detail-label">Stripe access</div><div class="admin-detail-value admin-detail-plain">'+(stripeAccess||'—')+'</div></div>';
+  body+='<div class="admin-detail-row"><div class="admin-detail-label">Visible sections</div><div class="admin-detail-value admin-detail-sections">'+(visibleSections||'—')+'</div></div>';
+  body+='<div class="admin-detail-row"><div class="admin-detail-label">Password</div><div class="admin-detail-value admin-detail-muted">Protected</div></div>';
+  body+='<div class="admin-detail-row"><div class="admin-detail-label">Last login</div><div class="admin-detail-value mono">'+escHtml(user.last_login?fmtTime(user.last_login):'Never')+'</div></div>';
+  body+='<div class="admin-detail-row"><div class="admin-detail-label">Created</div><div class="admin-detail-value mono">'+escHtml(fmtDate(user.created_at))+'</div></div>';
+  document.getElementById('admin-details-body').innerHTML=body;
+  var panel=document.getElementById('admin-reset-password-panel');
+  panel.style.display=user.role==='owner'?'none':'block';
+  document.getElementById('admin-detail-new-password').value='';
+  document.getElementById('admin-detail-confirm-password').value='';
+  document.getElementById('admin-detail-password-error').style.display='none';
+  openModal('admin-details-modal');
+}
 async function resetAdminPasswordFromDetails(){if(!currentAdminDetailUserId)return;var password=document.getElementById('admin-detail-new-password').value;var confirm=document.getElementById('admin-detail-confirm-password').value;var err=document.getElementById('admin-detail-password-error');err.style.display='none';if(!password||password.length<8){err.textContent='Password must be at least 8 characters';err.style.display='block';return;}if(password!==confirm){err.textContent='Passwords do not match';err.style.display='block';return;}try{var r=await api('/api/admin-users/'+currentAdminDetailUserId+'/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:password})});if(r.success){toast('✓ Password reset');document.getElementById('admin-detail-new-password').value='';document.getElementById('admin-detail-confirm-password').value='';return;}err.textContent=r.error||'Failed to reset password';err.style.display='block';}catch(e){err.textContent='Server error';err.style.display='block';}}
 
 async function openAddAdminModal(){
