@@ -5305,19 +5305,6 @@ body.view-only-access .view-write-only{
 }
 
 
-/* Admin Access V3.4: status icons remain informational and visible for read-only users */
-#payment-detail-modal .pd-title-icon svg{
-  display:block!important;
-  width:100%!important;
-  height:100%!important;
-}
-#payment-detail-modal .pd-meta-label .pd-title-icon svg{
-  display:block!important;
-  width:14px!important;
-  height:14px!important;
-}
-
-
 /* Admin Users: profile-style user details modal */
 .admin-details-modal{
   width:520px!important;
@@ -5327,23 +5314,9 @@ body.view-only-access .view-write-only{
   overflow:hidden!important;
 }
 .admin-profile-head{
-  padding:18px 18px 20px 24px;
+  padding:22px 24px 20px;
   display:flex;
-  justify-content:space-between;
   align-items:flex-start;
-  gap:16px;
-}
-.admin-profile-close{
-  width:30px!important;
-  height:30px!important;
-  min-width:30px!important;
-  min-height:30px!important;
-  padding:0!important;
-  border-radius:8px!important;
-  font-size:18px!important;
-  font-weight:300!important;
-  line-height:1!important;
-  flex:none;
 }
 .admin-profile-identity{
   display:flex;
@@ -5432,7 +5405,12 @@ body.view-only-access .view-write-only{
   padding:13px 24px!important;
   border-top:1px solid rgba(145,145,163,.13)!important;
   background:var(--surface);
-  justify-content:flex-start!important;
+  display:flex!important;
+  justify-content:flex-end!important;
+  gap:8px!important;
+}
+.admin-details-footer .admin-details-remove-btn{
+  margin-right:auto;
 }
 .admin-details-remove-btn{
   border-color:rgba(255,84,92,.34)!important;
@@ -6325,7 +6303,6 @@ body.view-only-access .view-write-only{
   <div class="modal admin-details-modal">
     <div class="admin-profile-head">
       <div id="admin-details-hero" class="admin-profile-identity"></div>
-      <button class="payment-detail-close admin-profile-close" onclick="closeModal('admin-details-modal')" aria-label="Close user details">×</button>
     </div>
     <div class="admin-profile-content">
       <div class="admin-profile-section">
@@ -6349,8 +6326,9 @@ body.view-only-access .view-write-only{
         </div>
       </div>
     </div>
-    <div id="admin-details-footer" class="modal-footer admin-details-footer" style="display:none;">
-      <button id="admin-remove-access-btn" class="btn admin-details-remove-btn" onclick="removeAdminAccessFromDetails()">Remove access</button>
+    <div id="admin-details-footer" class="modal-footer admin-details-footer">
+      <button id="admin-remove-access-btn" class="btn admin-details-remove-btn" style="display:none;" onclick="removeAdminAccessFromDetails()">Remove access</button>
+      <button class="btn admin-details-close-footer" onclick="closeModal('admin-details-modal')">Close</button>
     </div>
   </div>
 </div>
@@ -6598,28 +6576,6 @@ function badgeLabel(s){
 }
 
 function badgeIcon(s){
-  const raw = String(s || '').toLowerCase();
-
-  if (raw.includes('success') || raw.includes('succeeded') || raw === 'active' || raw === 'ok' || raw === 'paid') {
-    return '<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.4 8.2l2.45 2.45L12.6 4.8" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  }
-
-  if (raw.includes('fail') || raw.includes('declin') || raw.includes('cancel')) {
-    return '<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M5 5l6 6M11 5l-6 6" stroke="currentColor" stroke-linecap="round"/></svg>';
-  }
-
-  if (raw.includes('pause')) {
-    return '<svg class="status-mini-icon paused-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 4.5v7M10 4.5v7" stroke="currentColor" stroke-linecap="round"/></svg>';
-  }
-
-  if (raw.includes('refund')) {
-    return '<svg class="status-mini-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6.5 4.2L3.6 7.1l2.9 2.9" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.1 7.1h5.1a3.05 3.05 0 010 6.1H7.7" stroke="currentColor" stroke-linecap="round"/></svg>';
-  }
-
-  if (raw.includes('require') || raw.includes('pending') || raw.includes('processing') || raw.includes('method') || raw.includes('action')) {
-    return '<svg class="status-mini-icon payment-needed-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="2.6" y="4.2" width="10.8" height="7.6" rx="1.8" stroke="currentColor"/><path d="M3.3 6.5h9.4" stroke="currentColor" stroke-linecap="round"/><path d="M5 9.6h2.5" stroke="currentColor" stroke-linecap="round"/></svg>';
-  }
-
   return '';
 }
 
@@ -8356,9 +8312,9 @@ async function openAdminDetails(id){
   document.getElementById('admin-details-meta').innerHTML='<div class="admin-profile-meta-item"><span class="admin-profile-meta-label">Last login</span><div class="admin-profile-meta-value">'+escHtml(user.last_login?fmtTime(user.last_login):'Never')+'</div></div><div class="admin-profile-meta-item"><span class="admin-profile-meta-label">Created</span><div class="admin-profile-meta-value">'+escHtml(fmtDate(user.created_at))+'</div></div>';
   var canManageAccess=user.role!=='owner';
   var panel=document.getElementById('admin-reset-password-panel');
-  var footer=document.getElementById('admin-details-footer');
+  var removeButton=document.getElementById('admin-remove-access-btn');
   panel.style.display=canManageAccess?'block':'none';
-  footer.style.display=canManageAccess?'flex':'none';
+  removeButton.style.display=canManageAccess?'inline-flex':'none';
   toggleAdminPasswordReset(false);
   openModal('admin-details-modal');
 }
