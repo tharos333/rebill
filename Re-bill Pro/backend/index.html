@@ -6750,23 +6750,45 @@ async function verify2FA(){
   }catch(e){toast('Error verifying code','error');}
 }
 function backToLogin(){document.getElementById('login-step-2').style.display='none';document.getElementById('login-step-1').style.display='block';clearOtp();document.getElementById('twofa-error').style.display='none';}
+function refreshRestrictedAccessAndOpen(name,el,loaders){
+  var username=localStorage.getItem('subloop_username');
+  var role=getCurrentRole();
+  if(!username||!(role==='custom'||role==='viewer'||role==='analyst')) return;
+  api('/api/auth/check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:username})})
+  .then(function(r){
+    if(!r.valid){forceLogout();return;}
+    if(r.username)localStorage.setItem('subloop_username',r.username);
+    localStorage.setItem('subloop_role',r.role||'admin');
+    localStorage.setItem('subloop_permissions',JSON.stringify(r.permissions||[]));
+    if(r.account_scope)localStorage.setItem('subloop_account_scope',r.account_scope);
+    if(Array.isArray(r.allowed_account_ids))localStorage.setItem('subloop_allowed_account_ids',JSON.stringify(r.allowed_account_ids));
+    if(r.role==='viewer'||r.role==='analyst')localStorage.setItem('subloop_readonly','1');else localStorage.removeItem('subloop_readonly');
+    applyAccessControl();
+    if(canAccess(name)){
+      document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+      document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});
+      var targetPage=document.getElementById('page-'+name);
+      if(targetPage)targetPage.classList.add('active');
+      if(el)el.classList.add('active');
+      if(loaders[name])loaders[name]();
+      setTimeout(enforceReadonly,200);
+    }
+  }).catch(function(){});
+}
 function showPage(name,el){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   el.classList.add('active');
   const loaders={dashboard:()=>{loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();},activity:loadActivity,customers:loadCustomers,subscriptions:loadSubscriptions,payments:loadPayments,settings:loadSettings,accounts:loadAccounts,security:loadSecurity,webhooks:loadWebhooks,forecast:loadForecast,summary:loadSummary,admins:loadAdmins,mrr:()=>{var period=document.getElementById('mrr-period');if(period)period.value='year';loadMrr();},recovery:loadRecovery,links:()=>{loadPaymentLinkAccounts();loadTemplates();configurePaymentLinksAccessUI();}};
-  var _username=localStorage.getItem('subloop_username');
-  if(_username&&(getCurrentRole()==='custom'||getCurrentRole()==='viewer'||getCurrentRole()==='analyst')){
-    api('/api/auth/check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:_username})})
-    .then(function(r){if(!r.valid){forceLogout();return;}if(r.username)localStorage.setItem('subloop_username',r.username);localStorage.setItem('subloop_role',r.role||'admin');localStorage.setItem('subloop_permissions',JSON.stringify(r.permissions||[]));if(r.account_scope)localStorage.setItem('subloop_account_scope',r.account_scope);if(Array.isArray(r.allowed_account_ids))localStorage.setItem('subloop_allowed_account_ids',JSON.stringify(r.allowed_account_ids));if(r.role==='viewer'||r.role==='analyst')localStorage.setItem('subloop_readonly','1');else localStorage.removeItem('subloop_readonly');applyAccessControl();}).catch(function(){});
-  }
   expandSettingsIfNeeded(name);
   if(!canAccess(name)){
     document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
     document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});
     el.classList.add('active');
     showRestrictedPage(name);
+    /* Only restricted-page attempts need a fresh access check, allowing recently granted access without slowing normal navigation. */
+    refreshRestrictedAccessAndOpen(name,el,loaders);
     return;
   }
   if(loaders[name])loaders[name]();
