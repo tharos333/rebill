@@ -5421,9 +5421,20 @@ body.view-only-access #payment-link-create-card{
 }
 .admin-security-panel{padding:17px 0 0;}
 .admin-security-summary{display:flex;align-items:center;justify-content:space-between;gap:16px;}
+.admin-security-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:0 0 14px;
+  margin-bottom:14px;
+  border-bottom:1px solid rgba(145,145,163,.13);
+}
+.admin-security-row:last-child{margin-bottom:0;}
 .admin-security-copy-title{margin:0 0 3px;color:var(--text);font-size:13px;font-weight:500;}
 .admin-security-copy-sub{color:var(--muted);font-size:11px;line-height:17px;}
-.admin-reset-form{padding-top:15px;}
+.admin-user-security-rows{padding:0;margin:0;}
+.admin-reset-form{padding:1px 0 15px;}
 .admin-reset-form .form-row{gap:9px;margin-bottom:0;}
 .admin-reset-form .form-group{margin-bottom:11px;}
 .admin-reset-form-actions{display:flex;align-items:center;gap:8px;}
@@ -6598,10 +6609,10 @@ body.view-only-access #verification-debug-modal .modal-content{
       <div id="admin-details-meta" class="admin-profile-meta"></div>
       <div id="admin-reset-password-panel" class="admin-security-panel" style="display:none;">
         <div class="admin-profile-section-label">Security</div>
-        <div id="admin-security-summary" class="admin-security-summary">
+        <div id="admin-security-summary" class="admin-security-summary admin-security-row">
           <div>
-            <div class="admin-security-copy-title">Password protected</div>
-            <div class="admin-security-copy-sub">Set a new password without revealing the existing one.</div>
+            <div class="admin-security-copy-title">Password</div>
+            <div class="admin-security-copy-sub">Protected</div>
           </div>
           <button class="btn" onclick="toggleAdminPasswordReset(true)">Reset password</button>
         </div>
@@ -6610,17 +6621,20 @@ body.view-only-access #verification-debug-modal .modal-content{
           <div id="admin-detail-password-error" class="admin-detail-error" style="display:none;"></div>
           <div class="admin-reset-form-actions"><button class="btn btn-primary" onclick="resetAdminPasswordFromDetails()">Save new password</button><button class="btn" onclick="toggleAdminPasswordReset(false)">Cancel</button></div>
         </div>
-      </div>
-      <div id="admin-user-security-panel" class="admin-security-panel" style="display:none;">
-        <div class="admin-profile-section-label">Account security</div>
-        <div class="admin-security-summary">
-          <div>
-            <div class="admin-security-copy-title">Two-factor authentication</div>
-            <div id="admin-user-2fa-status" class="admin-security-copy-sub">Loading...</div>
-          </div>
-          <div style="display:flex;gap:8px;align-items:center;">
+        <div id="admin-user-security-panel" class="admin-user-security-rows" style="display:none;">
+          <div class="admin-security-summary admin-security-row">
+            <div>
+              <div class="admin-security-copy-title">Two-factor authentication</div>
+              <div id="admin-user-2fa-status" class="admin-security-copy-sub">Loading...</div>
+            </div>
             <button id="admin-user-reset-2fa-btn" class="btn" style="display:none;" onclick="resetAdminUser2FA()">Reset 2FA</button>
-            <button class="btn" onclick="viewAdminUserLoginActivity()">View login activity</button>
+          </div>
+          <div class="admin-security-summary admin-security-row">
+            <div>
+              <div class="admin-security-copy-title">Login activity</div>
+              <div class="admin-security-copy-sub">View recent sign-in history</div>
+            </div>
+            <button class="btn" onclick="viewAdminUserLoginActivity()">View activity</button>
           </div>
         </div>
       </div>
