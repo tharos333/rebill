@@ -6383,9 +6383,9 @@ body.view-only-access #verification-debug-modal .modal-content{
 <div id="page-admins" class="page">
   <div class="page-header">
     <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg><span>Admin Users</span></h2><p>Manage who can access Subloop</p></div>
-    <button class="btn btn-primary" onclick="openAddAdminModal()">
+    <button class="btn btn-primary" id="admin-add-user-btn" onclick="openAddAdminModal()">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      Add Admin
+      Add User
     </button>
   </div>
   <div class="card">
@@ -6472,7 +6472,7 @@ body.view-only-access #verification-debug-modal .modal-content{
 <div class="modal-bg" id="add-admin-modal">
   <div class="modal admin-access-modal">
     <div class="admin-access-head">
-      <h3>Add admin user</h3>
+      <h3>Add user</h3>
       <p>Control which data and Stripe accounts this user can access</p>
     </div>
     <div class="admin-access-body">
@@ -6482,7 +6482,7 @@ body.view-only-access #verification-debug-modal .modal-content{
       </div>
       <div class="form-group"><label>Access level</label>
         <select id="admin-role" onchange="toggleCustomPerms()">
-          <option value="admin">Admin — full management access</option>
+          <option id="add-role-admin-option" value="admin">Admin — full management access</option>
           <option value="analyst">Analyst — view only</option>
           <option value="custom">Custom — manage selected sections</option>
         </select>
@@ -6516,7 +6516,7 @@ body.view-only-access #verification-debug-modal .modal-content{
     </div>
     <div class="modal-footer admin-access-footer">
       <button class="btn" onclick="closeModal('add-admin-modal')">Cancel</button>
-      <button class="btn btn-primary" onclick="addAdmin()">Add Admin</button>
+      <button class="btn btn-primary" onclick="addAdmin()">Add User</button>
     </div>
   </div>
 </div>
@@ -6554,7 +6554,7 @@ body.view-only-access #verification-debug-modal .modal-content{
       <input type="hidden" id="edit-access-id">
       <div class="form-group"><label>Access level</label>
         <select id="edit-access-role" onchange="toggleEditCustomPerms()">
-          <option value="admin">Admin — full management access</option>
+          <option id="edit-role-admin-option" value="admin">Admin — full management access</option>
           <option value="analyst">Analyst — view only</option>
           <option value="custom">Custom — manage selected sections</option>
         </select>
@@ -8620,7 +8620,7 @@ async function loadAdmins(){
       var roleLabels={owner:'Owner',admin:'Admin',viewer:'Analyst — View only',analyst:'Analyst — View only',custom:'Custom'};
       var roleBadge='<span class="badge admin-role-chip '+(roleClasses[a.role]||'admin-role-admin')+'">'+(roleLabels[a.role]||a.role)+'</span>';
       var details='<button class="btn btn-sm" onclick="openAdminDetails('+a.id+')">Details</button>';
-      var management=a.role!=='owner'?'<button class="btn btn-sm" onclick="openEditAccess('+a.id+')">Edit access</button><button class="btn btn-sm btn-danger" onclick="deleteAdmin('+a.id+')">Remove</button>':'';
+      var management=canManageAccessUser(a)?'<button class="btn btn-sm" onclick="openEditAccess('+a.id+')">Edit access</button><button class="btn btn-sm btn-danger" onclick="deleteAdmin('+a.id+')">Remove</button>':'';
       return '<tr><td><strong style="font-size:13px;">'+escHtml(a.username||'—')+'</strong></td><td>'+roleBadge+'</td><td class="mono" style="font-size:12px;color:var(--muted);">'+(a.last_login?fmtTime(a.last_login):'Never')+'</td><td class="mono" style="font-size:12px;color:var(--muted);">'+fmtDate(a.created_at)+'</td><td><div class="actions">'+details+management+'</div></td></tr>';
     }).join('');
   }catch(e){tb.innerHTML='<tr><td colspan="5" class="empty" style="color:var(--red);">Failed to load. <button class="btn btn-sm" onclick="loadAdmins()" style="margin-left:8px;">Retry</button></td></tr>';}
@@ -8729,6 +8729,23 @@ function selectAllPerms(){document.querySelectorAll('#perms-list input[type=chec
 function clearAllPerms(){document.querySelectorAll('#perms-list input[type=checkbox]').forEach(function(cb){cb.checked=false;cb.dispatchEvent(new Event('change'));});}
 var currentAdminDetailUserId=null;
 function adminRoleLabel(role){return ({owner:'Owner',admin:'Admin',viewer:'Analyst — View only',analyst:'Analyst — View only',custom:'Custom'})[role]||String(role||'—');}
+function canManageAccessUser(user){
+  var actor=getCurrentRole();
+  if(!user)return false;
+  if(actor==='owner')return user.role!=='owner';
+  if(actor==='admin')return user.role==='custom'||user.role==='analyst'||user.role==='viewer';
+  return false;
+}
+function canResetOtherUserSecurity(user){
+  return getCurrentRole()==='owner'&&user&&user.role!=='owner';
+}
+function configureManagedUserRoleOptions(){
+  var adminActor=getCurrentRole()==='admin';
+  var addAdminOption=document.getElementById('add-role-admin-option');
+  var editAdminOption=document.getElementById('edit-role-admin-option');
+  if(addAdminOption)addAdminOption.hidden=adminActor;
+  if(editAdminOption)editAdminOption.hidden=adminActor;
+}
 function adminSectionLabels(user){if(user.role==='owner'||user.role==='admin')return ['All sections'];var perms=(user.permissions||[]).slice();if((user.role==='viewer'||user.role==='analyst')&&!perms.length)perms=ANALYST_DEFAULT_PERMS.slice();var ordered=PERM_LIST.map(function(p){return p.value;}).filter(function(k){return perms.includes(k);});perms.forEach(function(k){if(!ordered.includes(k))ordered.push(k);});return ordered.map(function(k){var item=PERM_LIST.find(function(p){return p.value===k;});return item?item.label:k;});}
 function adminStripeAccessLabels(user){if(user.account_scope!=='selected')return ['All Stripe accounts'];var labels=(user.allowed_account_ids||[]).map(function(id){var a=(allStripeAccounts||[]).find(function(x){return Number(x.id)===Number(id);});return a?accessAccountLabel(a.name):'Account #'+id;});return labels.length?labels:['No assigned accounts'];}
 function adminDetailsText(values,separator){return (values||[]).map(function(v){return escHtml(String(v));}).join(separator||', ');}
@@ -8759,13 +8776,13 @@ async function openAdminDetails(id){
   var sectionsLabel=(user.role==='viewer'||user.role==='analyst')?'Visible sections':(user.role==='custom'?'Managed sections':'Sections');
   document.getElementById('admin-details-access').innerHTML='<div class="admin-access-line"><div class="admin-access-key">Stripe accounts</div><div class="admin-access-value">'+(stripeAccess||'—')+'</div></div><div class="admin-access-line"><div class="admin-access-key">'+sectionsLabel+'</div><div class="admin-access-value">'+(visibleSections||'—')+'</div></div>';
   document.getElementById('admin-details-meta').innerHTML='<div class="admin-access-line"><div class="admin-access-key">Last login</div><div class="admin-access-value">'+escHtml(user.last_login?fmtTime(user.last_login):'Never')+'</div></div><div class="admin-access-line"><div class="admin-access-key">Created</div><div class="admin-access-value">'+escHtml(fmtDate(user.created_at))+'</div></div>';
-  var canManageAccess=user.role!=='owner';
+  var canManageAccess=canManageAccessUser(user);
   var panel=document.getElementById('admin-reset-password-panel');
   var removeButton=document.getElementById('admin-remove-access-btn');
-  panel.style.display=canManageAccess?'block':'none';
+  var canInspectSecurity=canResetOtherUserSecurity(user);
+  panel.style.display=canInspectSecurity?'block':'none';
   removeButton.style.display=canManageAccess?'inline-flex':'none';
   var ownerSecurity=document.getElementById('admin-user-security-panel');
-  var canInspectSecurity=getCurrentRole()==='owner'&&user.role!=='owner';
   ownerSecurity.style.display=canInspectSecurity?'block':'none';
   panel.classList.toggle('security-password-only',!canInspectSecurity);
   toggleAdminPasswordReset(false);
@@ -8812,7 +8829,7 @@ async function viewAdminUserLoginActivity(){
 }
 async function removeAdminAccessFromDetails(){
   var user=(allAdminUsers||[]).find(function(a){return Number(a.id)===Number(currentAdminDetailUserId);});
-  if(!user||user.role==='owner')return;
+  if(!canManageAccessUser(user)){toast('You cannot remove this user access','error');return;}
   var message='Remove access for '+(user.username||'this user')+'?\n\nThis user will no longer be able to log in or access assigned Stripe accounts.';
   if(!confirm(message))return;
   try{
@@ -8832,7 +8849,8 @@ async function resetAdminPasswordFromDetails(){if(!currentAdminDetailUserId)retu
 
 async function openAddAdminModal(){
   await loadAccessStripeAccounts();
-  document.getElementById('admin-role').value='admin';
+  configureManagedUserRoleOptions();
+  document.getElementById('admin-role').value=getCurrentRole()==='admin'?'custom':'admin';
   document.getElementById('admin-account-search').value='';
   setAccountScope('admin','selected');buildAccountChoices('admin',[]);toggleCustomPerms();openModal('add-admin-modal');
 }
@@ -8852,6 +8870,7 @@ function toggleCustomPerms(){
 }
 async function addAdmin(){
   var username=document.getElementById('admin-username').value.trim();var password=document.getElementById('admin-password').value;var role=document.getElementById('admin-role').value;
+  if(getCurrentRole()==='admin'&&role==='admin'){toast('Admins can add Custom or View-only users only','error');return;}
   if(!username||!password){toast('Fill in all fields','error');return;}if(password.length<8){toast('Password must be at least 8 characters','error');return;}
   var scoped=role==='analyst'||role==='custom';var permissions=[];
   if(scoped){document.querySelectorAll('#perms-list input[type=checkbox]:checked').forEach(function(cb){permissions.push(cb.value);});if(!permissions.length){toast(role==='custom'?'Select at least one managed section':'Select at least one visible section','error');return;}}
@@ -8859,7 +8878,7 @@ async function addAdmin(){
   if(accountScope==='selected'&&!accountIds.length){toast('Select at least one Stripe account','error');return;}
   try{var r=await api('/api/admin-users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:username,password:password,role:role,permissions:permissions,account_scope:accountScope,allowed_account_ids:accountIds})});if(r.success){toast('✓ Admin added');closeModal('add-admin-modal');document.getElementById('admin-username').value='';document.getElementById('admin-password').value='';loadAdmins();}else toast('Error: '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}
 }
-async function deleteAdmin(id){if(!confirm('Remove this admin user?'))return;try{var r=await api('/api/admin-users/'+id,{method:'DELETE'});if(r.success){toast('✓ Admin removed');loadAdmins();}else toast('Error: '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
+async function deleteAdmin(id){var target=(allAdminUsers||[]).find(function(a){return Number(a.id)===Number(id);});if(!canManageAccessUser(target)){toast('You cannot remove this user access','error');return;}if(!confirm('Remove access for this user?'))return;try{var r=await api('/api/admin-users/'+id,{method:'DELETE'});if(r.success){toast('✓ Access removed');loadAdmins();}else toast('Error: '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
 async function changeMyPassword(){var np=document.getElementById('change-pass-new').value;var cp=document.getElementById('change-pass-confirm').value;if(!np||np.length<8){toast('Password must be at least 8 characters','error');return;}if(np!==cp){toast('Passwords do not match','error');return;}try{var list=await api('/api/admin-users');var me=list.find(function(a){return a.username===localStorage.getItem('subloop_username');});if(!me){toast('Could not find your account','error');return;}var r=await api('/api/admin-users/'+me.id+'/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:np})});if(r.success){toast('✓ Password updated');document.getElementById('change-pass-new').value='';document.getElementById('change-pass-confirm').value='';}else toast('Error: '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
 var searchTimer=null;
 function globalSearch(q){
@@ -9025,13 +9044,19 @@ function toggleEditCustomPerms(){var role=document.getElementById('edit-access-r
 function selectAllEditPerms(){document.querySelectorAll('#edit-perms-list input[type=checkbox]').forEach(function(cb){cb.checked=true;cb.dispatchEvent(new Event('change'));});}
 function clearAllEditPerms(){document.querySelectorAll('#edit-perms-list input[type=checkbox]').forEach(function(cb){cb.checked=false;cb.dispatchEvent(new Event('change'));});}
 async function openEditAccess(id){
-  var a=(allAdminUsers||[]).find(function(x){return x.id===id;});if(!a)return;await loadAccessStripeAccounts();
+  var a=(allAdminUsers||[]).find(function(x){return x.id===id;});if(!a)return;
+  if(!canManageAccessUser(a)){toast('You cannot edit this user access','error');return;}
+  await loadAccessStripeAccounts();configureManagedUserRoleOptions();
   document.getElementById('edit-access-id').value=id;document.getElementById('edit-access-subtitle').textContent='Editing access for: '+a.username;document.getElementById('edit-access-role').value=a.role==='viewer'?'analyst':(a.role||'admin');document.getElementById('edit-access-error').style.display='none';document.getElementById('edit-account-search').value='';setAccountScope('edit',a.account_scope||'all');buildAccountChoices('edit',a.allowed_account_ids||[]);toggleEditCustomPerms();
   var currentPerms=a.permissions||[];if((a.role==='viewer'||a.role==='analyst')&&!currentPerms.length)currentPerms=ANALYST_DEFAULT_PERMS.slice();
   setTimeout(function(){document.querySelectorAll('#edit-perms-list input[type=checkbox]').forEach(function(cb){cb.checked=currentPerms.includes(cb.value);cb.dispatchEvent(new Event('change'));});},30);openModal('edit-access-modal');
 }
 async function saveEditAccess(){
-  var id=document.getElementById('edit-access-id').value;var role=document.getElementById('edit-access-role').value;var errEl=document.getElementById('edit-access-error');errEl.style.display='none';var scoped=role==='analyst'||role==='custom';var permissions=[];
+  var id=document.getElementById('edit-access-id').value;var role=document.getElementById('edit-access-role').value;var errEl=document.getElementById('edit-access-error');errEl.style.display='none';
+  var target=(allAdminUsers||[]).find(function(x){return String(x.id)===String(id);});
+  if(!canManageAccessUser(target)){errEl.textContent='You cannot edit this user access';errEl.style.display='block';return;}
+  if(getCurrentRole()==='admin'&&role==='admin'){errEl.textContent='Admins cannot grant Admin access';errEl.style.display='block';return;}
+  var scoped=role==='analyst'||role==='custom';var permissions=[];
   if(scoped){document.querySelectorAll('#edit-perms-list input[type=checkbox]:checked').forEach(function(cb){permissions.push(cb.value);});if(!permissions.length){errEl.textContent=role==='custom'?'Select at least one managed section':'Select at least one visible section';errEl.style.display='block';return;}}
   var accountScope=scoped?document.getElementById('edit-account-scope').value:'all';var accountIds=accountScope==='selected'?checkedAccountIds('edit'):[];
   if(accountScope==='selected'&&!accountIds.length){errEl.textContent='Select at least one Stripe account';errEl.style.display='block';return;}

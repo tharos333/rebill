@@ -1396,6 +1396,18 @@ async function validateSelectedAccounts(scope, ids) {
   const r = await pool.query('SELECT COUNT(*) AS n FROM stripe_accounts WHERE id=ANY($1::int[])', [ids]);
   return Number(r.rows[0]?.n) === ids.length;
 }
+function actorCanCreateManagedUser(actor, role) {
+  if (!actor) return false;
+  if (actor.role === 'owner') return ['admin','analyst','viewer','custom'].includes(role);
+  if (actor.role === 'admin') return ['analyst','viewer','custom'].includes(role);
+  return false;
+}
+function actorCanManageUser(actor, target) {
+  if (!actor || !target) return false;
+  if (actor.role === 'owner') return target.role !== 'owner';
+  if (actor.role === 'admin') return ['analyst','viewer','custom'].includes(target.role);
+  return false;
+}
 app.get('/api/admin-users', async (req, res) => {
   try {
     const list = await adminUsers.all();
@@ -1408,11 +1420,15 @@ app.post('/api/admin-users', async (req, res) => {
     const { username, password, role, permissions, account_scope, allowed_account_ids } = req.body;
     if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
     if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
-    const safeRole = ['admin','analyst','viewer','custom'].includes(role) ? role : 'admin';
+    const safeRole = ['admin','analyst','viewer','custom'].includes(role) ? role : null;
+    if (!safeRole) return res.status(400).json({ error: 'Select a valid access level' });
+    if (!actorCanCreateManagedUser(req.currentUser, safeRole)) {
+      return res.status(403).json({ error: req.currentUser.role === 'admin' ? 'Admins can add Custom or View-only users only' : 'Not allowed to create this access level' });
+    }
     const access = cleanAccountAccessInput(safeRole, account_scope, allowed_account_ids);
     if (!(await validateSelectedAccounts(access.accountScope, access.allowedAccountIds))) return res.status(400).json({ error: 'Select at least one valid Stripe account' });
     await adminUsers.create(username, password, safeRole, sanitizeSections(safeRole, permissions), access.accountScope, access.allowedAccountIds);
-    await activityLog.add('security', `New admin user created: ${username}`);
+    await activityLog.add('security', `New access user created: ${username}`);
     res.json({ success: true });
   } catch(err) {
     if (err.message.includes('unique')) return res.status(400).json({ error: 'Username already exists' });
@@ -1421,8 +1437,11 @@ app.post('/api/admin-users', async (req, res) => {
 });
 app.delete('/api/admin-users/:id', async (req, res) => {
   try {
-    const all = await adminUsers.all();
-    if (all.length <= 1) return res.status(400).json({ error: 'Cannot delete the last admin user' });
+    const target = await adminUsers.byId(req.params.id);
+    if (!target) return res.status(404).json({ error: 'User not found' });
+    if (!actorCanManageUser(req.currentUser, target)) {
+      return res.status(403).json({ error: 'You cannot remove this user access' });
+    }
     await adminUsers.delete(req.params.id);
     res.json({ success: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
@@ -1431,9 +1450,14 @@ app.patch('/api/admin-users/:id/permissions', async (req, res) => {
   try {
     const { role, permissions, account_scope, allowed_account_ids } = req.body;
     const current = await adminUsers.byId(req.params.id);
-    if (!current) return res.status(404).json({ error: 'Admin not found' });
-    if (current.role === 'owner') return res.status(400).json({ error: 'Cannot change owner role' });
+    if (!current) return res.status(404).json({ error: 'User not found' });
+    if (!actorCanManageUser(req.currentUser, current)) {
+      return res.status(403).json({ error: 'You cannot edit this user access' });
+    }
     const safeRole = ['admin','analyst','viewer','custom'].includes(role) ? role : current.role;
+    if (!actorCanCreateManagedUser(req.currentUser, safeRole)) {
+      return res.status(403).json({ error: req.currentUser.role === 'admin' ? 'Admins cannot grant Admin access' : 'Not allowed to grant this access level' });
+    }
     const access = cleanAccountAccessInput(safeRole, account_scope, allowed_account_ids);
     if (!(await validateSelectedAccounts(access.accountScope, access.allowedAccountIds))) return res.status(400).json({ error: 'Select at least one valid Stripe account' });
     await adminUsers.updateAccess(req.params.id, safeRole, sanitizeSections(safeRole, permissions), access.accountScope, access.allowedAccountIds);
@@ -1442,6 +1466,11 @@ app.patch('/api/admin-users/:id/permissions', async (req, res) => {
 });
 app.post('/api/admin-users/:id/change-password', async (req, res) => {
   try {
+    const target = await adminUsers.byId(req.params.id);
+    if (!target) return res.status(404).json({ error: 'User not found' });
+    const isSelf = Number(target.id) === Number(req.currentUser.id);
+    const ownerReset = req.currentUser.role === 'owner' && target.role !== 'owner';
+    if (!isSelf && !ownerReset) return res.status(403).json({ error: 'You cannot reset this user password' });
     const { password } = req.body;
     if (!password || password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
     await adminUsers.changePassword(req.params.id, password);
