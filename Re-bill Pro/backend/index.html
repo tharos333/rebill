@@ -5338,14 +5338,14 @@ body.view-only-access #payment-link-create-card{
 
 /* Admin Users: profile-style user details modal */
 .admin-details-modal{
-  width:520px!important;
+  width:560px!important;
   max-width:calc(100vw - 32px)!important;
-  max-height:88vh!important;
+  max-height:calc(100vh - 48px)!important;
   padding:0!important;
   overflow:hidden!important;
 }
 .admin-profile-head{
-  padding:22px 24px 20px;
+  padding:20px 24px 16px;
   display:flex;
   align-items:flex-start;
 }
@@ -5365,74 +5365,48 @@ body.view-only-access #payment-link-create-card{
 #admin-details-modal .admin-role-admin{background:rgba(109,94,248,.16)!important;color:#9b8dff!important;}
 #admin-details-modal .admin-role-analyst{background:var(--blue-bg)!important;color:var(--blue)!important;}
 #admin-details-modal .admin-role-custom{background:var(--amber-bg)!important;color:var(--amber)!important;}
-.admin-profile-content{padding:0 24px;}
-.admin-profile-section{padding:17px 0 0;border-top:1px solid rgba(145,145,163,.13);}
+.admin-profile-content{
+  padding:0 24px 14px;
+  max-height:calc(100vh - 165px);
+  overflow-y:auto;
+}
+.admin-profile-section{padding:14px 0 0;border-top:1px solid rgba(145,145,163,.13);}
 .admin-profile-section-label{
-  margin:0 0 14px;color:var(--muted);font-size:10px;font-weight:600;
+  margin:0 0 9px;color:var(--muted);font-size:10px;font-weight:600;
   letter-spacing:.1em;text-transform:uppercase;
 }
-.admin-access-line{display:grid;grid-template-columns:116px minmax(0,1fr);gap:16px;align-items:start;margin-bottom:13px;}
-.admin-access-line:last-child{margin-bottom:0;}
+.admin-access-line{
+  display:grid;grid-template-columns:136px minmax(0,1fr);gap:16px;
+  align-items:start;padding:6px 0;
+}
 .admin-access-key{color:var(--muted);font-size:12px;line-height:20px;}
 .admin-access-value{color:var(--text);font-size:12px;line-height:20px;overflow-wrap:anywhere;}
-.admin-profile-meta{
-  position:relative;
-  display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:0;
-  margin:19px 0 0;
-  padding:0;
-  border:1px solid var(--border);
-  border-radius:10px;
-  background:var(--surface2);
-  overflow:hidden;
+.admin-profile-info{
+  margin:10px 0 0;
+  padding-top:10px;
+  border-top:1px solid rgba(145,145,163,.13);
 }
-.admin-profile-meta::after{
-  content:'';
-  position:absolute;
-  left:50%;
-  top:12px;
-  bottom:12px;
-  width:1px;
-  transform:translateX(-50%);
-  background:rgba(145,145,163,.16);
+.admin-profile-info .admin-access-line{padding:5px 0;}
+.admin-security-panel{
+  margin-top:12px;
+  padding:14px 0 0;
+  border-top:1px solid rgba(145,145,163,.13);
 }
-.admin-profile-meta-item{
-  min-width:0;
-  padding:13px 16px 14px;
-}
-.admin-profile-meta-item:first-child{padding-right:22px;}
-.admin-profile-meta-item:last-child{padding-left:22px;}
-.admin-profile-meta-label{
-  display:block;
-  margin-bottom:7px;
-  color:var(--muted);
-  font-size:10px;
-  font-weight:600;
-  letter-spacing:.08em;
-  text-transform:uppercase;
-}
-.admin-profile-meta-value{
-  color:var(--text);
-  font-size:13px;
-  font-weight:500;
-  line-height:19px;
-  white-space:nowrap;
-}
-.admin-security-panel{padding:16px 0 0;}
 .admin-security-rows{padding:0;margin:0;}
 .admin-security-row{
   display:grid;
-  grid-template-columns:minmax(185px,1fr) auto;
+  grid-template-columns:205px minmax(0,1fr);
   align-items:center;
   gap:18px;
-  min-height:50px;
-  padding:7px 0;
+  min-height:48px;
   border-bottom:1px solid rgba(145,145,163,.13);
 }
 .admin-security-row:last-child{border-bottom:0;}
 .admin-security-label{color:var(--muted);font-size:12px;line-height:20px;}
-.admin-security-right{display:flex;align-items:center;justify-content:flex-end;gap:12px;min-height:38px;}
+.admin-security-right{
+  display:flex;align-items:center;justify-content:flex-end;gap:9px;
+  min-height:48px;
+}
 .admin-security-state{color:var(--text);font-size:12px;line-height:20px;white-space:nowrap;}
 .admin-user-security-rows{display:block;padding:0;margin:0;}
 .admin-reset-form{padding:12px 0 14px;border-bottom:1px solid rgba(145,145,163,.13);}
@@ -5444,7 +5418,7 @@ body.view-only-access #payment-link-create-card{
   color:var(--red);background:var(--red-bg);font-size:11px;
 }
 .admin-details-footer{
-  margin-top:20px!important;
+  margin-top:0!important;
   padding:13px 24px!important;
   border-top:1px solid rgba(145,145,163,.13)!important;
   background:var(--surface);
@@ -6604,17 +6578,16 @@ body.view-only-access #verification-debug-modal .modal-content{
     </div>
     <div class="admin-profile-content">
       <div class="admin-profile-section">
-        <div class="admin-profile-section-label">Access scope</div>
+        <div class="admin-profile-section-label">Access</div>
         <div id="admin-details-access"></div>
+        <div id="admin-details-meta" class="admin-profile-info"></div>
       </div>
-      <div id="admin-details-meta" class="admin-profile-meta"></div>
       <div id="admin-reset-password-panel" class="admin-security-panel" style="display:none;">
         <div class="admin-profile-section-label">Security</div>
         <div class="admin-security-rows">
           <div id="admin-security-summary" class="admin-security-row">
             <div class="admin-security-label">Password</div>
             <div class="admin-security-right">
-              <span class="admin-security-state">Protected</span>
               <button class="btn" onclick="toggleAdminPasswordReset(true)">Reset password</button>
             </div>
           </div>
@@ -8767,7 +8740,7 @@ async function openAdminDetails(id){
   document.getElementById('admin-details-hero').innerHTML='<div><div class="admin-profile-name-line"><div class="admin-profile-name">'+escHtml(user.username||'—')+'</div>'+roleBadge+'</div><div class="admin-profile-sub">User access profile</div></div>';
   var sectionsLabel=(user.role==='viewer'||user.role==='analyst')?'Visible sections':(user.role==='custom'?'Managed sections':'Sections');
   document.getElementById('admin-details-access').innerHTML='<div class="admin-access-line"><div class="admin-access-key">Stripe accounts</div><div class="admin-access-value">'+(stripeAccess||'—')+'</div></div><div class="admin-access-line"><div class="admin-access-key">'+sectionsLabel+'</div><div class="admin-access-value">'+(visibleSections||'—')+'</div></div>';
-  document.getElementById('admin-details-meta').innerHTML='<div class="admin-profile-meta-item"><span class="admin-profile-meta-label">Last login</span><div class="admin-profile-meta-value">'+escHtml(user.last_login?fmtTime(user.last_login):'Never')+'</div></div><div class="admin-profile-meta-item"><span class="admin-profile-meta-label">Created</span><div class="admin-profile-meta-value">'+escHtml(fmtDate(user.created_at))+'</div></div>';
+  document.getElementById('admin-details-meta').innerHTML='<div class="admin-access-line"><div class="admin-access-key">Last login</div><div class="admin-access-value">'+escHtml(user.last_login?fmtTime(user.last_login):'Never')+'</div></div><div class="admin-access-line"><div class="admin-access-key">Created</div><div class="admin-access-value">'+escHtml(fmtDate(user.created_at))+'</div></div>';
   var canManageAccess=user.role!=='owner';
   var panel=document.getElementById('admin-reset-password-panel');
   var removeButton=document.getElementById('admin-remove-access-btn');
