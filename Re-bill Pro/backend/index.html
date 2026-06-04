@@ -6640,7 +6640,7 @@ body.view-only-access #verification-debug-modal .modal-content{
     <pre id="verification-debug-output" style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:12px;max-height:260px;overflow:auto;font-size:11px;line-height:1.45;color:var(--text);white-space:pre-wrap;"></pre>
     <div class="modal-footer verification-debug-footer">
       <button class="btn" type="button" onclick="copyVerificationDebug()">Copy technical details</button>
-      <button class="btn btn-primary verification-debug-close" type="button" onclick="closeModal('verification-debug-modal')">Close</button>
+      <button class="btn btn-primary verification-debug-close readonly-allowed-control" type="button" onclick="closeModal('verification-debug-modal')">Close</button>
     </div>
   </div>
 </div>
@@ -6795,7 +6795,7 @@ function applyAccessControl(){
 }
 function enforceReadonly(){
   if(localStorage.getItem('subloop_readonly')!=='1') return;
-  document.querySelectorAll('.btn-primary,.btn-danger,.btn-success').forEach(function(btn){if(!btn.closest('.login-screen')&&!btn.closest('.login-box'))btn.style.display='none';});
+  document.querySelectorAll('.btn-primary,.btn-danger,.btn-success').forEach(function(btn){if(!btn.closest('.login-screen')&&!btn.closest('.login-box')&&!btn.classList.contains('readonly-allowed-control'))btn.style.display='none';});
   document.querySelectorAll('.actions:not(.readonly-allowed-actions)').forEach(function(d){d.innerHTML='<span style="font-size:11px;color:var(--muted);font-family:var(--mono);">view only</span>';});
   document.querySelectorAll('#payments-table .btn').forEach(function(btn){btn.style.display='none';});
   var summaryCard=document.querySelector('#page-summary .card:last-of-type');
