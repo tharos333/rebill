@@ -712,8 +712,13 @@ app.use('/api', async (req, res, next) => {
     const user = await adminUsers.byId(data.id);
     if (!user) return res.status(401).json({ error: 'Access has been revoked' });
     req.currentUser = user;
-    const sensitive = ['/admin-users', '/settings', '/security', '/debug'];
+    const selfSecurityPath = req.path === '/security/login-history' || req.path.startsWith('/security/2fa/');
+    const sensitive = ['/admin-users', '/settings', '/debug'];
     if (sensitive.some(prefix => req.path.startsWith(prefix)) && !isOwnerOrAdmin(user)) {
+      return res.status(403).json({ error: 'Owner or admin access required' });
+    }
+    // Every signed-in user may manage only their own 2FA and view only their own login activity.
+    if (req.path.startsWith('/security') && !selfSecurityPath && !isOwnerOrAdmin(user)) {
       return res.status(403).json({ error: 'Owner or admin access required' });
     }
     // Stripe connection management stays protected: scoped users may inspect assigned accounts only.
@@ -732,10 +737,13 @@ app.use('/api', async (req, res, next) => {
     // These supporting reads grant no write actions and remain Stripe-account scoped.
     const dashboardSupportingRead = req.method === 'GET' && canUseSection(user, 'dashboard') && ['subscriptions','payments','activity'].includes(section);
     const customerSupportingRead = req.method === 'GET' && canUseSection(user, 'customers') && section === 'subscriptions';
-    if (section && !canUseSection(user, section) && !dashboardSupportingRead && !customerSupportingRead) {
+    if (section && section !== 'security' && !canUseSection(user, section) && !dashboardSupportingRead && !customerSupportingRead) {
       return res.status(403).json({ error: 'Access restricted' });
     }
-    if (isReadOnlyUser(user) && req.method !== 'GET') return res.status(403).json({ error: 'View-only access' });
+    if (section === 'security' && !selfSecurityPath && !isOwnerOrAdmin(user)) {
+      return res.status(403).json({ error: 'Access restricted' });
+    }
+    if (isReadOnlyUser(user) && req.method !== 'GET' && !selfSecurityPath) return res.status(403).json({ error: 'View-only access' });
     next();
   } catch (err) { res.status(401).json({ error: 'Authentication required' }); }
 });
@@ -1306,7 +1314,15 @@ app.get('/api/activity', async (req, res) => {
 });
 
 // ── Settings ──────────────────────────────────────────────────────────────────
-app.get('/api/settings', async (req, res) => { try { res.json(await settingsDb.getAll()); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.get('/api/settings', async (req, res) => {
+  try {
+    const settings = await settingsDb.getAll();
+    delete settings.two_fa_secret;
+    delete settings.two_fa_secret_pending;
+    delete settings.two_fa_enabled;
+    res.json(settings);
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
 app.post('/api/settings', async (req, res) => {
   try { await settingsDb.set(req.body.key, req.body.value); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); }
 });
@@ -1318,18 +1334,20 @@ app.patch('/api/settings', async (req, res) => {
 app.get('/api/webhook-logs', async (req, res) => { try { const list=await webhookLogs.recent(50); const ids=scopedAccountIds(req); if(ids===null) return res.json(list); const visible=await pool.query('SELECT name FROM stripe_accounts WHERE id=ANY($1::int[])',[ids]); const names=new Set(visible.rows.map(r=>r.name)); res.json(list.filter(w=>names.has(w.account_name))); } catch(err) { res.status(500).json({ error: err.message }); } });
 
 // ── Security ──────────────────────────────────────────────────────────────────
-app.get('/api/security/login-history', async (req, res) => { try { res.json(await security.recentLogins(20)); } catch(err) { res.status(500).json({ error: err.message }); } });
+// Security is personal: each signed-in user sees their own logins and controls their own authenticator.
+app.get('/api/security/login-history', async (req, res) => {
+  try { res.json(await security.recentLoginsForUser(req.currentUser.id, 20)); }
+  catch(err) { res.status(500).json({ error: err.message }); }
+});
 app.get('/api/security/2fa/status', async (req, res) => {
-  try {
-    const enabled = await settingsDb.get('two_fa_enabled');
-    res.json({ enabled: enabled === 'true' });
-  } catch(err) { res.status(500).json({ error: err.message }); }
+  try { const state = await adminUsers.twoFAState(req.currentUser.id); res.json({ enabled: !!state.enabled }); }
+  catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.post('/api/security/2fa/setup', async (req, res) => {
   try {
     if (!speakeasy) return res.status(400).json({ error: 'speakeasy not installed' });
-    const secret = speakeasy.generateSecret({ name: 'Subloop' });
-    await settingsDb.set('two_fa_secret_pending', secret.base32);
+    const secret = speakeasy.generateSecret({ name: 'Subloop (' + req.currentUser.username + ')' });
+    await adminUsers.setPending2FA(req.currentUser.id, secret.base32);
     const qr = await QRCode.toDataURL(secret.otpauth_url);
     res.json({ secret: secret.base32, qrCode: qr });
   } catch(err) { res.status(500).json({ error: err.message }); }
@@ -1337,13 +1355,11 @@ app.post('/api/security/2fa/setup', async (req, res) => {
 app.post('/api/security/2fa/verify', async (req, res) => {
   try {
     if (!speakeasy) return res.status(503).json({ valid: false, success: false, error: 'Authenticator verification is unavailable' });
-    const secret = await settingsDb.get('two_fa_secret_pending');
-    if (!secret) return res.status(400).json({ error: 'No pending 2FA setup' });
-    const valid = speakeasy.totp.verify({ secret, encoding: 'base32', token: req.body.token, window: 2 });
+    const state = await adminUsers.twoFAState(req.currentUser.id);
+    if (!state.two_fa_secret_pending) return res.status(400).json({ error: 'No pending 2FA setup' });
+    const valid = speakeasy.totp.verify({ secret: state.two_fa_secret_pending, encoding: 'base32', token: req.body.token, window: 2 });
     if (!valid) return res.json({ success: false, error: 'Invalid code' });
-    await settingsDb.set('two_fa_secret', secret);
-    await settingsDb.set('two_fa_enabled', 'true');
-    await settingsDb.set('two_fa_secret_pending', '');
+    await adminUsers.enable2FA(req.currentUser.id, state.two_fa_secret_pending);
     res.json({ success: true, valid: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
@@ -1353,18 +1369,18 @@ app.post('/api/security/2fa/validate', async (req, res) => {
     if (!challenge) return res.status(401).json({ valid: false, error: 'Login session expired. Please sign in again.' });
     const user = await adminUsers.byId(challenge.id);
     if (!user) return res.status(401).json({ valid: false, error: 'Access has been revoked.' });
-    const enabled = await settingsDb.get('two_fa_enabled');
-    if (enabled !== 'true') return res.json({ valid: true, token: issueAdminToken(user), ...accessResponse(user) });
+    const state = await adminUsers.twoFAState(user.id);
+    if (!state.enabled) return res.json({ valid: true, token: issueAdminToken(user), ...accessResponse(user) });
     if (!speakeasy) return res.status(503).json({ valid: false, error: 'Authenticator verification is unavailable' });
-    const secret = await settingsDb.get('two_fa_secret');
-    if (!secret) return res.status(503).json({ valid: false, error: 'Authenticator configuration is missing' });
-    const valid = speakeasy.totp.verify({ secret, encoding: 'base32', token: req.body.token, window: 2 });
+    if (!state.two_fa_secret) return res.status(503).json({ valid: false, error: 'Authenticator configuration is missing' });
+    const valid = speakeasy.totp.verify({ secret: state.two_fa_secret, encoding: 'base32', token: req.body.token, window: 2 });
     if (!valid) return res.json({ valid: false });
     res.json({ valid: true, token: issueAdminToken(user), ...accessResponse(user) });
   } catch(err) { res.status(500).json({ valid: false, error: 'Could not verify authenticator code' }); }
 });
 app.post('/api/security/2fa/disable', async (req, res) => {
-  try { await settingsDb.set('two_fa_enabled', 'false'); await settingsDb.set('two_fa_secret', ''); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); }
+  try { await adminUsers.disable2FA(req.currentUser.id); res.json({ success: true }); }
+  catch(err) { res.status(500).json({ error: err.message }); }
 });
 
 // ── Admin Users ───────────────────────────────────────────────────────────────
@@ -1380,7 +1396,13 @@ async function validateSelectedAccounts(scope, ids) {
   const r = await pool.query('SELECT COUNT(*) AS n FROM stripe_accounts WHERE id=ANY($1::int[])', [ids]);
   return Number(r.rows[0]?.n) === ids.length;
 }
-app.get('/api/admin-users', async (req, res) => { try { res.json(await adminUsers.all()); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.get('/api/admin-users', async (req, res) => {
+  try {
+    const list = await adminUsers.all();
+    if (req.currentUser.role === 'owner') return res.json(list);
+    res.json(list.map(({ two_fa_enabled, ...user }) => user));
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
 app.post('/api/admin-users', async (req, res) => {
   try {
     const { username, password, role, permissions, account_scope, allowed_account_ids } = req.body;
@@ -1427,6 +1449,27 @@ app.post('/api/admin-users/:id/change-password', async (req, res) => {
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
+// Owner-only oversight; secrets are never returned.
+app.get('/api/admin-users/:id/security', async (req, res) => {
+  try {
+    if (req.currentUser.role !== 'owner') return res.status(403).json({ error: 'Owner access required' });
+    const target = await adminUsers.byId(req.params.id);
+    if (!target) return res.status(404).json({ error: 'User not found' });
+    const history = await security.recentLoginsForUser(target.id, 20);
+    res.json({ username: target.username, two_fa_enabled: !!target.two_fa_enabled, login_history: history });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+app.post('/api/admin-users/:id/security/reset-2fa', async (req, res) => {
+  try {
+    if (req.currentUser.role !== 'owner') return res.status(403).json({ error: 'Owner access required' });
+    const target = await adminUsers.byId(req.params.id);
+    if (!target) return res.status(404).json({ error: 'User not found' });
+    if (Number(target.id) === Number(req.currentUser.id)) return res.status(400).json({ error: 'Disable your own 2FA from the Security page' });
+    await adminUsers.disable2FA(target.id);
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
 // ── Auth ──────────────────────────────────────────────────────────────────────
 function requestClientIp(req) {
   const forwarded = String(req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || '').split(',')[0].trim();
@@ -1457,13 +1500,14 @@ app.post('/api/auth/verify', async (req, res) => {
     const user = await adminUsers.verify(username, password);
     if (user) {
       await adminUsers.updateLastLogin(user.id);
-      await security.logAttempt(ip, true);
-      const twoFaEnabled = (await settingsDb.get('two_fa_enabled')) === 'true';
-      if (twoFaEnabled) return res.json({ success: true, requires_2fa: true, login_challenge: issueAdminToken(user, '2fa', 5), ...accessResponse(user) });
+      await security.logAttempt(ip, true, user.id, user.username);
+      const twoFaState = await adminUsers.twoFAState(user.id);
+      if (twoFaState.enabled) return res.json({ success: true, requires_2fa: true, login_challenge: issueAdminToken(user, '2fa', 5), ...accessResponse(user) });
       return res.json({ success: true, token: issueAdminToken(user), ...accessResponse(user) });
     }
 
-    await security.logAttempt(ip, false);
+    const attemptedUser = username ? await adminUsers.byUsername(username) : null;
+    await security.logAttempt(ip, false, attemptedUser ? attemptedUser.id : null, username || null);
     if (recentFailures + 1 >= maxAttempts) {
       return res.status(429).json({
         success: false,

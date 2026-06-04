@@ -104,6 +104,9 @@ async function init() {
       permissions JSONB DEFAULT '[]'::jsonb,
       account_scope TEXT DEFAULT 'all',
       allowed_account_ids JSONB DEFAULT '[]'::jsonb,
+      two_fa_enabled BOOLEAN DEFAULT false,
+      two_fa_secret TEXT,
+      two_fa_secret_pending TEXT,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       last_login TIMESTAMPTZ
     );
@@ -111,12 +114,19 @@ async function init() {
     ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS account_scope TEXT DEFAULT 'all';
     ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS allowed_account_ids JSONB DEFAULT '[]'::jsonb;
     ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ;
+    ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS two_fa_enabled BOOLEAN DEFAULT false;
+    ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS two_fa_secret TEXT;
+    ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS two_fa_secret_pending TEXT;
     CREATE TABLE IF NOT EXISTS login_attempts (
       id SERIAL PRIMARY KEY,
+      admin_user_id INT REFERENCES admin_users(id) ON DELETE SET NULL,
+      username TEXT,
       ip TEXT,
       success BOOLEAN DEFAULT false,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
+    ALTER TABLE login_attempts ADD COLUMN IF NOT EXISTS admin_user_id INT REFERENCES admin_users(id) ON DELETE SET NULL;
+    ALTER TABLE login_attempts ADD COLUMN IF NOT EXISTS username TEXT;
   `);
   const migrations = [
     'ALTER TABLE customers ADD COLUMN IF NOT EXISTS stripe_account_id INT',
@@ -156,6 +166,19 @@ async function init() {
   for (const [key, value] of Object.entries(defaults)) {
     await pool.query('INSERT INTO settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO NOTHING', [key, value]);
   }
+  // One-time migration: preserve any previously shared active 2FA secret on the Owner account only.
+  // Other access users must enroll their own authenticator after this migration.
+  await pool.query(`
+    UPDATE admin_users
+    SET two_fa_enabled=true,
+        two_fa_secret=(SELECT value FROM settings WHERE key='two_fa_secret'),
+        two_fa_secret_pending=NULL
+    WHERE role='owner'
+      AND COALESCE(two_fa_enabled,false)=false
+      AND COALESCE(two_fa_secret,'')=''
+      AND COALESCE((SELECT value FROM settings WHERE key='two_fa_enabled'),'false')='true'
+      AND COALESCE((SELECT value FROM settings WHERE key='two_fa_secret'),'')<>''
+  `).catch(()=>{});
   const existing = await pool.query('SELECT COUNT(*) FROM stripe_accounts');
   if (parseInt(existing.rows[0].count) === 0 && process.env.STRIPE_SECRET_KEY) {
     await pool.query('INSERT INTO stripe_accounts (name,secret_key,webhook_secret,is_default) VALUES ($1,$2,$3,true)',
@@ -389,7 +412,9 @@ const webhookLogs = {
   recent: async (limit=50) => { const r = await pool.query('SELECT * FROM webhook_logs ORDER BY created_at DESC LIMIT $1', [limit]); return r.rows; },
 };
 const security = {
-  logAttempt: async (ip, success) => { await pool.query('INSERT INTO login_attempts (ip, success) VALUES ($1,$2)', [ip, success]).catch(()=>{}); },
+  logAttempt: async (ip, success, adminUserId=null, username=null) => {
+    await pool.query('INSERT INTO login_attempts (admin_user_id, username, ip, success) VALUES ($1,$2,$3,$4)', [adminUserId, username, ip, success]).catch(()=>{});
+  },
   recentFailures: async (ip, minutes=15) => {
     const r = await pool.query(`
       SELECT COUNT(*) AS count
@@ -405,14 +430,17 @@ const security = {
     return parseInt(r.rows[0]?.count, 10) || 0;
   },
   clearAttempts: async (ip) => { await pool.query('DELETE FROM login_attempts WHERE ip=$1', [ip]).catch(()=>{}); },
-  recentLogins: async (limit=20) => { const r = await pool.query('SELECT * FROM login_attempts ORDER BY created_at DESC LIMIT $1', [limit]); return r.rows; },
+  recentLoginsForUser: async (adminUserId, limit=20) => {
+    const r = await pool.query('SELECT id, ip, success, created_at FROM login_attempts WHERE admin_user_id=$1 ORDER BY created_at DESC LIMIT $2', [adminUserId, limit]);
+    return r.rows;
+  },
 };
 const adminUsers = {
   all: async () => {
-    const r = await pool.query("SELECT id, username, role, COALESCE(permissions, '[]') as permissions, COALESCE(account_scope,'all') AS account_scope, COALESCE(allowed_account_ids,'[]') AS allowed_account_ids, created_at, last_login FROM admin_users ORDER BY created_at ASC");
+    const r = await pool.query("SELECT id, username, role, COALESCE(permissions, '[]') as permissions, COALESCE(account_scope,'all') AS account_scope, COALESCE(allowed_account_ids,'[]') AS allowed_account_ids, COALESCE(two_fa_enabled,false) AS two_fa_enabled, created_at, last_login FROM admin_users ORDER BY created_at ASC");
     return r.rows;
   },
-  byId: async (id) => { const r = await pool.query("SELECT id, username, role, COALESCE(permissions,'[]') AS permissions, COALESCE(account_scope,'all') AS account_scope, COALESCE(allowed_account_ids,'[]') AS allowed_account_ids, created_at, last_login FROM admin_users WHERE id=$1", [id]); return r.rows[0]; },
+  byId: async (id) => { const r = await pool.query("SELECT id, username, role, COALESCE(permissions,'[]') AS permissions, COALESCE(account_scope,'all') AS account_scope, COALESCE(allowed_account_ids,'[]') AS allowed_account_ids, COALESCE(two_fa_enabled,false) AS two_fa_enabled, created_at, last_login FROM admin_users WHERE id=$1", [id]); return r.rows[0]; },
   byUsername: async (username) => { const r = await pool.query('SELECT * FROM admin_users WHERE LOWER(username)=LOWER($1)', [username]); return r.rows[0]; },
   create: async (username, password, role='admin', permissions=[], accountScope='all', allowedAccountIds=[]) => {
     const crypto = require('crypto');
@@ -426,6 +454,13 @@ const adminUsers = {
     await pool.query('UPDATE admin_users SET role=$1, permissions=$2, account_scope=$3, allowed_account_ids=$4 WHERE id=$5', [role, JSON.stringify(permissions || []), accountScope || 'all', JSON.stringify(allowedAccountIds || []), id]);
   },
   updatePermissions: async (id, permissions) => { await pool.query('UPDATE admin_users SET permissions=$1 WHERE id=$2', [JSON.stringify(permissions), id]); },
+  twoFAState: async (id) => {
+    const r = await pool.query('SELECT COALESCE(two_fa_enabled,false) AS enabled, two_fa_secret, two_fa_secret_pending FROM admin_users WHERE id=$1', [id]);
+    return r.rows[0] || { enabled:false, two_fa_secret:null, two_fa_secret_pending:null };
+  },
+  setPending2FA: async (id, secret) => { await pool.query('UPDATE admin_users SET two_fa_secret_pending=$1 WHERE id=$2', [secret, id]); },
+  enable2FA: async (id, secret) => { await pool.query('UPDATE admin_users SET two_fa_enabled=true, two_fa_secret=$1, two_fa_secret_pending=NULL WHERE id=$2', [secret, id]); },
+  disable2FA: async (id) => { await pool.query('UPDATE admin_users SET two_fa_enabled=false, two_fa_secret=NULL, two_fa_secret_pending=NULL WHERE id=$1', [id]); },
   verify: async (username, password) => { const crypto = require('crypto'); const hash = crypto.createHash('sha256').update(password).digest('hex'); const r = await pool.query('SELECT * FROM admin_users WHERE LOWER(username)=LOWER($1) AND password_hash=$2', [username, hash]); return r.rows[0] || null; },
 };
 module.exports = { init, pool, settingsDb, stripeAccounts, customers, subscriptions, payments, activityLog, webhookLogs, security, adminUsers };

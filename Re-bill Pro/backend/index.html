@@ -6234,21 +6234,21 @@ body.view-only-access #verification-debug-modal .modal-content{
       </div>
       <div id="2fa-disabled-view">
         <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">When enabled, you'll need a 6-digit code from your app at every login.</p>
-        <button class="btn btn-primary" onclick="setup2FA()">Enable 2FA</button>
+        <button class="btn btn-primary readonly-allowed-control" onclick="setup2FA()">Enable 2FA</button>
       </div>
       <div id="2fa-setup-view" style="display:none;">
         <div style="text-align:center;margin-bottom:16px;"><img id="2fa-qr" src="" style="width:180px;height:180px;border-radius:10px;border:2px solid var(--border2);"></div>
         <p style="font-size:12px;color:var(--muted);font-family:var(--mono);text-align:center;margin-bottom:8px;">Scan with your authenticator app, then enter the 6-digit code to confirm</p>
-        <div style="display:flex;gap:8px;"><input type="text" id="2fa-verify-code" placeholder="000000" maxlength="6" style="text-align:center;font-size:18px;letter-spacing:6px;font-family:var(--mono);"><button class="btn btn-primary" onclick="confirm2FA()">Confirm</button></div>
+        <div style="display:flex;gap:8px;"><input type="text" id="2fa-verify-code" placeholder="000000" maxlength="6" style="text-align:center;font-size:18px;letter-spacing:6px;font-family:var(--mono);"><button class="btn btn-primary readonly-allowed-control" onclick="confirm2FA()">Confirm</button></div>
         <button class="btn btn-sm" style="margin-top:10px;" onclick="cancel2FASetup()">Cancel</button>
       </div>
       <div id="2fa-enabled-view" style="display:none;">
         <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">2FA is active. Every login requires your authenticator app code.</p>
-        <button class="btn btn-danger" onclick="disable2FA()">Disable 2FA</button>
+        <button class="btn btn-danger readonly-allowed-control" onclick="disable2FA()">Disable 2FA</button>
       </div>
     </div>
   </div>
-  <div class="card" style="max-width:600px;">
+  <div id="login-protection-card" class="card" style="max-width:600px;">
     <div class="card-header"><h3>Login Protection</h3></div>
     <div style="padding:4px 18px 18px;">
       <div class="setting-row">
@@ -6611,11 +6611,39 @@ body.view-only-access #verification-debug-modal .modal-content{
           <div class="admin-reset-form-actions"><button class="btn btn-primary" onclick="resetAdminPasswordFromDetails()">Save new password</button><button class="btn" onclick="toggleAdminPasswordReset(false)">Cancel</button></div>
         </div>
       </div>
+      <div id="admin-user-security-panel" class="admin-security-panel" style="display:none;">
+        <div class="admin-profile-section-label">Account security</div>
+        <div class="admin-security-summary">
+          <div>
+            <div class="admin-security-copy-title">Two-factor authentication</div>
+            <div id="admin-user-2fa-status" class="admin-security-copy-sub">Loading...</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button id="admin-user-reset-2fa-btn" class="btn" style="display:none;" onclick="resetAdminUser2FA()">Reset 2FA</button>
+            <button class="btn" onclick="viewAdminUserLoginActivity()">View login activity</button>
+          </div>
+        </div>
+      </div>
     </div>
     <div id="admin-details-footer" class="modal-footer admin-details-footer">
       <button id="admin-remove-access-btn" class="btn admin-details-remove-btn" style="display:none;" onclick="removeAdminAccessFromDetails()">Remove access</button>
       <button class="btn admin-details-close-footer" onclick="closeModal('admin-details-modal')">Close</button>
     </div>
+  </div>
+</div>
+
+
+<div class="modal-bg" id="admin-login-activity-modal">
+  <div class="modal" style="width:560px;max-width:calc(100vw - 32px);">
+    <h3 id="admin-login-activity-title">Login activity</h3>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:16px;">Security history for this user only.</p>
+    <div class="scrollable" style="max-height:300px;">
+      <table>
+        <thead><tr><th>IP Address</th><th>Result</th><th>Time</th></tr></thead>
+        <tbody id="admin-login-activity-table"><tr><td colspan="3" class="empty">Loading...</td></tr></tbody>
+      </table>
+    </div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal('admin-login-activity-modal')">Close</button></div>
   </div>
 </div>
 
@@ -6727,6 +6755,7 @@ function blockViewOnlyAction(){
 }
 function canAccess(section){
   var role=getCurrentRole();
+  if(section==='security') return true;
   if(!role||role==='owner'||role==='admin') return true;
   if(role==='viewer'||role==='analyst'){ var analystPerms=getCurrentPermissions(); return analystPerms.length?analystPerms.includes(section):['dashboard','customers','payments','forecast','summary','mrr','recovery'].includes(section); }
   if(role==='custom'){ var perms=getCurrentPermissions(); return perms.includes(section); }
@@ -8146,11 +8175,16 @@ async function saveSetting(key,value){await api('/api/settings',{method:'PATCH',
 async function loadSecurity(){
   try{
     const status=await api('/api/security/2fa/status');update2FAView(status.enabled);
-    const s=await api('/api/settings');
-    document.getElementById('setting-max-attempts').value=s.max_login_attempts||'5';
-    document.getElementById('setting-lockout-mins').value=s.lockout_minutes||'15';
+    var mayManageProtection=getCurrentRole()==='owner'||getCurrentRole()==='admin';
+    var protection=document.getElementById('login-protection-card');
+    if(protection)protection.style.display=mayManageProtection?'block':'none';
+    if(mayManageProtection){
+      const s=await api('/api/settings');
+      document.getElementById('setting-max-attempts').value=s.max_login_attempts||'5';
+      document.getElementById('setting-lockout-mins').value=s.lockout_minutes||'15';
+    }
     const history=await api('/api/security/login-history');const tb=document.getElementById('login-history-table');
-    if(!history.length){tb.innerHTML='<tr><td colspan="3" class="empty">No login attempts recorded</td></tr>';return;}
+    if(!history.length){tb.innerHTML='<tr><td colspan="3" class="empty">No login activity recorded for this user</td></tr>';return;}
     tb.innerHTML=history.map(function(h){return '<tr><td class="mono" style="font-size:12px;">'+(h.ip||'unknown')+'</td><td>'+(h.success?'<span class="badge badge-green">Success</span>':'<span class="badge badge-red">Failed</span>')+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+fmtTime(h.created_at)+'</td></tr>';}).join('');
   }catch(e){}
 }
@@ -8723,8 +8757,42 @@ async function openAdminDetails(id){
   var removeButton=document.getElementById('admin-remove-access-btn');
   panel.style.display=canManageAccess?'block':'none';
   removeButton.style.display=canManageAccess?'inline-flex':'none';
+  var ownerSecurity=document.getElementById('admin-user-security-panel');
+  var canInspectSecurity=getCurrentRole()==='owner'&&user.role!=='owner';
+  ownerSecurity.style.display=canInspectSecurity?'block':'none';
   toggleAdminPasswordReset(false);
+  if(canInspectSecurity)loadAdminUserSecurity(user.id);
   openModal('admin-details-modal');
+}
+async function loadAdminUserSecurity(id){
+  try{
+    var result=await api('/api/admin-users/'+id+'/security');
+    var status=document.getElementById('admin-user-2fa-status');
+    var reset=document.getElementById('admin-user-reset-2fa-btn');
+    if(status)status.textContent=result.two_fa_enabled?'Enabled':'Not enabled';
+    if(reset)reset.style.display=result.two_fa_enabled?'inline-flex':'none';
+  }catch(e){toast('Unable to load user security','error');}
+}
+async function resetAdminUser2FA(){
+  if(!currentAdminDetailUserId)return;
+  if(!confirm('Reset two-factor authentication for this user? They will need to set it up again.'))return;
+  try{
+    await api('/api/admin-users/'+currentAdminDetailUserId+'/security/reset-2fa',{method:'POST'});
+    toast('✓ 2FA reset');
+    loadAdminUserSecurity(currentAdminDetailUserId);
+  }catch(e){toast('Unable to reset 2FA','error');}
+}
+async function viewAdminUserLoginActivity(){
+  if(!currentAdminDetailUserId)return;
+  try{
+    var result=await api('/api/admin-users/'+currentAdminDetailUserId+'/security');
+    document.getElementById('admin-login-activity-title').textContent='Login activity — '+(result.username||'user');
+    var tb=document.getElementById('admin-login-activity-table');
+    var rows=result.login_history||[];
+    if(!rows.length)tb.innerHTML='<tr><td colspan="3" class="empty">No login activity recorded for this user</td></tr>';
+    else tb.innerHTML=rows.map(function(h){return '<tr><td class="mono" style="font-size:12px;">'+(h.ip||'unknown')+'</td><td>'+(h.success?'<span class="badge badge-green">Success</span>':'<span class="badge badge-red">Failed</span>')+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+fmtTime(h.created_at)+'</td></tr>';}).join('');
+    openModal('admin-login-activity-modal');
+  }catch(e){toast('Unable to load login activity','error');}
 }
 async function removeAdminAccessFromDetails(){
   var user=(allAdminUsers||[]).find(function(a){return Number(a.id)===Number(currentAdminDetailUserId);});
