@@ -5371,7 +5371,7 @@ body.view-only-access #payment-link-create-card{
   margin:0 0 14px;color:var(--muted);font-size:10px;font-weight:600;
   letter-spacing:.1em;text-transform:uppercase;
 }
-.admin-access-line{display:grid;grid-template-columns:124px minmax(0,1fr);gap:16px;align-items:start;margin-bottom:12px;}
+.admin-access-line{display:grid;grid-template-columns:116px minmax(0,1fr);gap:16px;align-items:start;margin-bottom:13px;}
 .admin-access-line:last-child{margin-bottom:0;}
 .admin-access-key{color:var(--muted);font-size:12px;line-height:20px;}
 .admin-access-value{color:var(--text);font-size:12px;line-height:20px;overflow-wrap:anywhere;}
@@ -5423,17 +5423,17 @@ body.view-only-access #payment-link-create-card{
 .admin-security-rows{padding:0;margin:0;}
 .admin-security-row{
   display:grid;
-  grid-template-columns:190px minmax(120px,1fr) 154px;
+  grid-template-columns:minmax(185px,1fr) auto;
   align-items:center;
-  gap:14px;
-  min-height:54px;
-  padding:8px 0;
+  gap:18px;
+  min-height:50px;
+  padding:7px 0;
   border-bottom:1px solid rgba(145,145,163,.13);
 }
 .admin-security-row:last-child{border-bottom:0;}
-.admin-security-row > .btn{justify-self:end;}
-.admin-security-label{color:var(--text);font-size:12px;font-weight:500;line-height:18px;}
-.admin-security-value{color:var(--muted);font-size:12px;line-height:18px;}
+.admin-security-label{color:var(--muted);font-size:12px;line-height:20px;}
+.admin-security-right{display:flex;align-items:center;justify-content:flex-end;gap:12px;min-height:38px;}
+.admin-security-state{color:var(--text);font-size:12px;line-height:20px;white-space:nowrap;}
 .admin-user-security-rows{display:block;padding:0;margin:0;}
 .admin-reset-form{padding:12px 0 14px;border-bottom:1px solid rgba(145,145,163,.13);}
 .admin-reset-form .form-row{gap:9px;margin-bottom:0;}
@@ -6613,8 +6613,10 @@ body.view-only-access #verification-debug-modal .modal-content{
         <div class="admin-security-rows">
           <div id="admin-security-summary" class="admin-security-row">
             <div class="admin-security-label">Password</div>
-            <div class="admin-security-value">Protected</div>
-            <button class="btn" onclick="toggleAdminPasswordReset(true)">Reset password</button>
+            <div class="admin-security-right">
+              <span class="admin-security-state">Protected</span>
+              <button class="btn" onclick="toggleAdminPasswordReset(true)">Reset password</button>
+            </div>
           </div>
           <div id="admin-reset-form" class="admin-reset-form" style="display:none;">
             <div class="form-row"><div class="form-group"><label>New password</label><input type="password" id="admin-detail-new-password" placeholder="Min 8 characters" autocomplete="new-password"></div><div class="form-group"><label>Confirm password</label><input type="password" id="admin-detail-confirm-password" placeholder="Confirm password" autocomplete="new-password"></div></div>
@@ -6624,13 +6626,16 @@ body.view-only-access #verification-debug-modal .modal-content{
           <div id="admin-user-security-panel" class="admin-user-security-rows" style="display:none;">
             <div class="admin-security-row">
               <div class="admin-security-label">Two-factor authentication</div>
-              <div id="admin-user-2fa-status" class="admin-security-value">Loading...</div>
-              <button id="admin-user-reset-2fa-btn" class="btn" style="display:none;" onclick="resetAdminUser2FA()">Reset 2FA</button>
+              <div class="admin-security-right">
+                <span id="admin-user-2fa-status" class="admin-security-state">Loading...</span>
+                <button id="admin-user-reset-2fa-btn" class="btn" style="display:none;" onclick="resetAdminUser2FA()">Reset 2FA</button>
+              </div>
             </div>
             <div class="admin-security-row">
               <div class="admin-security-label">Login activity</div>
-              <div class="admin-security-value">Recent sign-in history</div>
-              <button class="btn" onclick="viewAdminUserLoginActivity()">View activity</button>
+              <div class="admin-security-right">
+                <button class="btn" onclick="viewAdminUserLoginActivity()">View activity</button>
+              </div>
             </div>
           </div>
         </div>
@@ -8757,7 +8762,7 @@ async function openAdminDetails(id){
   currentAdminDetailUserId=user.id;
   var roleClasses={owner:'admin-role-owner',admin:'admin-role-admin',viewer:'admin-role-analyst',analyst:'admin-role-analyst',custom:'admin-role-custom'};
   var roleBadge='<span class="badge admin-role-chip '+(roleClasses[user.role]||'admin-role-admin')+'">'+escHtml(adminRoleLabel(user.role))+'</span>';
-  var stripeAccess=adminDetailsText(adminStripeAccessLabels(user),'<br>');
+  var stripeAccess=adminDetailsText(adminStripeAccessLabels(user),', ');
   var visibleSections=adminDetailsText(adminSectionLabels(user),', ');
   document.getElementById('admin-details-hero').innerHTML='<div><div class="admin-profile-name-line"><div class="admin-profile-name">'+escHtml(user.username||'—')+'</div>'+roleBadge+'</div><div class="admin-profile-sub">User access profile</div></div>';
   var sectionsLabel=(user.role==='viewer'||user.role==='analyst')?'Visible sections':(user.role==='custom'?'Managed sections':'Sections');
