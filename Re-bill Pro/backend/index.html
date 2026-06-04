@@ -8741,10 +8741,24 @@ function canResetOtherUserSecurity(user){
 }
 function configureManagedUserRoleOptions(){
   var adminActor=getCurrentRole()==='admin';
-  var addAdminOption=document.getElementById('add-role-admin-option');
-  var editAdminOption=document.getElementById('edit-role-admin-option');
-  if(addAdminOption)addAdminOption.hidden=adminActor;
-  if(editAdminOption)editAdminOption.hidden=adminActor;
+  [
+    {selectId:'admin-role', optionId:'add-role-admin-option'},
+    {selectId:'edit-access-role', optionId:'edit-role-admin-option'}
+  ].forEach(function(config){
+    var select=document.getElementById(config.selectId);
+    if(!select)return;
+    var adminOption=document.getElementById(config.optionId);
+    if(adminActor){
+      if(adminOption)adminOption.remove();
+      if(select.value==='admin')select.value='custom';
+    }else if(!adminOption){
+      var option=document.createElement('option');
+      option.id=config.optionId;
+      option.value='admin';
+      option.textContent='Admin — full management access';
+      select.insertBefore(option,select.firstChild);
+    }
+  });
 }
 function adminSectionLabels(user){if(user.role==='owner'||user.role==='admin')return ['All sections'];var perms=(user.permissions||[]).slice();if((user.role==='viewer'||user.role==='analyst')&&!perms.length)perms=ANALYST_DEFAULT_PERMS.slice();var ordered=PERM_LIST.map(function(p){return p.value;}).filter(function(k){return perms.includes(k);});perms.forEach(function(k){if(!ordered.includes(k))ordered.push(k);});return ordered.map(function(k){var item=PERM_LIST.find(function(p){return p.value===k;});return item?item.label:k;});}
 function adminStripeAccessLabels(user){if(user.account_scope!=='selected')return ['All Stripe accounts'];var labels=(user.allowed_account_ids||[]).map(function(id){var a=(allStripeAccounts||[]).find(function(x){return Number(x.id)===Number(id);});return a?accessAccountLabel(a.name):'Account #'+id;});return labels.length?labels:['No assigned accounts'];}
@@ -8870,7 +8884,7 @@ function toggleCustomPerms(){
 }
 async function addAdmin(){
   var username=document.getElementById('admin-username').value.trim();var password=document.getElementById('admin-password').value;var role=document.getElementById('admin-role').value;
-  if(getCurrentRole()==='admin'&&role==='admin'){toast('Admins can add Custom or View-only users only','error');return;}
+  if(getCurrentRole()==='admin'&&role==='admin'){toast('Only the Owner can grant Admin access','error');return;}
   if(!username||!password){toast('Fill in all fields','error');return;}if(password.length<8){toast('Password must be at least 8 characters','error');return;}
   var scoped=role==='analyst'||role==='custom';var permissions=[];
   if(scoped){document.querySelectorAll('#perms-list input[type=checkbox]:checked').forEach(function(cb){permissions.push(cb.value);});if(!permissions.length){toast(role==='custom'?'Select at least one managed section':'Select at least one visible section','error');return;}}
@@ -9055,7 +9069,7 @@ async function saveEditAccess(){
   var id=document.getElementById('edit-access-id').value;var role=document.getElementById('edit-access-role').value;var errEl=document.getElementById('edit-access-error');errEl.style.display='none';
   var target=(allAdminUsers||[]).find(function(x){return String(x.id)===String(id);});
   if(!canManageAccessUser(target)){errEl.textContent='You cannot edit this user access';errEl.style.display='block';return;}
-  if(getCurrentRole()==='admin'&&role==='admin'){errEl.textContent='Admins cannot grant Admin access';errEl.style.display='block';return;}
+  if(getCurrentRole()==='admin'&&role==='admin'){errEl.textContent='Only the Owner can grant Admin access';errEl.style.display='block';return;}
   var scoped=role==='analyst'||role==='custom';var permissions=[];
   if(scoped){document.querySelectorAll('#edit-perms-list input[type=checkbox]:checked').forEach(function(cb){permissions.push(cb.value);});if(!permissions.length){errEl.textContent=role==='custom'?'Select at least one managed section':'Select at least one visible section';errEl.style.display='block';return;}}
   var accountScope=scoped?document.getElementById('edit-account-scope').value:'all';var accountIds=accountScope==='selected'?checkedAccountIds('edit'):[];

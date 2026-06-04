@@ -1423,7 +1423,7 @@ app.post('/api/admin-users', async (req, res) => {
     const safeRole = ['admin','analyst','viewer','custom'].includes(role) ? role : null;
     if (!safeRole) return res.status(400).json({ error: 'Select a valid access level' });
     if (!actorCanCreateManagedUser(req.currentUser, safeRole)) {
-      return res.status(403).json({ error: req.currentUser.role === 'admin' ? 'Admins can add Custom or View-only users only' : 'Not allowed to create this access level' });
+      return res.status(403).json({ error: req.currentUser.role === 'admin' ? 'Only the Owner can grant Admin access' : 'Not allowed to create this access level' });
     }
     const access = cleanAccountAccessInput(safeRole, account_scope, allowed_account_ids);
     if (!(await validateSelectedAccounts(access.accountScope, access.allowedAccountIds))) return res.status(400).json({ error: 'Select at least one valid Stripe account' });
@@ -1456,7 +1456,7 @@ app.patch('/api/admin-users/:id/permissions', async (req, res) => {
     }
     const safeRole = ['admin','analyst','viewer','custom'].includes(role) ? role : current.role;
     if (!actorCanCreateManagedUser(req.currentUser, safeRole)) {
-      return res.status(403).json({ error: req.currentUser.role === 'admin' ? 'Admins cannot grant Admin access' : 'Not allowed to grant this access level' });
+      return res.status(403).json({ error: req.currentUser.role === 'admin' ? 'Only the Owner can grant Admin access' : 'Not allowed to grant this access level' });
     }
     const access = cleanAccountAccessInput(safeRole, account_scope, allowed_account_ids);
     if (!(await validateSelectedAccounts(access.accountScope, access.allowedAccountIds))) return res.status(400).json({ error: 'Select at least one valid Stripe account' });
