@@ -5423,7 +5423,7 @@ body.view-only-access #payment-link-create-card{
 .admin-security-rows{padding:0;margin:0;}
 .admin-security-row{
   display:grid;
-  grid-template-columns:190px minmax(120px,1fr) auto;
+  grid-template-columns:190px minmax(120px,1fr) 154px;
   align-items:center;
   gap:14px;
   min-height:54px;
@@ -5431,6 +5431,7 @@ body.view-only-access #payment-link-create-card{
   border-bottom:1px solid rgba(145,145,163,.13);
 }
 .admin-security-row:last-child{border-bottom:0;}
+.admin-security-row > .btn{justify-self:end;}
 .admin-security-label{color:var(--text);font-size:12px;font-weight:500;line-height:18px;}
 .admin-security-value{color:var(--muted);font-size:12px;line-height:18px;}
 .admin-user-security-rows{display:block;padding:0;margin:0;}
@@ -8739,7 +8740,7 @@ function toggleAdminPasswordReset(show){
   var form=document.getElementById('admin-reset-form');
   var summary=document.getElementById('admin-security-summary');
   if(form)form.style.display=show?'block':'none';
-  if(summary)summary.style.display=show?'none':'flex';
+  if(summary)summary.style.display=show?'none':'grid';
   var err=document.getElementById('admin-detail-password-error');
   if(err)err.style.display='none';
   if(!show){
@@ -8756,7 +8757,7 @@ async function openAdminDetails(id){
   currentAdminDetailUserId=user.id;
   var roleClasses={owner:'admin-role-owner',admin:'admin-role-admin',viewer:'admin-role-analyst',analyst:'admin-role-analyst',custom:'admin-role-custom'};
   var roleBadge='<span class="badge admin-role-chip '+(roleClasses[user.role]||'admin-role-admin')+'">'+escHtml(adminRoleLabel(user.role))+'</span>';
-  var stripeAccess=adminDetailsText(adminStripeAccessLabels(user),', ');
+  var stripeAccess=adminDetailsText(adminStripeAccessLabels(user),'<br>');
   var visibleSections=adminDetailsText(adminSectionLabels(user),', ');
   document.getElementById('admin-details-hero').innerHTML='<div><div class="admin-profile-name-line"><div class="admin-profile-name">'+escHtml(user.username||'—')+'</div>'+roleBadge+'</div><div class="admin-profile-sub">User access profile</div></div>';
   var sectionsLabel=(user.role==='viewer'||user.role==='analyst')?'Visible sections':(user.role==='custom'?'Managed sections':'Sections');
