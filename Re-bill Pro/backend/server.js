@@ -1034,6 +1034,12 @@ app.patch('/api/stripe-accounts/:id/default', async (req, res) => {
     res.json({ success: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
+app.patch('/api/stripe-accounts/default/clear', async (req, res) => {
+  try {
+    await pool.query('UPDATE stripe_accounts SET is_default=false');
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
 app.delete('/api/stripe-accounts/:id', async (req, res) => { try { await stripeAccounts.delete(req.params.id); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
 
 // ── Customers ─────────────────────────────────────────────────────────────────
