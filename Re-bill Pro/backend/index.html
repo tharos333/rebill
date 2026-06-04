@@ -5402,6 +5402,7 @@ body.view-only-access #payment-link-create-card{
   border-bottom:1px solid rgba(145,145,163,.13);
 }
 .admin-security-row:last-child{border-bottom:0;}
+#admin-reset-password-panel.security-password-only #admin-security-summary{border-bottom:0;}
 .admin-security-label{color:var(--muted);font-size:12px;line-height:20px;}
 .admin-security-right{
   display:flex;align-items:center;justify-content:flex-end;gap:9px;
@@ -8766,6 +8767,7 @@ async function openAdminDetails(id){
   var ownerSecurity=document.getElementById('admin-user-security-panel');
   var canInspectSecurity=getCurrentRole()==='owner'&&user.role!=='owner';
   ownerSecurity.style.display=canInspectSecurity?'block':'none';
+  panel.classList.toggle('security-password-only',!canInspectSecurity);
   toggleAdminPasswordReset(false);
   if(canInspectSecurity)loadAdminUserSecurity(user.id);
   openModal('admin-details-modal');
