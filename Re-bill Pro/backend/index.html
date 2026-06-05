@@ -6568,12 +6568,10 @@ body.view-only-access #verification-debug-modal .modal-content{
 <div class="modal-bg" id="shopify-connect-modal">
   <div class="modal">
     <h3>Connect Shopify Store</h3>
-    <p>Save a Shopify store connection for the Shopify platform.</p>
-    <div class="form-group"><label>Store name</label><input type="text" id="shopify-store-name" placeholder="My Shopify Store"></div>
+    <p>Enter your Shopify store domain. Subloop will redirect you to Shopify to approve the connection.</p>
     <div class="form-group"><label>Shop domain</label><input type="text" id="shopify-shop-domain" placeholder="your-store.myshopify.com"></div>
-    <div class="form-group"><label>Admin API access token</label><input type="password" id="shopify-access-token" placeholder="shpat_... or OAuth token"></div>
     <div id="shopify-connect-error" style="display:none;background:var(--red-bg);border:1px solid var(--red);color:var(--red);border-radius:8px;padding:10px 14px;font-size:12px;font-family:var(--mono);margin-bottom:10px;"></div>
-    <div class="modal-footer"><button class="btn" onclick="closeModal('shopify-connect-modal')">Cancel</button><button class="btn btn-primary" onclick="saveShopifyStore()">Save store</button></div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal('shopify-connect-modal')">Cancel</button><button class="btn btn-primary" onclick="connectShopifyStoreOAuth()">Connect</button></div>
   </div>
 </div>
 
@@ -6986,22 +6984,31 @@ function setPlatform(platform){
   var first=document.querySelector(platform==='shopify'?'[data-platform="shopify"].nav-item':'[data-platform="stripe"].nav-item');
   if(first){var onclick=first.getAttribute('onclick')||'';var match=onclick.match(/showPage\('([^']+)'/);if(match)showPage(match[1],first);}
 }
-function initPlatformSwitcher(){setPlatform(currentPlatform());}
+function initPlatformSwitcher(){applyUrlPlatformHint();setPlatform(currentPlatform());}
+
+function applyUrlPlatformHint(){
+  var params=new URLSearchParams(window.location.search||'');
+  if(params.get('platform')==='shopify'){localStorage.setItem('subloop_platform','shopify');}
+  if(params.get('shopify_connected')==='1'){setTimeout(function(){toast('Shopify store connected','success');loadShopifyStores();loadShopifyDashboard();},400);}
+  if(params.get('platform')||params.get('shopify_connected')){try{history.replaceState(null,'',window.location.pathname);}catch(e){}}
+}
 function shopifyMoney(cents,currency){return new Intl.NumberFormat('en-US',{style:'currency',currency:(currency||'usd').toUpperCase()}).format((Number(cents)||0)/100);}
-function openShopifyConnectModal(){openModal('shopify-connect-modal');}
-async function saveShopifyStore(){
-  var name=document.getElementById('shopify-store-name').value.trim();
-  var domain=document.getElementById('shopify-shop-domain').value.trim().replace(/^https?:\/\//,'').replace(/\/$/,'');
-  var token=document.getElementById('shopify-access-token').value.trim();
+function openShopifyConnectModal(){
+  var input=document.getElementById('shopify-shop-domain');
+  if(input)input.value='';
+  var err=document.getElementById('shopify-connect-error');
+  if(err)err.style.display='none';
+  openModal('shopify-connect-modal');
+}
+function connectShopifyStoreOAuth(){
+  var input=document.getElementById('shopify-shop-domain');
+  var domain=(input&&input.value?input.value:'').trim().toLowerCase().replace(/^https?:\/\//,'').replace(/\/.*$/,'');
   var err=document.getElementById('shopify-connect-error');
   if(err)err.style.display='none';
   if(!domain){if(err){err.textContent='Shop domain is required.';err.style.display='block';}return;}
-  try{
-    await api('/api/shopify/stores',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name||domain,shop_domain:domain,access_token:token})});
-    closeModal('shopify-connect-modal');
-    toast('Shopify store saved','success');
-    loadShopifyStores();loadShopifyDashboard();
-  }catch(e){if(err){err.textContent=e.message||'Could not save Shopify store.';err.style.display='block';}}
+  if(domain.indexOf('admin.shopify.com')===0){if(err){err.textContent='Use the .myshopify.com domain, for example bkief9-ik.myshopify.com.';err.style.display='block';}return;}
+  if(!domain.endsWith('.myshopify.com'))domain+='.myshopify.com';
+  window.location.href='/api/shopify/install?shop='+encodeURIComponent(domain);
 }
 function shopifyStoreRows(rows){
   var body=document.getElementById('shopify-stores-table');if(!body)return;

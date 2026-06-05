@@ -9,6 +9,76 @@ const Stripe = require('stripe');
 const crypto = require('crypto');
 
 
+// ── Shopify OAuth helpers ───────────────────────────────────────────────────
+function shopifyConfig() {
+  const appUrl = (process.env.SHOPIFY_APP_URL || '').replace(/\/$/, '');
+  return {
+    apiKey: process.env.SHOPIFY_API_KEY || process.env.SHOPIFY_CLIENT_ID || '',
+    apiSecret: process.env.SHOPIFY_API_SECRET || process.env.SHOPIFY_CLIENT_SECRET || '',
+    appUrl,
+    redirectUri: process.env.SHOPIFY_REDIRECT_URI || (appUrl ? `${appUrl}/api/shopify/callback` : ''),
+    scopes: process.env.SHOPIFY_SCOPES || 'read_customers,read_orders,read_products,write_products'
+  };
+}
+function normalizeShopDomain(input) {
+  let shop = String(input || '').trim().toLowerCase();
+  shop = shop.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+  if (shop.startsWith('admin.shopify.com')) return '';
+  if (!shop.endsWith('.myshopify.com')) shop += '.myshopify.com';
+  return shop;
+}
+function signShopifyState(shop) {
+  const secret = process.env.SHOPIFY_API_SECRET || process.env.SHOPIFY_CLIENT_SECRET || SUBLOOP_AUTH_SECRET;
+  const payload = `${shop}:${Date.now()}:${crypto.randomBytes(8).toString('hex')}`;
+  const sig = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+  return Buffer.from(`${payload}:${sig}`).toString('base64url');
+}
+function verifyShopifyState(state, shop) {
+  try {
+    const secret = process.env.SHOPIFY_API_SECRET || process.env.SHOPIFY_CLIENT_SECRET || SUBLOOP_AUTH_SECRET;
+    const decoded = Buffer.from(String(state || ''), 'base64url').toString('utf8');
+    const parts = decoded.split(':');
+    if (parts.length < 4) return false;
+    const sig = parts.pop();
+    const payload = parts.join(':');
+    const expected = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+    if (sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return false;
+    const [stateShop, ts] = parts;
+    return stateShop === shop && (Date.now() - Number(ts)) < 15 * 60 * 1000;
+  } catch (_) { return false; }
+}
+function verifyShopifyQueryHmac(query) {
+  try {
+    const { hmac, signature, ...rest } = query;
+    if (!hmac) return false;
+    const secret = process.env.SHOPIFY_API_SECRET || process.env.SHOPIFY_CLIENT_SECRET || '';
+    if (!secret) return false;
+    const message = Object.keys(rest).sort().map(key => `${key}=${Array.isArray(rest[key]) ? rest[key].join(',') : rest[key]}`).join('&');
+    const digest = crypto.createHmac('sha256', secret).update(message).digest('hex');
+    return digest.length === String(hmac).length && crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(String(hmac)));
+  } catch (_) { return false; }
+}
+async function shopifyGraphql(shopDomain, accessToken, query, variables = {}) {
+  const response = await fetch(`https://${shopDomain}/admin/api/2026-04/graphql.json`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': accessToken },
+    body: JSON.stringify({ query, variables })
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.errors) throw new Error(data.errors ? JSON.stringify(data.errors) : `Shopify API error ${response.status}`);
+  return data.data;
+}
+async function syncShopifyStoreBasics(storeId, shopDomain, accessToken) {
+  try {
+    const data = await shopifyGraphql(shopDomain, accessToken, `query { shop { name myshopifyDomain currencyCode } }`);
+    const shop = data?.shop || {};
+    await pool.query('UPDATE shopify_stores SET name=$1, status=$2, updated_at=NOW() WHERE id=$3', [shop.name || shopDomain, 'connected', storeId]);
+  } catch (err) {
+    await pool.query('UPDATE shopify_stores SET webhook_status=$1, updated_at=NOW() WHERE id=$2', ['api-check-failed', storeId]).catch(()=>{});
+  }
+}
+
+
 // Admin access tokens and Stripe-account scoping.
 // Set SUBLOOP_AUTH_SECRET in Railway for tokens that remain valid after a deploy/restart.
 const SUBLOOP_AUTH_SECRET = process.env.SUBLOOP_AUTH_SECRET || crypto.randomBytes(48).toString('hex');
@@ -201,6 +271,8 @@ async function ensureShopifyTables() {
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
   )`).catch(()=>{});
+  await pool.query('ALTER TABLE shopify_stores ADD COLUMN IF NOT EXISTS scopes TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE shopify_stores ADD COLUMN IF NOT EXISTS installed_at TIMESTAMPTZ').catch(()=>{});
   await pool.query(`CREATE TABLE IF NOT EXISTS shopify_customers (
     id SERIAL PRIMARY KEY,
     shopify_store_id INT REFERENCES shopify_stores(id) ON DELETE CASCADE,
@@ -797,7 +869,7 @@ app.use(express.static(path.join(__dirname)));
 
 // Require a verified session token for the application API and enforce page/read-only permissions.
 app.use('/api', async (req, res, next) => {
-  const openPaths = ['/auth/verify', '/auth/check', '/security/2fa/validate'];
+  const openPaths = ['/auth/verify', '/auth/check', '/security/2fa/validate', '/shopify/install', '/shopify/callback'];
   if (openPaths.includes(req.path)) return next();
   try {
     const data = parseAdminToken(bearerToken(req), 'access');
@@ -1808,6 +1880,54 @@ app.get('/api/recovery-rate', async (req, res) => {
     const rate = tf > 0 ? Math.round((recovered / tf) * 100) : 0;
     res.json({ total_failed: tf, recovered, rate });
   } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Shopify Platform OAuth ─────────────────────────────────────────────────
+app.get('/api/shopify/install', async (req, res) => {
+  try {
+    const cfg = shopifyConfig();
+    const shop = normalizeShopDomain(req.query.shop);
+    if (!shop || !shop.endsWith('.myshopify.com')) return res.status(400).send('Invalid Shopify store domain. Use your-store.myshopify.com.');
+    if (!cfg.apiKey || !cfg.apiSecret || !cfg.redirectUri) return res.status(500).send('Shopify OAuth is not configured. Add SHOPIFY_API_KEY, SHOPIFY_API_SECRET, SHOPIFY_APP_URL and SHOPIFY_REDIRECT_URI in Railway, then redeploy.');
+    const params = new URLSearchParams({ client_id: cfg.apiKey, scope: cfg.scopes, redirect_uri: cfg.redirectUri, state: signShopifyState(shop) });
+    return res.redirect(`https://${shop}/admin/oauth/authorize?${params.toString()}`);
+  } catch (err) { return res.status(500).send(err.message); }
+});
+
+app.get('/api/shopify/callback', async (req, res) => {
+  try {
+    const cfg = shopifyConfig();
+    const shop = normalizeShopDomain(req.query.shop);
+    const code = String(req.query.code || '');
+    if (!shop || !code) return res.status(400).send('Missing Shopify shop or code.');
+    if (!verifyShopifyQueryHmac(req.query)) return res.status(400).send('Invalid Shopify callback signature.');
+    if (!verifyShopifyState(req.query.state, shop)) return res.status(400).send('Invalid or expired Shopify OAuth state. Try connecting again.');
+
+    const tokenResponse = await fetch(`https://${shop}/admin/oauth/access_token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client_id: cfg.apiKey, client_secret: cfg.apiSecret, code })
+    });
+    const tokenData = await tokenResponse.json().catch(() => ({}));
+    if (!tokenResponse.ok || !tokenData.access_token) throw new Error(tokenData.error_description || tokenData.error || `Shopify token exchange failed (${tokenResponse.status})`);
+
+    let shopName = shop;
+    try {
+      const data = await shopifyGraphql(shop, tokenData.access_token, `query { shop { name myshopifyDomain } }`);
+      shopName = data?.shop?.name || shop;
+    } catch (_) {}
+
+    const r = await pool.query(`INSERT INTO shopify_stores (name, shop_domain, access_token, scopes, status, webhook_status, installed_at, updated_at)
+      VALUES ($1,$2,$3,$4,'connected','pending',NOW(),NOW())
+      ON CONFLICT (shop_domain) DO UPDATE SET name=EXCLUDED.name, access_token=EXCLUDED.access_token, scopes=EXCLUDED.scopes, status='connected', installed_at=COALESCE(shopify_stores.installed_at,NOW()), updated_at=NOW()
+      RETURNING id`, [shopName, shop, tokenData.access_token, tokenData.scope || cfg.scopes]);
+    await pool.query('INSERT INTO shopify_activity (shopify_store_id,event_type,status,object_id) VALUES ($1,$2,$3,$4)', [r.rows[0].id, 'store.oauth_connected', 'success', shop]).catch(()=>{});
+    syncShopifyStoreBasics(r.rows[0].id, shop, tokenData.access_token).catch(()=>{});
+    return res.redirect('/?platform=shopify&page=shopify-stores&shopify_connected=1');
+  } catch (err) {
+    console.error('[shopify oauth] callback failed:', err.message, err.stack);
+    return res.status(500).send(`Shopify connection failed: ${err.message}`);
+  }
 });
 
 // ── Shopify Platform (MVP scaffold) ──────────────────────────────────────────
