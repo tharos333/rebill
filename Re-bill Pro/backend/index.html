@@ -10198,4 +10198,54 @@ html.light #customer-detail-modal .customer-profile-actions{
   font-weight:600!important;
 }
 
+
+
+/* Final search dropdown only: make status badges match Payments page table badges */
+#global-search-results .badge{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:4px!important;
+  min-height:22px!important;
+  height:22px!important;
+  padding:0 9px!important;
+  border-radius:6px!important;
+  font-family:var(--font-ui, var(--sans))!important;
+  font-size:12px!important;
+  line-height:1!important;
+  font-weight:600!important;
+  letter-spacing:-0.01em!important;
+  white-space:nowrap!important;
+  vertical-align:middle!important;
+}
+#global-search-results .badge > span{
+  font-family:var(--font-ui, var(--sans))!important;
+  font-size:12px!important;
+  line-height:1!important;
+  font-weight:600!important;
+  letter-spacing:-0.01em!important;
+}
+#global-search-results .badge::before{
+  display:none!important;
+  content:none!important;
+}
+#global-search-results .badge.badge-green{
+  color:var(--green)!important;
+  background:var(--green-bg)!important;
+}
+#global-search-results .badge.badge-red{
+  color:var(--red)!important;
+  background:var(--red-bg)!important;
+}
+#global-search-results .badge.badge-blue{
+  color:#60a5fa!important;
+  background:rgba(59,130,246,.14)!important;
+  border-color:rgba(59,130,246,.24)!important;
+}
+html.light #global-search-results .badge.badge-blue{
+  color:#2563eb!important;
+  background:rgba(59,130,246,.10)!important;
+  border-color:rgba(59,130,246,.22)!important;
+}
+
 </style>
