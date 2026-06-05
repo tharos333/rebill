@@ -61,26 +61,6 @@ html.light .sidebar-header{border-bottom:1px solid rgba(0,0,0,0.08);}
 .sidebar-footer{margin-top:auto;padding:12px 24px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);font-family:var(--mono)}
 .theme-toggle{display:flex;align-items:center;gap:8px;padding:0;font-size:12px;color:var(--muted);cursor:pointer;font-family:var(--mono);border:none;background:none;width:100%}
 .theme-toggle:hover{color:var(--text)}
-/* Platform switcher (Stripe / Shopify) */
-.platform-switcher{position:relative;width:100%;font-family:var(--mono)}
-.platform-switcher-btn{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;color:var(--text);padding:9px 10px;font-size:12px;cursor:pointer}
-.platform-switcher-btn:hover{border-color:var(--accent);}
-.platform-current{display:flex;align-items:center;gap:8px;min-width:0}
-.platform-dot{width:7px;height:7px;border-radius:999px;background:var(--accent);box-shadow:0 0 0 3px rgba(109,94,248,.14)}
-.platform-menu{display:none;position:absolute;left:0;right:0;bottom:42px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:6px;box-shadow:0 18px 50px rgba(0,0,0,.35);z-index:50}
-.platform-switcher.open .platform-menu{display:block}
-.platform-option{width:100%;display:flex;align-items:center;justify-content:space-between;background:transparent;border:none;color:var(--text);font-size:12px;font-family:var(--mono);padding:9px 10px;border-radius:8px;cursor:pointer;text-align:left}
-.platform-option:hover,.platform-option.active{background:rgba(109,94,248,.14);color:#fff}
-.platform-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
-body.platform-stripe [data-platform="shopify"]{display:none!important}
-body.platform-shopify [data-platform="stripe"]{display:none!important}
-.shopify-empty{padding:28px;text-align:center;color:var(--muted);font-size:13px;font-family:var(--mono)}
-.shopify-badge{display:inline-flex;align-items:center;gap:6px;border-radius:8px;padding:5px 9px;background:rgba(34,197,94,.11);color:var(--green);font-size:12px;font-family:var(--mono);font-weight:500}
-.shopify-warn{display:inline-flex;align-items:center;gap:6px;border-radius:8px;padding:5px 9px;background:var(--amber-bg);color:var(--amber);font-size:12px;font-family:var(--mono);font-weight:500}
-/* Shopify MAIN label uses the exact same .nav-section styling as Stripe */
-body.platform-shopify .sidebar .shopify-main-label{display:block!important;}
-body.platform-stripe .sidebar .shopify-main-label{display:none!important;}
-
 .toggle-track{width:34px;height:18px;border-radius:20px;background:var(--surface2);border:1px solid var(--border2);position:relative;transition:background 0.2s;flex-shrink:0}
 html.light .toggle-track{background:var(--accent)}
 .toggle-thumb{width:12px;height:12px;border-radius:50%;background:var(--muted);position:absolute;top:2px;left:2px;transition:all 0.2s}
@@ -5820,58 +5800,34 @@ body.view-only-access #verification-debug-modal .modal-content{
     <img id="sidebar-logo" src="https://i.ibb.co/xq0HVT9G/1.png" alt="Subloop" class="sidebar-logo-img">
   </div>
   <div style="flex:1;overflow-y:auto;overflow-x:hidden;">
-  <div class="nav-section" data-platform="stripe">Main</div>
-  <button class="nav-item active" data-platform="stripe" onclick="showPage('dashboard',this)">
+  <div class="nav-section">Main</div>
+  <button class="nav-item active" onclick="showPage('dashboard',this)">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Dashboard</button>
-  <button class="nav-item" data-platform="stripe" onclick="showPage('activity',this)">
+  <button class="nav-item" onclick="showPage('activity',this)">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Activity</button>
 
-  <div class="nav-section" data-platform="stripe">Billing</div>
-  <button class="nav-item" data-platform="stripe" onclick="showPage('customers',this)">
+  <div class="nav-section">Billing</div>
+  <button class="nav-item" onclick="showPage('customers',this)">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Customers</button>
-  <button class="nav-item" data-platform="stripe" onclick="showPage('subscriptions',this)">
+  <button class="nav-item" onclick="showPage('subscriptions',this)">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>Subscriptions</button>
-  <button class="nav-item" data-platform="stripe" onclick="showPage('payments',this)">
+  <button class="nav-item" onclick="showPage('payments',this)">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="6" y1="15" x2="10" y2="15"/></svg>Payments</button>
-  <button class="nav-item" data-platform="stripe" onclick="showPage('links',this)">
+  <button class="nav-item" onclick="showPage('links',this)">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Payment Links</button>
-  <button class="nav-item" data-platform="stripe" onclick="showPage('accounts',this)">
+  <button class="nav-item" onclick="showPage('accounts',this)">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.5 9.9 13.5 8.1"/><path d="M10.5 14.1 13.5 15.9"/><circle cx="7" cy="12" r="4"/><circle cx="17" cy="6" r="4"/><circle cx="17" cy="18" r="4"/></svg>Stripe Accounts</button>
 
-  <div class="nav-section" data-platform="stripe">Insights</div>
-  <button class="nav-item" data-platform="stripe" onclick="showPage('forecast',this)">
+  <div class="nav-section">Insights</div>
+  <button class="nav-item" onclick="showPage('forecast',this)">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Forecast</button>
 
-  <button class="nav-item" data-platform="stripe" onclick="showPage('summary',this)">
+  <button class="nav-item" onclick="showPage('summary',this)">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="12" y2="17"/></svg>Daily Summary</button>
-  <button class="nav-item" data-platform="stripe" onclick="showPage('mrr',this)">
+  <button class="nav-item" onclick="showPage('mrr',this)">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>Revenue Growth</button>
 
-  <button class="nav-item" data-platform="stripe" onclick="showPage('recovery',this)">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 2v6h6"/><path d="M21.5 22v-6h-6"/><path d="M22 11.5A10 10 0 0 0 3.2 7.2"/><path d="M2 12.5a10 10 0 0 0 18.8 4.2"/></svg>Payment Recovery</button>
-
-
-
-  <div class="nav-section shopify-main-label" data-platform="shopify">MAIN</div>
-  <button class="nav-item" data-platform="shopify" onclick="showPage('shopify-dashboard',this)">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Dashboard</button>
-  <button class="nav-item" data-platform="shopify" onclick="showPage('shopify-activity',this)">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Activity</button>
-
-  <div class="nav-section" data-platform="shopify">Commerce</div>
-  <button class="nav-item" data-platform="shopify" onclick="showPage('shopify-customers',this)">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Customers</button>
-  <button class="nav-item" data-platform="shopify" onclick="showPage('shopify-subscriptions',this)">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>Subscriptions</button>
-  <button class="nav-item" data-platform="shopify" onclick="showPage('shopify-orders',this)">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>Orders</button>
-  <button class="nav-item" data-platform="shopify" onclick="showPage('shopify-products',this)">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20.59 13.41 12 22l-8.59-8.59A2 2 0 0 1 3 12V4a2 2 0 0 1 2-2h8a2 2 0 0 1 1.41.59l6.18 6.18a2 2 0 0 1 0 2.83Z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>Products</button>
-  <button class="nav-item" data-platform="shopify" onclick="showPage('shopify-stores',this)">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 9h18l-1 11H4L3 9Z"/><path d="M8 9V6a4 4 0 0 1 8 0v3"/></svg>Shopify Stores</button>
-
-  <div class="nav-section" data-platform="shopify">Insights</div>
-  <button class="nav-item" data-platform="shopify" onclick="showPage('shopify-recovery',this)">
+  <button class="nav-item" onclick="showPage('recovery',this)">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 2v6h6"/><path d="M21.5 22v-6h-6"/><path d="M22 11.5A10 10 0 0 0 3.2 7.2"/><path d="M2 12.5a10 10 0 0 0 18.8 4.2"/></svg>Payment Recovery</button>
 
   <!-- Settings collapsible -->
@@ -5880,29 +5836,22 @@ body.view-only-access #verification-debug-modal .modal-content{
     <svg id="settings-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform 0.2s;flex-shrink:0;"><polyline points="6 9 12 15 18 9"/></svg>
   </button>
   <div id="settings-subnav" style="display:none;overflow:hidden;">
-    <button class="nav-item" data-platform="both" onclick="showPage('admins',this)">
+    <button class="nav-item" onclick="showPage('admins',this)">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>Admin Users</button>
-    <button class="nav-item" data-platform="both" onclick="showPage('settings',this)">
+    <button class="nav-item" onclick="showPage('settings',this)">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
-    <button class="nav-item" data-platform="both" onclick="showPage('security',this)">
+    <button class="nav-item" onclick="showPage('security',this)">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Security</button>
-    <button class="nav-item" data-platform="both" onclick="showPage('webhooks',this)">
+    <button class="nav-item" onclick="showPage('webhooks',this)">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 16.98h-5.99c-1.1 0-1.95.94-2.48 1.9A4 4 0 0 1 2 17c.01-.7.2-1.4.57-2"/><path d="m6 17 3.13-5.78c.53-.97.1-2.18-.5-3.1a4 4 0 1 1 6.89-4.06"/><path d="m12 6 3.13 5.73C15.66 12.7 16.9 13 18 13a4 4 0 0 1 0 8"/></svg>Webhook Logs</button>
   </div>
 
   </div><!-- end scrollable nav -->
   <div style="flex-shrink:0;background:var(--surface);padding:18px 24px 16px;">
-    <div class="platform-switcher" id="platform-switcher">
-      <div class="platform-label">Platform</div>
-      <button class="platform-switcher-btn" type="button" onclick="togglePlatformMenu(event)">
-        <span class="platform-current"><span class="platform-dot"></span><span id="platform-current-label">Stripe</span></span>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-      </button>
-      <div class="platform-menu" id="platform-menu">
-        <button class="platform-option active" id="platform-opt-stripe" type="button" onclick="setPlatform('stripe')"><span>Stripe</span><span>✓</span></button>
-        <button class="platform-option" id="platform-opt-shopify" type="button" onclick="setPlatform('shopify')"><span>Shopify</span><span>✓</span></button>
-      </div>
-    </div>
+    <button class="theme-toggle" onclick="toggleTheme()">
+      <div class="toggle-track"><div class="toggle-thumb"></div></div>
+      <span id="theme-label">Dark mode</span>
+    </button>
     <div style="height:1px;background:var(--border);margin:14px -24px;"></div>
     <div style="display:flex;align-items:center;font-size:11px;color:var(--muted);font-family:var(--mono);">
       <span id="server-status">● loading...</span>
@@ -6470,71 +6419,6 @@ body.view-only-access #verification-debug-modal .modal-content{
 </div>
 
 
-
-<!-- Shopify Dashboard -->
-<div id="page-shopify-dashboard" class="page">
-  <div class="page-header">
-    <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Shopify Dashboard</span></h2><p>Shopify stores, orders and subscription overview</p></div>
-    <button class="btn btn-primary" onclick="openShopifyConnectModal()">Connect Store</button>
-  </div>
-  <div class="stats-grid" style="grid-template-columns:repeat(6,1fr);">
-    <div class="stat-card"><div class="stat-label">Stores</div><div class="stat-value" id="shopify-stat-stores">—</div><div class="stat-sub">connected stores</div></div>
-    <div class="stat-card"><div class="stat-label">Revenue</div><div class="stat-value" id="shopify-stat-revenue">—</div><div class="stat-sub">Shopify orders</div></div>
-    <div class="stat-card"><div class="stat-label">Orders</div><div class="stat-value" id="shopify-stat-orders">—</div><div class="stat-sub">total orders</div></div>
-    <div class="stat-card"><div class="stat-label">Customers</div><div class="stat-value" id="shopify-stat-customers">—</div><div class="stat-sub">Shopify customers</div></div>
-    <div class="stat-card"><div class="stat-label">Subscriptions</div><div class="stat-value" id="shopify-stat-subs">—</div><div class="stat-sub">subscription contracts</div></div>
-    <div class="stat-card"><div class="stat-label">Recovery</div><div class="stat-value" id="shopify-stat-recovery">—</div><div class="stat-sub">billing attempts</div></div>
-  </div>
-  <div class="card"><div class="card-header"><h3>Upcoming billing attempts</h3></div><div class="scrollable"><table><thead><tr><th>Customer</th><th>Store</th><th>Amount</th><th>Next billing</th><th>Status</th><th>Action</th></tr></thead><tbody id="shopify-upcoming-table"><tr><td colspan="6" class="empty">No Shopify subscription data yet. Connect a store first.</td></tr></tbody></table></div></div>
-</div>
-
-<!-- Shopify Activity -->
-<div id="page-shopify-activity" class="page">
-  <div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Shopify Activity</span></h2><p>Orders, billing attempts, subscription changes and webhooks</p></div></div>
-  <div class="card"><div class="scrollable"><table><thead><tr><th>Event</th><th>Store</th><th>Object</th><th>Status</th><th>Date</th></tr></thead><tbody id="shopify-activity-table"><tr><td colspan="5" class="empty">No Shopify activity yet.</td></tr></tbody></table></div></div>
-</div>
-
-<!-- Shopify Customers -->
-<div id="page-shopify-customers" class="page">
-  <div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Shopify Customers</span></h2><p>Customers imported from connected Shopify stores</p></div></div>
-  <div class="card"><div class="scrollable"><table><thead><tr><th>Customer</th><th>Email</th><th>Store</th><th>Total spent</th><th>Orders</th><th>Subscriptions</th><th>Last order</th></tr></thead><tbody id="shopify-customers-table"><tr><td colspan="7" class="empty">No Shopify customers yet.</td></tr></tbody></table></div></div>
-</div>
-
-<!-- Shopify Subscriptions -->
-<div id="page-shopify-subscriptions" class="page">
-  <div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg><span>Shopify Subscriptions</span></h2><p>Subscription contracts and billing cycles</p></div></div>
-  <div class="card"><div class="scrollable"><table><thead><tr><th>Customer</th><th>Product</th><th>Store</th><th>Amount</th><th>Billing cycle</th><th>Next billing</th><th>Status</th><th>Action</th></tr></thead><tbody id="shopify-subscriptions-table"><tr><td colspan="8" class="empty">No Shopify subscription contracts yet.</td></tr></tbody></table></div></div>
-</div>
-
-<!-- Shopify Orders -->
-<div id="page-shopify-orders" class="page">
-  <div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg><span>Shopify Orders</span></h2><p>Orders and payment status from Shopify</p></div></div>
-  <div class="card"><div class="scrollable"><table><thead><tr><th>Order</th><th>Customer</th><th>Store</th><th>Amount</th><th>Payment</th><th>Fulfillment</th><th>Date</th></tr></thead><tbody id="shopify-orders-table"><tr><td colspan="7" class="empty">No Shopify orders yet.</td></tr></tbody></table></div></div>
-</div>
-
-<!-- Shopify Products -->
-<div id="page-shopify-products" class="page">
-  <div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20.59 13.41 12 22l-8.59-8.59A2 2 0 0 1 3 12V4a2 2 0 0 1 2-2h8a2 2 0 0 1 1.41.59l6.18 6.18a2 2 0 0 1 0 2.83Z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><span>Shopify Products</span></h2><p>Products and subscription selling plans</p></div></div>
-  <div class="card"><div class="scrollable"><table><thead><tr><th>Product</th><th>Store</th><th>Price</th><th>Subscription</th><th>Selling plan</th><th>Status</th></tr></thead><tbody id="shopify-products-table"><tr><td colspan="6" class="empty">No Shopify products yet.</td></tr></tbody></table></div></div>
-</div>
-
-<!-- Shopify Stores -->
-<div id="page-shopify-stores" class="page">
-  <div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 9h18l-1 11H4L3 9Z"/><path d="M8 9V6a4 4 0 0 1 8 0v3"/></svg><span>Shopify Stores</span></h2><p>Connect and manage Shopify stores</p></div><button class="btn btn-primary" onclick="openShopifyConnectModal()">Connect Store</button></div>
-  <div class="card"><div class="scrollable"><table><thead><tr><th>Store name</th><th>Shop domain</th><th>Status</th><th>Webhook status</th><th>Connected</th><th>Actions</th></tr></thead><tbody id="shopify-stores-table"><tr><td colspan="6" class="empty">No Shopify stores connected yet.</td></tr></tbody></table></div></div>
-</div>
-
-<!-- Shopify Recovery -->
-<div id="page-shopify-recovery" class="page">
-  <div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 2v6h6"/><path d="M21.5 22v-6h-6"/><path d="M22 11.5A10 10 0 0 0 3.2 7.2"/><path d="M2 12.5a10 10 0 0 0 18.8 4.2"/></svg><span>Shopify Payment Recovery</span></h2><p>Failed subscription billing attempts and recovery status</p></div></div>
-  <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);">
-    <div class="stat-card"><div class="stat-label">Failed attempts</div><div class="stat-value" id="shopify-rec-failed" style="color:var(--red)">—</div><div class="stat-sub">last 30 days</div></div>
-    <div class="stat-card"><div class="stat-label">Recovered</div><div class="stat-value" id="shopify-rec-recovered" style="color:var(--green)">—</div><div class="stat-sub">billing attempts paid</div></div>
-    <div class="stat-card"><div class="stat-label">Recovery Rate</div><div class="stat-value" id="shopify-rec-rate">—</div><div class="stat-sub">Shopify subscriptions</div></div>
-  </div>
-  <div class="card"><div class="scrollable"><table><thead><tr><th>Customer</th><th>Store</th><th>Subscription</th><th>Failed amount</th><th>Reason</th><th>Last attempt</th><th>Action</th></tr></thead><tbody id="shopify-recovery-table"><tr><td colspan="7" class="empty">No Shopify failed billing attempts yet.</td></tr></tbody></table></div></div>
-</div>
-
 <!-- Admin Users -->
 <div id="page-admins" class="page">
   <div class="page-header">
@@ -6564,17 +6448,6 @@ body.view-only-access #verification-debug-modal .modal-content{
 </div>
 
 <!-- Modals -->
-
-<div class="modal-bg" id="shopify-connect-modal">
-  <div class="modal">
-    <h3>Connect Shopify Store</h3>
-    <p>Enter your Shopify store domain. Subloop will redirect you to Shopify to approve the connection.</p>
-    <div class="form-group"><label>Shop domain</label><input type="text" id="shopify-shop-domain" placeholder="your-store.myshopify.com"></div>
-    <div id="shopify-connect-error" style="display:none;background:var(--red-bg);border:1px solid var(--red);color:var(--red);border-radius:8px;padding:10px 14px;font-size:12px;font-family:var(--mono);margin-bottom:10px;"></div>
-    <div class="modal-footer"><button class="btn" onclick="closeModal('shopify-connect-modal')">Cancel</button><button class="btn btn-primary" onclick="connectShopifyStoreOAuth()">Connect</button></div>
-  </div>
-</div>
-
 <div class="modal-bg" id="add-customer-modal">
   <div class="modal">
     <h3>Add Customer Manually</h3><p>Link a Stripe customer to Subloop for rebilling</p>
@@ -6965,69 +6838,6 @@ function applyOperationalActionVisibility(){
   var invoiceCard=document.getElementById('manual-invoice-card');
   if(invoiceCard)invoiceCard.style.display=canManageOperationalSection('customers')?'block':'none';
 }
-
-function currentPlatform(){return localStorage.getItem('subloop_platform')||'stripe';}
-function togglePlatformMenu(e){if(e)e.stopPropagation();var sw=document.getElementById('platform-switcher');if(sw)sw.classList.toggle('open');}
-document.addEventListener('click',function(e){var sw=document.getElementById('platform-switcher');if(sw&&!sw.contains(e.target))sw.classList.remove('open');});
-function setPlatform(platform){
-  platform=(platform==='shopify')?'shopify':'stripe';
-  localStorage.setItem('subloop_platform',platform);
-  document.body.classList.toggle('platform-shopify',platform==='shopify');
-  document.body.classList.toggle('platform-stripe',platform!=='shopify');
-  var label=document.getElementById('platform-current-label');if(label)label.textContent=platform==='shopify'?'Shopify':'Stripe';
-  var stripeOpt=document.getElementById('platform-opt-stripe');var shopifyOpt=document.getElementById('platform-opt-shopify');
-  if(stripeOpt)stripeOpt.classList.toggle('active',platform!=='shopify');
-  if(shopifyOpt)shopifyOpt.classList.toggle('active',platform==='shopify');
-  var sw=document.getElementById('platform-switcher');if(sw)sw.classList.remove('open');
-  var shopifyMainLabel=document.querySelector('.shopify-main-label');
-  if(platform==='shopify' && shopifyMainLabel){shopifyMainLabel.style.display='block';shopifyMainLabel.textContent='MAIN';}
-  var first=document.querySelector(platform==='shopify'?'[data-platform="shopify"].nav-item':'[data-platform="stripe"].nav-item');
-  if(first){var onclick=first.getAttribute('onclick')||'';var match=onclick.match(/showPage\('([^']+)'/);if(match)showPage(match[1],first);}
-}
-function initPlatformSwitcher(){applyUrlPlatformHint();setPlatform(currentPlatform());}
-
-function applyUrlPlatformHint(){
-  var params=new URLSearchParams(window.location.search||'');
-  if(params.get('platform')==='shopify'){localStorage.setItem('subloop_platform','shopify');}
-  if(params.get('shopify_connected')==='1'){setTimeout(function(){toast('Shopify store connected','success');loadShopifyStores();loadShopifyDashboard();},400);}
-  if(params.get('platform')||params.get('shopify_connected')){try{history.replaceState(null,'',window.location.pathname);}catch(e){}}
-}
-function shopifyMoney(cents,currency){return new Intl.NumberFormat('en-US',{style:'currency',currency:(currency||'usd').toUpperCase()}).format((Number(cents)||0)/100);}
-function openShopifyConnectModal(){
-  var input=document.getElementById('shopify-shop-domain');
-  if(input)input.value='';
-  var err=document.getElementById('shopify-connect-error');
-  if(err)err.style.display='none';
-  openModal('shopify-connect-modal');
-}
-function connectShopifyStoreOAuth(){
-  var input=document.getElementById('shopify-shop-domain');
-  var domain=(input&&input.value?input.value:'').trim().toLowerCase().replace(/^https?:\/\//,'').replace(/\/.*$/,'');
-  var err=document.getElementById('shopify-connect-error');
-  if(err)err.style.display='none';
-  if(!domain){if(err){err.textContent='Shop domain is required.';err.style.display='block';}return;}
-  if(domain.indexOf('admin.shopify.com')===0){if(err){err.textContent='Use the .myshopify.com domain, for example bkief9-ik.myshopify.com.';err.style.display='block';}return;}
-  if(!domain.endsWith('.myshopify.com'))domain+='.myshopify.com';
-  window.location.href='/api/shopify/install?shop='+encodeURIComponent(domain);
-}
-function shopifyStoreRows(rows){
-  var body=document.getElementById('shopify-stores-table');if(!body)return;
-  if(!rows||!rows.length){body.innerHTML='<tr><td colspan="6" class="empty">No Shopify stores connected yet.</td></tr>';return;}
-  body.innerHTML=rows.map(function(s){return '<tr><td><strong>'+escapeHtml(s.name||s.shop_domain||'Shopify Store')+'</strong></td><td class="mono">'+escapeHtml(s.shop_domain||'—')+'</td><td><span class="shopify-badge">Connected</span></td><td><span class="shopify-warn">Pending</span></td><td>'+formatDate(s.created_at)+'</td><td><button class="btn btn-sm" onclick="loadShopifyStores()">Check</button></td></tr>';}).join('');
-}
-async function loadShopifyDashboard(){
-  try{var d=await api('/api/shopify/overview');
-    setText('shopify-stat-stores',d.stores||0);setText('shopify-stat-revenue',shopifyMoney(d.revenue||0,d.currency||'usd'));setText('shopify-stat-orders',d.orders||0);setText('shopify-stat-customers',d.customers||0);setText('shopify-stat-subs',d.subscriptions||0);setText('shopify-stat-recovery',(d.recovery_rate||0)+'%');
-  }catch(e){}
-}
-async function loadShopifyStores(){try{var rows=await api('/api/shopify/stores');shopifyStoreRows(rows);}catch(e){}}
-async function loadShopifyCustomers(){try{var rows=await api('/api/shopify/customers');var b=document.getElementById('shopify-customers-table');if(b)b.innerHTML=rows.length?rows.map(function(r){return '<tr><td>'+escapeHtml(r.name||'—')+'</td><td>'+escapeHtml(r.email||'—')+'</td><td>'+escapeHtml(r.store_name||'—')+'</td><td>'+shopifyMoney(r.total_spent||0,r.currency||'usd')+'</td><td>'+(r.orders_count||0)+'</td><td>'+(r.subscriptions_count||0)+'</td><td>'+formatDate(r.last_order_at)+'</td></tr>';}).join(''):'<tr><td colspan="7" class="empty">No Shopify customers yet.</td></tr>'; }catch(e){}}
-async function loadShopifyOrders(){try{var rows=await api('/api/shopify/orders');var b=document.getElementById('shopify-orders-table');if(b)b.innerHTML=rows.length?rows.map(function(r){return '<tr><td>'+escapeHtml(r.order_name||'—')+'</td><td>'+escapeHtml(r.customer_name||'—')+'</td><td>'+escapeHtml(r.store_name||'—')+'</td><td>'+shopifyMoney(r.amount||0,r.currency||'usd')+'</td><td>'+escapeHtml(r.financial_status||'—')+'</td><td>'+escapeHtml(r.fulfillment_status||'—')+'</td><td>'+formatDate(r.created_at)+'</td></tr>';}).join(''):'<tr><td colspan="7" class="empty">No Shopify orders yet.</td></tr>'; }catch(e){}}
-async function loadShopifySubscriptions(){try{var rows=await api('/api/shopify/subscriptions');var b=document.getElementById('shopify-subscriptions-table');if(b)b.innerHTML=rows.length?rows.map(function(r){return '<tr><td>'+escapeHtml(r.customer_name||'—')+'</td><td>'+escapeHtml(r.product_title||'—')+'</td><td>'+escapeHtml(r.store_name||'—')+'</td><td>'+shopifyMoney(r.amount||0,r.currency||'usd')+'</td><td>'+escapeHtml(r.billing_cycle||'—')+'</td><td>'+formatDate(r.next_billing_at)+'</td><td><span class="badge badge-green">'+escapeHtml(r.status||'Active')+'</span></td><td><button class="btn btn-sm">View</button></td></tr>';}).join(''):'<tr><td colspan="8" class="empty">No Shopify subscription contracts yet.</td></tr>'; }catch(e){}}
-async function loadShopifyProducts(){try{var rows=await api('/api/shopify/products');var b=document.getElementById('shopify-products-table');if(b)b.innerHTML=rows.length?rows.map(function(r){return '<tr><td>'+escapeHtml(r.title||'—')+'</td><td>'+escapeHtml(r.store_name||'—')+'</td><td>'+shopifyMoney(r.price||0,r.currency||'usd')+'</td><td>'+escapeHtml(r.subscription_available?'Yes':'No')+'</td><td>'+escapeHtml(r.selling_plan||'—')+'</td><td>'+escapeHtml(r.status||'—')+'</td></tr>';}).join(''):'<tr><td colspan="6" class="empty">No Shopify products yet.</td></tr>'; }catch(e){}}
-async function loadShopifyActivity(){try{var rows=await api('/api/shopify/activity');var b=document.getElementById('shopify-activity-table');if(b)b.innerHTML=rows.length?rows.map(function(r){return '<tr><td>'+escapeHtml(r.event_type||'—')+'</td><td>'+escapeHtml(r.store_name||'—')+'</td><td>'+escapeHtml(r.object_id||'—')+'</td><td>'+escapeHtml(r.status||'—')+'</td><td>'+formatDate(r.created_at)+'</td></tr>';}).join(''):'<tr><td colspan="5" class="empty">No Shopify activity yet.</td></tr>'; }catch(e){}}
-async function loadShopifyRecovery(){try{var d=await api('/api/shopify/recovery');setText('shopify-rec-failed',d.failed||0);setText('shopify-rec-recovered',d.recovered||0);setText('shopify-rec-rate',(d.rate||0)+'%');}catch(e){}}
-
 function applyAccessControl(){
   var role=getCurrentRole();
   var readonly=role==='viewer'||role==='analyst';
@@ -7110,9 +6920,9 @@ function refreshRestrictedAccessAndOpen(name,el,loaders){
 function showPage(name,el){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-  var target=document.getElementById('page-'+name);if(target)target.classList.add('active');
-  if(el)el.classList.add('active');
-  const loaders={dashboard:()=>{loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();},activity:loadActivity,customers:loadCustomers,subscriptions:loadSubscriptions,payments:loadPayments,settings:loadSettings,accounts:loadAccounts,security:loadSecurity,webhooks:loadWebhooks,forecast:loadForecast,summary:loadSummary,admins:loadAdmins,mrr:()=>{var period=document.getElementById('mrr-period');if(period)period.value='year';loadMrr();},recovery:loadRecovery,links:()=>{loadPaymentLinkAccounts();loadTemplates();configurePaymentLinksAccessUI();},'shopify-dashboard':()=>{loadShopifyDashboard();loadShopifyStores();},'shopify-activity':loadShopifyActivity,'shopify-customers':loadShopifyCustomers,'shopify-subscriptions':loadShopifySubscriptions,'shopify-orders':loadShopifyOrders,'shopify-products':loadShopifyProducts,'shopify-stores':loadShopifyStores,'shopify-recovery':loadShopifyRecovery};
+  document.getElementById('page-'+name).classList.add('active');
+  el.classList.add('active');
+  const loaders={dashboard:()=>{loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();},activity:loadActivity,customers:loadCustomers,subscriptions:loadSubscriptions,payments:loadPayments,settings:loadSettings,accounts:loadAccounts,security:loadSecurity,webhooks:loadWebhooks,forecast:loadForecast,summary:loadSummary,admins:loadAdmins,mrr:()=>{var period=document.getElementById('mrr-period');if(period)period.value='year';loadMrr();},recovery:loadRecovery,links:()=>{loadPaymentLinkAccounts();loadTemplates();configurePaymentLinksAccessUI();}};
   expandSettingsIfNeeded(name);
   if(!canAccess(name)){
     document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
@@ -7369,8 +7179,6 @@ function visiblePaymentMethodFilterKey(p){
 }
 
 function initApp(){
-  document.body.classList.add('platform-stripe');
-  setTimeout(initPlatformSwitcher,0);
   var username=localStorage.getItem('subloop_username');
   if(username){
     api('/api/auth/check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})})
