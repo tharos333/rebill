@@ -5790,14 +5790,14 @@ body.view-only-access #verification-debug-modal .modal-content{
 }
 
 
-/* Global search dropdown only: table-matched typography */
+/* Global search dropdown only: match payment/customer table typography */
 #global-search-results .gs-section-title{
-  padding:8px 14px 5px!important;
+  padding:8px 14px 6px!important;
   font-family:var(--mono)!important;
   font-size:10px!important;
   line-height:1!important;
-  font-weight:700!important;
-  letter-spacing:.08em!important;
+  font-weight:600!important;
+  letter-spacing:0.5px!important;
   text-transform:uppercase!important;
   color:var(--muted)!important;
   border-top:1px solid var(--border)!important;
@@ -5810,7 +5810,7 @@ body.view-only-access #verification-debug-modal .modal-content{
   font-family:var(--sans)!important;
   font-size:13px!important;
   line-height:1.2!important;
-  font-weight:600!important;
+  font-weight:500!important;
   color:var(--text)!important;
   min-width:0!important;
   white-space:nowrap!important;
@@ -5831,19 +5831,28 @@ body.view-only-access #verification-debug-modal .modal-content{
   font-family:var(--sans)!important;
   font-size:13px!important;
   line-height:1!important;
-  font-weight:600!important;
+  font-weight:500!important;
   color:var(--text)!important;
   white-space:nowrap!important;
 }
 #global-search-results .badge{
-  font-family:var(--sans)!important;
-  font-size:12px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:4px!important;
+  padding:2px 7px!important;
+  border-radius:20px!important;
+  font-family:var(--mono)!important;
+  font-size:11px!important;
   line-height:1!important;
-  font-weight:500!important;
+  font-weight:600!important;
   letter-spacing:0!important;
+  white-space:nowrap!important;
 }
 #global-search-results .badge span{
-  font-weight:500!important;
+  font-family:var(--mono)!important;
+  font-size:11px!important;
+  font-weight:600!important;
+  line-height:1!important;
 }
 #global-search-results .badge::before{
   display:none!important;
