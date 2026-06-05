@@ -5280,16 +5280,7 @@ html.light #customer-btn-subscription.active{
 }
 
 
-/* View-only banner: fade out before right-side payment drawer */
-body.modal-lock #viewer-notice{
-  right:500px!important;
-  background:linear-gradient(90deg,#854d0e 0%,#854d0e 68%,rgba(133,77,14,.78) 84%,rgba(8,8,12,0) 100%)!important;
-  border-bottom-color:transparent!important;
-  box-shadow:inset 0 -1px 0 rgba(250,204,21,.55)!important;
-}
-@media(max-width:900px){
-  body.modal-lock #viewer-notice{right:0!important;}
-}
+/* View-only access: top warning banner removed */
 
 
 /* Admin access modal: compact account scope controls with fixed footer */
@@ -6840,14 +6831,10 @@ function enforceReadonly(){
   document.querySelectorAll('[onclick*="runRebills"]').forEach(function(btn){btn.style.display='none';});
   var selectBtn=document.getElementById('sub-default-btn');if(selectBtn)selectBtn.style.display='none';
   document.querySelectorAll('[onclick*="export"]').forEach(function(btn){btn.style.display='none';});
-  if(!document.getElementById('viewer-notice')){
-    var bar=document.createElement('div');
-    bar.id='viewer-notice';
-    bar.style.cssText='position:fixed;top:0;left:220px;right:0;background:#854d0e;border-bottom:1px solid #facc15;color:#fefce8;font-size:12px;font-family:var(--mono);padding:7px 20px;z-index:999;display:flex;align-items:center;gap:8px;';
-    bar.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> View only access — you can see data but cannot make changes.';
-    document.body.appendChild(bar);
-    var main=document.querySelector('.main');if(main)main.style.paddingTop='52px';
-  }
+  var viewerNotice=document.getElementById('viewer-notice');
+  if(viewerNotice) viewerNotice.remove();
+  var main=document.querySelector('.main');
+  if(main) main.style.paddingTop='';
 }
 if(localStorage.getItem('subloop_auth')==='1'){
   document.getElementById('login-screen').classList.add('hidden');
