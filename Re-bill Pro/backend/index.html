@@ -5482,6 +5482,34 @@ body.view-only-access #payment-link-create-card{
 }
 
 
+/* Admin login activity modal: use same clean badge weight/style as Admin access role pills */
+#admin-login-activity-modal .admin-login-result-badge{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  min-height:22px!important;
+  padding:5px 10px!important;
+  border-radius:8px!important;
+  font-family:var(--font-ui)!important;
+  font-size:12px!important;
+  font-weight:600!important;
+  line-height:1!important;
+  letter-spacing:-0.01em!important;
+}
+#admin-login-activity-modal .admin-login-result-badge.badge-green{
+  background:var(--green-bg)!important;
+  color:var(--green)!important;
+}
+#admin-login-activity-modal .admin-login-result-badge.badge-red{
+  background:var(--red-bg)!important;
+  color:var(--red)!important;
+}
+#admin-login-activity-modal .admin-login-result-badge::before{
+  content:none!important;
+  display:none!important;
+}
+
+
 /* Admin Access V3.17: compact Add admin user modal */
 #add-admin-modal .admin-access-modal{
   width:710px!important;
@@ -8204,7 +8232,7 @@ async function loadSecurity(){
     }
     const history=await api('/api/security/login-history');const tb=document.getElementById('login-history-table');
     if(!history.length){tb.innerHTML='<tr><td colspan="3" class="empty">No login activity recorded for this user</td></tr>';return;}
-    tb.innerHTML=history.map(function(h){return '<tr><td class="mono" style="font-size:12px;">'+(h.ip||'unknown')+'</td><td>'+(h.success?'<span class="badge badge-green">Success</span>':'<span class="badge badge-red">Failed</span>')+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+fmtTime(h.created_at)+'</td></tr>';}).join('');
+    tb.innerHTML=history.map(function(h){return '<tr><td class="mono" style="font-size:12px;">'+(h.ip||'unknown')+'</td><td>'+(h.success?'<span class="badge badge-green admin-login-result-badge">Success</span>':'<span class="badge badge-red admin-login-result-badge">Failed</span>')+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+fmtTime(h.created_at)+'</td></tr>';}).join('');
   }catch(e){}
 }
 function update2FAView(enabled){const badge2fa=document.getElementById('2fa-badge');badge2fa.className='badge '+(enabled?'badge-green':'badge-red');badge2fa.textContent=enabled?'Enabled':'Disabled';document.getElementById('2fa-disabled-view').style.display=enabled?'none':'block';document.getElementById('2fa-setup-view').style.display='none';document.getElementById('2fa-enabled-view').style.display=enabled?'block':'none';}
@@ -8866,7 +8894,7 @@ async function viewAdminUserLoginActivity(){
     var tb=document.getElementById('admin-login-activity-table');
     var rows=result.login_history||[];
     if(!rows.length)tb.innerHTML='<tr><td colspan="3" class="empty">No login activity recorded for this user</td></tr>';
-    else tb.innerHTML=rows.map(function(h){return '<tr><td class="mono" style="font-size:12px;">'+(h.ip||'unknown')+'</td><td>'+(h.success?'<span class="badge badge-green">Success</span>':'<span class="badge badge-red">Failed</span>')+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+fmtTime(h.created_at)+'</td></tr>';}).join('');
+    else tb.innerHTML=rows.map(function(h){return '<tr><td class="mono" style="font-size:12px;">'+(h.ip||'unknown')+'</td><td>'+(h.success?'<span class="badge badge-green admin-login-result-badge">Success</span>':'<span class="badge badge-red admin-login-result-badge">Failed</span>')+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+fmtTime(h.created_at)+'</td></tr>';}).join('');
     openModal('admin-login-activity-modal');
   }catch(e){toast('Unable to load login activity','error');}
 }
