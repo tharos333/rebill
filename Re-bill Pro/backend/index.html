@@ -5343,11 +5343,14 @@ body.view-only-access #payment-link-create-card{
   max-height:calc(100vh - 48px)!important;
   padding:0!important;
   overflow:hidden!important;
+  display:flex!important;
+  flex-direction:column!important;
 }
 .admin-profile-head{
   padding:20px 24px 16px;
   display:flex;
   align-items:flex-start;
+  flex:none;
 }
 .admin-profile-identity{
   display:flex;
@@ -5367,7 +5370,8 @@ body.view-only-access #payment-link-create-card{
 #admin-details-modal .admin-role-custom{background:var(--amber-bg)!important;color:var(--amber)!important;}
 .admin-profile-content{
   padding:0 24px 14px;
-  max-height:calc(100vh - 165px);
+  flex:1 1 auto;
+  min-height:0;
   overflow-y:auto;
 }
 .admin-profile-section{padding:14px 0 0;border-top:1px solid rgba(145,145,163,.13);}
