@@ -12,11 +12,11 @@ const crypto = require('crypto');
 // Admin access tokens and Stripe-account scoping.
 // Set SUBLOOP_AUTH_SECRET in Railway for tokens that remain valid after a deploy/restart.
 const SUBLOOP_AUTH_SECRET = process.env.SUBLOOP_AUTH_SECRET || crypto.randomBytes(48).toString('hex');
-const ANALYST_DEFAULT_SECTIONS = ['dashboard','customers','payments','forecast','summary','mrr','recovery'];
+const ANALYST_DEFAULT_SECTIONS = ['dashboard','customers','payments','forecast','summary','mrr','recovery','shopify-dashboard','shopify-customers','shopify-orders','shopify-subscriptions'];
 // View-only users may be assigned any non-administrative operating/reporting page, but cannot write.
-const ANALYST_ASSIGNABLE_SECTIONS = ['dashboard','activity','customers','subscriptions','payments','links','accounts','forecast','summary','mrr','recovery','webhooks'];
+const ANALYST_ASSIGNABLE_SECTIONS = ['dashboard','activity','customers','subscriptions','payments','links','accounts','forecast','summary','mrr','recovery','webhooks','shopify-dashboard','shopify-activity','shopify-customers','shopify-subscriptions','shopify-orders','shopify-products','shopify-stores','shopify-recovery'];
 // Custom users manage selected operating pages only; all operations remain constrained to their account scope.
-const CUSTOM_ASSIGNABLE_SECTIONS = ['dashboard','activity','customers','subscriptions','payments','links','accounts','forecast','summary','mrr','recovery','webhooks'];
+const CUSTOM_ASSIGNABLE_SECTIONS = ['dashboard','activity','customers','subscriptions','payments','links','accounts','forecast','summary','mrr','recovery','webhooks','shopify-dashboard','shopify-activity','shopify-customers','shopify-subscriptions','shopify-orders','shopify-products','shopify-stores','shopify-recovery'];
 function b64url(value) { return Buffer.from(value).toString('base64url'); }
 function issueAdminToken(user, purpose='access', maxAgeMinutes=480) {
   const payload = { id: user.id, username: user.username, purpose, exp: Date.now() + (maxAgeMinutes * 60 * 1000) };
@@ -89,6 +89,14 @@ function sectionForApiPath(req) {
   if (path.startsWith('/security')) return 'security';
   if (path.startsWith('/webhook-logs')) return 'webhooks';
   if (path.startsWith('/admin-users')) return 'admins';
+  if (path.startsWith('/shopify/stores')) return 'shopify-stores';
+  if (path.startsWith('/shopify/customers')) return 'shopify-customers';
+  if (path.startsWith('/shopify/orders')) return 'shopify-orders';
+  if (path.startsWith('/shopify/subscriptions')) return 'shopify-subscriptions';
+  if (path.startsWith('/shopify/products')) return 'shopify-products';
+  if (path.startsWith('/shopify/activity')) return 'shopify-activity';
+  if (path.startsWith('/shopify/recovery')) return 'shopify-recovery';
+  if (path.startsWith('/shopify/overview')) return 'shopify-dashboard';
   return null;
 }
 function requireOwnerOrAdmin(req, res) {
@@ -179,6 +187,91 @@ async function ensureWebhookColumns() {
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS stripe_invoice_id TEXT').catch(()=>{});
   await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS subscriptions_stripe_subscription_uidx ON subscriptions(stripe_subscription_id) WHERE stripe_subscription_id IS NOT NULL').catch(()=>{});
   await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS payments_stripe_payment_intent_uidx ON payments(stripe_payment_intent) WHERE stripe_payment_intent IS NOT NULL').catch(()=>{});
+}
+
+
+async function ensureShopifyTables() {
+  await pool.query(`CREATE TABLE IF NOT EXISTS shopify_stores (
+    id SERIAL PRIMARY KEY,
+    name TEXT,
+    shop_domain TEXT UNIQUE NOT NULL,
+    access_token TEXT,
+    status TEXT DEFAULT 'connected',
+    webhook_status TEXT DEFAULT 'pending',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+  )`).catch(()=>{});
+  await pool.query(`CREATE TABLE IF NOT EXISTS shopify_customers (
+    id SERIAL PRIMARY KEY,
+    shopify_store_id INT REFERENCES shopify_stores(id) ON DELETE CASCADE,
+    shopify_customer_id TEXT,
+    name TEXT,
+    email TEXT,
+    total_spent INT DEFAULT 0,
+    currency TEXT DEFAULT 'usd',
+    orders_count INT DEFAULT 0,
+    subscriptions_count INT DEFAULT 0,
+    last_order_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  )`).catch(()=>{});
+  await pool.query(`CREATE TABLE IF NOT EXISTS shopify_orders (
+    id SERIAL PRIMARY KEY,
+    shopify_store_id INT REFERENCES shopify_stores(id) ON DELETE CASCADE,
+    shopify_order_id TEXT,
+    order_name TEXT,
+    customer_name TEXT,
+    amount INT DEFAULT 0,
+    currency TEXT DEFAULT 'usd',
+    financial_status TEXT,
+    fulfillment_status TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  )`).catch(()=>{});
+  await pool.query(`CREATE TABLE IF NOT EXISTS shopify_subscription_contracts (
+    id SERIAL PRIMARY KEY,
+    shopify_store_id INT REFERENCES shopify_stores(id) ON DELETE CASCADE,
+    contract_id TEXT,
+    customer_name TEXT,
+    product_title TEXT,
+    amount INT DEFAULT 0,
+    currency TEXT DEFAULT 'usd',
+    billing_cycle TEXT,
+    next_billing_at TIMESTAMPTZ,
+    status TEXT DEFAULT 'active',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  )`).catch(()=>{});
+  await pool.query(`CREATE TABLE IF NOT EXISTS shopify_products (
+    id SERIAL PRIMARY KEY,
+    shopify_store_id INT REFERENCES shopify_stores(id) ON DELETE CASCADE,
+    product_id TEXT,
+    title TEXT,
+    price INT DEFAULT 0,
+    currency TEXT DEFAULT 'usd',
+    subscription_available BOOLEAN DEFAULT FALSE,
+    selling_plan TEXT,
+    status TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  )`).catch(()=>{});
+  await pool.query(`CREATE TABLE IF NOT EXISTS shopify_billing_attempts (
+    id SERIAL PRIMARY KEY,
+    shopify_store_id INT REFERENCES shopify_stores(id) ON DELETE CASCADE,
+    contract_id TEXT,
+    customer_name TEXT,
+    amount INT DEFAULT 0,
+    currency TEXT DEFAULT 'usd',
+    status TEXT,
+    failure_reason TEXT,
+    attempted_at TIMESTAMPTZ DEFAULT NOW(),
+    recovered_at TIMESTAMPTZ
+  )`).catch(()=>{});
+  await pool.query(`CREATE TABLE IF NOT EXISTS shopify_activity (
+    id SERIAL PRIMARY KEY,
+    shopify_store_id INT REFERENCES shopify_stores(id) ON DELETE CASCADE,
+    event_type TEXT,
+    object_id TEXT,
+    status TEXT,
+    payload JSONB,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  )`).catch(()=>{});
 }
 
 function intervalToDays(interval, count) {
@@ -1716,6 +1809,70 @@ app.get('/api/recovery-rate', async (req, res) => {
     res.json({ total_failed: tf, recovered, rate });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
+
+// ── Shopify Platform (MVP scaffold) ──────────────────────────────────────────
+app.get('/api/shopify/overview', async (req, res) => {
+  try {
+    const [stores, customers, orders, subs, attempts] = await Promise.all([
+      pool.query('SELECT COUNT(*)::int AS c FROM shopify_stores'),
+      pool.query('SELECT COUNT(*)::int AS c FROM shopify_customers'),
+      pool.query('SELECT COUNT(*)::int AS c FROM shopify_orders'),
+      pool.query('SELECT COUNT(*)::int AS c FROM shopify_subscription_contracts'),
+      pool.query("SELECT COUNT(*) FILTER (WHERE status='failed')::int AS failed, COUNT(*) FILTER (WHERE recovered_at IS NOT NULL)::int AS recovered FROM shopify_billing_attempts")
+    ]);
+    const revenue = await pool.query('SELECT COALESCE(SUM(amount),0)::int AS total, COALESCE(MAX(currency),\'usd\') AS currency FROM shopify_orders').catch(()=>({ rows:[{ total:0, currency:'usd' }] }));
+    const failed = attempts.rows[0]?.failed || 0;
+    const recovered = attempts.rows[0]?.recovered || 0;
+    res.json({ stores: stores.rows[0].c, customers: customers.rows[0].c, orders: orders.rows[0].c, subscriptions: subs.rows[0].c, revenue: revenue.rows[0].total, currency: revenue.rows[0].currency || 'usd', recovery_rate: failed ? Math.round((recovered / failed) * 100) : 0 });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+app.get('/api/shopify/stores', async (req, res) => {
+  try { const r = await pool.query('SELECT id,name,shop_domain,status,webhook_status,created_at FROM shopify_stores ORDER BY created_at DESC, id DESC'); res.json(r.rows); }
+  catch (err) { res.status(500).json({ error: err.message }); }
+});
+app.post('/api/shopify/stores', async (req, res) => {
+  try {
+    if (!requireOwnerOrAdmin(req, res)) return;
+    const name = String(req.body.name || '').trim();
+    const shopDomain = String(req.body.shop_domain || '').trim().replace(/^https?:\/\//,'').replace(/\/$/,'').toLowerCase();
+    const accessToken = String(req.body.access_token || '').trim();
+    if (!shopDomain || !shopDomain.endsWith('.myshopify.com')) return res.status(400).json({ error: 'Use a valid myshopify.com domain.' });
+    const r = await pool.query(`INSERT INTO shopify_stores (name, shop_domain, access_token, status, webhook_status, updated_at)
+      VALUES ($1,$2,$3,'connected','pending',NOW())
+      ON CONFLICT (shop_domain) DO UPDATE SET name=EXCLUDED.name, access_token=COALESCE(NULLIF(EXCLUDED.access_token,''), shopify_stores.access_token), updated_at=NOW()
+      RETURNING id,name,shop_domain,status,webhook_status,created_at`, [name || shopDomain, shopDomain, accessToken || null]);
+    await pool.query('INSERT INTO shopify_activity (shopify_store_id,event_type,status,object_id) VALUES ($1,$2,$3,$4)', [r.rows[0].id, 'store.connected', 'success', shopDomain]).catch(()=>{});
+    res.json(r.rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+app.get('/api/shopify/customers', async (req, res) => {
+  try { const r = await pool.query(`SELECT c.*, s.name AS store_name FROM shopify_customers c LEFT JOIN shopify_stores s ON s.id=c.shopify_store_id ORDER BY c.created_at DESC LIMIT 100`); res.json(r.rows); }
+  catch (err) { res.status(500).json({ error: err.message }); }
+});
+app.get('/api/shopify/orders', async (req, res) => {
+  try { const r = await pool.query(`SELECT o.*, s.name AS store_name FROM shopify_orders o LEFT JOIN shopify_stores s ON s.id=o.shopify_store_id ORDER BY o.created_at DESC LIMIT 100`); res.json(r.rows); }
+  catch (err) { res.status(500).json({ error: err.message }); }
+});
+app.get('/api/shopify/subscriptions', async (req, res) => {
+  try { const r = await pool.query(`SELECT sc.*, s.name AS store_name FROM shopify_subscription_contracts sc LEFT JOIN shopify_stores s ON s.id=sc.shopify_store_id ORDER BY sc.created_at DESC LIMIT 100`); res.json(r.rows); }
+  catch (err) { res.status(500).json({ error: err.message }); }
+});
+app.get('/api/shopify/products', async (req, res) => {
+  try { const r = await pool.query(`SELECT p.*, s.name AS store_name FROM shopify_products p LEFT JOIN shopify_stores s ON s.id=p.shopify_store_id ORDER BY p.created_at DESC LIMIT 100`); res.json(r.rows); }
+  catch (err) { res.status(500).json({ error: err.message }); }
+});
+app.get('/api/shopify/activity', async (req, res) => {
+  try { const r = await pool.query(`SELECT a.*, s.name AS store_name FROM shopify_activity a LEFT JOIN shopify_stores s ON s.id=a.shopify_store_id ORDER BY a.created_at DESC LIMIT 100`); res.json(r.rows); }
+  catch (err) { res.status(500).json({ error: err.message }); }
+});
+app.get('/api/shopify/recovery', async (req, res) => {
+  try {
+    const r = await pool.query("SELECT COUNT(*) FILTER (WHERE status='failed')::int AS failed, COUNT(*) FILTER (WHERE recovered_at IS NOT NULL)::int AS recovered FROM shopify_billing_attempts WHERE attempted_at >= NOW() - INTERVAL '30 days'");
+    const failed = r.rows[0]?.failed || 0; const recovered = r.rows[0]?.recovered || 0;
+    res.json({ failed, recovered, rate: failed ? Math.round((recovered / failed) * 100) : 0 });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.get('/api/search', async (req, res) => {
   try {
     const ids = scopedAccountIds(req);
@@ -1757,6 +1914,7 @@ app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 const PORT = process.env.PORT || 8080;
 // Database migrations, including admin access columns, finish once before accepting requests.
 // API permission checks then use fast SELECT queries only; they never run ALTER TABLE during page loads.
-init().then(() => {
+init().then(async () => {
+  await ensureShopifyTables();
   app.listen(PORT, () => console.log(`Subloop running on port ${PORT}`));
 }).catch(err => { console.error('DB init failed:', err.message); process.exit(1); });
