@@ -5381,6 +5381,14 @@ body.view-only-access #payment-link-create-card{
 }
 .admin-access-key{color:var(--muted);font-size:12px;line-height:20px;}
 .admin-access-value{color:var(--text);font-size:12px;line-height:20px;overflow-wrap:anywhere;}
+.admin-access-extra{display:none;}
+.admin-access-extra.is-open{display:inline;}
+.admin-access-toggle{
+  appearance:none;border:0;background:transparent;color:var(--blue);
+  font:inherit;font-size:12px;line-height:20px;padding:0;margin:0 0 0 4px;
+  cursor:pointer;text-decoration:none;white-space:nowrap;
+}
+.admin-access-toggle:hover{text-decoration:underline;}
 .admin-profile-info{
   margin:10px 0 0;
   padding-top:10px;
@@ -8764,6 +8772,21 @@ function configureManagedUserRoleOptions(){
 function adminSectionLabels(user){if(user.role==='owner'||user.role==='admin')return ['All sections'];var perms=(user.permissions||[]).slice();if((user.role==='viewer'||user.role==='analyst')&&!perms.length)perms=ANALYST_DEFAULT_PERMS.slice();var ordered=PERM_LIST.map(function(p){return p.value;}).filter(function(k){return perms.includes(k);});perms.forEach(function(k){if(!ordered.includes(k))ordered.push(k);});return ordered.map(function(k){var item=PERM_LIST.find(function(p){return p.value===k;});return item?item.label:k;});}
 function adminStripeAccessLabels(user){if(user.account_scope!=='selected')return ['All Stripe accounts'];var labels=(user.allowed_account_ids||[]).map(function(id){var a=(allStripeAccounts||[]).find(function(x){return Number(x.id)===Number(id);});return a?accessAccountLabel(a.name):'Account #'+id;});return labels.length?labels:['No assigned accounts'];}
 function adminDetailsText(values,separator){return (values||[]).map(function(v){return escHtml(String(v));}).join(separator||', ');}
+function adminStripeAccessPreviewHtml(values,userId){
+  var labels=(values||[]);
+  if(labels.length<=10)return adminDetailsText(labels,', ');
+  var safeId='admin-stripe-extra-'+String(userId||'user').replace(/[^a-zA-Z0-9_-]/g,'');
+  var first=adminDetailsText(labels.slice(0,10),', ');
+  var rest=', '+adminDetailsText(labels.slice(10),', ');
+  var remaining=labels.length-10;
+  return first+'<span id="'+safeId+'" class="admin-access-extra">'+rest+'</span> <button class="admin-access-toggle" type="button" onclick="toggleAdminStripeAccessPreview(\''+safeId+'\',this,'+remaining+')">See '+remaining+' more</button>';
+}
+function toggleAdminStripeAccessPreview(id,button,remaining){
+  var extra=document.getElementById(id);
+  if(!extra||!button)return;
+  var open=extra.classList.toggle('is-open');
+  button.textContent=open?'Show less':'See '+remaining+' more';
+}
 function toggleAdminPasswordReset(show){
   var form=document.getElementById('admin-reset-form');
   var summary=document.getElementById('admin-security-summary');
@@ -8785,7 +8808,8 @@ async function openAdminDetails(id){
   currentAdminDetailUserId=user.id;
   var roleClasses={owner:'admin-role-owner',admin:'admin-role-admin',viewer:'admin-role-analyst',analyst:'admin-role-analyst',custom:'admin-role-custom'};
   var roleBadge='<span class="badge admin-role-chip '+(roleClasses[user.role]||'admin-role-admin')+'">'+escHtml(adminRoleLabel(user.role))+'</span>';
-  var stripeAccess=adminDetailsText(adminStripeAccessLabels(user),', ');
+  var stripeAccessLabels=adminStripeAccessLabels(user);
+  var stripeAccess=adminStripeAccessPreviewHtml(stripeAccessLabels,user.id);
   var visibleSections=adminDetailsText(adminSectionLabels(user),', ');
   document.getElementById('admin-details-hero').innerHTML='<div><div class="admin-profile-name-line"><div class="admin-profile-name">'+escHtml(user.username||'—')+'</div>'+roleBadge+'</div><div class="admin-profile-sub">User access profile</div></div>';
   var sectionsLabel=(user.role==='viewer'||user.role==='analyst')?'Visible sections':(user.role==='custom'?'Managed sections':'Sections');
