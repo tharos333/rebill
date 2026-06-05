@@ -10248,4 +10248,45 @@ html.light #global-search-results .badge.badge-blue{
   border-color:rgba(59,130,246,.22)!important;
 }
 
+
+
+/* Global search dropdown only: wider result panel with smooth open effect */
+#global-search-results{
+  width:min(620px, calc(100vw - 32px))!important;
+  max-width:calc(100vw - 32px)!important;
+  left:auto!important;
+  right:0!important;
+  border-radius:12px!important;
+  transform-origin:top right!important;
+  animation:gsDropdownOpen .16s ease-out!important;
+}
+#global-search-results .gs-result-row{
+  padding:10px 16px!important;
+}
+#global-search-results .gs-result-row > div{
+  width:100%!important;
+}
+#global-search-results .gs-result-name{
+  max-width:280px!important;
+}
+#global-search-results .gs-result-amount{
+  min-width:92px!important;
+  text-align:right!important;
+}
+#global-search-results .badge{
+  min-width:max-content!important;
+}
+@keyframes gsDropdownOpen{
+  from{opacity:0;transform:translateY(-6px) scale(.985);}
+  to{opacity:1;transform:translateY(0) scale(1);}
+}
+@media(max-width:760px){
+  #global-search-results{
+    left:0!important;
+    right:auto!important;
+    width:min(92vw, 620px)!important;
+  }
+  #global-search-results .gs-result-name{max-width:180px!important;}
+  #global-search-results .gs-result-amount{min-width:70px!important;}
+}
 </style>
