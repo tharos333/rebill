@@ -5863,6 +5863,33 @@ body.view-only-access #verification-debug-modal .modal-content{
 .top-action-wrap .notification-btn{color:var(--text)!important;}
 #notification-menu .btn-sm{height:26px;min-height:26px;padding:0 9px;font-size:11px;}
 
+
+/* Final: global search dropdown aligns to the right edge of the search input */
+#global-search-results{
+  left:auto!important;
+  right:0!important;
+}
+
+</style>
+
+<style>
+/* Global search only: make input width match the dropdown when active */
+.topbar-actions > div:has(#global-search-input){
+  width:220px!important;
+  transition:width .18s ease!important;
+}
+.topbar-actions > div:has(#global-search-input):focus-within{
+  width:340px!important;
+}
+.topbar-actions #global-search-input{
+  width:100%!important;
+  transition:width .18s ease, border-color .18s ease, background .18s ease!important;
+}
+#global-search-results{
+  width:100%!important;
+  left:auto!important;
+  right:0!important;
+}
 </style>
 </head>
 <body>
