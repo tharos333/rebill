@@ -5752,6 +5752,42 @@ body.view-only-access #verification-debug-modal .modal-content{
   border-top:1px solid var(--border)!important;
 }
 
+
+
+/* Final fix: SETTINGS sidebar section header matches MAIN/BILLING/INSIGHTS exactly */
+.sidebar .nav-section-toggle{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  width:100%!important;
+  background:none!important;
+  border:none!important;
+  cursor:pointer!important;
+  padding:12px 24px 4px!important;
+  font-family:var(--font-label, var(--mono))!important;
+  font-size:11px!important;
+  font-weight:700!important;
+  letter-spacing:.045em!important;
+  line-height:1.2!important;
+  text-transform:uppercase!important;
+  color:var(--muted)!important;
+  text-align:left!important;
+}
+.sidebar .nav-section-toggle span{
+  font-family:inherit!important;
+  font-size:inherit!important;
+  font-weight:inherit!important;
+  letter-spacing:inherit!important;
+  line-height:inherit!important;
+  text-transform:inherit!important;
+  color:inherit!important;
+}
+.sidebar .nav-section-toggle svg{
+  width:12px!important;
+  height:12px!important;
+  flex-shrink:0!important;
+  color:var(--muted)!important;
+}
 </style>
 </head>
 <body>
@@ -5831,7 +5867,7 @@ body.view-only-access #verification-debug-modal .modal-content{
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 2v6h6"/><path d="M21.5 22v-6h-6"/><path d="M22 11.5A10 10 0 0 0 3.2 7.2"/><path d="M2 12.5a10 10 0 0 0 18.8 4.2"/></svg>Payment Recovery</button>
 
   <!-- Settings collapsible -->
-  <button class="nav-section-toggle" id="settings-toggle" onclick="toggleSettingsNav()" style="display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:none;cursor:pointer;padding:10px 24px 4px;font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:1px;text-transform:uppercase;">
+  <button class="nav-section-toggle" id="settings-toggle" onclick="toggleSettingsNav()" style="display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:none;cursor:pointer;padding:12px 24px 4px;font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:1px;text-transform:uppercase;">
     <span>Settings</span>
     <svg id="settings-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform 0.2s;flex-shrink:0;"><polyline points="6 9 12 15 18 9"/></svg>
   </button>
