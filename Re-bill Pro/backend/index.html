@@ -5981,22 +5981,6 @@ body.view-only-access #verification-debug-modal .modal-content{
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:11px;top:50%;transform:translateY(-50%);pointer-events:none;"><circle cx="10.8" cy="10.8" r="6.8"/><path d="M16 16l4.2 4.2"/></svg>
         <div id="global-search-results" style="display:none;position:absolute;top:calc(100% + 6px);left:0;width:340px;background:var(--surface);border:1px solid var(--border2);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.3);z-index:200;max-height:320px;overflow-y:auto;"></div>
       </div>
-      <div class="top-action-wrap">
-        <button id="notification-btn" class="btn notification-btn" onclick="toggleNotifications(event)" title="Notifications">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-          <span class="notification-dot"></span>
-          <span id="notification-count" style="display:none">0</span>
-        </button>
-        <div id="notification-menu" class="notification-menu">
-          <div class="notification-head">
-            <span>Notifications</span>
-            <button class="btn btn-sm" onclick="goToActivityFromNotifications()">Activity</button>
-          </div>
-          <div id="notification-list">
-            <div class="notification-item">Loading activity...</div>
-          </div>
-        </div>
-      </div>
       <button class="btn btn-disconnect" onclick="disconnectApp()" title="Disconnect">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         Disconnect
@@ -7356,52 +7340,6 @@ function disconnectApp(){
   if(pass)pass.value='';
   setTimeout(function(){var user=document.getElementById('login-user');if(user)user.focus();},80);
 }
-function toggleNotifications(e){
-  if(e)e.stopPropagation();
-  var menu=document.getElementById('notification-menu');
-  if(menu)menu.classList.toggle('open');
-}
-function escHtml(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
-function goToActivityFromNotifications(){
-  var menu=document.getElementById('notification-menu');
-  if(menu)menu.classList.remove('open');
-  var nav=[].slice.call(document.querySelectorAll('.nav-item')).find(function(b){return (b.textContent||'').trim()==='Activity';});
-  showPage('activity',nav||null);
-}
-async function updateNotifications(stats){
-  var list=document.getElementById('notification-list');
-  var count=document.getElementById('notification-count');
-  var btn=document.getElementById('notification-btn');
-  if(!list||!count||!btn)return;
-  try{
-    var activity=await api('/api/activity');
-    if(!Array.isArray(activity)) activity=[];
-    var total=activity.length;
-    var shown=activity.slice(0,7);
-    if(shown.length){
-      list.innerHTML=shown.map(function(a){
-        return '<div class="notification-item"><strong>'+escHtml(a.description||'Activity update')+'</strong><div class="notification-time">'+fmtTime(a.created_at)+'</div></div>';
-      }).join('') + (total>7 ? '<div class="notification-footer"><button class="notification-view-all" onclick="goToActivityFromNotifications()">View all activity →</button></div>' : '');
-      count.textContent=total>7?'7+':String(total);
-      btn.classList.add('has-alert');
-    }else{
-      list.innerHTML='<div class="notification-item">No activity yet.</div>';
-      count.textContent='0';
-      btn.classList.remove('has-alert');
-    }
-  }catch(e){
-    var items=[];
-    var failed=Number(stats&&stats.failed_payments||0);
-    var success=Number(stats&&stats.payment_success_rate||0);
-    var newCustomers=Number(stats&&stats.new_customers_30d||0);
-    if(failed>0){items.push('<div class="notification-item"><strong>'+failed+' failed payment'+(failed>1?'s':'')+'</strong><br>Check failed payments and retry when needed.</div>');}
-    if(success>0&&success<80){items.push('<div class="notification-item"><strong>Low success rate: '+success+'%</strong><br>Review recovery and failed payment reasons.</div>');}
-    if(newCustomers>0){items.push('<div class="notification-item"><strong>'+newCustomers+' new customer'+(newCustomers>1?'s':'')+' this month</strong><br>Your customer list has new activity.</div>');}
-    if(items.length){list.innerHTML=items.join('');count.textContent=items.length;btn.classList.add('has-alert');}
-    else{list.innerHTML='<div class="notification-item">No new notifications.</div>';count.textContent='0';btn.classList.remove('has-alert');}
-  }
-}
-document.addEventListener('click',function(e){var menu=document.getElementById('notification-menu');if(menu&&!e.target.closest('.top-action-wrap'))menu.classList.remove('open');});
 async function loadStats(){
   try{
     const s=await api('/api/stats');
@@ -7416,7 +7354,6 @@ async function loadStats(){
     document.getElementById('stat-churn').textContent=(s.churn_rate||0)+'%';
     document.getElementById('stat-success').textContent=(s.payment_success_rate||100)+'%';
     document.getElementById('stat-ltv').textContent=fmtCompactMoney(s.avg_ltv||0);
-    updateNotifications(s);
     document.getElementById('server-status').textContent='● connected';
     document.getElementById('server-status').style.color='var(--green)';
   }catch(e){document.getElementById('server-status').textContent='● offline';document.getElementById('server-status').style.color='var(--red)';}
