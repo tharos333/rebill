@@ -5989,6 +5989,88 @@ html.light #global-search-results .badge.badge-blue{
 }
 
 </style>
+
+<style id="global-search-final-exact-payment-table-style">
+/* FINAL EXACT MATCH: global search dropdown only. Copy Payments table typography/badge weight. */
+#global-search-results.global-search-results,
+#global-search-results.global-search-results *{
+  font-family:var(--font-ui)!important;
+}
+#global-search-results.global-search-results .global-search-section-title{
+  padding:8px 16px!important;
+  font-size:11px!important;
+  font-weight:700!important;
+  letter-spacing:.045em!important;
+  line-height:1.15!important;
+  text-transform:uppercase!important;
+  color:var(--muted)!important;
+  font-family:var(--font-ui)!important;
+}
+#global-search-results.global-search-results .global-search-row{
+  padding:11px 16px!important;
+}
+#global-search-results.global-search-results .global-search-name{
+  font-size:13px!important;
+  font-weight:500!important;
+  line-height:1.25!important;
+  letter-spacing:-0.01em!important;
+  color:var(--text)!important;
+  font-family:var(--font-ui)!important;
+}
+#global-search-results.global-search-results .global-search-email{
+  font-size:13px!important;
+  font-weight:500!important;
+  line-height:1.25!important;
+  letter-spacing:-0.01em!important;
+  color:var(--muted)!important;
+  font-family:var(--font-ui)!important;
+}
+#global-search-results.global-search-results .global-search-amount{
+  font-size:13px!important;
+  font-weight:650!important;
+  line-height:1.25!important;
+  letter-spacing:-0.018em!important;
+  color:var(--text)!important;
+  font-family:var(--font-ui)!important;
+  white-space:nowrap!important;
+}
+#global-search-results.global-search-results .badge,
+#global-search-results.global-search-results .badge.badge-green,
+#global-search-results.global-search-results .badge.badge-red,
+#global-search-results.global-search-results .badge.badge-blue,
+#global-search-results.global-search-results .badge.badge-amber{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:4px!important;
+  padding:2px 7px!important;
+  height:auto!important;
+  min-height:0!important;
+  border-radius:20px!important;
+  font-size:11px!important;
+  font-weight:600!important;
+  line-height:1.2!important;
+  letter-spacing:0!important;
+  font-family:var(--font-ui)!important;
+  white-space:nowrap!important;
+  box-sizing:border-box!important;
+}
+#global-search-results.global-search-results .badge::before{display:none!important;content:none!important;}
+#global-search-results.global-search-results .badge span,
+#global-search-results.global-search-results .badge > span{
+  font-size:11px!important;
+  font-weight:600!important;
+  line-height:1.2!important;
+  letter-spacing:0!important;
+  font-family:var(--font-ui)!important;
+}
+#global-search-results.global-search-results .badge svg.status-mini-icon{display:none!important;}
+#global-search-results.global-search-results .badge.badge-green{color:var(--green)!important;background:var(--green-bg)!important;}
+#global-search-results.global-search-results .badge.badge-red{color:var(--red)!important;background:var(--red-bg)!important;}
+#global-search-results.global-search-results .badge.badge-blue{color:#60a5fa!important;background:rgba(59,130,246,.14)!important;}
+html.light #global-search-results.global-search-results .badge.badge-blue{color:#2563eb!important;background:rgba(59,130,246,.10)!important;}
+</style>
+
 </head>
 <body>
 
