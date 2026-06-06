@@ -116,7 +116,7 @@ html.light .toggle-thumb{background:#fff;left:18px}
 #global-search-results .gs-name{
   font-size:13px!important;
   font-family:var(--sans)!important;
-  font-weight:600!important;
+  font-weight:500!important;
   color:var(--text)!important;
   min-width:0;
   overflow:hidden;
@@ -136,7 +136,7 @@ html.light .toggle-thumb{background:#fff;left:18px}
 #global-search-results .gs-amount{
   font-family:var(--font-ui,var(--sans))!important;
   font-size:12px!important;
-  font-weight:500!important;
+  font-weight:650!important;
   letter-spacing:-0.018em!important;
   color:var(--text)!important;
 }
@@ -6201,8 +6201,8 @@ body.view-only-access #verification-debug-modal .modal-content{
     </div>
     <!-- Stripe account dropdown -->
     <div style="position:relative;display:flex;align-items:center;">
-      <select id="pay-account-filter" class="pay-filter-select" onmousedown="preparePayAccountOptionsExpanded();" onkeydown="if(event.key==='ArrowDown'||event.key==='Enter'||event.key===' '){preparePayAccountOptionsExpanded();}" onblur="compactPayAccountClosedSelection();" onchange="payCurrentPage=1;filterPayments();setTimeout(compactPayAccountClosedSelection,0);" style="padding:6px 32px 6px 12px;font-size:12px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#F5F5F7;cursor:pointer;appearance:none;-webkit-appearance:none;width:150px;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">
-        <option value="" data-full-label="All Stripe Accounts">All Accounts</option>
+      <select id="pay-account-filter" class="pay-filter-select" onmousedown="preparePayAccountOptionsExpanded();" onkeydown="if(event.key==='ArrowDown'||event.key==='Enter'||event.key===' '){preparePayAccountOptionsExpanded();}" onblur="compactPayAccountClosedSelection();" onchange="payCurrentPage=1;filterPayments();setTimeout(compactPayAccountClosedSelection,0);" style="padding:6px 32px 6px 12px;font-size:12px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#F5F5F7;cursor:pointer;appearance:none;-webkit-appearance:none;width:185px;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">
+        <option value="" data-full-label="All Stripe Accounts">All Stripe Accounts</option>
       </select>
       <svg style="position:absolute;right:10px;pointer-events:none;color:#8B8B99;" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
     </div>
@@ -7829,7 +7829,7 @@ function showEditAmount(subId,currentAmount){const container=document.getElement
 async function saveAmount(subId){const input=document.getElementById('new-amount-'+subId);if(!input)return;const newCents=Math.round(parseFloat(input.value)*100);if(isNaN(newCents)||newCents<50){toast('Minimum $0.50','error');return;}const r=await api('/api/subscriptions/'+subId+'/amount',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:newCents})});if(r.success){toast('✓ Amount updated');loadSubscriptions();}else toast('Error','error');}
 function compactPayAccountName(accountName){
   var full=String(accountName||'').trim();
-  if(!full)return 'All Accounts';
+  if(!full)return 'All Stripe Accounts';
   return full.replace(/^Stripe_Solo_/i,'');
 }
 function preparePayAccountOptionsExpanded(){
