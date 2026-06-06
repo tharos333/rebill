@@ -9040,6 +9040,20 @@ function openGlobalSearch(){
   if(wrap)wrap.classList.add('search-open');
   if(res)res.style.display='block';
 }
+function globalSearchNavigate(page,inputId,query,filterFn){
+  var navBtn=document.querySelector('.nav-item[onclick*="'+page+'"]');
+  if(navBtn)showPage(page,navBtn);
+  function applySearch(){
+    var input=document.getElementById(inputId);
+    if(input){
+      input.value=query||'';
+      input.dispatchEvent(new Event('input',{bubbles:true}));
+    }
+    if(typeof filterFn==='function')filterFn();
+  }
+  setTimeout(applySearch,180);
+  setTimeout(applySearch,650);
+}
 function globalSearch(q){
   clearTimeout(searchTimer);var res=document.getElementById('global-search-results');
   if(!res)return;
@@ -9050,9 +9064,9 @@ function globalSearch(q){
       if(!total){var empty=document.createElement('div');empty.style.cssText='padding:16px;text-align:center;font-size:13px;color:var(--muted);font-family:var(--mono);';empty.textContent='No results found';res.appendChild(empty);openGlobalSearch();return;}
       function addSection(title,items,renderFn){if(!items.length)return;var hdr=document.createElement('div');hdr.className='gs-section-title';hdr.textContent=title;res.appendChild(hdr);items.forEach(function(item){res.appendChild(renderFn(item));});}
       function makeRow(content,onclick){var row=document.createElement('div');row.className='gs-row';row.innerHTML=content;row.addEventListener('click',function(){onclick();var input=document.getElementById('global-search-input');if(input)input.value='';closeGlobalSearch();});return row;}
-      addSection('Customers',data.customers,function(c){return makeRow('<div style="display:flex;align-items:center;min-width:0;"><div style="min-width:0;flex:1;"><div class="gs-name">'+(c.name||'—')+'</div><div class="gs-sub">'+(c.email||'')+'</div></div></div>',function(){var navBtn=document.querySelector('.nav-item[onclick*="customers"]');if(navBtn)showPage('customers',navBtn);});});
-      addSection('Payments',data.payments,function(p){return makeRow('<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;"><div class="gs-name" style="flex:1;">'+(p.name||'—')+'</div><div style="display:flex;gap:8px;align-items:center;flex-shrink:0;"><span class="gs-amount">'+fmt(p.amount,p.currency)+'</span>'+badge(p.status)+'</div></div>',function(){var navBtn=document.querySelector('.nav-item[onclick*="payments"]');if(navBtn)showPage('payments',navBtn);});});
-      addSection('Subscriptions',data.subscriptions,function(s){return makeRow('<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;"><div class="gs-name" style="flex:1;">'+(s.name||'—')+'</div><div style="display:flex;gap:8px;align-items:center;flex-shrink:0;"><span class="gs-amount">'+fmt(s.amount,s.currency)+'</span>'+badge(s.status)+'</div></div>',function(){var navBtn=document.querySelector('.nav-item[onclick*="subscriptions"]');if(navBtn)showPage('subscriptions',navBtn);});});
+      addSection('Customers',data.customers,function(c){return makeRow('<div style="display:flex;align-items:center;min-width:0;"><div style="min-width:0;flex:1;"><div class="gs-name">'+(c.name||'—')+'</div><div class="gs-sub">'+(c.email||'')+'</div></div></div>',function(){globalSearchNavigate('customers','customer-search',c.name||c.email||'',typeof filterCustomers==='function'?filterCustomers:null);});});
+      addSection('Payments',data.payments,function(p){return makeRow('<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;"><div class="gs-name" style="flex:1;">'+(p.name||'—')+'</div><div style="display:flex;gap:8px;align-items:center;flex-shrink:0;"><span class="gs-amount">'+fmt(p.amount,p.currency)+'</span>'+badge(p.status)+'</div></div>',function(){globalSearchNavigate('payments','pay-search',p.name||p.email||p.stripe_payment_intent||'',typeof filterPayments==='function'?function(){payCurrentPage=1;filterPayments();}:null);});});
+      addSection('Subscriptions',data.subscriptions,function(s){return makeRow('<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;"><div class="gs-name" style="flex:1;">'+(s.name||'—')+'</div><div style="display:flex;gap:8px;align-items:center;flex-shrink:0;"><span class="gs-amount">'+fmt(s.amount,s.currency)+'</span>'+badge(s.status)+'</div></div>',function(){globalSearchNavigate('subscriptions','sub-search',s.name||s.email||'',typeof filterSubscriptions==='function'?filterSubscriptions:null);});});
       openGlobalSearch();
     }catch(e){closeGlobalSearch();}
   },300);
