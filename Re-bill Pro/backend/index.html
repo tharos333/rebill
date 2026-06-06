@@ -9051,54 +9051,6 @@ function openGlobalSearch(){
   if(wrap)wrap.classList.add('search-open');
   if(res)res.style.display='block';
 }
-function navigateFromGlobalSearch(page,query){
-  var navBtn=document.querySelector('.nav-item[onclick*="'+page+'"]');
-  if(navBtn)showPage(page,navBtn);
-  var q=String(query||'').trim();
-
-  function applySearch(){
-    if(page==='payments'){
-      var paySearch=document.getElementById('pay-search');
-      if(paySearch){
-        paySearch.value=q;
-        paySearch.dispatchEvent(new Event('input',{bubbles:true}));
-      }
-      payCurrentPage=1;
-      if(typeof filterPayments==='function')filterPayments();
-    }else if(page==='customers'){
-      var customerSearch=document.getElementById('customer-search');
-      if(customerSearch){
-        customerSearch.value=q;
-        customerSearch.dispatchEvent(new Event('input',{bubbles:true}));
-      }
-      customerCurrentPage=1;
-      if(typeof filterCustomers==='function')filterCustomers();
-    }else if(page==='subscriptions'){
-      var subSearch=document.getElementById('sub-search');
-      if(subSearch){
-        subSearch.value=q;
-        subSearch.dispatchEvent(new Event('input',{bubbles:true}));
-      }
-      if(typeof filterSubscriptions==='function')filterSubscriptions();
-    }
-  }
-
-  function restoreIfEmpty(){
-    if(page==='payments'){
-      var tb=document.getElementById('payments-table');
-      var paySearch=document.getElementById('pay-search');
-      if(tb&&paySearch&&tb.querySelector('.empty')){
-        paySearch.value='';
-        payCurrentPage=1;
-        if(typeof filterPayments==='function')filterPayments();
-      }
-    }
-  }
-
-  setTimeout(applySearch,120);
-  setTimeout(applySearch,650);
-  setTimeout(restoreIfEmpty,1300);
-}
 function globalSearch(q){
   clearTimeout(searchTimer);var res=document.getElementById('global-search-results');
   if(!q||q.length<2){closeGlobalSearch();return;}
@@ -9108,9 +9060,9 @@ function globalSearch(q){
       if(!total){var empty=document.createElement('div');empty.style.cssText='padding:16px;text-align:center;font-size:13px;color:var(--muted);font-family:var(--mono);';empty.textContent='No results found';res.appendChild(empty);openGlobalSearch();return;}
       function addSection(title,items,renderFn){if(!items.length)return;var hdr=document.createElement('div');hdr.className='gs-section-title';hdr.textContent=title;res.appendChild(hdr);items.forEach(function(item){res.appendChild(renderFn(item));});}
       function makeRow(content,onclick){var row=document.createElement('div');row.className='gs-result-row';row.innerHTML=content;row.addEventListener('mouseenter',function(){row.style.background='var(--surface2)';});row.addEventListener('mouseleave',function(){row.style.background='';});row.addEventListener('click',function(){onclick();document.getElementById('global-search-input').value='';closeGlobalSearch();});return row;}
-      addSection('Customers',data.customers,function(c){return makeRow('<div style="display:flex;align-items:center;gap:8px;"><div style="min-width:0;"><div class="gs-result-name">'+(c.name||'—')+'</div><div class="gs-result-sub">'+(c.email||'')+'</div></div></div>',function(){navigateFromGlobalSearch('customers',(c.name||c.email||''));});});
-      addSection('Payments',data.payments,function(p){return makeRow('<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;"><div class="gs-result-name">'+(p.name||'—')+'</div><div style="display:flex;gap:8px;align-items:center;flex-shrink:0;"><span class="gs-result-amount">'+fmt(p.amount,p.currency)+'</span>'+badge(p.status)+'</div></div>',function(){navigateFromGlobalSearch('payments',(p.name||p.email||p.stripe_payment_intent||''));});});
-      addSection('Subscriptions',data.subscriptions,function(s){return makeRow('<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;"><div class="gs-result-name">'+(s.name||'—')+'</div><div style="display:flex;gap:8px;align-items:center;flex-shrink:0;"><span class="gs-result-amount">'+fmt(s.amount,s.currency)+'</span>'+badge(s.status)+'</div></div>',function(){navigateFromGlobalSearch('subscriptions',(s.name||s.email||''));});});
+      addSection('Customers',data.customers,function(c){return makeRow('<div style="display:flex;align-items:center;gap:8px;"><div style="min-width:0;"><div class="gs-result-name">'+(c.name||'—')+'</div><div class="gs-result-sub">'+(c.email||'')+'</div></div></div>',function(){var navBtn=document.querySelector('.nav-item[onclick*="customers"]');if(navBtn)showPage('customers',navBtn);});});
+      addSection('Payments',data.payments,function(p){return makeRow('<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;"><div class="gs-result-name">'+(p.name||'—')+'</div><div style="display:flex;gap:8px;align-items:center;flex-shrink:0;"><span class="gs-result-amount">'+fmt(p.amount,p.currency)+'</span>'+badge(p.status)+'</div></div>',function(){var navBtn=document.querySelector('.nav-item[onclick*="payments"]');if(navBtn)showPage('payments',navBtn);});});
+      addSection('Subscriptions',data.subscriptions,function(s){return makeRow('<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;"><div class="gs-result-name">'+(s.name||'—')+'</div><div style="display:flex;gap:8px;align-items:center;flex-shrink:0;"><span class="gs-result-amount">'+fmt(s.amount,s.currency)+'</span>'+badge(s.status)+'</div></div>',function(){var navBtn=document.querySelector('.nav-item[onclick*="subscriptions"]');if(navBtn)showPage('subscriptions',navBtn);});});
       openGlobalSearch();
     }catch(e){closeGlobalSearch();}
   },300);
