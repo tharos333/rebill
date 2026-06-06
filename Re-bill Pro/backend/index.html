@@ -5873,12 +5873,12 @@ body.view-only-access #verification-debug-modal .modal-content{
 </style>
 
 <style>
-/* Global search only: make input width match the dropdown when active */
+/* Global search only: input expands only while app search results are open */
 .topbar-actions > div:has(#global-search-input){
   width:220px!important;
   transition:width .18s ease!important;
 }
-.topbar-actions > div:has(#global-search-input):focus-within{
+.topbar-actions > div:has(#global-search-input).search-open{
   width:340px!important;
 }
 .topbar-actions #global-search-input{
@@ -7990,6 +7990,9 @@ function setPayStatus(s){
 }
 function filterPayments(){
   if(!allPayments)return;
+  // Safety: older/bad search-navigation code could leave payStatusFilter as 'all',
+  // which made the table render empty even while the All count showed payments.
+  if(payStatusFilter==='all')payStatusFilter='';
   var account=document.getElementById('pay-account-filter')?.value||'';
   var q=(document.getElementById('pay-search')?.value||'').toLowerCase();
   var advMethod=(document.getElementById('pay-filter-method')?.value||'').toLowerCase();
@@ -8047,6 +8050,13 @@ function filterPayments(){
   var filtered=statusCountBase.filter(function(p){
     return !payStatusFilter||paymentTopStatusKey(p.status)===payStatusFilter;
   });
+  // Emergency guard: if the visible table would be empty while the base list has payments,
+  // restore the All status filter instead of showing a broken empty Payments page.
+  if(!filtered.length && statusCountBase.length && payStatusFilter){
+    payStatusFilter='';
+    filtered=statusCountBase.slice();
+    document.querySelectorAll('[data-pay-status]').forEach(function(btn){btn.classList.toggle('active',(btn.getAttribute('data-pay-status')||'')==='');});
+  }
   var total=filtered.length;
   var totalPages=Math.max(1,Math.ceil(total/PAY_PER_PAGE));
   if(payCurrentPage>totalPages)payCurrentPage=totalPages;
@@ -9037,23 +9047,39 @@ async function addAdmin(){
 async function deleteAdmin(id){var target=(allAdminUsers||[]).find(function(a){return Number(a.id)===Number(id);});if(!canManageAccessUser(target)){toast('You cannot remove this user access','error');return;}if(!confirm('Remove access for this user?'))return;try{var r=await api('/api/admin-users/'+id,{method:'DELETE'});if(r.success){toast('✓ Access removed');loadAdmins();}else toast('Error: '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
 async function changeMyPassword(){var np=document.getElementById('change-pass-new').value;var cp=document.getElementById('change-pass-confirm').value;if(!np||np.length<8){toast('Password must be at least 8 characters','error');return;}if(np!==cp){toast('Passwords do not match','error');return;}try{var list=await api('/api/admin-users');var me=list.find(function(a){return a.username===localStorage.getItem('subloop_username');});if(!me){toast('Could not find your account','error');return;}var r=await api('/api/admin-users/'+me.id+'/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:np})});if(r.success){toast('✓ Password updated');document.getElementById('change-pass-new').value='';document.getElementById('change-pass-confirm').value='';}else toast('Error: '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
 var searchTimer=null;
+function closeGlobalSearch(){
+  var res=document.getElementById('global-search-results');
+  var input=document.getElementById('global-search-input');
+  var wrap=input?input.parentElement:null;
+  if(res)res.style.display='none';
+  if(wrap)wrap.classList.remove('search-open');
+}
+function openGlobalSearch(){
+  var res=document.getElementById('global-search-results');
+  var input=document.getElementById('global-search-input');
+  var wrap=input?input.parentElement:null;
+  if(wrap)wrap.classList.add('search-open');
+  if(res)res.style.display='block';
+}
 function globalSearch(q){
   clearTimeout(searchTimer);var res=document.getElementById('global-search-results');
-  if(!q||q.length<2){res.style.display='none';return;}
+  if(!q||q.length<2){closeGlobalSearch();return;}
   searchTimer=setTimeout(async function(){
     try{
       var data=await api('/api/search?q='+encodeURIComponent(q));var total=data.customers.length+data.payments.length+data.subscriptions.length;res.innerHTML='';
-      if(!total){var empty=document.createElement('div');empty.style.cssText='padding:16px;text-align:center;font-size:13px;color:var(--muted);font-family:var(--mono);';empty.textContent='No results found';res.appendChild(empty);res.style.display='block';return;}
+      if(!total){var empty=document.createElement('div');empty.style.cssText='padding:16px;text-align:center;font-size:13px;color:var(--muted);font-family:var(--mono);';empty.textContent='No results found';res.appendChild(empty);openGlobalSearch();return;}
       function addSection(title,items,renderFn){if(!items.length)return;var hdr=document.createElement('div');hdr.className='gs-section-title';hdr.textContent=title;res.appendChild(hdr);items.forEach(function(item){res.appendChild(renderFn(item));});}
-      function makeRow(content,onclick){var row=document.createElement('div');row.className='gs-result-row';row.innerHTML=content;row.addEventListener('mouseenter',function(){row.style.background='var(--surface2)';});row.addEventListener('mouseleave',function(){row.style.background='';});row.addEventListener('click',function(){onclick();document.getElementById('global-search-input').value='';res.style.display='none';});return row;}
+      function makeRow(content,onclick){var row=document.createElement('div');row.className='gs-result-row';row.innerHTML=content;row.addEventListener('mouseenter',function(){row.style.background='var(--surface2)';});row.addEventListener('mouseleave',function(){row.style.background='';});row.addEventListener('click',function(){onclick();document.getElementById('global-search-input').value='';closeGlobalSearch();});return row;}
       addSection('Customers',data.customers,function(c){return makeRow('<div style="display:flex;align-items:center;gap:8px;"><div style="min-width:0;"><div class="gs-result-name">'+(c.name||'—')+'</div><div class="gs-result-sub">'+(c.email||'')+'</div></div></div>',function(){var navBtn=document.querySelector('.nav-item[onclick*="customers"]');if(navBtn)showPage('customers',navBtn);});});
       addSection('Payments',data.payments,function(p){return makeRow('<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;"><div class="gs-result-name">'+(p.name||'—')+'</div><div style="display:flex;gap:8px;align-items:center;flex-shrink:0;"><span class="gs-result-amount">'+fmt(p.amount,p.currency)+'</span>'+badge(p.status)+'</div></div>',function(){var navBtn=document.querySelector('.nav-item[onclick*="payments"]');if(navBtn)showPage('payments',navBtn);});});
       addSection('Subscriptions',data.subscriptions,function(s){return makeRow('<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;"><div class="gs-result-name">'+(s.name||'—')+'</div><div style="display:flex;gap:8px;align-items:center;flex-shrink:0;"><span class="gs-result-amount">'+fmt(s.amount,s.currency)+'</span>'+badge(s.status)+'</div></div>',function(){var navBtn=document.querySelector('.nav-item[onclick*="subscriptions"]');if(navBtn)showPage('subscriptions',navBtn);});});
-      res.style.display='block';
-    }catch(e){res.style.display='none';}
+      openGlobalSearch();
+    }catch(e){closeGlobalSearch();}
   },300);
 }
-document.addEventListener('click',function(e){if(!e.target.closest('#global-search-input')&&!e.target.closest('#global-search-results')){var r=document.getElementById('global-search-results');if(r)r.style.display='none';}});
+document.addEventListener('click',function(e){if(!e.target.closest('#global-search-input')&&!e.target.closest('#global-search-results')){closeGlobalSearch();}});
+window.addEventListener('blur',function(){closeGlobalSearch();});
+document.addEventListener('visibilitychange',function(){if(document.hidden)closeGlobalSearch();});
 async function loadChurnAlerts(){try{var d=await api('/api/churn-alerts');var section=document.getElementById('churn-alerts-section');var list=document.getElementById('churn-alerts-list');var count=document.getElementById('churn-count');var all=[...d.cancelled,...d.failing];if(!all.length){section.style.display='none';return;}section.style.display='block';count.textContent=all.length;var html='';d.cancelled.forEach(function(c){html+='<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(248,113,113,0.15);"><div class="avatar">'+initials(c.name)+'</div><div style="flex:1;"><div style="font-size:13px;font-weight:500;">'+(c.name||'—')+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+(c.email||'')+'</div></div><span class="badge badge-red">Canceled</span></div>';});d.failing.forEach(function(c){html+='<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(248,113,113,0.15);"><div class="avatar">'+initials(c.name)+'</div><div style="flex:1;"><div style="font-size:13px;font-weight:500;">'+(c.name||'—')+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+(c.email||'')+'</div></div><span class="badge badge-amber">'+c.dunning_count+' failures</span></div>';});list.innerHTML=html;}catch(e){}}
 async function loadTemplates(){try{var list=await api('/api/plan-templates');var el=document.getElementById('templates-list');var count=document.getElementById('template-count');if(!el)return;if(count)count.textContent='('+list.length+')';el.innerHTML='';if(!list.length){var empty=document.createElement('span');empty.style.cssText='font-size:12px;color:var(--muted);font-family:var(--mono);';empty.textContent='No templates yet — save one below';el.appendChild(empty);return;}list.forEach(function(t){var chip=document.createElement('div');chip.style.cssText='display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:5px 10px;cursor:pointer;';chip.addEventListener('click',function(){applyTemplate(t.amount,t.currency,t.interval_days,t.name);});var name=document.createElement('span');name.style.cssText='font-size:12px;font-weight:500;';name.textContent=t.name;var price=document.createElement('span');price.style.cssText='font-size:11px;color:var(--muted);font-family:var(--mono);';price.textContent=fmt(t.amount,t.currency)+'/'+t.interval_days+'d';var canManageTemplates=getCurrentRole()==='owner'||getCurrentRole()==='admin';chip.appendChild(name);chip.appendChild(price);if(canManageTemplates){var del=document.createElement('button');del.style.cssText='background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:0 2px;line-height:1;';del.textContent='✕';del.addEventListener('click',function(e){e.stopPropagation();deleteTemplate(t.id);});chip.appendChild(del);}el.appendChild(chip);});}catch(e){}}
 function applyTemplate(amount,currency,interval,name){document.getElementById('link-name').value=name;document.getElementById('link-amount').value=(amount/100).toFixed(2);document.getElementById('link-currency').value=currency;document.getElementById('link-interval').value=String(interval);toast('✓ Template applied');}
