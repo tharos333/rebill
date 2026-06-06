@@ -9051,54 +9051,6 @@ function openGlobalSearch(){
   if(wrap)wrap.classList.add('search-open');
   if(res)res.style.display='block';
 }
-function openSearchTargetPage(page){
-  var navBtn=document.querySelector('.nav-item[onclick*="'+page+'"]');
-  if(navBtn)showPage(page,navBtn);
-}
-async function openSearchCustomer(c){
-  openSearchTargetPage('customers');
-  var id=c&&c.id;
-  if(!id){
-    try{
-      var list=await api('/api/customers');
-      var found=list.find(function(x){return (c.email&&x.email===c.email)||(c.name&&x.name===c.name);});
-      if(found)id=found.id;
-    }catch(e){}
-  }
-  if(id)setTimeout(function(){openCustomerDrawer(id);},120);
-}
-async function openSearchPayment(p){
-  openSearchTargetPage('payments');
-  var full=p;
-  if(p&&p.id){
-    try{
-      var list=await api('/api/payments');
-      var found=list.find(function(x){return String(x.id)===String(p.id);});
-      if(found)full=found;
-    }catch(e){}
-  }
-  setTimeout(function(){if(full&&full.id)openPaymentModal(full);},120);
-}
-async function openSearchSubscription(s){
-  openSearchTargetPage('subscriptions');
-  setTimeout(async function(){
-    var id=s&&s.id;
-    if(!id){
-      try{
-        var list=await api('/api/subscriptions');
-        var found=list.find(function(x){return (s.email&&x.email===s.email)||(s.name&&x.name===s.name);});
-        if(found)id=found.id;
-      }catch(e){}
-    }
-    var row=id?document.getElementById('sub-row-'+id):null;
-    if(row){
-      row.scrollIntoView({behavior:'smooth',block:'center'});
-      var oldBg=row.style.background;
-      row.style.background='var(--accent-glow)';
-      setTimeout(function(){row.style.background=oldBg||'';},2200);
-    }
-  },350);
-}
 function globalSearch(q){
   clearTimeout(searchTimer);var res=document.getElementById('global-search-results');
   if(!q||q.length<2){closeGlobalSearch();return;}
@@ -9108,9 +9060,9 @@ function globalSearch(q){
       if(!total){var empty=document.createElement('div');empty.style.cssText='padding:16px;text-align:center;font-size:13px;color:var(--muted);font-family:var(--mono);';empty.textContent='No results found';res.appendChild(empty);openGlobalSearch();return;}
       function addSection(title,items,renderFn){if(!items.length)return;var hdr=document.createElement('div');hdr.className='gs-section-title';hdr.textContent=title;res.appendChild(hdr);items.forEach(function(item){res.appendChild(renderFn(item));});}
       function makeRow(content,onclick){var row=document.createElement('div');row.className='gs-result-row';row.innerHTML=content;row.addEventListener('mouseenter',function(){row.style.background='var(--surface2)';});row.addEventListener('mouseleave',function(){row.style.background='';});row.addEventListener('click',function(){onclick();document.getElementById('global-search-input').value='';closeGlobalSearch();});return row;}
-      addSection('Customers',data.customers,function(c){return makeRow('<div style="display:flex;align-items:center;gap:8px;"><div style="min-width:0;"><div class="gs-result-name">'+(c.name||'—')+'</div><div class="gs-result-sub">'+(c.email||'')+'</div></div></div>',function(){openSearchCustomer(c);});});
-      addSection('Payments',data.payments,function(p){return makeRow('<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;"><div class="gs-result-name">'+(p.name||'—')+'</div><div style="display:flex;gap:8px;align-items:center;flex-shrink:0;"><span class="gs-result-amount">'+fmt(p.amount,p.currency)+'</span>'+badge(p.status)+'</div></div>',function(){openSearchPayment(p);});});
-      addSection('Subscriptions',data.subscriptions,function(s){return makeRow('<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;"><div class="gs-result-name">'+(s.name||'—')+'</div><div style="display:flex;gap:8px;align-items:center;flex-shrink:0;"><span class="gs-result-amount">'+fmt(s.amount,s.currency)+'</span>'+badge(s.status)+'</div></div>',function(){openSearchSubscription(s);});});
+      addSection('Customers',data.customers,function(c){return makeRow('<div style="display:flex;align-items:center;gap:8px;"><div style="min-width:0;"><div class="gs-result-name">'+(c.name||'—')+'</div><div class="gs-result-sub">'+(c.email||'')+'</div></div></div>',function(){var navBtn=document.querySelector('.nav-item[onclick*="customers"]');if(navBtn)showPage('customers',navBtn);});});
+      addSection('Payments',data.payments,function(p){return makeRow('<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;"><div class="gs-result-name">'+(p.name||'—')+'</div><div style="display:flex;gap:8px;align-items:center;flex-shrink:0;"><span class="gs-result-amount">'+fmt(p.amount,p.currency)+'</span>'+badge(p.status)+'</div></div>',function(){var navBtn=document.querySelector('.nav-item[onclick*="payments"]');if(navBtn)showPage('payments',navBtn);});});
+      addSection('Subscriptions',data.subscriptions,function(s){return makeRow('<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;"><div class="gs-result-name">'+(s.name||'—')+'</div><div style="display:flex;gap:8px;align-items:center;flex-shrink:0;"><span class="gs-result-amount">'+fmt(s.amount,s.currency)+'</span>'+badge(s.status)+'</div></div>',function(){var navBtn=document.querySelector('.nav-item[onclick*="subscriptions"]');if(navBtn)showPage('subscriptions',navBtn);});});
       openGlobalSearch();
     }catch(e){closeGlobalSearch();}
   },300);
