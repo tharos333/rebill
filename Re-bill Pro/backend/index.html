@@ -5990,85 +5990,123 @@ html.light #global-search-results .badge.badge-blue{
 
 </style>
 
-<style id="global-search-final-exact-payment-table-style">
-/* FINAL EXACT MATCH: global search dropdown only. Copy Payments table typography/badge weight. */
-#global-search-results.global-search-results,
-#global-search-results.global-search-results *{
+<style id="global-search-final-true-payment-table-match-v2">
+/* TRUE FINAL - Global search dropdown only.
+   Match Payments table typography exactly: table headers, customer names, amount text, and status badges. */
+#global-search-results.global-search-results .global-search-section-title,
+#global-search-results .global-search-section-title{
+  padding:8px 14px 4px!important;
   font-family:var(--font-ui)!important;
-}
-#global-search-results.global-search-results .global-search-section-title{
-  padding:8px 16px!important;
   font-size:11px!important;
   font-weight:700!important;
   letter-spacing:.045em!important;
-  line-height:1.15!important;
   text-transform:uppercase!important;
   color:var(--muted)!important;
+  line-height:1.15!important;
+}
+#global-search-results.global-search-results .global-search-row,
+#global-search-results .global-search-row{
+  padding:8px 14px!important;
+}
+#global-search-results.global-search-results .global-search-name,
+#global-search-results .global-search-name,
+#global-search-results.global-search-results .global-search-row .global-search-name,
+#global-search-results .global-search-row .global-search-name{
   font-family:var(--font-ui)!important;
-}
-#global-search-results.global-search-results .global-search-row{
-  padding:11px 16px!important;
-}
-#global-search-results.global-search-results .global-search-name{
   font-size:13px!important;
   font-weight:500!important;
-  line-height:1.25!important;
-  letter-spacing:-0.01em!important;
+  letter-spacing:-0.018em!important;
+  line-height:1.2!important;
   color:var(--text)!important;
-  font-family:var(--font-ui)!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
 }
-#global-search-results.global-search-results .global-search-email{
-  font-size:13px!important;
-  font-weight:500!important;
-  line-height:1.25!important;
-  letter-spacing:-0.01em!important;
-  color:var(--muted)!important;
+#global-search-results.global-search-results .global-search-amount,
+#global-search-results .global-search-amount,
+#global-search-results.global-search-results .global-search-row .global-search-amount,
+#global-search-results .global-search-row .global-search-amount{
   font-family:var(--font-ui)!important;
-}
-#global-search-results.global-search-results .global-search-amount{
   font-size:13px!important;
   font-weight:650!important;
-  line-height:1.25!important;
   letter-spacing:-0.018em!important;
+  line-height:1.2!important;
   color:var(--text)!important;
-  font-family:var(--font-ui)!important;
   white-space:nowrap!important;
 }
+#global-search-results.global-search-results .global-search-email,
+#global-search-results .global-search-email{
+  font-family:var(--font-ui)!important;
+  font-size:12px!important;
+  font-weight:500!important;
+  letter-spacing:-0.01em!important;
+  line-height:1.25!important;
+  color:var(--muted)!important;
+}
 #global-search-results.global-search-results .badge,
+#global-search-results .badge,
 #global-search-results.global-search-results .badge.badge-green,
 #global-search-results.global-search-results .badge.badge-red,
 #global-search-results.global-search-results .badge.badge-blue,
-#global-search-results.global-search-results .badge.badge-amber{
+#global-search-results .badge.badge-green,
+#global-search-results .badge.badge-red,
+#global-search-results .badge.badge-blue{
   display:inline-flex!important;
   align-items:center!important;
   justify-content:center!important;
-  gap:4px!important;
-  padding:2px 7px!important;
-  height:auto!important;
-  min-height:0!important;
-  border-radius:20px!important;
-  font-size:11px!important;
-  font-weight:600!important;
-  line-height:1.2!important;
-  letter-spacing:0!important;
+  height:22px!important;
+  min-height:22px!important;
+  padding:0 9px!important;
+  border-radius:6px!important;
   font-family:var(--font-ui)!important;
+  font-size:12px!important;
+  font-weight:400!important;
+  letter-spacing:-0.01em!important;
+  line-height:1!important;
+  gap:4px!important;
   white-space:nowrap!important;
   box-sizing:border-box!important;
+  border:1px solid transparent!important;
 }
-#global-search-results.global-search-results .badge::before{display:none!important;content:none!important;}
+#global-search-results.global-search-results .badge > span,
+#global-search-results .badge > span,
 #global-search-results.global-search-results .badge span,
-#global-search-results.global-search-results .badge > span{
-  font-size:11px!important;
-  font-weight:600!important;
-  line-height:1.2!important;
-  letter-spacing:0!important;
+#global-search-results .badge span{
   font-family:var(--font-ui)!important;
+  font-size:12px!important;
+  font-weight:400!important;
+  letter-spacing:-0.01em!important;
+  line-height:1!important;
+  margin:0!important;
 }
-#global-search-results.global-search-results .badge svg.status-mini-icon{display:none!important;}
-#global-search-results.global-search-results .badge.badge-green{color:var(--green)!important;background:var(--green-bg)!important;}
-#global-search-results.global-search-results .badge.badge-red{color:var(--red)!important;background:var(--red-bg)!important;}
-#global-search-results.global-search-results .badge.badge-blue{color:#60a5fa!important;background:rgba(59,130,246,.14)!important;}
-html.light #global-search-results.global-search-results .badge.badge-blue{color:#2563eb!important;background:rgba(59,130,246,.10)!important;}
+#global-search-results.global-search-results .badge::before,
+#global-search-results .badge::before{
+  display:none!important;
+  content:none!important;
+}
+#global-search-results.global-search-results .badge.badge-green,
+#global-search-results .badge.badge-green{
+  color:var(--green)!important;
+  background:var(--green-bg)!important;
+  border-color:rgba(34,197,94,.14)!important;
+}
+#global-search-results.global-search-results .badge.badge-red,
+#global-search-results .badge.badge-red{
+  color:var(--red)!important;
+  background:var(--red-bg)!important;
+  border-color:rgba(248,113,113,.14)!important;
+}
+#global-search-results.global-search-results .badge.badge-blue,
+#global-search-results .badge.badge-blue{
+  color:#60a5fa!important;
+  background:rgba(59,130,246,.14)!important;
+  border-color:rgba(59,130,246,.24)!important;
+}
+html.light #global-search-results .badge.badge-blue{
+  color:#2563eb!important;
+  background:rgba(59,130,246,.10)!important;
+  border-color:rgba(59,130,246,.22)!important;
+}
 </style>
 
 </head>
