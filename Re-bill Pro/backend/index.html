@@ -79,6 +79,80 @@ html.light .toggle-thumb{background:#fff;left:18px}
 .topbar-actions #global-search-input{height:34px;line-height:34px}
 .topbar-actions .btn{height:34px;min-height:34px;padding:0 13px;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;line-height:1}
 .topbar-actions .btn svg{width:13px;height:13px;display:block;flex-shrink:0}
+
+/* Safe global search polish — dashboard search only, no payment/filter logic touched */
+#global-search-wrap{
+  width:220px;
+  transition:width .18s ease;
+}
+#global-search-wrap.search-open{
+  width:340px;
+}
+#global-search-input{
+  width:100%!important;
+  transition:width .18s ease,border-color .18s ease,background .18s ease;
+}
+#global-search-results{
+  width:100%!important;
+}
+#global-search-results .gs-section-title{
+  padding:8px 14px 4px;
+  font-family:var(--font-ui,var(--sans))!important;
+  font-size:11px!important;
+  font-weight:700!important;
+  letter-spacing:.045em!important;
+  line-height:1.15!important;
+  text-transform:uppercase!important;
+  color:var(--muted)!important;
+  border-top:1px solid var(--border);
+}
+#global-search-results .gs-row{
+  padding:8px 14px;
+  cursor:pointer;
+}
+#global-search-results .gs-row:hover{
+  background:var(--surface2);
+}
+#global-search-results .gs-name{
+  font-size:13px!important;
+  font-family:var(--sans)!important;
+  font-weight:600!important;
+  color:var(--text)!important;
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+#global-search-results .gs-sub{
+  font-size:11px!important;
+  color:var(--muted)!important;
+  font-family:var(--mono)!important;
+  font-weight:400!important;
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+#global-search-results .gs-amount{
+  font-family:var(--font-ui,var(--sans))!important;
+  font-size:12px!important;
+  font-weight:500!important;
+  letter-spacing:-0.018em!important;
+  color:var(--text)!important;
+}
+#global-search-results .badge{
+  font-weight:600!important;
+}
+#settings-toggle,
+#settings-toggle span{
+  font-size:10px!important;
+  color:var(--muted)!important;
+  font-family:var(--mono)!important;
+  letter-spacing:1px!important;
+  text-transform:uppercase!important;
+  font-weight:400!important;
+  line-height:1.2!important;
+}
 .top-action-wrap{position:relative;display:inline-flex;align-items:center;height:34px}
 .notification-btn{position:relative;width:42px!important;min-width:42px!important;height:34px!important;min-height:34px!important;padding:0!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;align-self:center;line-height:1;border-radius:8px;box-sizing:border-box}
 .notification-btn svg{width:13px!important;height:13px!important;display:block;flex-shrink:0}
@@ -5754,28 +5828,18 @@ body.view-only-access #verification-debug-modal .modal-content{
 
 
 
-/* Sidebar SETTINGS header: match MAIN / BILLING / INSIGHTS exactly */
-#settings-toggle,
-#settings-toggle span{
-  font-family: var(--font-label) !important;
-  font-size: 11px !important;
-  font-weight: 700 !important;
-  letter-spacing: .045em !important;
-  text-transform: uppercase !important;
-  line-height: 1.2 !important;
-  color: var(--muted) !important;
+/* Search dropdown status badge weight fix: match Succeeded weight for Paused + Payment needed */
+#global-search-results .badge,
+#global-search-results .badge span{
+  font-weight:600!important;
 }
-#settings-toggle{
-  padding: 10px 24px 4px !important;
-}
-#settings-chevron{
-  color: var(--muted) !important;
-}
-html.light #settings-toggle,
-html.light #settings-toggle span,
-html.light #settings-chevron{
-  color: var(--muted) !important;
-}
+
+/* Final search dropdown typography guard: keep previous requested settings */
+#global-search-results .gs-name{font-weight:600!important;}
+#global-search-results .gs-amount{font-weight:500!important;}
+#global-search-results .badge,
+#global-search-results .badge span{font-weight:600!important;}
+
 </style>
 </head>
 <body>
@@ -5889,12 +5953,11 @@ html.light #settings-chevron{
   <div class="page-header">
     <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Dashboard</span></h2><p>Your business overview</p></div>
     <div class="topbar-actions" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-      <div style="position:relative;">
+      <div id="global-search-wrap" style="position:relative;">
         <input type="text" id="global-search-input" placeholder="Search..." oninput="globalSearch(this.value)" style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:7px 10px 7px 34px;font-size:13px;font-family:var(--mono);outline:none;width:220px;">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:11px;top:50%;transform:translateY(-50%);pointer-events:none;"><circle cx="10.8" cy="10.8" r="6.8"/><path d="M16 16l4.2 4.2"/></svg>
         <div id="global-search-results" style="display:none;position:absolute;top:calc(100% + 6px);left:0;width:340px;background:var(--surface);border:1px solid var(--border2);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.3);z-index:200;max-height:320px;overflow-y:auto;"></div>
       </div>
-      <button id="run-rebills-btn" class="btn view-write-only" onclick="runRebills()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/></svg>Run Rebills Now</button>
       <button class="btn btn-disconnect" onclick="disconnectApp()" title="Disconnect">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         Disconnect
@@ -6144,8 +6207,8 @@ html.light #settings-chevron{
     </div>
     <!-- Stripe account dropdown -->
     <div style="position:relative;display:flex;align-items:center;">
-      <select id="pay-account-filter" class="pay-filter-select" onmousedown="preparePayAccountOptionsExpanded();" onkeydown="if(event.key==='ArrowDown'||event.key==='Enter'||event.key===' '){preparePayAccountOptionsExpanded();}" onblur="compactPayAccountClosedSelection();" onchange="payCurrentPage=1;filterPayments();setTimeout(compactPayAccountClosedSelection,0);" style="padding:6px 32px 6px 12px;font-size:12px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#F5F5F7;cursor:pointer;appearance:none;-webkit-appearance:none;width:150px;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">
-        <option value="" data-full-label="All Stripe Accounts">All Accounts</option>
+      <select id="pay-account-filter" class="pay-filter-select" onmousedown="preparePayAccountOptionsExpanded();" onkeydown="if(event.key==='ArrowDown'||event.key==='Enter'||event.key===' '){preparePayAccountOptionsExpanded();}" onblur="compactPayAccountClosedSelection();" onchange="payCurrentPage=1;filterPayments();setTimeout(compactPayAccountClosedSelection,0);" style="padding:6px 32px 6px 12px;font-size:12px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#F5F5F7;cursor:pointer;appearance:none;-webkit-appearance:none;width:185px;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">
+        <option value="" data-full-label="All Stripe Accounts">All Stripe Accounts</option>
       </select>
       <svg style="position:absolute;right:10px;pointer-events:none;color:#8B8B99;" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
     </div>
@@ -7772,7 +7835,7 @@ function showEditAmount(subId,currentAmount){const container=document.getElement
 async function saveAmount(subId){const input=document.getElementById('new-amount-'+subId);if(!input)return;const newCents=Math.round(parseFloat(input.value)*100);if(isNaN(newCents)||newCents<50){toast('Minimum $0.50','error');return;}const r=await api('/api/subscriptions/'+subId+'/amount',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:newCents})});if(r.success){toast('✓ Amount updated');loadSubscriptions();}else toast('Error','error');}
 function compactPayAccountName(accountName){
   var full=String(accountName||'').trim();
-  if(!full)return 'All Accounts';
+  if(!full)return 'All Stripe Accounts';
   return full.replace(/^Stripe_Solo_/i,'');
 }
 function preparePayAccountOptionsExpanded(){
@@ -8971,23 +9034,69 @@ async function addAdmin(){
 async function deleteAdmin(id){var target=(allAdminUsers||[]).find(function(a){return Number(a.id)===Number(id);});if(!canManageAccessUser(target)){toast('You cannot remove this user access','error');return;}if(!confirm('Remove access for this user?'))return;try{var r=await api('/api/admin-users/'+id,{method:'DELETE'});if(r.success){toast('✓ Access removed');loadAdmins();}else toast('Error: '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
 async function changeMyPassword(){var np=document.getElementById('change-pass-new').value;var cp=document.getElementById('change-pass-confirm').value;if(!np||np.length<8){toast('Password must be at least 8 characters','error');return;}if(np!==cp){toast('Passwords do not match','error');return;}try{var list=await api('/api/admin-users');var me=list.find(function(a){return a.username===localStorage.getItem('subloop_username');});if(!me){toast('Could not find your account','error');return;}var r=await api('/api/admin-users/'+me.id+'/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:np})});if(r.success){toast('✓ Password updated');document.getElementById('change-pass-new').value='';document.getElementById('change-pass-confirm').value='';}else toast('Error: '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
 var searchTimer=null;
+function closeGlobalSearch(){
+  var res=document.getElementById('global-search-results');
+  var wrap=document.getElementById('global-search-wrap');
+  if(res)res.style.display='none';
+  if(wrap)wrap.classList.remove('search-open');
+}
+function openGlobalSearch(){
+  var res=document.getElementById('global-search-results');
+  var wrap=document.getElementById('global-search-wrap');
+  if(wrap)wrap.classList.add('search-open');
+  if(res)res.style.display='block';
+}
+function resetPageFiltersBeforeGlobalSearch(page){
+  // Only used when a user clicks a result in the top global search.
+  // This clears stale page filters first, then the selected name/payment can be searched cleanly.
+  if(page==='payments'){
+    if(typeof resetPaymentFiltersOnRefresh==='function')resetPaymentFiltersOnRefresh();
+  }else if(page==='customers'){
+    if(typeof resetCustomerFiltersOnRefresh==='function')resetCustomerFiltersOnRefresh();
+  }else if(page==='subscriptions'){
+    var subSearch=document.getElementById('sub-search');
+    if(subSearch)subSearch.value='';
+    if(Array.isArray(allSubscriptions)&&typeof renderSubscriptions==='function')renderSubscriptions(allSubscriptions);
+  }
+}
+function globalSearchNavigate(page,inputId,query,filterFn){
+  var navBtn=document.querySelector('.nav-item[onclick*="'+page+'"]');
+  if(navBtn)showPage(page,navBtn);
+  var didReset=false;
+  function applySearch(){
+    if(!didReset){
+      resetPageFiltersBeforeGlobalSearch(page);
+      didReset=true;
+    }
+    var input=document.getElementById(inputId);
+    if(input){
+      input.value=query||'';
+      input.dispatchEvent(new Event('input',{bubbles:true}));
+    }
+    if(typeof filterFn==='function')filterFn();
+  }
+  setTimeout(applySearch,180);
+  setTimeout(applySearch,650);
+}
 function globalSearch(q){
   clearTimeout(searchTimer);var res=document.getElementById('global-search-results');
-  if(!q||q.length<2){res.style.display='none';return;}
+  if(!res)return;
+  if(!q||q.length<2){closeGlobalSearch();return;}
   searchTimer=setTimeout(async function(){
     try{
       var data=await api('/api/search?q='+encodeURIComponent(q));var total=data.customers.length+data.payments.length+data.subscriptions.length;res.innerHTML='';
-      if(!total){var empty=document.createElement('div');empty.style.cssText='padding:16px;text-align:center;font-size:13px;color:var(--muted);font-family:var(--mono);';empty.textContent='No results found';res.appendChild(empty);res.style.display='block';return;}
-      function addSection(title,items,renderFn){if(!items.length)return;var hdr=document.createElement('div');hdr.style.cssText='padding:8px 14px 4px;font-size:10px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.5px;border-top:1px solid var(--border);';hdr.textContent=title;res.appendChild(hdr);items.forEach(function(item){res.appendChild(renderFn(item));});}
-      function makeRow(content,onclick){var row=document.createElement('div');row.style.cssText='padding:8px 14px;cursor:pointer;';row.innerHTML=content;row.addEventListener('mouseenter',function(){row.style.background='var(--surface2)';});row.addEventListener('mouseleave',function(){row.style.background='';});row.addEventListener('click',function(){onclick();document.getElementById('global-search-input').value='';res.style.display='none';});return row;}
-      addSection('Customers',data.customers,function(c){return makeRow('<div style="display:flex;align-items:center;gap:8px;"><div class="avatar">'+initials(c.name)+'</div><div><div style="font-size:13px;font-weight:500;">'+(c.name||'—')+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+(c.email||'')+'</div></div></div>',function(){var navBtn=document.querySelector('.nav-item[onclick*="customers"]');if(navBtn)showPage('customers',navBtn);});});
-      addSection('Payments',data.payments,function(p){return makeRow('<div style="display:flex;align-items:center;justify-content:space-between;"><div style="font-size:13px;">'+(p.name||'—')+'</div><div style="display:flex;gap:8px;align-items:center;"><span class="mono" style="font-size:12px;">'+fmt(p.amount,p.currency)+'</span>'+badge(p.status)+'</div></div>',function(){var navBtn=document.querySelector('.nav-item[onclick*="payments"]');if(navBtn)showPage('payments',navBtn);});});
-      addSection('Subscriptions',data.subscriptions,function(s){return makeRow('<div style="display:flex;align-items:center;justify-content:space-between;"><div style="font-size:13px;">'+(s.name||'—')+'</div><div style="display:flex;gap:8px;align-items:center;"><span class="mono" style="font-size:12px;">'+fmt(s.amount,s.currency)+'</span>'+badge(s.status)+'</div></div>',function(){var navBtn=document.querySelector('.nav-item[onclick*="subscriptions"]');if(navBtn)showPage('subscriptions',navBtn);});});
-      res.style.display='block';
-    }catch(e){res.style.display='none';}
+      if(!total){var empty=document.createElement('div');empty.style.cssText='padding:16px;text-align:center;font-size:13px;color:var(--muted);font-family:var(--mono);';empty.textContent='No results found';res.appendChild(empty);openGlobalSearch();return;}
+      function addSection(title,items,renderFn){if(!items.length)return;var hdr=document.createElement('div');hdr.className='gs-section-title';hdr.textContent=title;res.appendChild(hdr);items.forEach(function(item){res.appendChild(renderFn(item));});}
+      function makeRow(content,onclick){var row=document.createElement('div');row.className='gs-row';row.innerHTML=content;row.addEventListener('click',function(){onclick();var input=document.getElementById('global-search-input');if(input)input.value='';closeGlobalSearch();});return row;}
+      addSection('Customers',data.customers,function(c){return makeRow('<div style="display:flex;align-items:center;min-width:0;"><div style="min-width:0;flex:1;"><div class="gs-name">'+(c.name||'—')+'</div><div class="gs-sub">'+(c.email||'')+'</div></div></div>',function(){globalSearchNavigate('customers','customer-search',c.name||c.email||'',typeof filterCustomers==='function'?filterCustomers:null);});});
+      addSection('Payments',data.payments,function(p){return makeRow('<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;"><div class="gs-name" style="flex:1;">'+(p.name||'—')+'</div><div style="display:flex;gap:8px;align-items:center;flex-shrink:0;"><span class="gs-amount">'+fmt(p.amount,p.currency)+'</span>'+badge(p.status)+'</div></div>',function(){globalSearchNavigate('payments','pay-search',p.name||p.email||p.stripe_payment_intent||'',typeof filterPayments==='function'?function(){payCurrentPage=1;filterPayments();}:null);});});
+      addSection('Subscriptions',data.subscriptions,function(s){return makeRow('<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;"><div class="gs-name" style="flex:1;">'+(s.name||'—')+'</div><div style="display:flex;gap:8px;align-items:center;flex-shrink:0;"><span class="gs-amount">'+fmt(s.amount,s.currency)+'</span>'+badge(s.status)+'</div></div>',function(){globalSearchNavigate('subscriptions','sub-search',s.name||s.email||'',typeof filterSubscriptions==='function'?filterSubscriptions:null);});});
+      openGlobalSearch();
+    }catch(e){closeGlobalSearch();}
   },300);
 }
-document.addEventListener('click',function(e){if(!e.target.closest('#global-search-input')&&!e.target.closest('#global-search-results')){var r=document.getElementById('global-search-results');if(r)r.style.display='none';}});
+document.addEventListener('click',function(e){if(!e.target.closest('#global-search-wrap')){closeGlobalSearch();}});
+window.addEventListener('blur',closeGlobalSearch);
 async function loadChurnAlerts(){try{var d=await api('/api/churn-alerts');var section=document.getElementById('churn-alerts-section');var list=document.getElementById('churn-alerts-list');var count=document.getElementById('churn-count');var all=[...d.cancelled,...d.failing];if(!all.length){section.style.display='none';return;}section.style.display='block';count.textContent=all.length;var html='';d.cancelled.forEach(function(c){html+='<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(248,113,113,0.15);"><div class="avatar">'+initials(c.name)+'</div><div style="flex:1;"><div style="font-size:13px;font-weight:500;">'+(c.name||'—')+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+(c.email||'')+'</div></div><span class="badge badge-red">Canceled</span></div>';});d.failing.forEach(function(c){html+='<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(248,113,113,0.15);"><div class="avatar">'+initials(c.name)+'</div><div style="flex:1;"><div style="font-size:13px;font-weight:500;">'+(c.name||'—')+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+(c.email||'')+'</div></div><span class="badge badge-amber">'+c.dunning_count+' failures</span></div>';});list.innerHTML=html;}catch(e){}}
 async function loadTemplates(){try{var list=await api('/api/plan-templates');var el=document.getElementById('templates-list');var count=document.getElementById('template-count');if(!el)return;if(count)count.textContent='('+list.length+')';el.innerHTML='';if(!list.length){var empty=document.createElement('span');empty.style.cssText='font-size:12px;color:var(--muted);font-family:var(--mono);';empty.textContent='No templates yet — save one below';el.appendChild(empty);return;}list.forEach(function(t){var chip=document.createElement('div');chip.style.cssText='display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:5px 10px;cursor:pointer;';chip.addEventListener('click',function(){applyTemplate(t.amount,t.currency,t.interval_days,t.name);});var name=document.createElement('span');name.style.cssText='font-size:12px;font-weight:500;';name.textContent=t.name;var price=document.createElement('span');price.style.cssText='font-size:11px;color:var(--muted);font-family:var(--mono);';price.textContent=fmt(t.amount,t.currency)+'/'+t.interval_days+'d';var canManageTemplates=getCurrentRole()==='owner'||getCurrentRole()==='admin';chip.appendChild(name);chip.appendChild(price);if(canManageTemplates){var del=document.createElement('button');del.style.cssText='background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:0 2px;line-height:1;';del.textContent='✕';del.addEventListener('click',function(e){e.stopPropagation();deleteTemplate(t.id);});chip.appendChild(del);}el.appendChild(chip);});}catch(e){}}
 function applyTemplate(amount,currency,interval,name){document.getElementById('link-name').value=name;document.getElementById('link-amount').value=(amount/100).toFixed(2);document.getElementById('link-currency').value=currency;document.getElementById('link-interval').value=String(interval);toast('✓ Template applied');}
@@ -10116,4 +10225,28 @@ html.light #customer-detail-modal .customer-profile-actions{
   font-weight:600!important;
 }
 
+
+
+/* Sidebar SETTINGS header: match MAIN / BILLING / INSIGHTS only */
+#settings-toggle.nav-section-toggle,
+#settings-toggle.nav-section-toggle span{
+  font-family:var(--font-ui)!important;
+  font-size:11px!important;
+  font-weight:700!important;
+  letter-spacing:.045em!important;
+  text-transform:uppercase!important;
+  line-height:1.2!important;
+  color:var(--muted)!important;
+}
+#settings-toggle.nav-section-toggle{
+  padding:10px 24px 4px!important;
+}
+#settings-toggle.nav-section-toggle svg{
+  color:var(--muted)!important;
+}
+html.light #settings-toggle.nav-section-toggle,
+html.light #settings-toggle.nav-section-toggle span,
+html.light #settings-toggle.nav-section-toggle svg{
+  color:#6b6f7c!important;
+}
 </style>
