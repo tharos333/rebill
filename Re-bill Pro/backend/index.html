@@ -9040,10 +9040,28 @@ function openGlobalSearch(){
   if(wrap)wrap.classList.add('search-open');
   if(res)res.style.display='block';
 }
+function resetPageFiltersBeforeGlobalSearch(page){
+  // Only used when a user clicks a result in the top global search.
+  // This clears stale page filters first, then the selected name/payment can be searched cleanly.
+  if(page==='payments'){
+    if(typeof resetPaymentFiltersOnRefresh==='function')resetPaymentFiltersOnRefresh();
+  }else if(page==='customers'){
+    if(typeof resetCustomerFiltersOnRefresh==='function')resetCustomerFiltersOnRefresh();
+  }else if(page==='subscriptions'){
+    var subSearch=document.getElementById('sub-search');
+    if(subSearch)subSearch.value='';
+    if(Array.isArray(allSubscriptions)&&typeof renderSubscriptions==='function')renderSubscriptions(allSubscriptions);
+  }
+}
 function globalSearchNavigate(page,inputId,query,filterFn){
   var navBtn=document.querySelector('.nav-item[onclick*="'+page+'"]');
   if(navBtn)showPage(page,navBtn);
+  var didReset=false;
   function applySearch(){
+    if(!didReset){
+      resetPageFiltersBeforeGlobalSearch(page);
+      didReset=true;
+    }
     var input=document.getElementById(inputId);
     if(input){
       input.value=query||'';
