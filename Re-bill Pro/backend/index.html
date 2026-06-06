@@ -7790,7 +7790,9 @@ function resetPaymentFiltersOnRefresh(){
   });
   var popup=document.getElementById('pay-advanced-filters'); if(popup)popup.classList.remove('open');
   toggleCustomDate();
-  setPayStatus('');
+  if(Array.isArray(allPayments) && allPayments.length){
+    setPayStatus('');
+  }
 }
 window.addEventListener('pageshow',function(){
   resetCustomerFiltersOnRefresh();
@@ -7859,10 +7861,27 @@ async function loadPayments(){
   try{
     allPayments=await api('/api/payments');
     renderPaymentSummary(allPayments);
+
+    /* Hard reset payment filters before rendering.
+       This clears any stale state left by older search-click builds so the Payments page
+       always opens with the full payment list. */
+    payStatusFilter='';
+    payCurrentPage=1;
+    var ps=document.getElementById('pay-search'); if(ps)ps.value='';
+    var pdf=document.getElementById('pay-date-filter'); if(pdf)pdf.value='';
+    ['pay-date-from','pay-date-to','pay-filter-method','pay-filter-failure','pay-filter-min-amount','pay-filter-max-amount'].forEach(function(id){
+      var el=document.getElementById(id); if(el)el.value='';
+    });
+    var adv=document.getElementById('pay-advanced-filters'); if(adv)adv.classList.remove('open');
+    document.querySelectorAll('[data-pay-status]').forEach(function(btn){
+      var key=btn.getAttribute('data-pay-status')||'';
+      btn.classList.toggle('active',key==='');
+    });
+
     // Populate with full Stripe account names in the open menu, then collapse the selected display label.
     var sel=document.getElementById('pay-account-filter');
     if(sel){
-      var selectedAccount=sel.value||'';
+      var selectedAccount='';
       var seen=new Set();
       sel.innerHTML='';
       var allOption=document.createElement('option');
@@ -7990,9 +8009,6 @@ function setPayStatus(s){
 }
 function filterPayments(){
   if(!allPayments)return;
-  // Safety: older/bad search-navigation code could leave payStatusFilter as 'all',
-  // which made the table render empty even while the All count showed payments.
-  if(payStatusFilter==='all')payStatusFilter='';
   var account=document.getElementById('pay-account-filter')?.value||'';
   var q=(document.getElementById('pay-search')?.value||'').toLowerCase();
   var advMethod=(document.getElementById('pay-filter-method')?.value||'').toLowerCase();
@@ -8050,12 +8066,13 @@ function filterPayments(){
   var filtered=statusCountBase.filter(function(p){
     return !payStatusFilter||paymentTopStatusKey(p.status)===payStatusFilter;
   });
-  // Emergency guard: if the visible table would be empty while the base list has payments,
-  // restore the All status filter instead of showing a broken empty Payments page.
-  if(!filtered.length && statusCountBase.length && payStatusFilter){
-    payStatusFilter='';
-    filtered=statusCountBase.slice();
-    document.querySelectorAll('[data-pay-status]').forEach(function(btn){btn.classList.toggle('active',(btn.getAttribute('data-pay-status')||'')==='');});
+  // Absolute safety: if an invalid stale status value empties the table while All has data, show all results.
+  if(!filtered.length && statusCountBase.length){
+    var valid=['','succeeded','failed'].concat(payExtraStatusKeys||[]);
+    if(valid.indexOf(payStatusFilter)<0 || document.getElementById('pay-btn-all')?.classList.contains('active')){
+      payStatusFilter='';
+      filtered=statusCountBase.slice();
+    }
   }
   var total=filtered.length;
   var totalPages=Math.max(1,Math.ceil(total/PAY_PER_PAGE));
