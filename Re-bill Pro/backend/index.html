@@ -5752,6 +5752,86 @@ body.view-only-access #verification-debug-modal .modal-content{
   border-top:1px solid var(--border)!important;
 }
 
+
+
+/* Safe global search refinements: UI only, no payment data logic changes */
+.global-search-wrap .global-search-input{
+  transition: width .18s ease, border-color .18s ease, box-shadow .18s ease !important;
+}
+.global-search-wrap.active .global-search-input{
+  width:360px!important;
+  border-color:rgba(109,94,248,.55)!important;
+  box-shadow:0 0 0 3px rgba(109,94,248,.14)!important;
+}
+.global-search-results{
+  right:0!important;
+  left:auto!important;
+  width:360px!important;
+  transform-origin:top right;
+  animation:globalSearchIn .14s ease-out;
+}
+@keyframes globalSearchIn{from{opacity:.35;transform:translateY(-3px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+.global-search-section-title{
+  padding:9px 14px 5px!important;
+  font-family:var(--font-label,var(--mono))!important;
+  font-size:11px!important;
+  font-weight:700!important;
+  line-height:1.2!important;
+  color:var(--muted)!important;
+  text-transform:uppercase!important;
+  letter-spacing:.095em!important;
+  border-top:1px solid var(--border)!important;
+}
+.global-search-row{
+  padding:8px 14px!important;
+  cursor:pointer!important;
+}
+.global-search-row:hover{background:var(--surface2)!important;}
+.global-search-name{
+  font-family:var(--font-ui,var(--sans))!important;
+  font-size:13px!important;
+  font-weight:650!important;
+  letter-spacing:-.018em!important;
+  color:var(--text)!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.global-search-email{
+  font-size:11px!important;
+  color:var(--muted)!important;
+  font-family:var(--mono)!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.global-search-amount{
+  font-family:var(--font-ui,var(--sans))!important;
+  font-size:13px!important;
+  font-weight:650!important;
+  color:var(--text)!important;
+  letter-spacing:-.018em!important;
+  white-space:nowrap!important;
+}
+.global-search-results .badge{
+  font-size:12px!important;
+  font-weight:600!important;
+  line-height:1!important;
+  padding:5px 9px!important;
+  border-radius:8px!important;
+  white-space:nowrap!important;
+}
+#settings-toggle,
+#settings-toggle span{
+  font-family:var(--font-label,var(--mono))!important;
+  font-size:11px!important;
+  font-weight:700!important;
+  letter-spacing:.12em!important;
+  line-height:1.2!important;
+  color:var(--muted)!important;
+  text-transform:uppercase!important;
+}
+
 </style>
 </head>
 <body>
@@ -5865,12 +5945,11 @@ body.view-only-access #verification-debug-modal .modal-content{
   <div class="page-header">
     <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Dashboard</span></h2><p>Your business overview</p></div>
     <div class="topbar-actions" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-      <div style="position:relative;">
-        <input type="text" id="global-search-input" placeholder="Search..." oninput="globalSearch(this.value)" style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:7px 10px 7px 34px;font-size:13px;font-family:var(--mono);outline:none;width:220px;">
+      <div id="global-search-wrap" class="global-search-wrap" style="position:relative;">
+        <input type="text" id="global-search-input" class="global-search-input" placeholder="Search..." oninput="globalSearch(this.value)" onfocus="globalSearch(this.value)" style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:7px 10px 7px 34px;font-size:13px;font-family:var(--mono);outline:none;width:220px;">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:11px;top:50%;transform:translateY(-50%);pointer-events:none;"><circle cx="10.8" cy="10.8" r="6.8"/><path d="M16 16l4.2 4.2"/></svg>
-        <div id="global-search-results" style="display:none;position:absolute;top:calc(100% + 6px);left:0;width:340px;background:var(--surface);border:1px solid var(--border2);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.3);z-index:200;max-height:320px;overflow-y:auto;"></div>
+        <div id="global-search-results" class="global-search-results" style="display:none;position:absolute;top:calc(100% + 6px);right:0;left:auto;width:360px;background:var(--surface);border:1px solid var(--border2);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.3);z-index:200;max-height:320px;overflow-y:auto;"></div>
       </div>
-      <button id="run-rebills-btn" class="btn view-write-only" onclick="runRebills()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/></svg>Run Rebills Now</button>
       <button class="btn btn-disconnect" onclick="disconnectApp()" title="Disconnect">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         Disconnect
@@ -8947,23 +9026,84 @@ async function addAdmin(){
 async function deleteAdmin(id){var target=(allAdminUsers||[]).find(function(a){return Number(a.id)===Number(id);});if(!canManageAccessUser(target)){toast('You cannot remove this user access','error');return;}if(!confirm('Remove access for this user?'))return;try{var r=await api('/api/admin-users/'+id,{method:'DELETE'});if(r.success){toast('✓ Access removed');loadAdmins();}else toast('Error: '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
 async function changeMyPassword(){var np=document.getElementById('change-pass-new').value;var cp=document.getElementById('change-pass-confirm').value;if(!np||np.length<8){toast('Password must be at least 8 characters','error');return;}if(np!==cp){toast('Passwords do not match','error');return;}try{var list=await api('/api/admin-users');var me=list.find(function(a){return a.username===localStorage.getItem('subloop_username');});if(!me){toast('Could not find your account','error');return;}var r=await api('/api/admin-users/'+me.id+'/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:np})});if(r.success){toast('✓ Password updated');document.getElementById('change-pass-new').value='';document.getElementById('change-pass-confirm').value='';}else toast('Error: '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
 var searchTimer=null;
+function closeGlobalSearch(){
+  var res=document.getElementById('global-search-results');
+  var wrap=document.getElementById('global-search-wrap');
+  if(res)res.style.display='none';
+  if(wrap)wrap.classList.remove('active');
+}
+function openGlobalSearchBox(){
+  var wrap=document.getElementById('global-search-wrap');
+  if(wrap)wrap.classList.add('active');
+}
+function setPageSearchValue(inputId,value,filterFnName){
+  var input=document.getElementById(inputId);
+  if(!input)return;
+  input.value=value||'';
+  input.focus();
+  try{
+    if(filterFnName&&typeof window[filterFnName]==='function')window[filterFnName]();
+    else input.dispatchEvent(new Event('input',{bubbles:true}));
+  }catch(e){input.dispatchEvent(new Event('input',{bubbles:true}));}
+}
+function goToSearchPage(pageName,searchValue){
+  var navBtn=document.querySelector('.nav-item[onclick*="'+pageName+'"]');
+  if(navBtn)showPage(pageName,navBtn);
+  setTimeout(function(){
+    if(pageName==='customers')setPageSearchValue('customer-search',searchValue,'filterCustomers');
+    if(pageName==='payments'){
+      payCurrentPage=1;
+      setPageSearchValue('pay-search',searchValue,'filterPayments');
+    }
+    if(pageName==='subscriptions')setPageSearchValue('sub-search',searchValue,'filterSubscriptions');
+  },450);
+}
 function globalSearch(q){
-  clearTimeout(searchTimer);var res=document.getElementById('global-search-results');
-  if(!q||q.length<2){res.style.display='none';return;}
+  clearTimeout(searchTimer);
+  var res=document.getElementById('global-search-results');
+  if(!res)return;
+  if(!q||q.length<2){closeGlobalSearch();return;}
+  openGlobalSearchBox();
   searchTimer=setTimeout(async function(){
     try{
-      var data=await api('/api/search?q='+encodeURIComponent(q));var total=data.customers.length+data.payments.length+data.subscriptions.length;res.innerHTML='';
-      if(!total){var empty=document.createElement('div');empty.style.cssText='padding:16px;text-align:center;font-size:13px;color:var(--muted);font-family:var(--mono);';empty.textContent='No results found';res.appendChild(empty);res.style.display='block';return;}
-      function addSection(title,items,renderFn){if(!items.length)return;var hdr=document.createElement('div');hdr.style.cssText='padding:8px 14px 4px;font-size:10px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.5px;border-top:1px solid var(--border);';hdr.textContent=title;res.appendChild(hdr);items.forEach(function(item){res.appendChild(renderFn(item));});}
-      function makeRow(content,onclick){var row=document.createElement('div');row.style.cssText='padding:8px 14px;cursor:pointer;';row.innerHTML=content;row.addEventListener('mouseenter',function(){row.style.background='var(--surface2)';});row.addEventListener('mouseleave',function(){row.style.background='';});row.addEventListener('click',function(){onclick();document.getElementById('global-search-input').value='';res.style.display='none';});return row;}
-      addSection('Customers',data.customers,function(c){return makeRow('<div style="display:flex;align-items:center;gap:8px;"><div class="avatar">'+initials(c.name)+'</div><div><div style="font-size:13px;font-weight:500;">'+(c.name||'—')+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+(c.email||'')+'</div></div></div>',function(){var navBtn=document.querySelector('.nav-item[onclick*="customers"]');if(navBtn)showPage('customers',navBtn);});});
-      addSection('Payments',data.payments,function(p){return makeRow('<div style="display:flex;align-items:center;justify-content:space-between;"><div style="font-size:13px;">'+(p.name||'—')+'</div><div style="display:flex;gap:8px;align-items:center;"><span class="mono" style="font-size:12px;">'+fmt(p.amount,p.currency)+'</span>'+badge(p.status)+'</div></div>',function(){var navBtn=document.querySelector('.nav-item[onclick*="payments"]');if(navBtn)showPage('payments',navBtn);});});
-      addSection('Subscriptions',data.subscriptions,function(s){return makeRow('<div style="display:flex;align-items:center;justify-content:space-between;"><div style="font-size:13px;">'+(s.name||'—')+'</div><div style="display:flex;gap:8px;align-items:center;"><span class="mono" style="font-size:12px;">'+fmt(s.amount,s.currency)+'</span>'+badge(s.status)+'</div></div>',function(){var navBtn=document.querySelector('.nav-item[onclick*="subscriptions"]');if(navBtn)showPage('subscriptions',navBtn);});});
-      res.style.display='block';
-    }catch(e){res.style.display='none';}
+      var data=await api('/api/search?q='+encodeURIComponent(q));
+      data.customers=data.customers||[];data.payments=data.payments||[];data.subscriptions=data.subscriptions||[];
+      var total=data.customers.length+data.payments.length+data.subscriptions.length;
+      res.innerHTML='';
+      if(!total){var empty=document.createElement('div');empty.style.cssText='padding:16px;text-align:center;font-size:13px;color:var(--muted);font-family:var(--mono);';empty.textContent='No results found';res.appendChild(empty);res.style.display='block';openGlobalSearchBox();return;}
+      function addSection(title,items,renderFn){
+        if(!items.length)return;
+        var hdr=document.createElement('div');hdr.className='global-search-section-title';hdr.textContent=title;res.appendChild(hdr);
+        items.forEach(function(item){res.appendChild(renderFn(item));});
+      }
+      function makeRow(content,onclick){
+        var row=document.createElement('div');row.className='global-search-row';row.innerHTML=content;
+        row.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();onclick();var input=document.getElementById('global-search-input');if(input)input.value='';closeGlobalSearch();});
+        return row;
+      }
+      function safeText(v){return String(v==null?'':v).replace(/[&<>"']/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];});}
+      function resultName(item){return item.name||item.customer_name||item.email||'—';}
+      addSection('Customers',data.customers,function(c){
+        var name=safeText(resultName(c));var email=safeText(c.email||'');
+        return makeRow('<div><div class="global-search-name">'+name+'</div><div class="global-search-email">'+email+'</div></div>',function(){goToSearchPage('customers',c.name||c.email||'');});
+      });
+      addSection('Payments',data.payments,function(p){
+        var name=safeText(resultName(p));
+        return makeRow('<div style="display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center;"><div class="global-search-name">'+name+'</div><span class="global-search-amount">'+fmt(p.amount,p.currency)+'</span>'+badge(p.status)+'</div>',function(){goToSearchPage('payments',p.name||p.email||p.stripe_payment_intent||'');});
+      });
+      addSection('Subscriptions',data.subscriptions,function(s){
+        var name=safeText(resultName(s));
+        return makeRow('<div style="display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center;"><div class="global-search-name">'+name+'</div><span class="global-search-amount">'+fmt(s.amount,s.currency)+'</span>'+badge(s.status)+'</div>',function(){goToSearchPage('subscriptions',s.name||s.email||'');});
+      });
+      res.style.display='block';openGlobalSearchBox();
+    }catch(e){closeGlobalSearch();}
   },300);
 }
-document.addEventListener('click',function(e){if(!e.target.closest('#global-search-input')&&!e.target.closest('#global-search-results')){var r=document.getElementById('global-search-results');if(r)r.style.display='none';}});
+document.addEventListener('click',function(e){
+  if(!e.target.closest('#global-search-wrap'))closeGlobalSearch();
+});
+window.addEventListener('blur',function(){setTimeout(closeGlobalSearch,80);});
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeGlobalSearch();});
 async function loadChurnAlerts(){try{var d=await api('/api/churn-alerts');var section=document.getElementById('churn-alerts-section');var list=document.getElementById('churn-alerts-list');var count=document.getElementById('churn-count');var all=[...d.cancelled,...d.failing];if(!all.length){section.style.display='none';return;}section.style.display='block';count.textContent=all.length;var html='';d.cancelled.forEach(function(c){html+='<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(248,113,113,0.15);"><div class="avatar">'+initials(c.name)+'</div><div style="flex:1;"><div style="font-size:13px;font-weight:500;">'+(c.name||'—')+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+(c.email||'')+'</div></div><span class="badge badge-red">Canceled</span></div>';});d.failing.forEach(function(c){html+='<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(248,113,113,0.15);"><div class="avatar">'+initials(c.name)+'</div><div style="flex:1;"><div style="font-size:13px;font-weight:500;">'+(c.name||'—')+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+(c.email||'')+'</div></div><span class="badge badge-amber">'+c.dunning_count+' failures</span></div>';});list.innerHTML=html;}catch(e){}}
 async function loadTemplates(){try{var list=await api('/api/plan-templates');var el=document.getElementById('templates-list');var count=document.getElementById('template-count');if(!el)return;if(count)count.textContent='('+list.length+')';el.innerHTML='';if(!list.length){var empty=document.createElement('span');empty.style.cssText='font-size:12px;color:var(--muted);font-family:var(--mono);';empty.textContent='No templates yet — save one below';el.appendChild(empty);return;}list.forEach(function(t){var chip=document.createElement('div');chip.style.cssText='display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:5px 10px;cursor:pointer;';chip.addEventListener('click',function(){applyTemplate(t.amount,t.currency,t.interval_days,t.name);});var name=document.createElement('span');name.style.cssText='font-size:12px;font-weight:500;';name.textContent=t.name;var price=document.createElement('span');price.style.cssText='font-size:11px;color:var(--muted);font-family:var(--mono);';price.textContent=fmt(t.amount,t.currency)+'/'+t.interval_days+'d';var canManageTemplates=getCurrentRole()==='owner'||getCurrentRole()==='admin';chip.appendChild(name);chip.appendChild(price);if(canManageTemplates){var del=document.createElement('button');del.style.cssText='background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:0 2px;line-height:1;';del.textContent='✕';del.addEventListener('click',function(e){e.stopPropagation();deleteTemplate(t.id);});chip.appendChild(del);}el.appendChild(chip);});}catch(e){}}
 function applyTemplate(amount,currency,interval,name){document.getElementById('link-name').value=name;document.getElementById('link-amount').value=(amount/100).toFixed(2);document.getElementById('link-currency').value=currency;document.getElementById('link-interval').value=String(interval);toast('✓ Template applied');}
