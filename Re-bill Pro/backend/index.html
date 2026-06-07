@@ -7451,7 +7451,7 @@ async function loadActivity(){
       if(text.indexOf('payment failed')>=0||text.indexOf('payment declined')>=0)dotColor='var(--red)';
       else if(text.indexOf('payment succeeded')>=0||text.indexOf('payment successful')>=0)dotColor='var(--green)';
       else if(text.indexOf('admin user')>=0||text.indexOf('user created')>=0)dotColor='var(--muted)';
-      return '<div class="activity-item"><div class="activity-dot" style="background:'+dotColor+'"></div><div style="flex:1;"><div style="font-size:13px;">'+a.description+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;">'+fmtTime(a.created_at)+'</div></div></div>';
+      return '<div class="activity-item"><div class="activity-dot" style="background:'+dotColor+'"></div><div style="flex:1;"><div style="font-size:13px;font-weight:550;">'+a.description+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;font-weight:400;">'+fmtTime(a.created_at)+'</div></div></div>';
     }).join('');
   }catch(e){}
 }
