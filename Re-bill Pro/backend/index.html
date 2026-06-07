@@ -5840,14 +5840,6 @@ body.view-only-access #verification-debug-modal .modal-content{
 #global-search-results .badge,
 #global-search-results .badge span{font-weight:600!important;}
 
-
-.server-status-text{display:inline-flex;align-items:center;gap:8px;font-weight:500;line-height:1;}
-.server-status-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:14px;height:14px;}
-.server-status-icon svg{display:block;width:14px;height:14px;}
-.server-status-text.online{color:var(--green);}
-.server-status-text.offline{color:var(--red);}
-.server-status-text.loading{color:var(--text-muted);}
-
 </style>
 </head>
 <body>
@@ -5950,7 +5942,7 @@ body.view-only-access #verification-debug-modal .modal-content{
     </button>
     <div style="height:1px;background:var(--border);margin:14px -24px;"></div>
     <div style="display:flex;align-items:center;font-size:11px;color:var(--muted);font-family:var(--mono);">
-      <span id="server-status"><span class="server-status-text loading"><span class="server-status-icon"><svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.8" opacity="0.45"/><path d="M10 6.5V10L12.5 12.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span>loading...</span></span></span>
+      <span id="server-status">● loading...</span>
     </div>
   </div>
 </nav>
@@ -7371,19 +7363,6 @@ async function updateNotifications(stats){
   }
 }
 document.addEventListener('click',function(e){var menu=document.getElementById('notification-menu');if(menu&&!e.target.closest('.top-action-wrap'))menu.classList.remove('open');});
-function getServerStatusMarkup(state,label){
-  var icons={
-    online:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M4.4 8.4C8.6 5.2 15.4 5.2 19.6 8.4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M7.4 11.6C9.9 9.8 14.1 9.8 16.6 11.6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M10.2 15.1C11.1 14.4 12.9 14.4 13.8 15.1" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M12 18.2h.01" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>',
-    offline:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M4.4 8.4C8.6 5.2 15.4 5.2 19.6 8.4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" opacity=".35"/><path d="M7.4 11.6C9.9 9.8 14.1 9.8 16.6 11.6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" opacity=".45"/><path d="M10.2 15.1C11.1 14.4 12.9 14.4 13.8 15.1" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" opacity=".55"/><path d="M5 19L19 5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',
-    loading:'<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.8" opacity="0.45"/><path d="M10 6.5V10L12.5 12.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-  };
-  return '<span class="server-status-text '+state+'"><span class="server-status-icon">'+(icons[state]||icons.loading)+'</span><span>'+label+'</span></span>';
-}
-function setServerStatus(state,label){
-  var el=document.getElementById('server-status');
-  if(!el) return;
-  el.innerHTML=getServerStatusMarkup(state,label);
-}
 async function loadStats(){
   try{
     const s=await api('/api/stats');
@@ -7399,8 +7378,9 @@ async function loadStats(){
     document.getElementById('stat-success').textContent=(s.payment_success_rate||100)+'%';
     document.getElementById('stat-ltv').textContent=fmtCompactMoney(s.avg_ltv||0);
     updateNotifications(s);
-    setServerStatus('online','connected');
-  }catch(e){setServerStatus('offline','offline');}
+    document.getElementById('server-status').textContent='● connected';
+    document.getElementById('server-status').style.color='var(--green)';
+  }catch(e){document.getElementById('server-status').textContent='● offline';document.getElementById('server-status').style.color='var(--red)';}
 }
 function setRevPeriod(period){currentRevPeriod=period;document.querySelectorAll('.rev-tab').forEach(t=>t.classList.remove('active'));document.getElementById('rev-tab-'+period).classList.add('active');loadChart();}
 async function loadChart(){
