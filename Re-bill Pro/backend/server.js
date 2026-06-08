@@ -1,12 +1,13 @@
 const express = require('express');
 const app = express();
 const path = require('path');
-const { init, pool, settingsDb, stripeAccounts, customers, subscriptions, payments, activityLog, webhookLogs, security, adminUsers } = require('./db');
+const { init, pool, settingsDb, stripeAccounts, whopAccounts, customers, subscriptions, payments, activityLog, webhookLogs, security, adminUsers } = require('./db');
 let speakeasy, QRCode;
 try { speakeasy = require('speakeasy'); QRCode = require('qrcode'); } catch(e) {}
 
 const Stripe = require('stripe');
 const crypto = require('crypto');
+const https = require('https');
 
 
 // Admin access tokens and Stripe-account scoping.
@@ -80,6 +81,7 @@ function sectionForApiPath(req) {
   if (path.startsWith('/payments')) return 'payments';
   if (path.startsWith('/payment-link-accounts') || path.startsWith('/payment-links') || path.startsWith('/plan-templates')) return 'links';
   if (path.startsWith('/stripe-accounts')) return 'accounts';
+  if (path.startsWith('/whop-accounts')) return 'accounts';
   if (path.startsWith('/forecast')) return 'forecast';
   if (path.startsWith('/daily-summary')) return 'summary';
   if (path.startsWith('/mrr-history')) return 'mrr';
@@ -722,7 +724,7 @@ app.use('/api', async (req, res, next) => {
       return res.status(403).json({ error: 'Owner or admin access required' });
     }
     // Stripe connection management stays protected: scoped users may inspect assigned accounts only.
-    if (req.path.startsWith('/stripe-accounts') && req.method !== 'GET' && !isOwnerOrAdmin(user)) {
+    if ((req.path.startsWith('/stripe-accounts') || req.path.startsWith('/whop-accounts')) && req.method !== 'GET' && !isOwnerOrAdmin(user)) {
       return res.status(403).json({ error: 'Owner or admin access required' });
     }
     // A Custom user with Subscriptions management may run rebills, restricted below to assigned accounts.
@@ -1041,6 +1043,89 @@ app.patch('/api/stripe-accounts/default/clear', async (req, res) => {
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.delete('/api/stripe-accounts/:id', async (req, res) => { try { await stripeAccounts.delete(req.params.id); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
+
+
+function whopApiRequest(apiKey, method, apiPath, body) {
+  return new Promise((resolve, reject) => {
+    const payload = body ? JSON.stringify(body) : null;
+    const req = https.request({
+      hostname: 'api.whop.com',
+      path: apiPath,
+      method,
+      headers: {
+        'Authorization': 'Bearer ' + apiKey,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        ...(payload ? { 'Content-Length': Buffer.byteLength(payload) } : {})
+      },
+      timeout: 15000
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        let parsed = null;
+        try { parsed = data ? JSON.parse(data) : null; } catch (_e) { parsed = data; }
+        if (res.statusCode >= 200 && res.statusCode < 300) return resolve({ statusCode: res.statusCode, data: parsed });
+        const message = (parsed && (parsed.error || parsed.message || parsed.detail)) || ('Whop API error ' + res.statusCode);
+        const err = new Error(typeof message === 'string' ? message : JSON.stringify(message));
+        err.statusCode = res.statusCode;
+        err.data = parsed;
+        reject(err);
+      });
+    });
+    req.on('timeout', () => req.destroy(new Error('Whop API timeout')));
+    req.on('error', reject);
+    if (payload) req.write(payload);
+    req.end();
+  });
+}
+async function testWhopConnection(account) {
+  if (!account || !account.api_key) throw new Error('Missing Whop API key');
+  if (!account.company_id) throw new Error('Company ID is required to test the connection');
+  // Whop docs recommend the first backend check by listing recent payments with company_id.
+  // This confirms the API key, company ID, and read permission are valid before adding payment flows.
+  const companyId = String(account.company_id).trim();
+  const result = await whopApiRequest(account.api_key, 'GET', '/api/v1/payments?company_id=' + encodeURIComponent(companyId) + '&first=1');
+  if (!result || !result.data) throw new Error('Whop connected, but no response data was returned');
+  return { success: true, message: 'Connection verified: API key, Company ID, and payment read permission work' };
+}
+
+app.get('/api/whop-accounts', async (req, res) => {
+  try { res.json(await whopAccounts.all()); }
+  catch (err) { res.status(500).json({ error: err.message }); }
+});
+app.post('/api/whop-accounts', async (req, res) => {
+  try {
+    const { name, api_key, company_id, app_id, webhook_secret } = req.body || {};
+    if (!name || !api_key) return res.status(400).json({ error: 'Account name and Whop API key required' });
+    const created = await whopAccounts.create({ name: String(name).trim(), api_key: String(api_key).trim(), company_id: company_id ? String(company_id).trim() : null, app_id: app_id ? String(app_id).trim() : null, webhook_secret: webhook_secret ? String(webhook_secret).trim() : null, status: 'pending' });
+    res.json({ success: true, id: created.id });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+app.patch('/api/whop-accounts/:id', async (req, res) => {
+  try {
+    const { name, api_key, company_id, app_id, webhook_secret } = req.body || {};
+    if (!name) return res.status(400).json({ error: 'Account name is required' });
+    await whopAccounts.update(req.params.id, { name: String(name).trim(), api_key, company_id, app_id, webhook_secret });
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+app.post('/api/whop-accounts/:id/test', async (req, res) => {
+  try {
+    const account = await whopAccounts.byId(req.params.id);
+    if (!account) return res.status(404).json({ error: 'Whop account not found' });
+    const result = await testWhopConnection(account);
+    await whopAccounts.updateTest(account.id, 'active', result.message);
+    res.json({ success: true, status: 'active', message: result.message });
+  } catch(err) {
+    try { await whopAccounts.updateTest(req.params.id, 'failed', err.message); } catch(_e) {}
+    res.status(400).json({ success: false, status: 'failed', error: err.message });
+  }
+});
+app.delete('/api/whop-accounts/:id', async (req, res) => {
+  try { await whopAccounts.delete(req.params.id); res.json({ success: true }); }
+  catch(err) { res.status(500).json({ error: err.message }); }
+});
 
 // ── Customers ─────────────────────────────────────────────────────────────────
 app.get('/api/customers', async (req, res) => { try { const list=await customers.all(); res.json(list.filter(c => rowWithinScope(req,c))); } catch(err) { res.status(500).json({ error: err.message }); } });

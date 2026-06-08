@@ -13,6 +13,20 @@ async function init() {
       is_default BOOLEAN DEFAULT false,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
+    CREATE TABLE IF NOT EXISTS whop_accounts (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      api_key TEXT NOT NULL,
+      company_id TEXT,
+      app_id TEXT,
+      webhook_secret TEXT,
+      status TEXT DEFAULT 'pending',
+      last_test_status TEXT,
+      last_test_message TEXT,
+      last_test_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
     CREATE TABLE IF NOT EXISTS customers (
       id SERIAL PRIMARY KEY,
       email TEXT NOT NULL,
@@ -148,6 +162,14 @@ async function init() {
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS retry_of_payment_id INT REFERENCES payments(id)',
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS was_failed BOOLEAN DEFAULT false',
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS recovered_at TIMESTAMPTZ',
+    'ALTER TABLE whop_accounts ADD COLUMN IF NOT EXISTS company_id TEXT',
+    'ALTER TABLE whop_accounts ADD COLUMN IF NOT EXISTS app_id TEXT',
+    'ALTER TABLE whop_accounts ADD COLUMN IF NOT EXISTS webhook_secret TEXT',
+    'ALTER TABLE whop_accounts ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending'',
+    'ALTER TABLE whop_accounts ADD COLUMN IF NOT EXISTS last_test_status TEXT',
+    'ALTER TABLE whop_accounts ADD COLUMN IF NOT EXISTS last_test_message TEXT',
+    'ALTER TABLE whop_accounts ADD COLUMN IF NOT EXISTS last_test_at TIMESTAMPTZ',
+    'ALTER TABLE whop_accounts ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()',
   ];
   for (const m of migrations) await pool.query(m).catch(() => {});
   const adminCount = await pool.query('SELECT COUNT(*) FROM admin_users');
@@ -198,6 +220,28 @@ const stripeAccounts = {
   create: async (data) => { const count = await pool.query('SELECT COUNT(*) FROM stripe_accounts'); const isDefault = parseInt(count.rows[0].count) === 0; const r = await pool.query('INSERT INTO stripe_accounts (name,secret_key,webhook_secret,is_default) VALUES ($1,$2,$3,$4) RETURNING id', [data.name, data.secret_key, data.webhook_secret || '', isDefault]); return r.rows[0]; },
   setDefault: async (id) => { await pool.query('UPDATE stripe_accounts SET is_default=false'); await pool.query('UPDATE stripe_accounts SET is_default=true WHERE id=$1', [id]); },
   delete: async (id) => { await pool.query('DELETE FROM stripe_accounts WHERE id=$1', [id]); },
+};
+const whopAccounts = {
+  all: async () => {
+    const r = await pool.query("SELECT id, name, company_id, app_id, webhook_secret, status, last_test_status, last_test_message, last_test_at, created_at, updated_at, CASE WHEN api_key IS NULL OR api_key='' THEN NULL ELSE LEFT(api_key,12)||'...' END AS key_preview FROM whop_accounts ORDER BY created_at DESC, id DESC");
+    return r.rows;
+  },
+  byId: async (id) => { const r = await pool.query('SELECT * FROM whop_accounts WHERE id=$1', [id]); return r.rows[0]; },
+  create: async (data) => {
+    const r = await pool.query('INSERT INTO whop_accounts (name, api_key, company_id, app_id, webhook_secret, status, updated_at) VALUES ($1,$2,$3,$4,$5,$6,NOW()) RETURNING id', [data.name, data.api_key, data.company_id || null, data.app_id || null, data.webhook_secret || null, data.status || 'pending']);
+    return r.rows[0];
+  },
+  update: async (id, data) => {
+    const fields = ['name=$1','company_id=$2','app_id=$3','webhook_secret=$4','updated_at=NOW()'];
+    const values = [data.name, data.company_id || null, data.app_id || null, data.webhook_secret || null];
+    if (data.api_key && String(data.api_key).trim()) { fields.splice(1, 0, 'api_key=$5'); values.push(String(data.api_key).trim()); values.push(id); }
+    else { values.push(id); }
+    await pool.query('UPDATE whop_accounts SET '+fields.join(', ')+' WHERE id=$'+values.length, values);
+  },
+  updateTest: async (id, status, message) => {
+    await pool.query('UPDATE whop_accounts SET status=$1, last_test_status=$1, last_test_message=$2, last_test_at=NOW(), updated_at=NOW() WHERE id=$3', [status, message || null, id]);
+  },
+  delete: async (id) => { await pool.query('DELETE FROM whop_accounts WHERE id=$1', [id]); },
 };
 const customers = {
   all: async () => { const r = await pool.query(`
@@ -463,4 +507,4 @@ const adminUsers = {
   disable2FA: async (id) => { await pool.query('UPDATE admin_users SET two_fa_enabled=false, two_fa_secret=NULL, two_fa_secret_pending=NULL WHERE id=$1', [id]); },
   verify: async (username, password) => { const crypto = require('crypto'); const hash = crypto.createHash('sha256').update(password).digest('hex'); const r = await pool.query('SELECT * FROM admin_users WHERE LOWER(username)=LOWER($1) AND password_hash=$2', [username, hash]); return r.rows[0] || null; },
 };
-module.exports = { init, pool, settingsDb, stripeAccounts, customers, subscriptions, payments, activityLog, webhookLogs, security, adminUsers };
+module.exports = { init, pool, settingsDb, stripeAccounts, whopAccounts, customers, subscriptions, payments, activityLog, webhookLogs, security, adminUsers };
