@@ -165,7 +165,7 @@ async function init() {
     'ALTER TABLE whop_accounts ADD COLUMN IF NOT EXISTS company_id TEXT',
     'ALTER TABLE whop_accounts ADD COLUMN IF NOT EXISTS app_id TEXT',
     'ALTER TABLE whop_accounts ADD COLUMN IF NOT EXISTS webhook_secret TEXT',
-    'ALTER TABLE whop_accounts ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending'',
+    "ALTER TABLE whop_accounts ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending'",
     'ALTER TABLE whop_accounts ADD COLUMN IF NOT EXISTS last_test_status TEXT',
     'ALTER TABLE whop_accounts ADD COLUMN IF NOT EXISTS last_test_message TEXT',
     'ALTER TABLE whop_accounts ADD COLUMN IF NOT EXISTS last_test_at TIMESTAMPTZ',
