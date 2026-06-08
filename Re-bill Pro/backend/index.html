@@ -78,7 +78,10 @@ html.light .toggle-thumb{background:#fff;left:18px}
 .whop-placeholder-value{font-size:20px;font-weight:700;margin-top:5px}
 .whop-empty{padding:28px 18px;color:var(--muted);font-size:13px;font-family:var(--mono);text-align:center}
 
-.main{margin-left:220px;flex:1;padding:24px 28px;min-height:100vh}
+.main{margin-left:220px;flex:none;width:calc(100vw - 220px);max-width:calc(100vw - 220px);padding:24px 28px;min-height:100vh;overflow-x:hidden}
+html,body{overflow-x:hidden}
+.app-screen{position:relative;overflow-x:hidden}
+.page.active{width:100%;max-width:100%;margin-left:0;margin-right:0}
 .page{display:none}.page.active{display:block}
 .page-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap}
 .page-header h2{font-size:19px;font-weight:600;letter-spacing:-0.3px}
