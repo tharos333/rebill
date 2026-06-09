@@ -81,7 +81,7 @@ function sectionForApiPath(req) {
   if (path.startsWith('/payments')) return 'payments';
   if (path.startsWith('/payment-link-accounts') || path.startsWith('/payment-links') || path.startsWith('/plan-templates')) return 'links';
   if (path.startsWith('/stripe-accounts')) return 'accounts';
-  if (path.startsWith('/whop-accounts') || path.startsWith('/whop-webhook-events') || path.startsWith('/whop-saved-cards')) return 'accounts';
+  if (path.startsWith('/whop-accounts') || path.startsWith('/whop-payments') || path.startsWith('/whop-webhook-events') || path.startsWith('/whop-saved-cards')) return 'accounts';
   if (path.startsWith('/forecast')) return 'forecast';
   if (path.startsWith('/daily-summary')) return 'summary';
   if (path.startsWith('/mrr-history')) return 'mrr';
@@ -709,6 +709,19 @@ function getNested(obj, paths) {
   }
   return null;
 }
+function normalizeWhopAmountForStorage(value) {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value === 'string') {
+    const cleaned = value.replace(/[^0-9.-]/g, '');
+    if (!cleaned) return null;
+    value = cleaned;
+  }
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  // Whop payment webhook/API amounts are normally minor units. If a decimal slips in, store it as cents.
+  return Number.isInteger(n) ? n : Math.round(n * 100);
+}
+
 function extractWhopEventInfo(event) {
   const data = event && (event.data || event.resource || event.object || event.payload || {});
   const obj = data && (data.object || data.payment || data.setup_intent || data.refund || data);
@@ -723,12 +736,12 @@ function extractWhopEventInfo(event) {
     'payment_method_data.id','card.payment_method_id','saved_payment_method_id'
   ]);
   const memberId = getNested(obj, ['member_id','member.id','user_id','customer_id','customer.id']);
-  const amount = getNested(obj, ['amount','total','amount_cents','final_amount']);
-  const currency = getNested(obj, ['currency','currency_code']);
-  const email = getNested(obj, ['email','customer.email','member.email','user.email']);
-  const name = getNested(obj, ['name','customer.name','member.name','user.name']);
-  const cardBrand = getNested(obj, ['card.brand','payment_method.card.brand','brand']);
-  const cardLast4 = getNested(obj, ['card.last4','payment_method.card.last4','last4']);
+  const amount = getNested(obj, ['amount','total','subtotal','amount_cents','final_amount','amount_after_fees','amount_paid','price']);
+  const currency = getNested(obj, ['currency','currency_code']) || getNested(event, ['currency','data.currency','data.currency_code']);
+  const email = getNested(obj, ['email','customer.email','member.email','user.email','user.email_address']) || getNested(event, ['email','data.email','data.customer.email','data.member.email','data.user.email']);
+  const name = getNested(obj, ['name','customer.name','member.name','user.name','username']) || getNested(event, ['name','data.name','data.customer.name','data.member.name','data.user.name']);
+  const cardBrand = getNested(obj, ['card.brand','payment_method.card.brand','payment_method.brand','card_brand','brand','billing.card.brand']);
+  const cardLast4 = getNested(obj, ['card.last4','payment_method.card.last4','payment_method.last4','card_last4','last4','billing.card.last4']);
   const cardExpMonth = getNested(obj, ['card.exp_month','payment_method.card.exp_month','exp_month']);
   const cardExpYear = getNested(obj, ['card.exp_year','payment_method.card.exp_year','exp_year']);
   return { data, obj, eventType, normalized, companyId, objectId, paymentId, setupIntentId, paymentMethodId, memberId, amount, currency, email, name, cardBrand, cardLast4, cardExpMonth, cardExpYear };
@@ -797,7 +810,7 @@ function verifyWhopSignature(rawBody, headers, secret) {
 }
 
 
-app.post('/api/whop/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+async function handleWhopWebhook(req, res) {
   const rawBody = req.body;
   let event = null;
   let info = null;
@@ -807,7 +820,6 @@ app.post('/api/whop/webhook', express.raw({ type: 'application/json' }), async (
     catch (_e) { return res.status(400).json({ error: 'Invalid JSON payload' }); }
     info = extractWhopEventInfo(event);
 
-    const accounts = await whopAccounts.all();
     const fullAccounts = await pool.query('SELECT * FROM whop_accounts ORDER BY created_at DESC, id DESC');
     const candidates = fullAccounts.rows.filter(a => !info.companyId || !a.company_id || String(a.company_id) === String(info.companyId));
     for (const acc of (candidates.length ? candidates : fullAccounts.rows)) {
@@ -819,6 +831,7 @@ app.post('/api/whop/webhook', express.raw({ type: 'application/json' }), async (
     if (!account && info.companyId) {
       account = fullAccounts.rows.find(a => String(a.company_id) === String(info.companyId)) || null;
     }
+    if (!account && fullAccounts.rows.length === 1) account = fullAccounts.rows[0];
 
     const hasAnySecret = fullAccounts.rows.some(a => !!a.webhook_secret);
     let whopSignatureVerified = false;
@@ -826,13 +839,13 @@ app.post('/api/whop/webhook', express.raw({ type: 'application/json' }), async (
       whopSignatureVerified = verifyWhopSignature(rawBody, req.headers, account.webhook_secret);
     }
     if (hasAnySecret && !whopSignatureVerified) {
-      console.warn('[whop-webhook] signature did not verify, accepting matched company webhook in tolerant mode:', info.normalized, 'company:', info.companyId || '-');
+      console.warn('[whop-webhook] signature did not verify, accepting in tolerant mode:', info.normalized, 'company:', info.companyId || '-');
       await webhookLogs.add({ event_type: 'whop_signature_unverified', account_name: account?.name || null, status: 'ok', error: 'Accepted in tolerant mode while signature format is adjusted' }).catch(()=>{});
     }
 
     await whopWebhookEvents.add({
       whop_account_id: account?.id || null,
-      webhook_id: req.headers['webhook-id'] || req.headers['svix-id'] || null,
+      webhook_id: req.headers['webhook-id'] || req.headers['svix-id'] || event.id || null,
       event_id: event.id || event.event_id || null,
       event_type: info.eventType,
       normalized_event_type: info.normalized,
@@ -842,7 +855,7 @@ app.post('/api/whop/webhook', express.raw({ type: 'application/json' }), async (
       payment_id: info.paymentId || null,
       setup_intent_id: info.setupIntentId || null,
       payment_method_id: info.paymentMethodId || null,
-      amount: Number.isFinite(Number(info.amount)) ? Number(info.amount) : null,
+      amount: normalizeWhopAmountForStorage(info.amount),
       currency: info.currency || null,
       status: whopSignatureVerified ? 'received' : 'signature_unverified',
       raw_payload: event
@@ -881,12 +894,14 @@ app.post('/api/whop/webhook', express.raw({ type: 'application/json' }), async (
     return res.json({ received: true });
   } catch (err) {
     console.error('[whop-webhook] fatal error:', err.message, err.stack);
-    try {
-      await webhookLogs.add({ event_type: 'whop_webhook_error', account_name: account?.name || null, status: 'failed', error: err.message });
-    } catch(_e) {}
+    try { await webhookLogs.add({ event_type: 'whop_webhook_error', account_name: account?.name || null, status: 'failed', error: err.message }); } catch(_e) {}
     return res.status(500).json({ error: err.message });
   }
-});
+}
+
+// Whop webhooks must be registered with the full /api/whop/webhook URL.
+// The root POST fallback is kept because the current dashboard screenshot shows the webhook was accidentally created as the bare Railway domain.
+app.post(['/api/whop/webhook', '/api/whop/webhooks', '/whop/webhook', '/webhooks/whop', '/'], express.raw({ type: 'application/json' }), handleWhopWebhook);
 
 
 app.use(express.json());
@@ -1322,6 +1337,73 @@ app.get('/api/whop-webhook-events', async (req, res) => {
   try { res.json(await whopWebhookEvents.recent(100)); }
   catch (err) { res.status(500).json({ error: err.message }); }
 });
+
+function unwrapWhopList(payload) {
+  if (!payload) return [];
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload.data)) return payload.data;
+  if (payload.data && Array.isArray(payload.data.data)) return payload.data.data;
+  if (payload.data && Array.isArray(payload.data.items)) return payload.data.items;
+  if (payload.data && Array.isArray(payload.data.nodes)) return payload.data.nodes;
+  if (Array.isArray(payload.items)) return payload.items;
+  if (Array.isArray(payload.nodes)) return payload.nodes;
+  return [];
+}
+function mapWhopApiPayment(payment, account) {
+  const eventLike = { type: payment?.status ? 'payment.' + String(payment.status).replace(/^succeed(ed)?$/,'succeeded') : 'payment.created', data: payment };
+  const info = extractWhopEventInfo(eventLike);
+  const rawStatus = String(payment?.status || payment?.state || '').toLowerCase();
+  const normalized = rawStatus.includes('succeed') || rawStatus === 'paid' ? 'payment_succeeded' : rawStatus.includes('fail') ? 'payment_failed' : rawStatus.includes('pending') || rawStatus.includes('process') ? 'payment_pending' : 'payment_created';
+  return {
+    source: 'api',
+    account_name: account?.name || null,
+    normalized_event_type: normalized,
+    event_type: normalized.replace(/_/g,'.'),
+    company_id: info.companyId || account?.company_id || null,
+    member_id: info.memberId || getNested(payment, ['member.id','user.id','user_id','customer.id','customer_id']) || null,
+    payment_id: info.paymentId || payment?.id || null,
+    object_id: info.objectId || payment?.id || null,
+    amount: normalizeWhopAmountForStorage(info.amount),
+    currency: info.currency || null,
+    status: rawStatus || 'received',
+    customer_email: info.email || null,
+    customer_name: info.name || null,
+    card_brand: info.cardBrand || null,
+    card_last4: info.cardLast4 || null,
+    created_at: payment?.created_at || payment?.createdAt || payment?.paid_at || payment?.paidAt || payment?.updated_at || new Date().toISOString()
+  };
+}
+
+app.get('/api/whop-payments', async (req, res) => {
+  try {
+    const rows = await whopWebhookEvents.recent(100);
+    const webhookRows = rows
+      .filter(e => String(e.normalized_event_type || e.event_type || '').replace(/\./g,'_').startsWith('payment_'))
+      .map(e => ({ ...e, source: 'webhook' }));
+
+    const accounts = await pool.query('SELECT * FROM whop_accounts WHERE api_key IS NOT NULL AND api_key <> \'\' ORDER BY created_at DESC, id DESC');
+    const apiRows = [];
+    for (const account of accounts.rows) {
+      if (!account.company_id) continue;
+      try {
+        const result = await whopApiRequest(account.api_key, 'GET', '/api/v1/payments?company_id=' + encodeURIComponent(account.company_id) + '&first=25');
+        for (const payment of unwrapWhopList(result.data)) apiRows.push(mapWhopApiPayment(payment, account));
+      } catch (err) {
+        await webhookLogs.add({ event_type: 'whop_api_payments_fetch_failed', account_name: account.name, status: 'failed', error: err.message }).catch(()=>{});
+      }
+    }
+
+    const seen = new Set();
+    const merged = [...webhookRows, ...apiRows].filter(row => {
+      const key = row.payment_id || row.object_id || row.event_id || JSON.stringify([row.normalized_event_type,row.amount,row.currency,row.created_at,row.member_id]);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).sort((a,b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    res.json(merged.slice(0, 100));
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.get('/api/whop-saved-cards', async (req, res) => {
   try { res.json(await whopSavedCards.recent(100)); }
   catch (err) { res.status(500).json({ error: err.message }); }
