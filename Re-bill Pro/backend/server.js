@@ -863,16 +863,20 @@ async function handleWhopWebhook(req, res) {
 
     await webhookLogs.add({ event_type: 'whop_' + info.normalized, account_name: account?.name || null, status: 'ok' }).catch(()=>{});
 
-    if (info.normalized === 'setup_intent_succeeded') {
+    // Save cards from the dedicated setup intent event AND from payment events when Whop includes card/payment-method data.
+    // This makes the Saved Cards page visible immediately after a successful checkout, even if the setup_intent event arrives later or was not enabled.
+    const looksLikeSavedCardEvent = info.normalized === 'setup_intent_succeeded';
+    const paymentHasCardData = info.normalized === 'payment_succeeded' && (info.paymentMethodId || info.cardLast4 || info.cardBrand);
+    if (looksLikeSavedCardEvent || paymentHasCardData) {
       await whopSavedCards.upsert({
         whop_account_id: account?.id || null,
         company_id: info.companyId || account?.company_id || null,
         member_id: info.memberId || null,
         customer_email: info.email || null,
         customer_name: info.name || null,
-        payment_method_id: info.paymentMethodId || info.objectId || null,
-        setup_intent_id: info.setupIntentId || info.objectId || null,
-        status: 'active',
+        payment_method_id: info.paymentMethodId || (info.cardLast4 ? ('card_' + String(info.cardLast4)) : null) || info.paymentId || info.objectId || null,
+        setup_intent_id: info.setupIntentId || (looksLikeSavedCardEvent ? info.objectId : null),
+        status: looksLikeSavedCardEvent ? 'active' : 'card_detected',
         card_brand: info.cardBrand || null,
         card_last4: info.cardLast4 || null,
         card_exp_month: info.cardExpMonth ? Number(info.cardExpMonth) : null,
@@ -1374,6 +1378,74 @@ function mapWhopApiPayment(payment, account) {
   };
 }
 
+function mapWhopApiPaymentToSavedCard(payment, account) {
+  const eventLike = { type: 'payment.succeeded', data: payment };
+  const info = extractWhopEventInfo(eventLike);
+  const rawStatus = String(payment?.status || payment?.state || '').toLowerCase();
+  const isSuccessful = rawStatus.includes('succeed') || rawStatus === 'paid' || rawStatus === 'success' || rawStatus === 'completed';
+  if (!isSuccessful) return null;
+  const memberId = info.memberId || getNested(payment, ['member.id','user.id','user_id','customer.id','customer_id']) || null;
+  const email = info.email || getNested(payment, ['email','user.email','customer.email','member.email']) || null;
+  const cardBrand = info.cardBrand || getNested(payment, ['card.brand','payment_method.card.brand','payment_method.brand','paymentMethod.card.brand','payment_method_type']) || null;
+  const cardLast4 = info.cardLast4 || getNested(payment, ['card.last4','payment_method.card.last4','payment_method.last4','paymentMethod.card.last4']) || null;
+  const paymentMethodId = info.paymentMethodId || getNested(payment, ['payment_method_id','payment_method.id','paymentMethod.id','saved_payment_method_id']) || null;
+  if (!paymentMethodId && !cardLast4 && !cardBrand && !memberId && !email) return null;
+  return {
+    source: 'api_payment',
+    account_name: account?.name || null,
+    whop_account_id: account?.id || null,
+    company_id: info.companyId || account?.company_id || null,
+    member_id: memberId,
+    customer_email: email,
+    customer_name: info.name || getNested(payment, ['name','user.name','customer.name','member.name','username']) || null,
+    payment_method_id: paymentMethodId || (cardLast4 ? ('card_' + String(cardLast4)) : null) || info.paymentId || payment?.id || null,
+    setup_intent_id: info.setupIntentId || null,
+    status: paymentMethodId ? 'active' : 'card_detected',
+    card_brand: cardBrand,
+    card_last4: cardLast4,
+    card_exp_month: info.cardExpMonth ? Number(info.cardExpMonth) : null,
+    card_exp_year: info.cardExpYear ? Number(info.cardExpYear) : null,
+    updated_at: payment?.updated_at || payment?.updatedAt || payment?.paid_at || payment?.paidAt || payment?.created_at || payment?.createdAt || new Date().toISOString()
+  };
+}
+function mapWhopWebhookPaymentToSavedCard(eventRow) {
+  const payload = eventRow?.raw_payload || {};
+  const info = extractWhopEventInfo(payload);
+  const normalized = String(eventRow?.normalized_event_type || eventRow?.event_type || '').replace(/\./g,'_');
+  if (normalized !== 'payment_succeeded') return null;
+  const memberId = eventRow.member_id || info.memberId || null;
+  const cardBrand = info.cardBrand || null;
+  const cardLast4 = info.cardLast4 || null;
+  const paymentMethodId = eventRow.payment_method_id || info.paymentMethodId || null;
+  if (!paymentMethodId && !cardLast4 && !cardBrand && !memberId && !info.email) return null;
+  return {
+    source: 'webhook_payment',
+    account_name: eventRow.account_name || null,
+    whop_account_id: eventRow.whop_account_id || null,
+    company_id: eventRow.company_id || info.companyId || null,
+    member_id: memberId,
+    customer_email: info.email || null,
+    customer_name: info.name || null,
+    payment_method_id: paymentMethodId || (cardLast4 ? ('card_' + String(cardLast4)) : null) || eventRow.payment_id || eventRow.object_id || null,
+    setup_intent_id: eventRow.setup_intent_id || info.setupIntentId || null,
+    status: paymentMethodId ? 'active' : 'card_detected',
+    card_brand: cardBrand,
+    card_last4: cardLast4,
+    card_exp_month: info.cardExpMonth ? Number(info.cardExpMonth) : null,
+    card_exp_year: info.cardExpYear ? Number(info.cardExpYear) : null,
+    updated_at: eventRow.created_at || new Date().toISOString()
+  };
+}
+function dedupeWhopSavedCards(rows) {
+  const seen = new Set();
+  return rows.filter(row => {
+    const key = row.payment_method_id || JSON.stringify([row.whop_account_id,row.company_id,row.member_id,row.customer_email,row.card_brand,row.card_last4]);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).sort((a,b) => new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0));
+}
+
 app.get('/api/whop-payments', async (req, res) => {
   try {
     const rows = await whopWebhookEvents.recent(100);
@@ -1405,7 +1477,28 @@ app.get('/api/whop-payments', async (req, res) => {
 });
 
 app.get('/api/whop-saved-cards', async (req, res) => {
-  try { res.json(await whopSavedCards.recent(100)); }
+  try {
+    const dbCards = await whopSavedCards.recent(100);
+    const webhookRows = await whopWebhookEvents.recent(100);
+    const webhookCards = webhookRows.map(mapWhopWebhookPaymentToSavedCard).filter(Boolean);
+
+    const accounts = await pool.query('SELECT * FROM whop_accounts WHERE api_key IS NOT NULL AND api_key <> \'\' ORDER BY created_at DESC, id DESC');
+    const apiCards = [];
+    for (const account of accounts.rows) {
+      if (!account.company_id) continue;
+      try {
+        const result = await whopApiRequest(account.api_key, 'GET', '/api/v1/payments?company_id=' + encodeURIComponent(account.company_id) + '&first=50');
+        for (const payment of unwrapWhopList(result.data)) {
+          const card = mapWhopApiPaymentToSavedCard(payment, account);
+          if (card) apiCards.push(card);
+        }
+      } catch (err) {
+        await webhookLogs.add({ event_type: 'whop_api_saved_cards_fetch_failed', account_name: account.name, status: 'failed', error: err.message }).catch(()=>{});
+      }
+    }
+
+    res.json(dedupeWhopSavedCards([...dbCards, ...webhookCards, ...apiCards]).slice(0, 100));
+  }
   catch (err) { res.status(500).json({ error: err.message }); }
 });
 

@@ -8861,12 +8861,17 @@ async function loadWhopSavedCards(){
     const cards=await api('/api/whop-saved-cards');
     if(!cards.length){body.innerHTML='<tr><td colspan="6" class="empty">No saved cards yet</td></tr>';return;}
     body.innerHTML=cards.map(c=>{
-      const pm=c.payment_method_id?whopSafe(c.payment_method_id):'—';
+      const cardBits=[];
+      if(c.card_brand)cardBits.push(whopSafe(String(c.card_brand).toUpperCase()));
+      if(c.card_last4)cardBits.push('•• '+whopSafe(c.card_last4));
+      let pm=cardBits.length?cardBits.join(' '):(c.payment_method_id?whopSafe(c.payment_method_id):'—');
+      if(c.payment_method_id&&pm!=='—')pm+='<div class="mono" style="font-size:11px;color:var(--muted);margin-top:3px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+whopSafe(c.payment_method_id)+'</div>';
       const member=c.member_id?whopSafe(c.member_id):'—';
       const email=c.customer_email?whopSafe(c.customer_email):'—';
       const status=c.status||'active';
+      const badge=status==='active'?'badge-green':'badge-blue';
       const updated=c.updated_at?new Date(c.updated_at).toLocaleString():'—';
-      return '<tr><td>'+whopSafe(c.account_name||'—')+'</td><td>'+member+'</td><td>'+email+'</td><td>'+pm+'</td><td><span class="badge badge-green">'+whopSafe(status)+'</span></td><td>'+updated+'</td></tr>';
+      return '<tr><td>'+whopSafe(c.account_name||'—')+'</td><td>'+member+'</td><td>'+email+'</td><td>'+pm+'</td><td><span class="badge '+badge+'">'+whopSafe(status)+'</span></td><td>'+updated+'</td></tr>';
     }).join('');
   }catch(err){
     body.innerHTML='<tr><td colspan="6" class="empty">Could not load saved cards</td></tr>';
