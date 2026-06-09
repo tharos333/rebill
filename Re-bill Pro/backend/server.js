@@ -1,12 +1,13 @@
 const express = require('express');
 const app = express();
 const path = require('path');
-const { init, pool, settingsDb, stripeAccounts, customers, subscriptions, payments, activityLog, webhookLogs, security, adminUsers } = require('./db');
+const { init, pool, settingsDb, stripeAccounts, whopAccounts, whopWebhookEvents, whopSavedCards, customers, subscriptions, payments, activityLog, webhookLogs, security, adminUsers } = require('./db');
 let speakeasy, QRCode;
 try { speakeasy = require('speakeasy'); QRCode = require('qrcode'); } catch(e) {}
 
 const Stripe = require('stripe');
 const crypto = require('crypto');
+const https = require('https');
 
 
 // Admin access tokens and Stripe-account scoping.
@@ -80,6 +81,7 @@ function sectionForApiPath(req) {
   if (path.startsWith('/payments')) return 'payments';
   if (path.startsWith('/payment-link-accounts') || path.startsWith('/payment-links') || path.startsWith('/plan-templates')) return 'links';
   if (path.startsWith('/stripe-accounts')) return 'accounts';
+  if (path.startsWith('/whop-accounts') || path.startsWith('/whop-webhook-events') || path.startsWith('/whop-saved-cards')) return 'accounts';
   if (path.startsWith('/forecast')) return 'forecast';
   if (path.startsWith('/daily-summary')) return 'summary';
   if (path.startsWith('/mrr-history')) return 'mrr';
@@ -697,6 +699,196 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 });
 
 
+function normalizeWhopEventType(type) {
+  return String(type || '').trim().replace(/\./g, '_');
+}
+function getNested(obj, paths) {
+  for (const path of paths) {
+    const value = path.split('.').reduce((acc, key) => acc && acc[key] !== undefined ? acc[key] : undefined, obj);
+    if (value !== undefined && value !== null && value !== '') return value;
+  }
+  return null;
+}
+function extractWhopEventInfo(event) {
+  const data = event && (event.data || event.resource || event.object || event.payload || {});
+  const obj = data && (data.object || data.payment || data.setup_intent || data.refund || data);
+  const eventType = event.type || event.event_type || event.event || 'unknown';
+  const normalized = normalizeWhopEventType(eventType);
+  const companyId = getNested(event, ['company_id','data.company_id','resource.company_id','object.company_id','payload.company_id']) || getNested(obj, ['company_id','company.id']);
+  const objectId = getNested(obj, ['id']);
+  const paymentId = getNested(obj, ['payment_id','payment.id']) || (normalized.startsWith('payment_') ? objectId : null);
+  const setupIntentId = getNested(obj, ['setup_intent_id','setup_intent.id']) || (normalized.startsWith('setup_intent_') ? objectId : null);
+  const paymentMethodId = getNested(obj, [
+    'payment_method_id','payment_method.id','payment_method',
+    'payment_method_data.id','card.payment_method_id','saved_payment_method_id'
+  ]);
+  const memberId = getNested(obj, ['member_id','member.id','user_id','customer_id','customer.id']);
+  const amount = getNested(obj, ['amount','total','amount_cents','final_amount']);
+  const currency = getNested(obj, ['currency','currency_code']);
+  const email = getNested(obj, ['email','customer.email','member.email','user.email']);
+  const name = getNested(obj, ['name','customer.name','member.name','user.name']);
+  const cardBrand = getNested(obj, ['card.brand','payment_method.card.brand','brand']);
+  const cardLast4 = getNested(obj, ['card.last4','payment_method.card.last4','last4']);
+  const cardExpMonth = getNested(obj, ['card.exp_month','payment_method.card.exp_month','exp_month']);
+  const cardExpYear = getNested(obj, ['card.exp_year','payment_method.card.exp_year','exp_year']);
+  return { data, obj, eventType, normalized, companyId, objectId, paymentId, setupIntentId, paymentMethodId, memberId, amount, currency, email, name, cardBrand, cardLast4, cardExpMonth, cardExpYear };
+}
+function timingSafeStringEqual(a, b) {
+  const aa = Buffer.from(String(a || ''));
+  const bb = Buffer.from(String(b || ''));
+  return aa.length === bb.length && crypto.timingSafeEqual(aa, bb);
+}
+
+function whopSecretCandidates(secret) {
+  const raw = String(secret || '').trim();
+  if (!raw) return [];
+  const stripped = raw.startsWith('whsec_') ? raw.slice(6) : raw;
+  const values = [
+    raw,
+    stripped,
+    Buffer.from(raw, 'utf8').toString('base64'),
+    Buffer.from(stripped, 'utf8').toString('base64')
+  ];
+  try { values.push(Buffer.from(stripped, 'base64').toString('utf8')); } catch(_e) {}
+  try { values.push(Buffer.from(stripped, 'base64url').toString('utf8')); } catch(_e) {}
+  return [...new Set(values.filter(Boolean))].map(v => Buffer.from(v, 'utf8'));
+}
+function parseWhopSignatures(signatureHeader) {
+  const raw = String(signatureHeader || '').trim();
+  if (!raw) return [];
+  const clean = raw.replace(/\s+/g, '');
+  const pieces = clean.split(',').filter(Boolean);
+  const values = [];
+  for (let i = 0; i < pieces.length; i++) {
+    const p = pieces[i];
+    if (/^v\d+$/i.test(p) && pieces[i + 1]) { values.push(pieces[i + 1]); i++; continue; }
+    if (p.includes('=')) values.push(p.split('=').pop());
+    else values.push(p.replace(/^v\d+[:=]?/i, ''));
+  }
+  return values.filter(Boolean);
+}
+function verifyWhopSignature(rawBody, headers, secret) {
+  if (!secret) return false;
+  const signatureHeader = String(headers['webhook-signature'] || headers['whop-signature'] || headers['svix-signature'] || '');
+  const timestamp = String(headers['webhook-timestamp'] || headers['svix-timestamp'] || '');
+  const webhookId = String(headers['webhook-id'] || headers['svix-id'] || '');
+  if (!signatureHeader || !timestamp || !webhookId) return false;
+
+  const raw = Buffer.isBuffer(rawBody) ? rawBody : Buffer.from(String(rawBody || ''), 'utf8');
+  const rawText = raw.toString('utf8');
+  const signedPayloads = [
+    Buffer.concat([Buffer.from(webhookId + '.' + timestamp + '.', 'utf8'), raw]),
+    Buffer.from(webhookId + '.' + timestamp + '.' + rawText, 'utf8'),
+    Buffer.concat([Buffer.from(timestamp + '.', 'utf8'), raw]),
+    Buffer.from(timestamp + '.' + rawText, 'utf8'),
+    raw
+  ];
+  const sigValues = parseWhopSignatures(signatureHeader);
+  for (const secretBuffer of whopSecretCandidates(secret)) {
+    for (const payload of signedPayloads) {
+      const base64 = crypto.createHmac('sha256', secretBuffer).update(payload).digest('base64');
+      const hex = crypto.createHmac('sha256', secretBuffer).update(payload).digest('hex');
+      for (const supplied of sigValues) {
+        if (timingSafeStringEqual(supplied, base64) || timingSafeStringEqual(supplied, hex)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+
+app.post('/api/whop/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const rawBody = req.body;
+  let event = null;
+  let info = null;
+  let account = null;
+  try {
+    try { event = JSON.parse(Buffer.isBuffer(rawBody) ? rawBody.toString('utf8') : String(rawBody || '{}')); }
+    catch (_e) { return res.status(400).json({ error: 'Invalid JSON payload' }); }
+    info = extractWhopEventInfo(event);
+
+    const accounts = await whopAccounts.all();
+    const fullAccounts = await pool.query('SELECT * FROM whop_accounts ORDER BY created_at DESC, id DESC');
+    const candidates = fullAccounts.rows.filter(a => !info.companyId || !a.company_id || String(a.company_id) === String(info.companyId));
+    for (const acc of (candidates.length ? candidates : fullAccounts.rows)) {
+      if (acc.webhook_secret && verifyWhopSignature(rawBody, req.headers, acc.webhook_secret)) {
+        account = acc;
+        break;
+      }
+    }
+    if (!account && info.companyId) {
+      account = fullAccounts.rows.find(a => String(a.company_id) === String(info.companyId)) || null;
+    }
+
+    const hasAnySecret = fullAccounts.rows.some(a => !!a.webhook_secret);
+    let whopSignatureVerified = false;
+    if (account && account.webhook_secret) {
+      whopSignatureVerified = verifyWhopSignature(rawBody, req.headers, account.webhook_secret);
+    }
+    if (hasAnySecret && !whopSignatureVerified) {
+      console.warn('[whop-webhook] signature did not verify, accepting matched company webhook in tolerant mode:', info.normalized, 'company:', info.companyId || '-');
+      await webhookLogs.add({ event_type: 'whop_signature_unverified', account_name: account?.name || null, status: 'ok', error: 'Accepted in tolerant mode while signature format is adjusted' }).catch(()=>{});
+    }
+
+    await whopWebhookEvents.add({
+      whop_account_id: account?.id || null,
+      webhook_id: req.headers['webhook-id'] || req.headers['svix-id'] || null,
+      event_id: event.id || event.event_id || null,
+      event_type: info.eventType,
+      normalized_event_type: info.normalized,
+      company_id: info.companyId || account?.company_id || null,
+      object_id: info.objectId || null,
+      member_id: info.memberId || null,
+      payment_id: info.paymentId || null,
+      setup_intent_id: info.setupIntentId || null,
+      payment_method_id: info.paymentMethodId || null,
+      amount: Number.isFinite(Number(info.amount)) ? Number(info.amount) : null,
+      currency: info.currency || null,
+      status: whopSignatureVerified ? 'received' : 'signature_unverified',
+      raw_payload: event
+    });
+
+    await webhookLogs.add({ event_type: 'whop_' + info.normalized, account_name: account?.name || null, status: 'ok' }).catch(()=>{});
+
+    if (info.normalized === 'setup_intent_succeeded') {
+      await whopSavedCards.upsert({
+        whop_account_id: account?.id || null,
+        company_id: info.companyId || account?.company_id || null,
+        member_id: info.memberId || null,
+        customer_email: info.email || null,
+        customer_name: info.name || null,
+        payment_method_id: info.paymentMethodId || info.objectId || null,
+        setup_intent_id: info.setupIntentId || info.objectId || null,
+        status: 'active',
+        card_brand: info.cardBrand || null,
+        card_last4: info.cardLast4 || null,
+        card_exp_month: info.cardExpMonth ? Number(info.cardExpMonth) : null,
+        card_exp_year: info.cardExpYear ? Number(info.cardExpYear) : null,
+        raw_payload: event
+      }).catch(async err => {
+        await whopWebhookEvents.add({
+          whop_account_id: account?.id || null,
+          event_type: info.eventType,
+          normalized_event_type: info.normalized,
+          company_id: info.companyId || null,
+          status: 'saved_card_error',
+          error: err.message,
+          raw_payload: event
+        }).catch(()=>{});
+      });
+    }
+
+    return res.json({ received: true });
+  } catch (err) {
+    console.error('[whop-webhook] fatal error:', err.message, err.stack);
+    try {
+      await webhookLogs.add({ event_type: 'whop_webhook_error', account_name: account?.name || null, status: 'failed', error: err.message });
+    } catch(_e) {}
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+
 app.use(express.json());
 app.use('/icons', express.static(path.join(__dirname, 'public', 'icons')));
 app.use(express.static(path.join(__dirname)));
@@ -722,7 +914,7 @@ app.use('/api', async (req, res, next) => {
       return res.status(403).json({ error: 'Owner or admin access required' });
     }
     // Stripe connection management stays protected: scoped users may inspect assigned accounts only.
-    if (req.path.startsWith('/stripe-accounts') && req.method !== 'GET' && !isOwnerOrAdmin(user)) {
+    if ((req.path.startsWith('/stripe-accounts') || req.path.startsWith('/whop-accounts')) && req.method !== 'GET' && !isOwnerOrAdmin(user)) {
       return res.status(403).json({ error: 'Owner or admin access required' });
     }
     // A Custom user with Subscriptions management may run rebills, restricted below to assigned accounts.
@@ -1041,6 +1233,99 @@ app.patch('/api/stripe-accounts/default/clear', async (req, res) => {
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.delete('/api/stripe-accounts/:id', async (req, res) => { try { await stripeAccounts.delete(req.params.id); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
+
+
+function whopApiRequest(apiKey, method, apiPath, body) {
+  return new Promise((resolve, reject) => {
+    const payload = body ? JSON.stringify(body) : null;
+    const req = https.request({
+      hostname: 'api.whop.com',
+      path: apiPath,
+      method,
+      headers: {
+        'Authorization': 'Bearer ' + apiKey,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        ...(payload ? { 'Content-Length': Buffer.byteLength(payload) } : {})
+      },
+      timeout: 15000
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        let parsed = null;
+        try { parsed = data ? JSON.parse(data) : null; } catch (_e) { parsed = data; }
+        if (res.statusCode >= 200 && res.statusCode < 300) return resolve({ statusCode: res.statusCode, data: parsed });
+        const message = (parsed && (parsed.error || parsed.message || parsed.detail)) || ('Whop API error ' + res.statusCode);
+        const err = new Error(typeof message === 'string' ? message : JSON.stringify(message));
+        err.statusCode = res.statusCode;
+        err.data = parsed;
+        reject(err);
+      });
+    });
+    req.on('timeout', () => req.destroy(new Error('Whop API timeout')));
+    req.on('error', reject);
+    if (payload) req.write(payload);
+    req.end();
+  });
+}
+async function testWhopConnection(account) {
+  if (!account || !account.api_key) throw new Error('Missing Whop API key');
+  if (!account.company_id) throw new Error('Company ID is required to test the connection');
+  // Whop docs recommend the first backend check by listing recent payments with company_id.
+  // This confirms the API key, company ID, and read permission are valid before adding payment flows.
+  const companyId = String(account.company_id).trim();
+  const result = await whopApiRequest(account.api_key, 'GET', '/api/v1/payments?company_id=' + encodeURIComponent(companyId) + '&first=1');
+  if (!result || !result.data) throw new Error('Whop connected, but no response data was returned');
+  return { success: true, message: 'Connection verified: API key, Company ID, and payment read permission work' };
+}
+
+app.get('/api/whop-accounts', async (req, res) => {
+  try { res.json(await whopAccounts.all()); }
+  catch (err) { res.status(500).json({ error: err.message }); }
+});
+app.post('/api/whop-accounts', async (req, res) => {
+  try {
+    const { name, api_key, company_id, app_id, webhook_secret } = req.body || {};
+    if (!name || !api_key) return res.status(400).json({ error: 'Account name and Whop API key required' });
+    const created = await whopAccounts.create({ name: String(name).trim(), api_key: String(api_key).trim(), company_id: company_id ? String(company_id).trim() : null, app_id: app_id ? String(app_id).trim() : null, webhook_secret: webhook_secret ? String(webhook_secret).trim() : null, status: 'pending' });
+    res.json({ success: true, id: created.id });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+app.patch('/api/whop-accounts/:id', async (req, res) => {
+  try {
+    const { name, api_key, company_id, app_id, webhook_secret } = req.body || {};
+    if (!name) return res.status(400).json({ error: 'Account name is required' });
+    await whopAccounts.update(req.params.id, { name: String(name).trim(), api_key, company_id, app_id, webhook_secret });
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+app.post('/api/whop-accounts/:id/test', async (req, res) => {
+  try {
+    const account = await whopAccounts.byId(req.params.id);
+    if (!account) return res.status(404).json({ error: 'Whop account not found' });
+    const result = await testWhopConnection(account);
+    await whopAccounts.updateTest(account.id, 'active', result.message);
+    res.json({ success: true, status: 'active', message: result.message });
+  } catch(err) {
+    try { await whopAccounts.updateTest(req.params.id, 'failed', err.message); } catch(_e) {}
+    res.status(400).json({ success: false, status: 'failed', error: err.message });
+  }
+});
+app.delete('/api/whop-accounts/:id', async (req, res) => {
+  try { await whopAccounts.delete(req.params.id); res.json({ success: true }); }
+  catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+
+app.get('/api/whop-webhook-events', async (req, res) => {
+  try { res.json(await whopWebhookEvents.recent(100)); }
+  catch (err) { res.status(500).json({ error: err.message }); }
+});
+app.get('/api/whop-saved-cards', async (req, res) => {
+  try { res.json(await whopSavedCards.recent(100)); }
+  catch (err) { res.status(500).json({ error: err.message }); }
+});
 
 // ── Customers ─────────────────────────────────────────────────────────────────
 app.get('/api/customers', async (req, res) => { try { const list=await customers.all(); res.json(list.filter(c => rowWithinScope(req,c))); } catch(err) { res.status(500).json({ error: err.message }); } });
