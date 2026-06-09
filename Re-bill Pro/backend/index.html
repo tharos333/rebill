@@ -9037,7 +9037,15 @@ async function createWhopPaymentLink(){
       currency:document.getElementById('whop-link-currency').value||'usd',
       whop_account_id:document.getElementById('whop-link-account').value||null
     };
-    var r=await api('/api/whop-payment-links',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    var token=localStorage.getItem('subloop_token');
+    var resp=await fetch('/api/whop-payment-links',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},token?{'Authorization':'Bearer '+token}:{}),body:JSON.stringify(body)});
+    var r=await resp.json().catch(function(){return null;});
+    if(!resp.ok){
+      var msg=(r&&r.error)||('HTTP '+resp.status);
+      if(String(msg).length>260)msg=String(msg).slice(0,260)+'…';
+      toast(msg,'error');
+      return;
+    }
     if(r&&r.url){
       currentWhopLink=r.url;
       document.getElementById('whop-link-url').textContent=r.url;
