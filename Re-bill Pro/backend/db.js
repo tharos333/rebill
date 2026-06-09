@@ -27,6 +27,44 @@ async function init() {
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
+    CREATE TABLE IF NOT EXISTS whop_webhook_events (
+      id SERIAL PRIMARY KEY,
+      whop_account_id INT REFERENCES whop_accounts(id) ON DELETE SET NULL,
+      webhook_id TEXT,
+      event_id TEXT,
+      event_type TEXT NOT NULL,
+      normalized_event_type TEXT,
+      company_id TEXT,
+      object_id TEXT,
+      member_id TEXT,
+      payment_id TEXT,
+      setup_intent_id TEXT,
+      payment_method_id TEXT,
+      amount INT,
+      currency TEXT,
+      status TEXT DEFAULT 'received',
+      error TEXT,
+      raw_payload JSONB,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS whop_saved_cards (
+      id SERIAL PRIMARY KEY,
+      whop_account_id INT REFERENCES whop_accounts(id) ON DELETE SET NULL,
+      company_id TEXT,
+      member_id TEXT,
+      customer_email TEXT,
+      customer_name TEXT,
+      payment_method_id TEXT,
+      setup_intent_id TEXT,
+      status TEXT DEFAULT 'active',
+      card_brand TEXT,
+      card_last4 TEXT,
+      card_exp_month INT,
+      card_exp_year INT,
+      raw_payload JSONB,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
     CREATE TABLE IF NOT EXISTS customers (
       id SERIAL PRIMARY KEY,
       email TEXT NOT NULL,
@@ -170,8 +208,39 @@ async function init() {
     'ALTER TABLE whop_accounts ADD COLUMN IF NOT EXISTS last_test_message TEXT',
     'ALTER TABLE whop_accounts ADD COLUMN IF NOT EXISTS last_test_at TIMESTAMPTZ',
     'ALTER TABLE whop_accounts ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()',
+    'ALTER TABLE whop_webhook_events ADD COLUMN IF NOT EXISTS webhook_id TEXT',
+    'ALTER TABLE whop_webhook_events ADD COLUMN IF NOT EXISTS event_id TEXT',
+    'ALTER TABLE whop_webhook_events ADD COLUMN IF NOT EXISTS normalized_event_type TEXT',
+    'ALTER TABLE whop_webhook_events ADD COLUMN IF NOT EXISTS company_id TEXT',
+    'ALTER TABLE whop_webhook_events ADD COLUMN IF NOT EXISTS object_id TEXT',
+    'ALTER TABLE whop_webhook_events ADD COLUMN IF NOT EXISTS member_id TEXT',
+    'ALTER TABLE whop_webhook_events ADD COLUMN IF NOT EXISTS payment_id TEXT',
+    'ALTER TABLE whop_webhook_events ADD COLUMN IF NOT EXISTS setup_intent_id TEXT',
+    'ALTER TABLE whop_webhook_events ADD COLUMN IF NOT EXISTS payment_method_id TEXT',
+    'ALTER TABLE whop_webhook_events ADD COLUMN IF NOT EXISTS amount INT',
+    'ALTER TABLE whop_webhook_events ADD COLUMN IF NOT EXISTS currency TEXT',
+    'ALTER TABLE whop_webhook_events ADD COLUMN IF NOT EXISTS status TEXT DEFAULT \'received\'',
+    'ALTER TABLE whop_webhook_events ADD COLUMN IF NOT EXISTS error TEXT',
+    'ALTER TABLE whop_webhook_events ADD COLUMN IF NOT EXISTS raw_payload JSONB',
+    'ALTER TABLE whop_saved_cards ADD COLUMN IF NOT EXISTS company_id TEXT',
+    'ALTER TABLE whop_saved_cards ADD COLUMN IF NOT EXISTS member_id TEXT',
+    'ALTER TABLE whop_saved_cards ADD COLUMN IF NOT EXISTS customer_email TEXT',
+    'ALTER TABLE whop_saved_cards ADD COLUMN IF NOT EXISTS customer_name TEXT',
+    'ALTER TABLE whop_saved_cards ADD COLUMN IF NOT EXISTS payment_method_id TEXT',
+    'ALTER TABLE whop_saved_cards ADD COLUMN IF NOT EXISTS setup_intent_id TEXT',
+    'ALTER TABLE whop_saved_cards ADD COLUMN IF NOT EXISTS status TEXT DEFAULT \'active\'',
+    'ALTER TABLE whop_saved_cards ADD COLUMN IF NOT EXISTS card_brand TEXT',
+    'ALTER TABLE whop_saved_cards ADD COLUMN IF NOT EXISTS card_last4 TEXT',
+    'ALTER TABLE whop_saved_cards ADD COLUMN IF NOT EXISTS card_exp_month INT',
+    'ALTER TABLE whop_saved_cards ADD COLUMN IF NOT EXISTS card_exp_year INT',
+    'ALTER TABLE whop_saved_cards ADD COLUMN IF NOT EXISTS raw_payload JSONB',
+    'ALTER TABLE whop_saved_cards ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()',
   ];
   for (const m of migrations) await pool.query(m).catch(() => {});
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_whop_webhook_events_type ON whop_webhook_events(normalized_event_type)').catch(()=>{});
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_whop_webhook_events_company ON whop_webhook_events(company_id)').catch(()=>{});
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_whop_saved_cards_member ON whop_saved_cards(member_id)').catch(()=>{});
+  await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_whop_saved_cards_unique_pm ON whop_saved_cards(whop_account_id, payment_method_id) WHERE payment_method_id IS NOT NULL').catch(()=>{});
   const adminCount = await pool.query('SELECT COUNT(*) FROM admin_users');
   if (parseInt(adminCount.rows[0].count) === 0) {
     const crypto = require('crypto');
@@ -455,6 +524,94 @@ const webhookLogs = {
   add: async (data) => { await pool.query('INSERT INTO webhook_logs (event_type,account_name,status,error) VALUES ($1,$2,$3,$4)', [data.event_type, data.account_name||null, data.status||'ok', data.error||null]).catch(()=>{}); },
   recent: async (limit=50) => { const r = await pool.query('SELECT * FROM webhook_logs ORDER BY created_at DESC LIMIT $1', [limit]); return r.rows; },
 };
+
+const whopWebhookEvents = {
+  add: async (data) => {
+    const r = await pool.query(`
+      INSERT INTO whop_webhook_events
+        (whop_account_id, webhook_id, event_id, event_type, normalized_event_type, company_id, object_id, member_id, payment_id, setup_intent_id, payment_method_id, amount, currency, status, error, raw_payload)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+      RETURNING id
+    `, [
+      data.whop_account_id || null,
+      data.webhook_id || null,
+      data.event_id || null,
+      data.event_type,
+      data.normalized_event_type || null,
+      data.company_id || null,
+      data.object_id || null,
+      data.member_id || null,
+      data.payment_id || null,
+      data.setup_intent_id || null,
+      data.payment_method_id || null,
+      data.amount ?? null,
+      data.currency || null,
+      data.status || 'received',
+      data.error || null,
+      data.raw_payload || null
+    ]);
+    return r.rows[0];
+  },
+  recent: async (limit=100) => {
+    const r = await pool.query(`
+      SELECT e.*, a.name AS account_name
+      FROM whop_webhook_events e
+      LEFT JOIN whop_accounts a ON a.id=e.whop_account_id
+      ORDER BY e.created_at DESC
+      LIMIT $1
+    `, [limit]);
+    return r.rows;
+  }
+};
+const whopSavedCards = {
+  upsert: async (data) => {
+    const r = await pool.query(`
+      INSERT INTO whop_saved_cards
+        (whop_account_id, company_id, member_id, customer_email, customer_name, payment_method_id, setup_intent_id, status, card_brand, card_last4, card_exp_month, card_exp_year, raw_payload, updated_at)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NOW())
+      ON CONFLICT (whop_account_id, payment_method_id) WHERE payment_method_id IS NOT NULL
+      DO UPDATE SET
+        company_id=EXCLUDED.company_id,
+        member_id=EXCLUDED.member_id,
+        customer_email=EXCLUDED.customer_email,
+        customer_name=EXCLUDED.customer_name,
+        setup_intent_id=EXCLUDED.setup_intent_id,
+        status=EXCLUDED.status,
+        card_brand=EXCLUDED.card_brand,
+        card_last4=EXCLUDED.card_last4,
+        card_exp_month=EXCLUDED.card_exp_month,
+        card_exp_year=EXCLUDED.card_exp_year,
+        raw_payload=EXCLUDED.raw_payload,
+        updated_at=NOW()
+      RETURNING id
+    `, [
+      data.whop_account_id || null,
+      data.company_id || null,
+      data.member_id || null,
+      data.customer_email || null,
+      data.customer_name || null,
+      data.payment_method_id || null,
+      data.setup_intent_id || null,
+      data.status || 'active',
+      data.card_brand || null,
+      data.card_last4 || null,
+      data.card_exp_month || null,
+      data.card_exp_year || null,
+      data.raw_payload || null
+    ]);
+    return r.rows[0];
+  },
+  recent: async (limit=100) => {
+    const r = await pool.query(`
+      SELECT c.*, a.name AS account_name
+      FROM whop_saved_cards c
+      LEFT JOIN whop_accounts a ON a.id=c.whop_account_id
+      ORDER BY c.updated_at DESC, c.created_at DESC
+      LIMIT $1
+    `, [limit]);
+    return r.rows;
+  }
+};
 const security = {
   logAttempt: async (ip, success, adminUserId=null, username=null) => {
     await pool.query('INSERT INTO login_attempts (admin_user_id, username, ip, success) VALUES ($1,$2,$3,$4)', [adminUserId, username, ip, success]).catch(()=>{});
@@ -507,4 +664,4 @@ const adminUsers = {
   disable2FA: async (id) => { await pool.query('UPDATE admin_users SET two_fa_enabled=false, two_fa_secret=NULL, two_fa_secret_pending=NULL WHERE id=$1', [id]); },
   verify: async (username, password) => { const crypto = require('crypto'); const hash = crypto.createHash('sha256').update(password).digest('hex'); const r = await pool.query('SELECT * FROM admin_users WHERE LOWER(username)=LOWER($1) AND password_hash=$2', [username, hash]); return r.rows[0] || null; },
 };
-module.exports = { init, pool, settingsDb, stripeAccounts, whopAccounts, customers, subscriptions, payments, activityLog, webhookLogs, security, adminUsers };
+module.exports = { init, pool, settingsDb, stripeAccounts, whopAccounts, whopWebhookEvents, whopSavedCards, customers, subscriptions, payments, activityLog, webhookLogs, security, adminUsers };
