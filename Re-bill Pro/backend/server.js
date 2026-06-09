@@ -1254,6 +1254,110 @@ app.patch('/api/stripe-accounts/default/clear', async (req, res) => {
 app.delete('/api/stripe-accounts/:id', async (req, res) => { try { await stripeAccounts.delete(req.params.id); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
 
 
+function whopApiErrorMessage(parsed, statusCode) {
+  if (!parsed) return 'Whop API error ' + statusCode;
+  if (typeof parsed === 'string') return parsed || ('Whop API error ' + statusCode);
+  const direct = parsed.error || parsed.message || parsed.detail || parsed.title;
+  if (typeof direct === 'string') return direct;
+  if (direct && typeof direct === 'object') {
+    try { return JSON.stringify(direct); } catch (_e) {}
+  }
+  const errors = parsed.errors || parsed.issues || parsed.details;
+  if (Array.isArray(errors) && errors.length) {
+    return errors.map(e => {
+      if (typeof e === 'string') return e;
+      const path = Array.isArray(e.path) ? e.path.join('.') : (e.path || e.field || '');
+      const msg = e.message || e.detail || e.error || JSON.stringify(e);
+      return path ? (path + ': ' + msg) : msg;
+    }).join(' | ');
+  }
+  try { return JSON.stringify(parsed); } catch (_e) { return 'Whop API error ' + statusCode; }
+}
+
+function whopAmountMajorFromMinorOrMajor(amount) {
+  const n = Number(amount || 0);
+  if (!Number.isFinite(n)) return 0;
+  // Subloop Charge Later stores cents/minor units in the browser state.
+  return Number((n / 100).toFixed(2));
+}
+
+function mapWhopPaymentMethod(pm, account, memberIdFallback) {
+  if (!pm || !pm.id) return null;
+  const card = pm.card || pm.card_details || pm.payment_method?.card || {};
+  return {
+    source: 'payment_method_api',
+    account_name: account?.name || null,
+    whop_account_id: account?.id || null,
+    company_id: account?.company_id || getNested(pm, ['company.id','company_id']) || null,
+    member_id: getNested(pm, ['member.id','member_id','user.id','user_id']) || memberIdFallback || null,
+    customer_email: getNested(pm, ['user.email','member.email','customer.email','email']) || null,
+    customer_name: getNested(pm, ['user.name','member.name','customer.name','name','user.username']) || null,
+    payment_method_id: pm.id,
+    setup_intent_id: getNested(pm, ['setup_intent.id','setup_intent_id']) || null,
+    status: 'chargeable',
+    chargeability_status: 'chargeable',
+    chargeability_reason: 'Verified by Whop payment_methods API',
+    card_brand: card.brand || pm.brand || pm.type || pm.typename || null,
+    card_last4: card.last4 || pm.last4 || pm.card_last4 || null,
+    card_exp_month: card.exp_month || pm.exp_month || null,
+    card_exp_year: card.exp_year || pm.exp_year || null,
+    updated_at: pm.updated_at || pm.created_at || new Date().toISOString(),
+    raw_payload: pm
+  };
+}
+
+function inferWhopChargeability(card) {
+  const id = String(card?.payment_method_id || '');
+  if (card?.chargeability_status === 'chargeable' || card?.source === 'payment_method_api') {
+    return { status: 'chargeable', reason: card?.chargeability_reason || 'Verified by Whop payment_methods API' };
+  }
+  if (id.startsWith('payt_')) {
+    return { status: 'needs_verification', reason: 'Looks like a Whop payment token, but it was not verified through payment_methods API yet' };
+  }
+  if (id.startsWith('card_') || id.startsWith('pay_')) {
+    return { status: 'invoice_only', reason: 'Card was detected from payment history, not confirmed as a reusable off-session payment method' };
+  }
+  return { status: 'needs_setup', reason: 'Customer must save a payment method with setupFutureUsage="off_session" before direct card charging' };
+}
+
+async function fetchWhopPaymentMethodsForAccount(account, memberId) {
+  if (!account || !account.api_key) return [];
+  const params = new URLSearchParams();
+  params.set('first', '100');
+  if (memberId) params.set('member_id', String(memberId));
+  else if (account.company_id) params.set('company_id', String(account.company_id));
+  else return [];
+  const result = await whopApiRequest(account.api_key, 'GET', '/api/v1/payment_methods?' + params.toString());
+  return unwrapWhopList(result.data).map(pm => mapWhopPaymentMethod(pm, account, memberId)).filter(Boolean);
+}
+
+async function createWhopSendInvoice(account, opts) {
+  const companyId = opts.company_id || account.company_id;
+  if (!companyId) throw new Error('Missing Whop company ID for invoice fallback');
+  const major = whopAmountMajorFromMinorOrMajor(opts.amount);
+  const body = {
+    company_id: companyId,
+    collection_method: 'send_invoice',
+    plan: {
+      initial_price: major,
+      currency: String(opts.currency || 'usd').toLowerCase(),
+      plan_type: 'one_time',
+      metadata: { source: 'subloop_charge_later_invoice', description: opts.description || 'Subloop Charge Later invoice' }
+    },
+    product: { title: opts.product_title || 'Subloop extra charge' },
+    due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+  };
+  if (opts.member_id) body.member_id = String(opts.member_id);
+  else {
+    body.email_address = opts.customer_email || opts.email || null;
+    body.customer_name = opts.customer_name || opts.name || 'Whop customer';
+  }
+  if (!body.member_id && !body.email_address) throw new Error('Invoice fallback needs member_id or customer email');
+  const result = await whopApiRequest(account.api_key, 'POST', '/api/v1/invoices', body);
+  return result.data;
+}
+
+
 function whopApiRequest(apiKey, method, apiPath, body) {
   return new Promise((resolve, reject) => {
     const payload = body ? JSON.stringify(body) : null;
@@ -1275,8 +1379,8 @@ function whopApiRequest(apiKey, method, apiPath, body) {
         let parsed = null;
         try { parsed = data ? JSON.parse(data) : null; } catch (_e) { parsed = data; }
         if (res.statusCode >= 200 && res.statusCode < 300) return resolve({ statusCode: res.statusCode, data: parsed });
-        const message = (parsed && (parsed.error || parsed.message || parsed.detail)) || ('Whop API error ' + res.statusCode);
-        const err = new Error(typeof message === 'string' ? message : JSON.stringify(message));
+        const message = whopApiErrorMessage(parsed, res.statusCode);
+        const err = new Error(message);
         err.statusCode = res.statusCode;
         err.data = parsed;
         reject(err);
@@ -1484,6 +1588,7 @@ app.get('/api/whop-saved-cards', async (req, res) => {
 
     const accounts = await pool.query('SELECT * FROM whop_accounts WHERE api_key IS NOT NULL AND api_key <> \'\' ORDER BY created_at DESC, id DESC');
     const apiCards = [];
+    const verifiedMethods = [];
     for (const account of accounts.rows) {
       if (!account.company_id) continue;
       try {
@@ -1495,21 +1600,32 @@ app.get('/api/whop-saved-cards', async (req, res) => {
       } catch (err) {
         await webhookLogs.add({ event_type: 'whop_api_saved_cards_fetch_failed', account_name: account.name, status: 'failed', error: err.message }).catch(()=>{});
       }
+      try {
+        const methods = await fetchWhopPaymentMethodsForAccount(account, null);
+        verifiedMethods.push(...methods);
+      } catch (err) {
+        await webhookLogs.add({ event_type: 'whop_api_payment_methods_fetch_failed', account_name: account.name, status: 'failed', error: err.message }).catch(()=>{});
+      }
     }
 
-    res.json(dedupeWhopSavedCards([...dbCards, ...webhookCards, ...apiCards]).slice(0, 100));
+    const merged = dedupeWhopSavedCards([...verifiedMethods, ...dbCards, ...webhookCards, ...apiCards]).slice(0, 100).map(card => {
+      const inferred = inferWhopChargeability(card);
+      return { ...card, chargeability_status: card.chargeability_status || inferred.status, chargeability_reason: card.chargeability_reason || inferred.reason };
+    });
+    res.json(merged);
   }
   catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 
 
+
 app.post('/api/whop-charge-later/charge', async (req, res) => {
   try {
-    const { account_name, company_id, member_id, payment_method_id, amount, currency, description } = req.body || {};
-    const amountCents = Math.round(Number(amount || 0));
-    if (!member_id || !payment_method_id) return res.status(400).json({ success: false, error: 'Missing member_id or payment_method_id' });
-    if (!amountCents || amountCents < 50) return res.status(400).json({ success: false, error: 'Minimum amount is 0.50' });
+    const { account_name, company_id, member_id, payment_method_id, amount, currency, description, customer_email, customer_name, fallback } = req.body || {};
+    const amountMinor = Math.round(Number(amount || 0));
+    const major = whopAmountMajorFromMinorOrMajor(amountMinor);
+    if (!amountMinor || amountMinor < 50) return res.status(400).json({ success: false, error: 'Minimum amount is 0.50' });
     let account = null;
     if (account_name) {
       const q = await pool.query('SELECT * FROM whop_accounts WHERE name=$1 ORDER BY id DESC LIMIT 1', [account_name]);
@@ -1526,7 +1642,38 @@ app.post('/api/whop-charge-later/charge', async (req, res) => {
     if (!account || !account.api_key) return res.status(400).json({ success: false, error: 'No Whop account/API key found' });
     const companyId = company_id || account.company_id;
     if (!companyId) return res.status(400).json({ success: false, error: 'Missing Whop company ID' });
-    const major = Number((amountCents / 100).toFixed(2));
+
+    // Invoice-only mode: use this when a payment method is not verified for off-session charging.
+    if (fallback === 'invoice_only') {
+      const invoice = await createWhopSendInvoice(account, { company_id: companyId, member_id, amount: amountMinor, currency, description, customer_email, customer_name });
+      await webhookLogs.add({ event_type: 'whop_charge_later_invoice_created', account_name: account.name, status: 'ok' }).catch(()=>{});
+      return res.json({ success: true, mode: 'invoice', invoice, message: 'Direct saved-card charge was not available. Whop invoice created instead.' });
+    }
+
+    if (!member_id || !payment_method_id) {
+      const invoice = await createWhopSendInvoice(account, { company_id: companyId, member_id, amount: amountMinor, currency, description, customer_email, customer_name });
+      await webhookLogs.add({ event_type: 'whop_charge_later_invoice_created_missing_pm', account_name: account.name, status: 'ok' }).catch(()=>{});
+      return res.json({ success: true, mode: 'invoice', invoice, message: 'Missing member/payment method for direct charge. Whop invoice created instead.' });
+    }
+
+    // Verify the selected saved card belongs to the member before trying to charge.
+    let verified = false;
+    let verifiedMessage = '';
+    try {
+      const methods = await fetchWhopPaymentMethodsForAccount(account, member_id);
+      verified = methods.some(m => String(m.payment_method_id) === String(payment_method_id));
+      if (!verified) verifiedMessage = 'Payment method was not found in Whop payment_methods for this member.';
+    } catch (verifyErr) {
+      verifiedMessage = 'Could not verify payment method: ' + verifyErr.message;
+      await webhookLogs.add({ event_type: 'whop_charge_later_verify_failed', account_name: account.name, status: 'failed', error: verifyErr.message }).catch(()=>{});
+    }
+
+    if (!verified && !String(payment_method_id).startsWith('payt_')) {
+      const invoice = await createWhopSendInvoice(account, { company_id: companyId, member_id, amount: amountMinor, currency, description, customer_email, customer_name });
+      await webhookLogs.add({ event_type: 'whop_charge_later_invoice_created_unverified_pm', account_name: account.name, status: 'ok', error: verifiedMessage }).catch(()=>{});
+      return res.json({ success: true, mode: 'invoice', invoice, warning: verifiedMessage, message: 'Card is not verified for direct off-session charge. Whop invoice created instead.' });
+    }
+
     const payload = {
       company_id: companyId,
       member_id: String(member_id),
@@ -1540,18 +1687,29 @@ app.post('/api/whop-charge-later/charge', async (req, res) => {
     };
     let result;
     try {
-      result = await whopApiRequest(account.api_key, 'POST', '/payments', payload);
-    } catch (firstErr) {
-      // Some older keys in this app already use /api/v1 paths, so keep a fallback without changing existing Whop logic.
       result = await whopApiRequest(account.api_key, 'POST', '/api/v1/payments', payload);
+      await webhookLogs.add({ event_type: 'whop_charge_later_created', account_name: account.name, status: 'ok' }).catch(()=>{});
+      return res.json({ success: true, mode: 'payment', payment: result.data, warning: verified ? null : verifiedMessage });
+    } catch (chargeErr) {
+      await webhookLogs.add({ event_type: 'whop_charge_later_direct_failed', account_name: account.name, status: 'failed', error: chargeErr.message }).catch(()=>{});
+      // Fallback to invoice, so the merchant can still collect the extra/manual charge.
+      try {
+        const invoice = await createWhopSendInvoice(account, { company_id: companyId, member_id, amount: amountMinor, currency, description, customer_email, customer_name });
+        await webhookLogs.add({ event_type: 'whop_charge_later_invoice_created_after_direct_failed', account_name: account.name, status: 'ok', error: chargeErr.message }).catch(()=>{});
+        return res.json({ success: true, mode: 'invoice', invoice, direct_charge_error: chargeErr.message, detail: chargeErr.data || null, message: 'Direct saved-card charge failed. Whop invoice created instead.' });
+      } catch (invoiceErr) {
+        const err = new Error('Direct charge failed: ' + chargeErr.message + ' | Invoice fallback failed: ' + invoiceErr.message);
+        err.statusCode = invoiceErr.statusCode || chargeErr.statusCode || 400;
+        err.data = { direct_charge: chargeErr.data || null, invoice: invoiceErr.data || null };
+        throw err;
+      }
     }
-    await webhookLogs.add({ event_type: 'whop_charge_later_created', account_name: account.name, status: 'ok' }).catch(()=>{});
-    res.json({ success: true, payment: result.data });
   } catch (err) {
     try { await webhookLogs.add({ event_type: 'whop_charge_later_failed', account_name: req.body?.account_name || null, status: 'failed', error: err.message }); } catch(_e) {}
     res.status(err.statusCode || 500).json({ success: false, error: err.message, detail: err.data || null });
   }
 });
+
 
 app.get('/api/whop-customers', async (req, res) => {
   try {

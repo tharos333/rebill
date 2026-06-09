@@ -9210,17 +9210,20 @@ async function loadWhopChargeLater(){
   tb.innerHTML='<tr><td colspan="6" class="empty">Loading...</td></tr>';
   try{
     var cards=await api('/api/whop-saved-cards');
-    whopChargeLaterRows=(cards||[]).map(function(c,i){var key=whopChargeKey(c,i);var st=getWhopChargeState(key);return Object.assign({},c,{_key:key,_amount:st.amount||100,_currency:st.currency||((c.currency||'usd').toLowerCase()),_interval:st.interval||30,_next_billing:st.next_billing||'',_status:st.status||'active'});});
+    whopChargeLaterRows=(cards||[]).map(function(c,i){var key=whopChargeKey(c,i);var st=getWhopChargeState(key);var chargeStatus=c.chargeability_status||((String(c.payment_method_id||'').indexOf('payt_')===0)?'needs_verification':'invoice_only');return Object.assign({},c,{_key:key,_amount:st.amount||100,_currency:st.currency||((c.currency||'usd').toLowerCase()),_interval:st.interval||30,_next_billing:st.next_billing||'',_status:st.status||'active',_chargeability:chargeStatus,_chargeability_reason:c.chargeability_reason||''});});
     filterWhopChargeLater();
   }catch(e){tb.innerHTML='<tr><td colspan="6" class="empty">Could not load Whop charge later</td></tr>';}
 }
+function whopChargeabilityBadge(row){var s=String(row._chargeability||row.chargeability_status||'invoice_only').toLowerCase();if(s==='chargeable')return '<span class="badge success">Chargeable</span>';if(s==='needs_verification')return '<span class="badge pending">Needs setup</span>';return '<span class="badge failed">Invoice only</span>';}
 function renderWhopChargeLater(list){
   var tb=document.getElementById('whop-charge-later-body');if(!tb)return;
   var isViewer=isViewOnlyAccess();
   if(!list.length){tb.innerHTML='<tr><td colspan="6" class="empty">No saved cards ready for Charge Later</td></tr>';return;}
   tb.innerHTML=list.map(function(row,i){
     var key=row._key||whopChargeKey(row,i);var status=String(row._status||'active').toLowerCase();
-    var chargeBtn=status==='active'?'<button class="btn btn-sm" onclick="chargeWhopSavedCard(\''+escHtml(key)+'\')">Charge</button>':'';
+    var chargeLabel=(String(row._chargeability||'').toLowerCase()==='invoice_only')?'Invoice':'Charge';
+    var chargeTitle=row._chargeability_reason?(' title="'+escHtml(row._chargeability_reason)+'"'):'';
+    var chargeBtn=status==='active'?'<button class="btn btn-sm"'+chargeTitle+' onclick="chargeWhopSavedCard(\''+escHtml(key)+'\')">'+chargeLabel+'</button>':'';
     var editBtn='<button class="btn btn-sm" onclick="showWhopChargeEdit(\''+escHtml(key)+'\')">Edit $</button><span id="whop-charge-edit-'+escHtml(key).replace(/[^a-zA-Z0-9_-]/g,'_')+'"></span>';
     var pauseBtn=status==='active'?'<button class="btn btn-sm btn-danger" onclick="setWhopChargeStatus(\''+escHtml(key)+'\',\'paused\')">Pause</button>':'';
     var resumeBtn=status==='paused'||status==='canceled'?'<button class="btn btn-sm" onclick="setWhopChargeStatus(\''+escHtml(key)+'\',\'active\')">Resume</button>':'';
@@ -9229,7 +9232,7 @@ function renderWhopChargeLater(list){
     var next=row._next_billing?fmtDate(row._next_billing):'—';
     var email=row.customer_email||'';var name=whopChargeDisplayName(row);
     var rowHtml='<tr><td><div class="customer-cell"><div class="avatar">'+initials(name)+'</div><div><div class="customer-name">'+escHtml(name)+'</div><div class="customer-email">'+escHtml(email)+'</div><div style="margin-top:5px;">'+pm+'</div></div></div></td>';
-    rowHtml+='<td class="mono">'+fmt(Number(row._amount||0),row._currency||'usd')+'</td><td class="mono">'+escHtml(String(row._interval||30))+' days</td><td class="mono">'+next+'</td><td>'+badge(status)+'</td>';
+    rowHtml+='<td class="mono">'+fmt(Number(row._amount||0),row._currency||'usd')+'</td><td class="mono">'+escHtml(String(row._interval||30))+' days</td><td class="mono">'+next+'</td><td>'+badge(status)+' '+whopChargeabilityBadge(row)+'</td>';
     if(!isViewer)rowHtml+='<td><div class="actions">'+chargeBtn+editBtn+pauseBtn+resumeBtn+cancelBtn+'</div></td>';
     return rowHtml+'</tr>';
   }).join('');
@@ -9246,8 +9249,8 @@ async function chargeWhopSavedCard(key){
   if(!confirm('Charge '+whopChargeDisplayName(row)+' '+fmt(Number(row._amount||0),row._currency||'usd')+' now?'))return;
   toast('Charging Whop card…');
   try{
-    var r=await api('/api/whop-charge-later/charge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_name:row.account_name,company_id:row.company_id,member_id:row.member_id,payment_method_id:row.payment_method_id,amount:Number(row._amount||0),currency:row._currency||'usd',description:'Subloop Charge Later'})});
-    if(r&&r.success){toast('✓ Whop charge created');loadWhopPayments();loadWhopChargeLater();}else{toast('✗ '+((r&&r.error)||'Charge failed'),'error');}
+    var r=await api('/api/whop-charge-later/charge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_name:row.account_name,company_id:row.company_id,member_id:row.member_id,payment_method_id:row.payment_method_id,amount:Number(row._amount||0),currency:row._currency||'usd',description:'Subloop Charge Later',customer_email:row.customer_email,customer_name:whopChargeDisplayName(row),fallback:(String(row._chargeability||'').toLowerCase()==='invoice_only'?'invoice_only':null)})});
+    if(r&&r.success){toast(r.mode==='invoice'?'✓ Whop invoice created':'✓ Whop charge created');loadWhopPayments();loadWhopChargeLater();}else{toast('✗ '+((r&&r.error)||'Charge failed'),'error');}
   }catch(e){toast('✗ '+(e.message||'Charge failed'),'error');}
 }
 
@@ -9268,7 +9271,8 @@ async function loadWhopSavedCards(){
       const status=c.status||'active';
       const badge=status==='active'?'badge-green':'badge-blue';
       const updated=c.updated_at?new Date(c.updated_at).toLocaleString():'—';
-      return '<tr><td>'+whopSafe(c.account_name||'—')+'</td><td>'+member+'</td><td>'+email+'</td><td>'+pm+'</td><td><span class="badge '+badge+'">'+whopSafe(status)+'</span></td><td>'+updated+'</td></tr>';
+      var chargeBadge=c.chargeability_status?(' '+whopChargeabilityBadge({_chargeability:c.chargeability_status,_chargeability_reason:c.chargeability_reason})) : '';
+      return '<tr><td>'+whopSafe(c.account_name||'—')+'</td><td>'+member+'</td><td>'+email+'</td><td>'+pm+'</td><td><span class="badge '+badge+'">'+whopSafe(status)+'</span>'+chargeBadge+'</td><td>'+updated+'</td></tr>';
     }).join('');
   }catch(err){
     body.innerHTML='<tr><td colspan="6" class="empty">Could not load saved cards</td></tr>';
