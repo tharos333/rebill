@@ -5990,6 +5990,8 @@ html,body{width:100%!important;max-width:100%!important;overflow-x:hidden!import
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Customers</button>
     <button class="nav-item" onclick="showPage('whop-payments',this)">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="6" y1="15" x2="10" y2="15"/></svg>Payments</button>
+    <button class="nav-item" onclick="showPage('whop-payment-links',this)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Payment Links</button>
     <button class="nav-item" onclick="showPage('whop-saved-cards',this)">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M6 15h4"/><path d="M16 14l1.2 1.2L20 12"/></svg>Saved Cards</button>
     <button class="nav-item" onclick="showPage('whop-charge-later',this)">
@@ -6107,6 +6109,33 @@ html,body{width:100%!important;max-width:100%!important;overflow-x:hidden!import
   <div id="whop-pay-pagination" style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap;"></div>
 </div>
 <div id="page-whop-saved-cards" class="page"><div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M16 14l1.2 1.2L20 12"/></svg><span>Saved Cards</span></h2><p>Saved payment methods from Whop checkout</p></div></div><div class="card"><div class="card-header"><h3>Saved Cards</h3></div><table><thead><tr><th>Account</th><th>Member</th><th>Email</th><th>Payment method</th><th>Status</th><th>Updated</th></tr></thead><tbody id="whop-saved-cards-body"><tr><td colspan="6" class="empty">No saved cards yet</td></tr></tbody></table></div></div>
+
+<div id="page-whop-payment-links" class="page">
+  <div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>Whop Payment Links</span></h2><p>Create one-time Whop checkout links that save the card for future manual charges</p></div></div>
+  <div class="card" style="max-width:500px;">
+    <div class="card-header"><h3>Create Whop Checkout</h3></div>
+    <div style="padding:18px;">
+      <div class="form-group"><label>Product name</label><input type="text" id="whop-link-name" value="One-time service"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Amount ($)</label><input type="number" id="whop-link-amount" value="1" min="0.50" step="0.01"></div>
+        <div class="form-group"><label>Currency</label><select id="whop-link-currency"><option value="usd">USD</option><option value="eur">EUR</option><option value="gbp">GBP</option><option value="mad">MAD</option></select></div>
+      </div>
+      <div class="form-group"><label>Whop account</label><select id="whop-link-account"><option value="">Loading...</option></select></div>
+      <div class="form-group"><label>Save card for future charges</label><div style="display:flex;align-items:center;gap:10px;height:34px;"><span class="badge badge-green">ON</span><span style="font-size:12px;color:var(--muted);font-family:var(--mono);">Uses setupFutureUsage="off_session" in the checkout embed.</span></div></div>
+      <button class="btn btn-primary" onclick="createWhopPaymentLink()" id="create-whop-link-btn">Generate Whop Payment Link</button>
+      <div class="link-result" id="whop-link-result">
+        <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;">✓ Whop checkout link created</div>
+        <div class="link-url" id="whop-link-url"></div>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+          <button class="btn btn-sm" onclick="copyWhopLink()">Copy</button>
+          <button class="btn btn-sm btn-primary" onclick="openWhopLink()">Open ↗</button>
+        </div>
+        <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:10px;line-height:1.45;">Send this Subloop checkout link to the customer, not the normal Whop dashboard link. After payment, the card should become Chargeable if Whop confirms the saved payment method.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="page-whop-charge-later" class="page">
   <div class="page-header">
     <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8v5l3 2"/><circle cx="12" cy="12" r="9"/></svg><span>Charge Later</span></h2><p>All Whop saved-card rebilling schedules</p></div>
@@ -7261,7 +7290,7 @@ function showPage(name,el){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   el.classList.add('active');
-  const loaders={dashboard:()=>{loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();},activity:loadActivity,customers:loadCustomers,subscriptions:loadSubscriptions,payments:loadPayments,settings:loadSettings,accounts:loadAccounts,security:loadSecurity,webhooks:loadWebhooks,forecast:loadForecast,summary:loadSummary,admins:loadAdmins,mrr:()=>{var period=document.getElementById('mrr-period');if(period)period.value='year';loadMrr();},recovery:loadRecovery,links:()=>{loadPaymentLinkAccounts();loadTemplates();configurePaymentLinksAccessUI();},'whop-customers':loadWhopCustomers,'whop-payments':loadWhopPayments,'whop-saved-cards':loadWhopSavedCards,'whop-charge-later':loadWhopChargeLater,'whop-accounts':loadWhopAccounts};
+  const loaders={dashboard:()=>{loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();},activity:loadActivity,customers:loadCustomers,subscriptions:loadSubscriptions,payments:loadPayments,settings:loadSettings,accounts:loadAccounts,security:loadSecurity,webhooks:loadWebhooks,forecast:loadForecast,summary:loadSummary,admins:loadAdmins,mrr:()=>{var period=document.getElementById('mrr-period');if(period)period.value='year';loadMrr();},recovery:loadRecovery,links:()=>{loadPaymentLinkAccounts();loadTemplates();configurePaymentLinksAccessUI();},'whop-customers':loadWhopCustomers,'whop-payments':loadWhopPayments,'whop-payment-links':loadWhopPaymentLinks,'whop-saved-cards':loadWhopSavedCards,'whop-charge-later':loadWhopChargeLater,'whop-accounts':loadWhopAccounts};
   expandSettingsIfNeeded(name);
   if(!canAccess(name)){
     document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
@@ -8934,6 +8963,7 @@ function whopStatusBadge(status){
 function whopCustomerDisplayName(c){
   return c.customer_name || (c.customer_email?String(c.customer_email).split('@')[0]:null) || c.member_id || 'Whop customer';
 }
+
 async function loadWhopCustomers(){
   const body=document.getElementById('whop-customers-body');
   if(!body)return;
@@ -8984,6 +9014,42 @@ function renderWhopCustomers(list){
   if(!list.length){body.innerHTML='<tr><td colspan="'+(isViewer?8:9)+'" class="empty">No customers found</td></tr>';return;}
   body.innerHTML=list.map(function(c,i){var idx=(window.whopCustomers||[]).indexOf(c);if(idx<0)idx=i;var name=whopCustomerDisplayName(c);var email=c.customer_email||'';var country=c.card_country||'—';var note=c.note||'—';var actions='<div class="actions"><button class="btn btn-sm" onclick="event.stopPropagation();toast(\'Whop note not available yet\')">Note</button><button class="btn btn-sm" onclick="event.stopPropagation();openWhopCustomerDrawer('+idx+')">Card ↗</button><button class="btn btn-sm btn-danger" onclick="event.stopPropagation();toast(\'Whop pause not available yet\')">Pause</button></div>';return '<tr style="cursor:pointer;" onclick="openWhopCustomerDrawer('+idx+')"><td><div class="customer-cell"><div><div class="customer-name table-customer-name" style="font-size:13px;" title="'+escHtml(name)+'">'+escHtml(name)+'</div></div></div></td><td>'+whopPaymentMethodDisplay(c,false)+'</td><td class="payment-account-cell" title="'+escHtml(c.account_name||'—')+'">'+escHtml(tableAccountDisplayName(c.account_name||'—'))+'</td><td>'+escHtml(country)+'</td><td>'+badge(c.status||'active')+'</td><td>'+escHtml(note)+'</td><td class="mono" style="font-size:12px;white-space:nowrap;">'+(c.last_payment_at?fmtDate(c.last_payment_at):'—')+'</td><td class="mono">'+whopAmountDisplay(c.total_paid||0,c.currency||'USD')+'</td>'+(isViewer?'':'<td>'+actions+'</td>')+'</tr>';}).join('');
 }
+
+let currentWhopLink=null;
+async function loadWhopPaymentLinks(){
+  var sel=document.getElementById('whop-link-account');
+  if(!sel)return;
+  try{
+    var accounts=await api('/api/whop-accounts');
+    sel.innerHTML='';
+    if(!accounts||!accounts.length){sel.innerHTML='<option value="">No Whop accounts connected</option>';return;}
+    accounts.forEach(function(a){var opt=document.createElement('option');opt.value=a.id;opt.textContent=a.name+(a.company_id?' — '+a.company_id:'');sel.appendChild(opt);});
+  }catch(e){sel.innerHTML='<option value="">Could not load accounts</option>';}
+}
+async function createWhopPaymentLink(){
+  var btn=document.getElementById('create-whop-link-btn');
+  if(btn){btn.textContent='Creating…';btn.disabled=true;}
+  try{
+    var amount=Math.round(parseFloat(document.getElementById('whop-link-amount').value||'0')*100);
+    var body={
+      name:document.getElementById('whop-link-name').value||'One-time service',
+      amount:amount,
+      currency:document.getElementById('whop-link-currency').value||'usd',
+      whop_account_id:document.getElementById('whop-link-account').value||null
+    };
+    var r=await api('/api/whop-payment-links',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(r&&r.url){
+      currentWhopLink=r.url;
+      document.getElementById('whop-link-url').textContent=r.url;
+      document.getElementById('whop-link-result').classList.add('visible');
+      toast('✓ Whop checkout link created');
+    }else toast('Error: '+((r&&r.error)||'Unknown'),'error');
+  }catch(e){toast((e&&e.message)||'Server error','error');}
+  if(btn){btn.textContent='Generate Whop Payment Link';btn.disabled=false;}
+}
+function copyWhopLink(){if(!currentWhopLink){toast('No link to copy','error');return;}navigator.clipboard.writeText(currentWhopLink);toast('Copied!');}
+function openWhopLink(){if(currentWhopLink)window.open(currentWhopLink,'_blank');}
+
 async function loadWhopCustomers(){
   const body=document.getElementById('whop-customers-body');if(!body)return;
   try{const customers=await api('/api/whop-customers');window.whopCustomers=customers||[];var sel=document.getElementById('whop-customer-account-filter');if(sel){var selected=sel.value||'';var seen=new Set();sel.innerHTML='<option value="">All Whop Accounts</option>';window.whopCustomers.forEach(function(c){var n=c.account_name||'';if(n&&!seen.has(n)){seen.add(n);var opt=document.createElement('option');opt.value=n;opt.textContent=n;sel.appendChild(opt);}});if(selected&&seen.has(selected))sel.value=selected;}setWhopCustomerPrimaryFilter(whopCustomerPrimaryFilter||'');}

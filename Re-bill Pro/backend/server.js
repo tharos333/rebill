@@ -81,7 +81,7 @@ function sectionForApiPath(req) {
   if (path.startsWith('/payments')) return 'payments';
   if (path.startsWith('/payment-link-accounts') || path.startsWith('/payment-links') || path.startsWith('/plan-templates')) return 'links';
   if (path.startsWith('/stripe-accounts')) return 'accounts';
-  if (path.startsWith('/whop-accounts') || path.startsWith('/whop-payments') || path.startsWith('/whop-customers') || path.startsWith('/whop-webhook-events') || path.startsWith('/whop-saved-cards')) return 'accounts';
+  if (path.startsWith('/whop-accounts') || path.startsWith('/whop-payments') || path.startsWith('/whop-customers') || path.startsWith('/whop-webhook-events') || path.startsWith('/whop-saved-cards') || path.startsWith('/whop-payment-links') || path.startsWith('/whop-charge-later')) return 'accounts';
   if (path.startsWith('/forecast')) return 'forecast';
   if (path.startsWith('/daily-summary')) return 'summary';
   if (path.startsWith('/mrr-history')) return 'mrr';
@@ -908,7 +908,24 @@ async function handleWhopWebhook(req, res) {
 app.post(['/api/whop/webhook', '/api/whop/webhooks', '/whop/webhook', '/webhooks/whop', '/'], express.raw({ type: 'application/json' }), handleWhopWebhook);
 
 
+
 app.use(express.json());
+
+// Public Whop checkout page. This is the important link to send to customers:
+// it embeds Whop checkout with setupFutureUsage="off_session" so the card can be saved for future manual charges.
+app.get('/whop-checkout', (req, res) => {
+  const planId = String(req.query.plan_id || '').trim();
+  const title = String(req.query.title || 'Subloop checkout').slice(0, 80);
+  if (!/^plan_[A-Za-z0-9_\-]+$/.test(planId)) return res.status(400).send('Missing or invalid Whop plan_id');
+  const returnUrl = `${req.protocol}://${req.get('host')}/whop-checkout/complete`;
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title.replace(/[<>]/g,'')}</title><script async defer src="https://js.whop.com/static/checkout/loader.js"></script><style>body{margin:0;background:#08080d;color:#f5f5f7;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}.wrap{max-width:760px;margin:0 auto;padding:34px 18px}.brand{font-size:22px;font-weight:700;margin-bottom:6px}.sub{font-size:13px;color:#9a9aaa;margin-bottom:18px}.box{background:#111119;border:1px solid #272736;border-radius:16px;padding:10px;box-shadow:0 18px 50px rgba(0,0,0,.34)}.note{font-size:12px;color:#9a9aaa;margin-top:14px;line-height:1.5}</style></head><body><div class="wrap"><div class="brand">${title.replace(/[<>]/g,'')}</div><div class="sub">Secure checkout. Your card will be saved for future manual charges only when supported by Whop.</div><div class="box"><div id="whop-embedded-checkout" data-whop-checkout-theme="dark" data-whop-checkout-plan-id="${planId}" data-whop-checkout-return-url="${returnUrl}" data-whop-checkout-setup-future-usage="off_session"></div></div><div class="note">This checkout is configured with setupFutureUsage=off_session so Charge Later can work after successful payment.</div></div></body></html>`);
+});
+app.get('/whop-checkout/complete', (req, res) => {
+  const status = String(req.query.status || '').toLowerCase();
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Checkout ${status === 'success' ? 'complete' : 'status'}</title><style>body{margin:0;background:#08080d;color:#f5f5f7;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:grid;place-items:center;min-height:100vh}.card{background:#111119;border:1px solid #272736;border-radius:16px;padding:28px;max-width:440px;text-align:center}.ok{color:#00D775}.muted{color:#9a9aaa;font-size:13px;line-height:1.5}</style></head><body><div class="card"><h2 class="${status === 'success' ? 'ok' : ''}">${status === 'success' ? 'Payment complete' : 'Checkout finished'}</h2><p class="muted">You can close this page. Subloop will receive the Whop webhook and update Payments / Saved Cards.</p></div></body></html>`);
+});
 app.use('/icons', express.static(path.join(__dirname, 'public', 'icons')));
 app.use(express.static(path.join(__dirname)));
 
@@ -1358,6 +1375,43 @@ async function createWhopSendInvoice(account, opts) {
 }
 
 
+async function whopCreateOneTimePlan(account, opts) {
+  const companyId = opts.company_id || account.company_id;
+  if (!companyId) throw new Error('Missing Whop company ID');
+  const major = whopAmountMajorFromMinorOrMajor(opts.amount);
+  if (!major || major < 0.5) throw new Error('Minimum amount is 0.50');
+  const title = String(opts.name || 'One-time service').slice(0, 30);
+  const body = {
+    company_id: companyId,
+    title,
+    description: String(opts.description || 'One-time payment with saved card permission').slice(0, 1000),
+    initial_price: major,
+    currency: String(opts.currency || 'usd').toLowerCase(),
+    plan_type: 'one_time',
+    release_method: 'buy_now',
+    visibility: 'quick_link',
+    unlimited_stock: true,
+    metadata: { source: 'subloop_whop_payment_link', setupFutureUsage: 'off_session' }
+  };
+  try {
+    const result = await whopApiRequest(account.api_key, 'POST', '/api/v1/plans', body);
+    return result.data;
+  } catch (firstErr) {
+    // Some Whop SDK/docs examples use /plans while older code paths use /api/v1/*.
+    // Try the documented path as a safe fallback and keep the real Whop error if both fail.
+    try {
+      const result = await whopApiRequest(account.api_key, 'POST', '/plans', body);
+      return result.data;
+    } catch (secondErr) {
+      const err = new Error(firstErr.message + ' | fallback /plans: ' + secondErr.message);
+      err.statusCode = secondErr.statusCode || firstErr.statusCode || 400;
+      err.data = { api_v1_plans: firstErr.data || null, plans: secondErr.data || null };
+      throw err;
+    }
+  }
+}
+
+
 function whopApiRequest(apiKey, method, apiPath, body) {
   return new Promise((resolve, reject) => {
     const payload = body ? JSON.stringify(body) : null;
@@ -1402,6 +1456,36 @@ async function testWhopConnection(account) {
   if (!result || !result.data) throw new Error('Whop connected, but no response data was returned');
   return { success: true, message: 'Connection verified: API key, Company ID, and payment read permission work' };
 }
+
+
+app.post('/api/whop-payment-links', async (req, res) => {
+  try {
+    const { whop_account_id, name, amount, currency } = req.body || {};
+    const amountMinor = Math.round(Number(amount || 0));
+    if (!amountMinor || amountMinor < 50) return res.status(400).json({ success: false, error: 'Minimum amount is 0.50' });
+    let account = null;
+    if (whop_account_id) {
+      const q = await pool.query('SELECT * FROM whop_accounts WHERE id=$1 LIMIT 1', [whop_account_id]);
+      account = q.rows[0] || null;
+    }
+    if (!account) {
+      const q = await pool.query("SELECT * FROM whop_accounts WHERE api_key IS NOT NULL AND api_key <> '' ORDER BY created_at DESC, id DESC LIMIT 1");
+      account = q.rows[0] || null;
+    }
+    if (!account || !account.api_key) return res.status(400).json({ success: false, error: 'No Whop account/API key found' });
+    if (!account.company_id) return res.status(400).json({ success: false, error: 'This Whop account is missing company ID' });
+    const plan = await whopCreateOneTimePlan(account, { name, amount: amountMinor, currency, company_id: account.company_id });
+    const planId = plan?.id || plan?.data?.id;
+    if (!planId) return res.status(500).json({ success: false, error: 'Whop created a plan but no plan ID was returned', detail: plan });
+    const origin = `${req.protocol}://${req.get('host')}`;
+    const checkoutUrl = `${origin}/whop-checkout?plan_id=${encodeURIComponent(planId)}&title=${encodeURIComponent(name || 'Subloop checkout')}`;
+    await webhookLogs.add({ event_type: 'whop_payment_link_created', account_name: account.name, status: 'ok' }).catch(()=>{});
+    res.json({ success: true, plan_id: planId, url: checkoutUrl, purchase_url: plan.purchase_url || null, setup_future_usage: 'off_session' });
+  } catch (err) {
+    try { await webhookLogs.add({ event_type: 'whop_payment_link_create_failed', account_name: null, status: 'failed', error: err.message }); } catch(_e) {}
+    res.status(err.statusCode || 500).json({ success: false, error: err.message, detail: err.data || null });
+  }
+});
 
 app.get('/api/whop-accounts', async (req, res) => {
   try { res.json(await whopAccounts.all()); }
