@@ -1503,6 +1503,56 @@ app.get('/api/whop-saved-cards', async (req, res) => {
 });
 
 
+
+app.post('/api/whop-charge-later/charge', async (req, res) => {
+  try {
+    const { account_name, company_id, member_id, payment_method_id, amount, currency, description } = req.body || {};
+    const amountCents = Math.round(Number(amount || 0));
+    if (!member_id || !payment_method_id) return res.status(400).json({ success: false, error: 'Missing member_id or payment_method_id' });
+    if (!amountCents || amountCents < 50) return res.status(400).json({ success: false, error: 'Minimum amount is 0.50' });
+    let account = null;
+    if (account_name) {
+      const q = await pool.query('SELECT * FROM whop_accounts WHERE name=$1 ORDER BY id DESC LIMIT 1', [account_name]);
+      account = q.rows[0] || null;
+    }
+    if (!account && company_id) {
+      const q = await pool.query('SELECT * FROM whop_accounts WHERE company_id=$1 ORDER BY id DESC LIMIT 1', [company_id]);
+      account = q.rows[0] || null;
+    }
+    if (!account) {
+      const q = await pool.query("SELECT * FROM whop_accounts WHERE api_key IS NOT NULL AND api_key <> '' ORDER BY created_at DESC, id DESC LIMIT 1");
+      account = q.rows[0] || null;
+    }
+    if (!account || !account.api_key) return res.status(400).json({ success: false, error: 'No Whop account/API key found' });
+    const companyId = company_id || account.company_id;
+    if (!companyId) return res.status(400).json({ success: false, error: 'Missing Whop company ID' });
+    const major = Number((amountCents / 100).toFixed(2));
+    const payload = {
+      company_id: companyId,
+      member_id: String(member_id),
+      payment_method_id: String(payment_method_id),
+      plan: {
+        initial_price: major,
+        currency: String(currency || 'usd').toLowerCase(),
+        plan_type: 'one_time',
+        metadata: { source: 'subloop_charge_later', description: description || 'Subloop Charge Later' }
+      }
+    };
+    let result;
+    try {
+      result = await whopApiRequest(account.api_key, 'POST', '/payments', payload);
+    } catch (firstErr) {
+      // Some older keys in this app already use /api/v1 paths, so keep a fallback without changing existing Whop logic.
+      result = await whopApiRequest(account.api_key, 'POST', '/api/v1/payments', payload);
+    }
+    await webhookLogs.add({ event_type: 'whop_charge_later_created', account_name: account.name, status: 'ok' }).catch(()=>{});
+    res.json({ success: true, payment: result.data });
+  } catch (err) {
+    try { await webhookLogs.add({ event_type: 'whop_charge_later_failed', account_name: req.body?.account_name || null, status: 'failed', error: err.message }); } catch(_e) {}
+    res.status(err.statusCode || 500).json({ success: false, error: err.message, detail: err.data || null });
+  }
+});
+
 app.get('/api/whop-customers', async (req, res) => {
   try {
     const webhookRows = await whopWebhookEvents.recent(100);

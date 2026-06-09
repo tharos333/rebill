@@ -6107,7 +6107,17 @@ html,body{width:100%!important;max-width:100%!important;overflow-x:hidden!import
   <div id="whop-pay-pagination" style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap;"></div>
 </div>
 <div id="page-whop-saved-cards" class="page"><div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M16 14l1.2 1.2L20 12"/></svg><span>Saved Cards</span></h2><p>Saved payment methods from Whop checkout</p></div></div><div class="card"><div class="card-header"><h3>Saved Cards</h3></div><table><thead><tr><th>Account</th><th>Member</th><th>Email</th><th>Payment method</th><th>Status</th><th>Updated</th></tr></thead><tbody id="whop-saved-cards-body"><tr><td colspan="6" class="empty">No saved cards yet</td></tr></tbody></table></div></div>
-<div id="page-whop-charge-later" class="page"><div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8v5l3 2"/><circle cx="12" cy="12" r="9"/></svg><span>Charge Later</span></h2><p>Create off-session Whop charges after customer consent</p></div></div><div class="card"><div class="card-header"><h3>Charge Later</h3></div><div class="whop-empty">Charge later flow will be added after Whop API credentials are ready.</div></div></div>
+<div id="page-whop-charge-later" class="page">
+  <div class="page-header">
+    <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8v5l3 2"/><circle cx="12" cy="12" r="9"/></svg><span>Charge Later</span></h2><p>All Whop saved-card rebilling schedules</p></div>
+    <div class="page-header-actions"><div id="whop-charge-default-btn" class="view-write-only"><button class="btn btn-sm" onclick="toast('Select mode for Whop Charge Later will be added after schedules are saved')">Select</button></div></div>
+  </div>
+  <div class="search-bar"><input type="text" id="whop-charge-search" placeholder="Search by name or email..." oninput="filterWhopChargeLater()"></div>
+  <div class="card"><div class="scrollable"><table>
+    <thead><tr><th>Customer</th><th>Amount</th><th>Interval</th><th>Next billing</th><th>Status</th><th class="view-write-only">Actions</th></tr></thead>
+    <tbody id="whop-charge-later-body"><tr><td colspan="6" class="empty">Loading...</td></tr></tbody>
+  </table></div></div>
+</div>
 <div id="page-whop-accounts" class="page"><div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10.5 9.9 13.5 8.1"/><path d="M10.5 14.1 13.5 15.9"/><circle cx="7" cy="12" r="4"/><circle cx="17" cy="6" r="4"/><circle cx="17" cy="18" r="4"/></svg><span>Whop Accounts</span></h2><p>Manage connected Whop accounts</p><p style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:6px;">Webhook URL: <span id="whop-webhook-url"></span></p></div><div class="page-header-actions"><button id="whop-add-account-btn" class="btn btn-primary" onclick="openWhopAccountModal()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Whop Account</button></div></div><div class="card"><div class="card-header"><h3>Accounts</h3></div><table><thead><tr><th>Account</th><th>Company ID</th><th>API key</th><th>Status</th><th>Last test</th><th>Actions</th></tr></thead><tbody id="whop-accounts-table"><tr><td colspan="6" class="empty">Loading...</td></tr></tbody></table></div></div>
 <div id="page-whop-recovery" class="page"><div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 2v6h6"/><path d="M21.5 22v-6h-6"/><path d="M22 11.5A10 10 0 0 0 3.2 7.2"/><path d="M2 12.5a10 10 0 0 0 18.8 4.2"/></svg><span>Whop Payment Recovery</span></h2><p>Failed Whop payment recovery</p></div></div><div class="card"><div class="card-header"><h3>Payment Recovery</h3></div><div class="whop-empty">Whop payment recovery will appear here after webhook setup.</div></div></div>
 
@@ -7251,7 +7261,7 @@ function showPage(name,el){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   el.classList.add('active');
-  const loaders={dashboard:()=>{loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();},activity:loadActivity,customers:loadCustomers,subscriptions:loadSubscriptions,payments:loadPayments,settings:loadSettings,accounts:loadAccounts,security:loadSecurity,webhooks:loadWebhooks,forecast:loadForecast,summary:loadSummary,admins:loadAdmins,mrr:()=>{var period=document.getElementById('mrr-period');if(period)period.value='year';loadMrr();},recovery:loadRecovery,links:()=>{loadPaymentLinkAccounts();loadTemplates();configurePaymentLinksAccessUI();},'whop-customers':loadWhopCustomers,'whop-payments':loadWhopPayments,'whop-saved-cards':loadWhopSavedCards,'whop-accounts':loadWhopAccounts};
+  const loaders={dashboard:()=>{loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();},activity:loadActivity,customers:loadCustomers,subscriptions:loadSubscriptions,payments:loadPayments,settings:loadSettings,accounts:loadAccounts,security:loadSecurity,webhooks:loadWebhooks,forecast:loadForecast,summary:loadSummary,admins:loadAdmins,mrr:()=>{var period=document.getElementById('mrr-period');if(period)period.value='year';loadMrr();},recovery:loadRecovery,links:()=>{loadPaymentLinkAccounts();loadTemplates();configurePaymentLinksAccessUI();},'whop-customers':loadWhopCustomers,'whop-payments':loadWhopPayments,'whop-saved-cards':loadWhopSavedCards,'whop-charge-later':loadWhopChargeLater,'whop-accounts':loadWhopAccounts};
   expandSettingsIfNeeded(name);
   if(!canAccess(name)){
     document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
@@ -9187,6 +9197,58 @@ function exportWhopPaymentsCsv(){
   var rows=[['Customer','Amount','Payment Method','Account','Status','Date','Reference']].concat((window.whopPayments||[]).map(function(p){var m=mapWhopPaymentForStripeUi(p,0);return [m.name,whopAmountDisplay(p.amount,p.currency||'USD'),(m.card_brand||m.payment_method_type||'card')+' '+(m.card_last4||''),m.account_name,m.status,fmtDate(m.created_at),m.stripe_payment_intent];}));
   var csv=rows.map(function(r){return r.map(function(v){return '"'+String(v||'').replace(/"/g,'""')+'"';}).join(',');}).join('\n');
   var blob=new Blob([csv],{type:'text/csv'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='whop-payments.csv';a.click();setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
+}
+
+
+var whopChargeLaterRows=[];
+function whopChargeKey(row,index){return String((row&&row.payment_method_id)||(row&&row.member_id)||(row&&row.customer_email)||('row_'+index));}
+function getWhopChargeState(key){try{return JSON.parse(localStorage.getItem('whop_charge_state_'+key)||'{}')||{};}catch(e){return {};}}
+function setWhopChargeState(key,state){localStorage.setItem('whop_charge_state_'+key,JSON.stringify(state||{}));}
+function whopChargeDisplayName(row){return row.customer_name||((row.customer_email||'').split('@')[0])||row.member_id||'Whop customer';}
+async function loadWhopChargeLater(){
+  var tb=document.getElementById('whop-charge-later-body');if(!tb)return;
+  tb.innerHTML='<tr><td colspan="6" class="empty">Loading...</td></tr>';
+  try{
+    var cards=await api('/api/whop-saved-cards');
+    whopChargeLaterRows=(cards||[]).map(function(c,i){var key=whopChargeKey(c,i);var st=getWhopChargeState(key);return Object.assign({},c,{_key:key,_amount:st.amount||100,_currency:st.currency||((c.currency||'usd').toLowerCase()),_interval:st.interval||30,_next_billing:st.next_billing||'',_status:st.status||'active'});});
+    filterWhopChargeLater();
+  }catch(e){tb.innerHTML='<tr><td colspan="6" class="empty">Could not load Whop charge later</td></tr>';}
+}
+function renderWhopChargeLater(list){
+  var tb=document.getElementById('whop-charge-later-body');if(!tb)return;
+  var isViewer=isViewOnlyAccess();
+  if(!list.length){tb.innerHTML='<tr><td colspan="6" class="empty">No saved cards ready for Charge Later</td></tr>';return;}
+  tb.innerHTML=list.map(function(row,i){
+    var key=row._key||whopChargeKey(row,i);var status=String(row._status||'active').toLowerCase();
+    var chargeBtn=status==='active'?'<button class="btn btn-sm" onclick="chargeWhopSavedCard(\''+escHtml(key)+'\')">Charge</button>':'';
+    var editBtn='<button class="btn btn-sm" onclick="showWhopChargeEdit(\''+escHtml(key)+'\')">Edit $</button><span id="whop-charge-edit-'+escHtml(key).replace(/[^a-zA-Z0-9_-]/g,'_')+'"></span>';
+    var pauseBtn=status==='active'?'<button class="btn btn-sm btn-danger" onclick="setWhopChargeStatus(\''+escHtml(key)+'\',\'paused\')">Pause</button>':'';
+    var resumeBtn=status==='paused'||status==='canceled'?'<button class="btn btn-sm" onclick="setWhopChargeStatus(\''+escHtml(key)+'\',\'active\')">Resume</button>':'';
+    var cancelBtn=status==='canceled'?'':'<button class="btn btn-sm btn-danger" onclick="setWhopChargeStatus(\''+escHtml(key)+'\',\'canceled\')">Cancel</button>';
+    var pm=whopPaymentMethodDisplay(row,false)||'—';
+    var next=row._next_billing?fmtDate(row._next_billing):'—';
+    var email=row.customer_email||'';var name=whopChargeDisplayName(row);
+    var rowHtml='<tr><td><div class="customer-cell"><div class="avatar">'+initials(name)+'</div><div><div class="customer-name">'+escHtml(name)+'</div><div class="customer-email">'+escHtml(email)+'</div><div style="margin-top:5px;">'+pm+'</div></div></div></td>';
+    rowHtml+='<td class="mono">'+fmt(Number(row._amount||0),row._currency||'usd')+'</td><td class="mono">'+escHtml(String(row._interval||30))+' days</td><td class="mono">'+next+'</td><td>'+badge(status)+'</td>';
+    if(!isViewer)rowHtml+='<td><div class="actions">'+chargeBtn+editBtn+pauseBtn+resumeBtn+cancelBtn+'</div></td>';
+    return rowHtml+'</tr>';
+  }).join('');
+}
+function filterWhopChargeLater(){var q=(document.getElementById('whop-charge-search')?.value||'').toLowerCase();var list=(whopChargeLaterRows||[]).filter(function(r){return !q||[whopChargeDisplayName(r),r.customer_email,r.member_id,r.payment_method_id,r.card_last4].join(' ').toLowerCase().indexOf(q)>=0;});renderWhopChargeLater(list);}
+function findWhopChargeRow(key){return (whopChargeLaterRows||[]).find(function(r){return String(r._key)===String(key);});}
+function whopEditSafeId(key){return String(key).replace(/[^a-zA-Z0-9_-]/g,'_');}
+function showWhopChargeEdit(key){var row=findWhopChargeRow(key);if(!row)return;var id='whop-charge-edit-'+whopEditSafeId(key);var el=document.getElementById(id);if(!el)return;var val=(Number(row._amount||0)/100).toFixed(2);el.innerHTML='<div style="display:inline-flex;align-items:center;gap:4px;"><input type="number" id="whop-charge-amount-'+whopEditSafeId(key)+'" value="'+val+'" step="0.01" min="0.50" style="width:75px;padding:3px 6px;font-size:12px;"><button class="btn btn-sm btn-primary" onclick="saveWhopChargeAmount(\''+escHtml(key)+'\')">Save</button><button class="btn btn-sm" onclick="filterWhopChargeLater()">✕</button></div>';var input=document.getElementById('whop-charge-amount-'+whopEditSafeId(key));if(input)input.focus();}
+function saveWhopChargeAmount(key){var row=findWhopChargeRow(key);var input=document.getElementById('whop-charge-amount-'+whopEditSafeId(key));if(!row||!input)return;var cents=Math.round(parseFloat(input.value)*100);if(isNaN(cents)||cents<50){toast('Minimum $0.50','error');return;}row._amount=cents;var st=getWhopChargeState(key);st.amount=cents;st.currency=row._currency||'usd';setWhopChargeState(key,st);toast('✓ Amount updated');filterWhopChargeLater();}
+function setWhopChargeStatus(key,status){var row=findWhopChargeRow(key);if(!row)return;row._status=status;var st=getWhopChargeState(key);st.status=status;setWhopChargeState(key,st);toast('Whop charge '+(status==='canceled'?'canceled':status));filterWhopChargeLater();}
+async function chargeWhopSavedCard(key){
+  if(blockViewOnlyAction())return;var row=findWhopChargeRow(key);if(!row)return;
+  if(!row.member_id||!row.payment_method_id){toast('Missing Whop member ID or payment method ID','error');return;}
+  if(!confirm('Charge '+whopChargeDisplayName(row)+' '+fmt(Number(row._amount||0),row._currency||'usd')+' now?'))return;
+  toast('Charging Whop card…');
+  try{
+    var r=await api('/api/whop-charge-later/charge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_name:row.account_name,company_id:row.company_id,member_id:row.member_id,payment_method_id:row.payment_method_id,amount:Number(row._amount||0),currency:row._currency||'usd',description:'Subloop Charge Later'})});
+    if(r&&r.success){toast('✓ Whop charge created');loadWhopPayments();loadWhopChargeLater();}else{toast('✗ '+((r&&r.error)||'Charge failed'),'error');}
+  }catch(e){toast('✗ '+(e.message||'Charge failed'),'error');}
 }
 
 async function loadWhopSavedCards(){
