@@ -65,23 +65,7 @@ html.light .sidebar-header{border-bottom:1px solid rgba(0,0,0,0.08);}
 html.light .toggle-track{background:var(--accent)}
 .toggle-thumb{width:12px;height:12px;border-radius:50%;background:var(--muted);position:absolute;top:2px;left:2px;transition:all 0.2s}
 html.light .toggle-thumb{background:#fff;left:18px}
-
-.platform-switcher{display:flex;flex-direction:column;gap:7px;font-family:var(--mono)}
-.platform-switcher-label{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase}
-.platform-select-wrap{position:relative}
-.platform-select{width:100%;height:34px;appearance:none;-webkit-appearance:none;background:var(--surface2);border:1px solid var(--border2);border-radius:9px;color:var(--text);font-size:12px;font-family:var(--sans);font-weight:600;padding:0 32px 0 11px;cursor:pointer;outline:none}
-.platform-select:focus{border-color:var(--accent)}
-.platform-select-wrap::after{content:'▾';position:absolute;right:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:12px;pointer-events:none}
-.whop-placeholder-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:18px}
-.whop-placeholder-card{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:16px}
-.whop-placeholder-label{font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:.5px;text-transform:uppercase}
-.whop-placeholder-value{font-size:20px;font-weight:700;margin-top:5px}
-.whop-empty{padding:28px 18px;color:var(--muted);font-size:13px;font-family:var(--mono);text-align:center}
-
-.main{margin-left:220px;flex:none;width:calc(100vw - 220px);max-width:calc(100vw - 220px);padding:24px 28px;min-height:100vh;overflow-x:hidden}
-html,body{overflow-x:hidden}
-.app-screen{position:relative;overflow-x:hidden}
-.page.active{width:100%;max-width:100%;margin-left:0;margin-right:0}
+.main{margin-left:220px;flex:1;padding:24px 28px;min-height:100vh}
 .page{display:none}.page.active{display:block}
 .page-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap}
 .page-header h2{font-size:19px;font-weight:600;letter-spacing:-0.3px}
@@ -5856,17 +5840,6 @@ body.view-only-access #verification-debug-modal .modal-content{
 #global-search-results .badge,
 #global-search-results .badge span{font-weight:600!important;}
 
-
-/* HARD LAYOUT FIX: keep app content directly beside the fixed sidebar */
-html,body{width:100%!important;max-width:100%!important;overflow-x:hidden!important}
-.app-screen{width:100%!important;max-width:100%!important;display:block!important;position:relative!important;overflow-x:hidden!important}
-.sidebar{left:0!important;top:0!important}
-.main{position:relative!important;margin-left:220px!important;left:0!important;right:auto!important;transform:none!important;width:calc(100vw - 220px)!important;max-width:calc(100vw - 220px)!important;min-width:0!important;flex:none!important;padding:24px 28px!important;overflow-x:hidden!important}
-.main > .page,.main > .page.active{width:100%!important;max-width:none!important;margin:0!important;margin-left:0!important;margin-right:0!important;left:0!important;right:auto!important;transform:none!important}
-.main .page-header,.main .stats-grid,.main .card{width:100%!important;max-width:none!important;margin-left:0!important;margin-right:0!important;left:0!important;right:auto!important;transform:none!important}
-.main .stats-grid{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))!important}
-@media(max-width:760px){.main{margin-left:0!important;width:100vw!important;max-width:100vw!important;padding:18px!important}}
-
 </style>
 </head>
 <body>
@@ -5914,8 +5887,7 @@ html,body{width:100%!important;max-width:100%!important;overflow-x:hidden!import
   <div class="logo sidebar-header">
     <img id="sidebar-logo" src="https://i.ibb.co/xq0HVT9G/1.png" alt="Subloop" class="sidebar-logo-img">
   </div>
-  <div class="sidebar-nav-scroll" style="flex:1;overflow-y:auto;overflow-x:hidden;">
-  <div id="stripe-nav" data-platform-nav="stripe">
+  <div style="flex:1;overflow-y:auto;overflow-x:hidden;">
   <div class="nav-section">Main</div>
   <button class="nav-item active" onclick="showPage('dashboard',this)">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Dashboard</button>
@@ -5962,59 +5934,12 @@ html,body{width:100%!important;max-width:100%!important;overflow-x:hidden!import
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 16.98h-5.99c-1.1 0-1.95.94-2.48 1.9A4 4 0 0 1 2 17c.01-.7.2-1.4.57-2"/><path d="m6 17 3.13-5.78c.53-.97.1-2.18-.5-3.1a4 4 0 1 1 6.89-4.06"/><path d="m12 6 3.13 5.73C15.66 12.7 16.9 13 18 13a4 4 0 0 1 0 8"/></svg>Webhook Logs</button>
   </div>
 
-
-  </div><!-- end stripe nav -->
-
-  <div id="whop-nav" data-platform-nav="whop" style="display:none;">
-    <div class="nav-section">Main</div>
-    <button class="nav-item" onclick="showPage('whop-dashboard',this)">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Dashboard</button>
-    <button class="nav-item" onclick="showPage('whop-activity',this)">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Activity</button>
-
-    <div class="nav-section">Billing</div>
-    <button class="nav-item" onclick="showPage('whop-customers',this)">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Customers</button>
-    <button class="nav-item" onclick="showPage('whop-payments',this)">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="6" y1="15" x2="10" y2="15"/></svg>Payments</button>
-    <button class="nav-item" onclick="showPage('whop-saved-cards',this)">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M6 15h4"/><path d="M16 14l1.2 1.2L20 12"/></svg>Saved Cards</button>
-    <button class="nav-item" onclick="showPage('whop-charge-later',this)">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8v5l3 2"/><circle cx="12" cy="12" r="9"/><path d="M19 19l3 3"/></svg>Charge Later</button>
-    <button class="nav-item" onclick="showPage('whop-accounts',this)">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10.5 9.9 13.5 8.1"/><path d="M10.5 14.1 13.5 15.9"/><circle cx="7" cy="12" r="4"/><circle cx="17" cy="6" r="4"/><circle cx="17" cy="18" r="4"/></svg>Whop Accounts</button>
-
-    <div class="nav-section">Insights</div>
-    <button class="nav-item" onclick="showPage('whop-recovery',this)">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 2v6h6"/><path d="M21.5 22v-6h-6"/><path d="M22 11.5A10 10 0 0 0 3.2 7.2"/><path d="M2 12.5a10 10 0 0 0 18.8 4.2"/></svg>Payment Recovery</button>
-
-    <button class="nav-section-toggle" id="whop-settings-toggle" onclick="toggleWhopSettingsNav()" style="display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:none;cursor:pointer;padding:10px 24px 4px;font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:1px;text-transform:uppercase;">
-      <span>Settings</span>
-      <svg id="whop-settings-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform 0.2s;flex-shrink:0;"><polyline points="6 9 12 15 18 9"/></svg>
-    </button>
-    <div id="whop-settings-subnav" style="display:none;overflow:hidden;">
-      <button class="nav-item" onclick="showPage('admins',this)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>Admin Users</button>
-      <button class="nav-item" onclick="showPage('settings',this)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
-      <button class="nav-item" onclick="showPage('security',this)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Security</button>
-      <button class="nav-item" onclick="showPage('webhooks',this)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 16.98h-5.99c-1.1 0-1.95.94-2.48 1.9A4 4 0 0 1 2 17c.01-.7.2-1.4.57-2"/><path d="m6 17 3.13-5.78c.53-.97.1-2.18-.5-3.1a4 4 0 1 1 6.89-4.06"/><path d="m12 6 3.13 5.73C15.66 12.7 16.9 13 18 13a4 4 0 0 1 0 8"/></svg>Webhook Logs</button>
-    </div>
-  </div>
   </div><!-- end scrollable nav -->
   <div style="flex-shrink:0;background:var(--surface);padding:18px 24px 16px;">
-    <div class="platform-switcher">
-      <div class="platform-switcher-label">Platform</div>
-      <div class="platform-select-wrap">
-        <select id="platform-select" class="platform-select" onchange="switchPlatform(this.value)">
-          <option value="stripe">Stripe</option>
-          <option value="whop">Whop</option>
-          <option value="shopify" disabled>Shopify (Coming soon)</option>
-        </select>
-      </div>
-    </div>
+    <button class="theme-toggle" onclick="toggleTheme()">
+      <div class="toggle-track"><div class="toggle-thumb"></div></div>
+      <span id="theme-label">Dark mode</span>
+    </button>
     <div style="height:1px;background:var(--border);margin:14px -24px;"></div>
     <div style="display:flex;align-items:center;font-size:11px;color:var(--muted);font-family:var(--mono);">
       <span id="server-status">● loading...</span>
@@ -6022,29 +5947,6 @@ html,body{width:100%!important;max-width:100%!important;overflow-x:hidden!import
   </div>
 </nav>
 <main class="main">
-
-<!-- Whop Platform Placeholders -->
-<div id="page-whop-dashboard" class="page">
-  <div class="page-header">
-    <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Whop Dashboard</span></h2><p>Whop payment overview</p></div>
-  </div>
-  <div class="whop-placeholder-grid">
-    <div class="whop-placeholder-card"><div class="whop-placeholder-label">Whop revenue</div><div class="whop-placeholder-value">—</div></div>
-    <div class="whop-placeholder-card"><div class="whop-placeholder-label">Saved cards</div><div class="whop-placeholder-value">—</div></div>
-    <div class="whop-placeholder-card"><div class="whop-placeholder-label">Charge later</div><div class="whop-placeholder-value">—</div></div>
-  </div>
-  <div class="card"><div class="card-header"><h3>Whop setup</h3></div><div class="whop-empty">Whop API connection will be added after the platform UI is confirmed.</div></div>
-</div>
-
-<div id="page-whop-activity" class="page"><div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Whop Activity</span></h2><p>Whop events and payment activity</p></div></div><div class="card"><div class="card-header"><h3>Activity</h3></div><div class="whop-empty">No Whop activity yet.</div></div></div>
-<div id="page-whop-customers" class="page"><div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><span>Whop Customers</span></h2><p>Customers connected through Whop</p></div></div><div class="card"><div class="card-header"><h3>Customers</h3></div><div class="whop-empty">Whop customers will appear here after API connection.</div></div></div>
-<div id="page-whop-payments" class="page"><div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg><span>Whop Payments</span></h2><p>Payments created through Whop</p></div></div><div class="card"><div class="card-header"><h3>Payments</h3></div><div class="whop-empty">Whop payments will appear here after API connection.</div></div></div>
-<div id="page-whop-saved-cards" class="page"><div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M16 14l1.2 1.2L20 12"/></svg><span>Saved Cards</span></h2><p>Saved payment methods from Whop checkout</p></div></div><div class="card"><div class="card-header"><h3>Saved Cards</h3></div><table><thead><tr><th>Account</th><th>Member</th><th>Email</th><th>Payment method</th><th>Status</th><th>Updated</th></tr></thead><tbody id="whop-saved-cards-body"><tr><td colspan="6" class="empty">No saved cards yet</td></tr></tbody></table></div></div>
-<div id="page-whop-charge-later" class="page"><div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8v5l3 2"/><circle cx="12" cy="12" r="9"/></svg><span>Charge Later</span></h2><p>Create off-session Whop charges after customer consent</p></div></div><div class="card"><div class="card-header"><h3>Charge Later</h3></div><div class="whop-empty">Charge later flow will be added after Whop API credentials are ready.</div></div></div>
-<div id="page-whop-accounts" class="page"><div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10.5 9.9 13.5 8.1"/><path d="M10.5 14.1 13.5 15.9"/><circle cx="7" cy="12" r="4"/><circle cx="17" cy="6" r="4"/><circle cx="17" cy="18" r="4"/></svg><span>Whop Accounts</span></h2><p>Manage connected Whop accounts</p><p style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:6px;">Webhook URL: https://rebill-production.up.railway.app/api/whop/webhook</p></div><div class="page-header-actions"><button id="whop-add-account-btn" class="btn btn-primary" onclick="openWhopAccountModal()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Whop Account</button></div></div><div class="card"><div class="card-header"><h3>Accounts</h3></div><table><thead><tr><th>Account</th><th>Company ID</th><th>API key</th><th>Status</th><th>Last test</th><th>Actions</th></tr></thead><tbody id="whop-accounts-table"><tr><td colspan="6" class="empty">Loading...</td></tr></tbody></table></div></div>
-<div id="page-whop-recovery" class="page"><div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 2v6h6"/><path d="M21.5 22v-6h-6"/><path d="M22 11.5A10 10 0 0 0 3.2 7.2"/><path d="M2 12.5a10 10 0 0 0 18.8 4.2"/></svg><span>Whop Payment Recovery</span></h2><p>Failed Whop payment recovery</p></div></div><div class="card"><div class="card-header"><h3>Payment Recovery</h3></div><div class="whop-empty">Whop payment recovery will appear here after webhook setup.</div></div></div>
-
-
 
 <!-- Dashboard -->
 <div id="page-dashboard" class="page active">
@@ -6893,21 +6795,6 @@ html,body{width:100%!important;max-width:100%!important;overflow-x:hidden!import
   </div>
 </div>
 
-
-<div id="whop-account-modal" class="modal-bg" onclick="if(event.target===this)closeModal('whop-account-modal')">
-  <div class="modal">
-    <h3 id="whop-account-modal-title">Add Whop Account</h3>
-    <p>Connect Whop without changing your existing Stripe setup.</p>
-    <input type="hidden" id="whop-account-id">
-    <div class="form-group"><label>Account name</label><input id="whop-account-name" placeholder="Main Whop Account"></div>
-    <div class="form-group"><label>Whop API key</label><input id="whop-account-api-key" type="password" placeholder="Paste Whop API key"></div>
-    <div class="form-group"><label>Company ID</label><input id="whop-account-company-id" placeholder="biz_xxxxxxxxxxxxxx"><div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.45;">Find it in your Whop dashboard URL. The test checks the key with Whop payments read permission.</div></div>
-    <div class="form-group"><label>App ID <span style="color:var(--muted);font-weight:400;">optional</span></label><input id="whop-account-app-id" placeholder="app_xxxxxxxxxxxxxx"></div>
-    <div class="form-group"><label>Webhook secret <span style="color:var(--muted);font-weight:400;">later</span></label><input id="whop-account-webhook-secret" type="password" placeholder="Webhook secret"></div>
-    <div class="modal-footer"><button class="btn" onclick="closeModal('whop-account-modal')">Cancel</button><button class="btn btn-primary" onclick="saveWhopAccount()">Save Account</button></div>
-  </div>
-</div>
-
 <div id="toast"></div>
 <script>
 let currentLink=null,allCustomers=[],allSubscriptions=[],allPayments=[],allStripeAccounts=[],allAdminUsers=[],appSettings={},selectedSubs=new Set(),currentRevPeriod='all',bulkMode=false;
@@ -6915,65 +6802,6 @@ function toggleTheme(){const isLight=document.documentElement.classList.toggle('
 function updateLogos(isLight){const src=isLight?'https://i.ibb.co/6cD50Q6H/2.png':'https://i.ibb.co/xq0HVT9G/1.png';['sidebar-logo','login-logo'].forEach(id=>{const el=document.getElementById(id);if(el)el.src=src;});}
 function initTheme(){const isLight=localStorage.getItem('subloop_theme')==='light';if(isLight){document.documentElement.classList.add('light');const l=document.getElementById('theme-label');if(l)l.textContent='Light mode';}updateLogos(isLight);}
 initTheme();
-
-let currentPlatform=localStorage.getItem('subloop_platform')||'stripe';
-function setActiveNavForPlatform(platform){
-  var stripeNav=document.getElementById('stripe-nav');
-  var whopNav=document.getElementById('whop-nav');
-  if(stripeNav)stripeNav.style.display=platform==='stripe'?'block':'none';
-  if(whopNav)whopNav.style.display=platform==='whop'?'block':'none';
-}
-function switchPlatform(platform){
-  if(platform==='shopify'){
-    var sel=document.getElementById('platform-select');
-    if(sel)sel.value=currentPlatform;
-    toast('Shopify is coming soon','error');
-    return;
-  }
-  currentPlatform=platform||'stripe';
-  localStorage.setItem('subloop_platform',currentPlatform);
-  var sel=document.getElementById('platform-select');
-  if(sel)sel.value=currentPlatform;
-  setActiveNavForPlatform(currentPlatform);
-  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
-  document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});
-  if(currentPlatform==='whop'){
-    var page=document.getElementById('page-whop-dashboard');
-    var first=document.querySelector('#whop-nav .nav-item');
-    if(page)page.classList.add('active');
-    if(first)first.classList.add('active');
-  }else{
-    var page=document.getElementById('page-dashboard');
-    var first=document.querySelector('#stripe-nav .nav-item');
-    if(page)page.classList.add('active');
-    if(first)first.classList.add('active');
-    if(typeof loadStats==='function'){loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();}
-  }
-}
-function initPlatformSwitcher(){
-  if(currentPlatform!=='stripe'&&currentPlatform!=='whop')currentPlatform='stripe';
-  var sel=document.getElementById('platform-select');
-  if(sel)sel.value=currentPlatform;
-  setActiveNavForPlatform(currentPlatform);
-  if(currentPlatform==='whop'){
-    document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
-    document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});
-    var page=document.getElementById('page-whop-dashboard');
-    var first=document.querySelector('#whop-nav .nav-item');
-    if(page)page.classList.add('active');
-    if(first)first.classList.add('active');
-  }
-}
-function toggleWhopSettingsNav(){
-  var subnav=document.getElementById('whop-settings-subnav');
-  var chevron=document.getElementById('whop-settings-chevron');
-  if(!subnav)return;
-  var isOpen=subnav.style.display==='block';
-  subnav.style.display=isOpen?'none':'block';
-  if(chevron)chevron.style.transform=isOpen?'rotate(0deg)':'rotate(180deg)';
-}
-
-initPlatformSwitcher();
 function showLoginError(message){
   var err=document.getElementById('login-error');
   err.textContent=message||'Incorrect username or password';
@@ -7060,7 +6888,6 @@ function blockViewOnlyAction(){
   return true;
 }
 function canAccess(section){
-  if(section&&section.indexOf('whop-')===0) return true;
   var role=getCurrentRole();
   if(section==='security') return true;
   if(!role||role==='owner'||role==='admin') return true;
@@ -7178,13 +7005,11 @@ function refreshRestrictedAccessAndOpen(name,el,loaders){
   }).catch(function(){});
 }
 function showPage(name,el){
-  if(name&&name.indexOf('whop-')===0){currentPlatform='whop';localStorage.setItem('subloop_platform','whop');var sel=document.getElementById('platform-select');if(sel)sel.value='whop';setActiveNavForPlatform('whop');}
-  else if(name&&['dashboard','activity','customers','subscriptions','payments','links','accounts','forecast','summary','mrr','recovery'].includes(name)){currentPlatform='stripe';localStorage.setItem('subloop_platform','stripe');var sel2=document.getElementById('platform-select');if(sel2)sel2.value='stripe';setActiveNavForPlatform('stripe');}
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   el.classList.add('active');
-  const loaders={dashboard:()=>{loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();},activity:loadActivity,customers:loadCustomers,subscriptions:loadSubscriptions,payments:loadPayments,settings:loadSettings,accounts:loadAccounts,security:loadSecurity,webhooks:loadWebhooks,forecast:loadForecast,summary:loadSummary,admins:loadAdmins,mrr:()=>{var period=document.getElementById('mrr-period');if(period)period.value='year';loadMrr();},recovery:loadRecovery,links:()=>{loadPaymentLinkAccounts();loadTemplates();configurePaymentLinksAccessUI();},'whop-accounts':loadWhopAccounts};
+  const loaders={dashboard:()=>{loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();},activity:loadActivity,customers:loadCustomers,subscriptions:loadSubscriptions,payments:loadPayments,settings:loadSettings,accounts:loadAccounts,security:loadSecurity,webhooks:loadWebhooks,forecast:loadForecast,summary:loadSummary,admins:loadAdmins,mrr:()=>{var period=document.getElementById('mrr-period');if(period)period.value='year';loadMrr();},recovery:loadRecovery,links:()=>{loadPaymentLinkAccounts();loadTemplates();configurePaymentLinksAccessUI();}};
   expandSettingsIfNeeded(name);
   if(!canAccess(name)){
     document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
@@ -8820,105 +8645,6 @@ function canManageStripeAccounts(){
 function applyStripeAccountsPageScopeUI(){
   var addBtn=document.getElementById('stripe-add-account-btn');
   if(addBtn)addBtn.style.display=canManageStripeAccounts()?'inline-flex':'none';
-}
-
-
-function canManageWhopAccounts(){
-  var role=getCurrentRole();
-  return role==='owner'||role==='admin';
-}
-function whopAccountBadge(status){
-  var raw=String(status||'pending').toLowerCase();
-  var cls=raw==='active'?'green':(raw==='failed'?'red':'blue');
-  var label=raw==='active'?'Connected':(raw==='failed'?'Failed':'Pending');
-  return '<span class="badge badge-'+cls+'"><span>'+label+'</span></span>';
-}
-
-async function loadWhopSavedCards(){
-  const body=document.getElementById('whop-saved-cards-body');
-  if(!body)return;
-  try{
-    const cards=await api('/api/whop-saved-cards');
-    if(!cards.length){body.innerHTML='<tr><td colspan="6" class="empty">No saved cards yet</td></tr>';return;}
-    body.innerHTML=cards.map(c=>{
-      const pm=c.payment_method_id?whopSafe(c.payment_method_id):'—';
-      const member=c.member_id?whopSafe(c.member_id):'—';
-      const email=c.customer_email?whopSafe(c.customer_email):'—';
-      const status=c.status||'active';
-      const updated=c.updated_at?new Date(c.updated_at).toLocaleString():'—';
-      return '<tr><td>'+whopSafe(c.account_name||'—')+'</td><td>'+member+'</td><td>'+email+'</td><td>'+pm+'</td><td><span class="badge badge-green">'+whopSafe(status)+'</span></td><td>'+updated+'</td></tr>';
-    }).join('');
-  }catch(err){
-    body.innerHTML='<tr><td colspan="6" class="empty">Could not load saved cards</td></tr>';
-  }
-}
-
-function whopSafe(v){return String(v||'').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
-async function loadWhopAccounts(){
-  var tb=document.getElementById('whop-accounts-table');if(!tb)return;
-  var addBtn=document.getElementById('whop-add-account-btn');if(addBtn)addBtn.style.display=canManageWhopAccounts()?'inline-flex':'none';
-  tb.innerHTML='<tr><td colspan="6" class="empty">Loading...</td></tr>';
-  try{
-    var list=await api('/api/whop-accounts');
-    if(!list||!list.length){tb.innerHTML='<tr><td colspan="6" class="empty">No Whop accounts yet</td></tr>';return;}
-    tb.innerHTML=list.map(function(a){
-      var last=a.last_test_at?fmtDate(a.last_test_at):'—';
-      var msg=a.last_test_message?'<div style="font-size:11px;color:var(--muted);margin-top:3px;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="'+whopSafe(a.last_test_message)+'">'+whopSafe(a.last_test_message)+'</div>':'';
-      var actions=canManageWhopAccounts()?'<div class="actions"><button class="btn btn-sm" onclick="testWhopAccount('+a.id+')">Test</button><button class="btn btn-sm" onclick="openWhopAccountModal('+a.id+')">Edit</button><button class="btn btn-sm btn-danger" onclick="deleteWhopAccount('+a.id+')">Delete</button></div>':'<div class="actions readonly-allowed-actions"><button class="btn btn-sm" onclick="testWhopAccount('+a.id+')">Test</button></div>';
-      return '<tr><td><strong style="font-size:13px;">'+whopSafe(a.name)+'</strong></td><td class="mono" style="font-size:12px;color:var(--muted);">'+whopSafe(a.company_id||'—')+'</td><td class="mono" style="font-size:12px;color:var(--muted);">'+whopSafe(a.key_preview||'—')+'</td><td>'+whopAccountBadge(a.status||a.last_test_status)+'</td><td><span class="mono" style="font-size:12px;color:var(--muted);">'+last+'</span>'+msg+'</td><td>'+actions+'</td></tr>';
-    }).join('');
-    window.allWhopAccounts=list;
-  }catch(e){tb.innerHTML='<tr><td colspan="6" class="empty">Unable to load Whop accounts</td></tr>';}
-}
-function openWhopAccountModal(id){
-  var account=null;
-  if(id&&window.allWhopAccounts)account=window.allWhopAccounts.find(function(a){return Number(a.id)===Number(id);});
-  document.getElementById('whop-account-modal-title').textContent=account?'Edit Whop Account':'Add Whop Account';
-  document.getElementById('whop-account-id').value=account?account.id:'';
-  document.getElementById('whop-account-name').value=account?account.name:'';
-  document.getElementById('whop-account-api-key').value='';
-  document.getElementById('whop-account-api-key').placeholder=account?'Leave empty to keep existing key':'Paste Whop API key';
-  document.getElementById('whop-account-company-id').value=account?(account.company_id||''):'';
-  document.getElementById('whop-account-app-id').value=account?(account.app_id||''):'';
-  document.getElementById('whop-account-webhook-secret').value=account?(account.webhook_secret||''):'';
-  openModal('whop-account-modal');
-}
-async function saveWhopAccount(){
-  if(blockViewOnlyAction())return;
-  var id=document.getElementById('whop-account-id').value;
-  var name=document.getElementById('whop-account-name').value.trim();
-  var apiKey=document.getElementById('whop-account-api-key').value.trim();
-  var companyId=document.getElementById('whop-account-company-id').value.trim();
-  var appId=document.getElementById('whop-account-app-id').value.trim();
-  var webhook=document.getElementById('whop-account-webhook-secret').value.trim();
-  if(!name){toast('Account name required','error');return;}
-  if(!id&&!apiKey){toast('Whop API key required','error');return;}
-  try{
-    var payload={name:name,company_id:companyId,app_id:appId,webhook_secret:webhook};
-    if(apiKey)payload.api_key=apiKey;
-    var path=id?('/api/whop-accounts/'+id):'/api/whop-accounts';
-    var method=id?'PATCH':'POST';
-    var r=await api(path,{method:method,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-    if(r.success){toast(id?'✓ Whop account updated':'✓ Whop account added');closeModal('whop-account-modal');loadWhopAccounts();}
-    else toast('Error: '+(r.error||'Failed'),'error');
-  }catch(e){toast(e.message||'Error saving Whop account','error');}
-}
-async function testWhopAccount(id){
-  if(blockViewOnlyAction())return;
-  try{
-    toast('Testing Whop connection...');
-    var r=await api('/api/whop-accounts/'+id+'/test',{method:'POST'});
-    if(r.success)toast('✓ Whop connection verified');
-    else toast(r.error||'Whop test failed','error');
-    loadWhopAccounts();
-  }catch(e){toast(e.message||'Whop test failed','error');loadWhopAccounts();}
-}
-async function deleteWhopAccount(id){
-  if(blockViewOnlyAction())return;
-  if(!confirm('Delete this Whop account?'))return;
-  await api('/api/whop-accounts/'+id,{method:'DELETE'});
-  toast('Whop account deleted');
-  loadWhopAccounts();
 }
 
 async function loadAccounts(){
