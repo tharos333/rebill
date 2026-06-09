@@ -5856,6 +5856,17 @@ body.view-only-access #verification-debug-modal .modal-content{
 #global-search-results .badge,
 #global-search-results .badge span{font-weight:600!important;}
 
+
+/* HARD LAYOUT FIX: keep app content directly beside the fixed sidebar */
+html,body{width:100%!important;max-width:100%!important;overflow-x:hidden!important}
+.app-screen{width:100%!important;max-width:100%!important;display:block!important;position:relative!important;overflow-x:hidden!important}
+.sidebar{left:0!important;top:0!important}
+.main{position:relative!important;margin-left:220px!important;left:0!important;right:auto!important;transform:none!important;width:calc(100vw - 220px)!important;max-width:calc(100vw - 220px)!important;min-width:0!important;flex:none!important;padding:24px 28px!important;overflow-x:hidden!important}
+.main > .page,.main > .page.active{width:100%!important;max-width:none!important;margin:0!important;margin-left:0!important;margin-right:0!important;left:0!important;right:auto!important;transform:none!important}
+.main .page-header,.main .stats-grid,.main .card{width:100%!important;max-width:none!important;margin-left:0!important;margin-right:0!important;left:0!important;right:auto!important;transform:none!important}
+.main .stats-grid{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))!important}
+@media(max-width:760px){.main{margin-left:0!important;width:100vw!important;max-width:100vw!important;padding:18px!important}}
+
 </style>
 </head>
 <body>
