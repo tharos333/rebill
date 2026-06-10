@@ -6111,26 +6111,23 @@ html,body{width:100%!important;max-width:100%!important;overflow-x:hidden!import
 <div id="page-whop-saved-cards" class="page"><div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M16 14l1.2 1.2L20 12"/></svg><span>Saved Cards</span></h2><p>Saved payment methods from Whop checkout</p></div></div><div class="card"><div class="card-header"><h3>Saved Cards</h3></div><table><thead><tr><th>Account</th><th>Member</th><th>Email</th><th>Payment method</th><th>Status</th><th>Updated</th></tr></thead><tbody id="whop-saved-cards-body"><tr><td colspan="6" class="empty">No saved cards yet</td></tr></tbody></table></div></div>
 
 <div id="page-whop-payment-links" class="page">
-  <div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>Whop Payment Links</span></h2><p>Create one-time Whop checkout links that save the card for future manual charges</p></div></div>
+  <div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>Whop Save Card Links</span></h2><p>Create setup links that save the card for future manual charges</p></div></div>
   <div class="card" style="max-width:500px;">
-    <div class="card-header"><h3>Create Whop Checkout</h3></div>
+    <div class="card-header"><h3>Create Whop Save Card Link</h3></div>
     <div style="padding:18px;">
-      <div class="form-group"><label>Product name</label><input type="text" id="whop-link-name" value="One-time service"></div>
-      <div class="form-row">
-        <div class="form-group"><label>Amount ($)</label><input type="number" id="whop-link-amount" value="1" min="0.50" step="0.01"></div>
-        <div class="form-group"><label>Currency</label><select id="whop-link-currency"><option value="usd">USD</option><option value="eur">EUR</option><option value="gbp">GBP</option><option value="mad">MAD</option></select></div>
-      </div>
+      <div class="form-group"><label>Link name</label><input type="text" id="whop-link-name" value="Save card for future charges"></div>
+      <div class="form-group"><label>Currency</label><select id="whop-link-currency"><option value="usd">USD</option><option value="eur">EUR</option><option value="gbp">GBP</option><option value="mad">MAD</option></select></div>
       <div class="form-group"><label>Whop account</label><select id="whop-link-account"><option value="">Loading...</option></select></div>
-      <div class="form-group"><label>Save card for future charges</label><div style="display:flex;align-items:center;gap:10px;height:34px;"><span class="badge badge-green">ON</span><span style="font-size:12px;color:var(--muted);font-family:var(--mono);">Uses setupFutureUsage="off_session" in the checkout embed.</span></div></div>
-      <button class="btn btn-primary" onclick="createWhopPaymentLink()" id="create-whop-link-btn">Generate Whop Payment Link</button>
+      <div class="form-group"><label>Save card for future charges</label><div style="display:flex;align-items:center;gap:10px;height:34px;"><span class="badge badge-green">SETUP</span><span style="font-size:12px;color:var(--muted);font-family:var(--mono);">Customer will save/authorize the card without being charged.</span></div></div>
+      <button class="btn btn-primary" onclick="createWhopPaymentLink()" id="create-whop-link-btn">Generate Save Card Link</button>
       <div class="link-result" id="whop-link-result">
-        <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;">✓ Whop checkout link created</div>
+        <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;">✓ Whop save-card link created</div>
         <div class="link-url" id="whop-link-url"></div>
         <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
           <button class="btn btn-sm" onclick="copyWhopLink()">Copy</button>
           <button class="btn btn-sm btn-primary" onclick="openWhopLink()">Open ↗</button>
         </div>
-        <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:10px;line-height:1.45;">Send this Subloop checkout link to the customer, not the normal Whop dashboard link. After payment, the card should become Chargeable if Whop confirms the saved payment method.</div>
+        <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:10px;line-height:1.45;">Send this setup link to the customer. After they save the card, Whop sends setup_intent.succeeded and Charge Later should become Chargeable.</div>
       </div>
     </div>
   </div>
@@ -9030,10 +9027,8 @@ async function createWhopPaymentLink(){
   var btn=document.getElementById('create-whop-link-btn');
   if(btn){btn.textContent='Creating…';btn.disabled=true;}
   try{
-    var amount=Math.round(parseFloat(document.getElementById('whop-link-amount').value||'0')*100);
     var body={
-      name:document.getElementById('whop-link-name').value||'One-time service',
-      amount:amount,
+      name:document.getElementById('whop-link-name').value||'Save card for future charges',
       currency:document.getElementById('whop-link-currency').value||'usd',
       whop_account_id:document.getElementById('whop-link-account').value||null
     };
@@ -9050,10 +9045,10 @@ async function createWhopPaymentLink(){
       currentWhopLink=r.url;
       document.getElementById('whop-link-url').textContent=r.url;
       document.getElementById('whop-link-result').classList.add('visible');
-      toast('✓ Whop checkout link created');
+      toast('✓ Whop save-card link created');
     }else toast('Error: '+((r&&r.error)||'Unknown'),'error');
   }catch(e){toast((e&&e.message)||'Server error','error');}
-  if(btn){btn.textContent='Generate Whop Payment Link';btn.disabled=false;}
+  if(btn){btn.textContent='Generate Save Card Link';btn.disabled=false;}
 }
 function copyWhopLink(){if(!currentWhopLink){toast('No link to copy','error');return;}navigator.clipboard.writeText(currentWhopLink);toast('Copied!');}
 function openWhopLink(){if(currentWhopLink)window.open(currentWhopLink,'_blank');}
