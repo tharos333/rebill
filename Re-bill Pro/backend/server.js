@@ -1380,24 +1380,81 @@ async function createWhopSendInvoice(account, opts) {
 }
 
 
+function toPlainWhopObject(value) {
+  if (!value) return value;
+  try {
+    if (typeof value.toJSON === 'function') return value.toJSON();
+  } catch (_e) {}
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch (_e) {
+    return value;
+  }
+}
+
+function whopSdkErrorMessage(err) {
+  if (!err) return 'Unknown Whop SDK error';
+  const body = err.error || err.response?.data || err.data || err.body || null;
+  const bodyMsg = whopApiErrorMessage(body, err.status || err.statusCode || err.code || 400);
+  if (bodyMsg && !String(bodyMsg).startsWith('Whop API error')) return bodyMsg;
+  return err.message || bodyMsg || 'Unknown Whop SDK error';
+}
+
+async function createWhopCheckoutConfigurationViaSdk(apiKey, checkoutBody) {
+  let mod;
+  try {
+    mod = await import('@whop/sdk');
+  } catch (importErr) {
+    const err = new Error('Whop SDK is not installed on the server. Deploy the updated package.json so Railway runs npm install. Details: ' + importErr.message);
+    err.statusCode = 500;
+    throw err;
+  }
+
+  const Whop = mod.default || mod.Whop || mod;
+  if (typeof Whop !== 'function') {
+    const err = new Error('Whop SDK loaded, but no Whop client constructor was found.');
+    err.statusCode = 500;
+    throw err;
+  }
+
+  const client = new Whop({ apiKey });
+  const resource = client.checkoutConfigurations || client.checkout_configurations || client.checkoutConfiguration || client.checkout_configuration;
+  if (!resource || typeof resource.create !== 'function') {
+    const err = new Error('Whop SDK loaded, but checkoutConfigurations.create was not available.');
+    err.statusCode = 500;
+    throw err;
+  }
+
+  try {
+    const created = await resource.create(checkoutBody);
+    return toPlainWhopObject(created);
+  } catch (sdkErr) {
+    const err = new Error(whopSdkErrorMessage(sdkErr));
+    err.statusCode = sdkErr.status || sdkErr.statusCode || 400;
+    err.data = sdkErr.error || sdkErr.response?.data || sdkErr.data || sdkErr.body || null;
+    throw err;
+  }
+}
+
 async function whopCreateOneTimeCheckout(account, opts, req) {
-  const companyId = opts.company_id || account.company_id;
+  const companyId = String(opts.company_id || account.company_id || '').trim();
   if (!companyId) throw new Error('Missing Whop company ID');
+
   const major = whopAmountMajorFromMinorOrMajor(opts.amount);
   if (!major || major < 0.5) throw new Error('Minimum amount is 0.50');
-  const currency = String(opts.currency || 'usd').toLowerCase();
-  const title = String(opts.name || 'One-time service').slice(0, 30);
-  const origin = req ? `${req.protocol}://${req.get('host')}` : '';
-  const redirectUrl = origin ? `${origin}/whop-checkout/complete` : null;
 
-  // Whop's current API creates dynamic embedded checkouts through checkout_configurations.
-  // This avoids needing a dashboard Product/Access Pass ID and returns both:
-  // - id: ch_... session id
-  // - plan.id: plan_... plan id
+  const currency = String(opts.currency || 'usd').toLowerCase();
+  const title = String(opts.name || 'One-time service').slice(0, 80);
+  const origin = req ? `${req.protocol}://${req.get('host')}` : '';
+  const redirectUrl = origin ? `${origin}/whop-checkout/complete` : undefined;
+
+  // Official Whop checkout configuration shape.
+  // Customer still makes a one-time payment; the embed saves the card with setupFutureUsage="off_session".
   const checkoutBody = {
     company_id: companyId,
+    currency,
     mode: 'payment',
-    redirect_url: redirectUrl,
+    ...(redirectUrl ? { redirect_url: redirectUrl } : {}),
     metadata: {
       source: 'subloop_whop_payment_link',
       setupFutureUsage: 'off_session',
@@ -1405,61 +1462,51 @@ async function whopCreateOneTimeCheckout(account, opts, req) {
     },
     plan: {
       company_id: companyId,
+      initial_price: major,
+      plan_type: 'one_time',
+      currency,
       title,
       description: String(opts.description || 'One-time payment with saved card permission').slice(0, 1000),
-      initial_price: major,
-      renewal_price: 0,
-      plan_type: 'one_time',
-      release_method: 'buy_now',
-      currency,
-      unlimited_stock: true,
-      metadata: { source: 'subloop_whop_payment_link', setupFutureUsage: 'off_session' }
+      metadata: {
+        source: 'subloop_whop_payment_link',
+        setupFutureUsage: 'off_session'
+      }
     }
   };
 
+  const attempts = [];
+
+  // 1) Official SDK route. This prevents the wrong raw REST path that produced HTTP 404.
+  try {
+    const sdkData = await createWhopCheckoutConfigurationViaSdk(account.api_key, checkoutBody);
+    return { kind: 'checkout_configuration_sdk', data: sdkData };
+  } catch (sdkErr) {
+    attempts.push({ name: 'SDK checkoutConfigurations.create', message: sdkErr.message, data: sdkErr.data || null, statusCode: sdkErr.statusCode || null });
+  }
+
+  // 2) Raw REST fallback using Whop's public API base.
+  try {
+    const result = await whopApiRequest(account.api_key, 'POST', '/api/v1/checkout_configurations', checkoutBody);
+    return { kind: 'checkout_configuration_rest_v1', data: result.data };
+  } catch (v1Err) {
+    attempts.push({ name: 'POST /api/v1/checkout_configurations', message: v1Err.message, data: v1Err.data || null, statusCode: v1Err.statusCode || null });
+  }
+
+  // 3) Raw REST fallback matching the generated OpenAPI path.
   try {
     const result = await whopApiRequest(account.api_key, 'POST', '/checkout_configurations', checkoutBody);
-    return { kind: 'checkout_configuration', data: result.data };
-  } catch (checkoutErr) {
-    // Older Whop resources under api/v1 still exist for some endpoints. Try this only as a fallback.
-    try {
-      const result = await whopApiRequest(account.api_key, 'POST', '/api/v1/checkout_configurations', checkoutBody);
-      return { kind: 'checkout_configuration', data: result.data };
-    } catch (checkoutV1Err) {
-      // Last fallback: create a normal plan. This usually requires product/access pass permissions,
-      // but it gives a useful error if the API key is missing those scopes.
-      const planBody = {
-        company_id: companyId,
-        title,
-        description: checkoutBody.plan.description,
-        initial_price: major,
-        renewal_price: 0,
-        currency,
-        plan_type: 'one_time',
-        release_method: 'buy_now',
-        unlimited_stock: true,
-        metadata: checkoutBody.metadata
-      };
-      try {
-        const result = await whopApiRequest(account.api_key, 'POST', '/plans', planBody);
-        return { kind: 'plan', data: result.data };
-      } catch (planErr) {
-        const err = new Error(
-          'Whop could not create the checkout. Make sure the API key has checkout_configuration:create, plan:create, access_pass:create, access_pass:update, and checkout_configuration:basic:read permissions. Details: ' +
-          'checkout_configurations: ' + checkoutErr.message +
-          ' | api/v1 checkout_configurations: ' + checkoutV1Err.message +
-          ' | plans: ' + planErr.message
-        );
-        err.statusCode = 400;
-        err.data = {
-          checkout_configurations: checkoutErr.data || null,
-          api_v1_checkout_configurations: checkoutV1Err.data || null,
-          plans: planErr.data || null
-        };
-        throw err;
-      }
-    }
+    return { kind: 'checkout_configuration_rest_root', data: result.data };
+  } catch (rootErr) {
+    attempts.push({ name: 'POST /checkout_configurations', message: rootErr.message, data: rootErr.data || null, statusCode: rootErr.statusCode || null });
   }
+
+  const details = attempts.map(a => `${a.name}: ${a.message}`).join(' | ');
+  const err = new Error(
+    'Whop could not create the checkout configuration. Use an API key with checkout_configuration:create, plan:create, access_pass:create, access_pass:update, and checkout_configuration:basic:read permissions. Details: ' + details
+  );
+  err.statusCode = 400;
+  err.data = { attempts };
+  throw err;
 }
 
 // Backwards-compatible alias for older code paths.
