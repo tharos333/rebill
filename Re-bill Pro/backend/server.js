@@ -8,6 +8,98 @@ try { speakeasy = require('speakeasy'); QRCode = require('qrcode'); } catch(e) {
 const Stripe = require('stripe');
 const crypto = require('crypto');
 
+
+// Admin access tokens and Stripe-account scoping.
+// Set SUBLOOP_AUTH_SECRET in Railway for tokens that remain valid after a deploy/restart.
+const SUBLOOP_AUTH_SECRET = process.env.SUBLOOP_AUTH_SECRET || crypto.randomBytes(48).toString('hex');
+const ANALYST_DEFAULT_SECTIONS = ['dashboard','customers','payments','forecast','summary','mrr','recovery'];
+// View-only users may be assigned any non-administrative operating/reporting page, but cannot write.
+const ANALYST_ASSIGNABLE_SECTIONS = ['dashboard','activity','customers','subscriptions','payments','links','accounts','forecast','summary','mrr','recovery','webhooks'];
+// Custom users manage selected operating pages only; all operations remain constrained to their account scope.
+const CUSTOM_ASSIGNABLE_SECTIONS = ['dashboard','activity','customers','subscriptions','payments','links','accounts','forecast','summary','mrr','recovery','webhooks'];
+function b64url(value) { return Buffer.from(value).toString('base64url'); }
+function issueAdminToken(user, purpose='access', maxAgeMinutes=480) {
+  const payload = { id: user.id, username: user.username, purpose, exp: Date.now() + (maxAgeMinutes * 60 * 1000) };
+  const body = b64url(JSON.stringify(payload));
+  const sig = crypto.createHmac('sha256', SUBLOOP_AUTH_SECRET).update(body).digest('base64url');
+  return body + '.' + sig;
+}
+function parseAdminToken(token, purpose='access') {
+  try {
+    if (!token || !token.includes('.')) return null;
+    const [body, sig] = token.split('.');
+    const expected = crypto.createHmac('sha256', SUBLOOP_AUTH_SECRET).update(body).digest('base64url');
+    if (sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
+    const data = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
+    if (!data || data.purpose !== purpose || Number(data.exp) < Date.now()) return null;
+    return data;
+  } catch (_err) { return null; }
+}
+function bearerToken(req) {
+  const header = String(req.headers.authorization || '');
+  return header.startsWith('Bearer ') ? header.slice(7) : '';
+}
+function normalizeAllowedAccountIds(user) {
+  const list = Array.isArray(user?.allowed_account_ids) ? user.allowed_account_ids : [];
+  return list.map(Number).filter(Number.isInteger);
+}
+function isOwnerOrAdmin(user) { return !!user && (user.role === 'owner' || user.role === 'admin'); }
+function isReadOnlyUser(user) { return !!user && (user.role === 'analyst' || user.role === 'viewer'); }
+function sanitizeSections(role, permissions) {
+  const list = Array.isArray(permissions) ? [...new Set(permissions.map(String))] : [];
+  if (role === 'analyst' || role === 'viewer') return list.filter(section => ANALYST_ASSIGNABLE_SECTIONS.includes(section));
+  if (role === 'custom') return list.filter(section => CUSTOM_ASSIGNABLE_SECTIONS.includes(section));
+  return [];
+}
+function userSections(user) {
+  if (!user) return [];
+  if (isOwnerOrAdmin(user)) return null;
+  const allowed = sanitizeSections(user.role, user.permissions);
+  return allowed.length ? allowed : (isReadOnlyUser(user) ? ANALYST_DEFAULT_SECTIONS : []);
+}
+function canUseSection(user, section) {
+  const sections = userSections(user);
+  return sections === null || sections.includes(section);
+}
+function scopedAccountIds(req) {
+  if (!req.currentUser || isOwnerOrAdmin(req.currentUser) || req.currentUser.account_scope !== 'selected') return null;
+  return normalizeAllowedAccountIds(req.currentUser);
+}
+function rowWithinScope(req, row) {
+  const ids = scopedAccountIds(req);
+  return ids === null || ids.includes(Number(row?.stripe_account_id));
+}
+function accessResponse(user) {
+  return { role: user.role, username: user.username, permissions: user.permissions || [], account_scope: user.account_scope || 'all', allowed_account_ids: normalizeAllowedAccountIds(user) };
+}
+function sectionForApiPath(req) {
+  const path = req.path;
+  if (path.startsWith('/stats') || path.startsWith('/revenue-chart') || path.startsWith('/churn-alerts')) return 'dashboard';
+  if (path.startsWith('/customers')) return 'customers';
+  if (path.startsWith('/subscriptions')) return 'subscriptions';
+  if (path.startsWith('/payments')) return 'payments';
+  if (path.startsWith('/payment-link-accounts') || path.startsWith('/payment-links') || path.startsWith('/plan-templates')) return 'links';
+  if (path.startsWith('/stripe-accounts')) return 'accounts';
+  if (path.startsWith('/forecast')) return 'forecast';
+  if (path.startsWith('/daily-summary')) return 'summary';
+  if (path.startsWith('/mrr-history')) return 'mrr';
+  if (path.startsWith('/recovery-rate')) return 'recovery';
+  if (path.startsWith('/activity')) return 'activity';
+  if (path.startsWith('/settings')) return 'settings';
+  if (path.startsWith('/security')) return 'security';
+  if (path.startsWith('/webhook-logs')) return 'webhooks';
+  if (path.startsWith('/admin-users')) return 'admins';
+  return null;
+}
+function requireOwnerOrAdmin(req, res) {
+  if (!isOwnerOrAdmin(req.currentUser)) { res.status(403).json({ error: 'Owner or admin access required' }); return false; }
+  return true;
+}
+function ensureRowScope(req, res, row) {
+  if (!row || !rowWithinScope(req, row)) { res.status(403).json({ error: 'This Stripe account is not assigned to your access.' }); return false; }
+  return true;
+}
+
 // Estimated currency conversion for analytics/dashboard only.
 // Amounts are stored in their original Stripe currency; these helpers convert analytics totals to USD cents.
 const USD_ESTIMATE_RATES = {
@@ -71,6 +163,16 @@ async function ensureWebhookColumns() {
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_exp_year INT').catch(()=>{});
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_country TEXT').catch(()=>{});
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_funding TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_method_type TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS wallet_type TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS wallet_checked BOOLEAN DEFAULT FALSE').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS stripe_fee INT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS net_amount INT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS balance_transaction_id TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS financial_currency TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS retry_of_payment_id INT REFERENCES payments(id)').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS was_failed BOOLEAN DEFAULT false').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS recovered_at TIMESTAMPTZ').catch(()=>{});
   await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT').catch(()=>{});
   await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_price_id TEXT').catch(()=>{});
   await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_invoice_id TEXT').catch(()=>{});
@@ -291,7 +393,7 @@ function normalizeCardBrand(brand) {
 }
 
 async function getCardDetailsFromPaymentIntent(stripe, pi) {
-  const details = { brand: null, last4: null, exp_month: null, exp_year: null, country: null, funding: null, billing_name: null, billing_email: null };
+  const details = { brand: null, last4: null, exp_month: null, exp_year: null, country: null, funding: null, billing_name: null, billing_email: null, payment_method_type: null, wallet_type: null };
 
   try {
     if ((!pi.latest_charge || typeof pi.latest_charge === 'string') || !pi.payment_method) {
@@ -302,33 +404,37 @@ async function getCardDetailsFromPaymentIntent(stripe, pi) {
       pi.receipt_email = pi.receipt_email || fullPi.receipt_email;
     }
   } catch(e) {
-    console.log('[payment] could not expand card details from PI:', e.message);
+    console.log('[payment] could not expand payment details from PI:', e.message);
   }
 
   let card = null;
   try {
     let charge = pi.latest_charge;
     if (charge && typeof charge === 'string') charge = await stripe.charges.retrieve(charge);
-    card = charge?.payment_method_details?.card || null;
+    const pmDetails = charge?.payment_method_details || null;
+    details.payment_method_type = pmDetails?.type || null;
+    card = pmDetails?.card || pmDetails?.amazon_pay?.funding?.card || null;
+    details.wallet_type = card?.wallet?.type || null;
     details.billing_name = charge?.billing_details?.name || null;
     details.billing_email = cleanEmail(charge?.billing_details?.email) || null;
   } catch(e) {
-    console.log('[payment] could not retrieve charge card details:', e.message);
+    console.log('[payment] could not retrieve charge payment details:', e.message);
   }
 
-  if (!card) {
-    try {
-      let pm = pi.payment_method;
-      if (pm && typeof pm === 'string') pm = await stripe.paymentMethods.retrieve(pm);
-      card = pm?.card || null;
-      details.billing_name = details.billing_name || pm?.billing_details?.name || null;
-      details.billing_email = details.billing_email || cleanEmail(pm?.billing_details?.email) || null;
-    } catch(e) {
-      console.log('[payment] could not retrieve payment method card details:', e.message);
-    }
+  try {
+    let pm = pi.payment_method;
+    if (pm && typeof pm === 'string') pm = await stripe.paymentMethods.retrieve(pm);
+    details.payment_method_type = details.payment_method_type || pm?.type || null;
+    if (!card) card = pm?.card || null;
+    details.wallet_type = details.wallet_type || card?.wallet?.type || null;
+    details.billing_name = details.billing_name || pm?.billing_details?.name || null;
+    details.billing_email = details.billing_email || cleanEmail(pm?.billing_details?.email) || null;
+  } catch(e) {
+    console.log('[payment] could not retrieve PaymentMethod details:', e.message);
   }
 
   if (card) {
+    details.payment_method_type = details.payment_method_type || 'card';
     details.brand = normalizeCardBrand(card.brand);
     details.last4 = card.last4 || null;
     details.exp_month = card.exp_month || null;
@@ -337,6 +443,33 @@ async function getCardDetailsFromPaymentIntent(stripe, pi) {
     details.funding = card.funding || null;
   }
   return details;
+}
+
+
+async function getFinancialsFromPaymentIntent(stripe, pi) {
+  const out = { stripe_fee: null, net_amount: null, balance_transaction_id: null, amount: null, currency: null, financial_currency: null };
+  try {
+    if (!pi?.id && typeof pi === 'string') {
+      pi = await stripe.paymentIntents.retrieve(pi, { expand: ['latest_charge.balance_transaction'] });
+    } else if (pi?.id && (!pi.latest_charge || typeof pi.latest_charge === 'string' || !pi.latest_charge.balance_transaction)) {
+      pi = await stripe.paymentIntents.retrieve(pi.id, { expand: ['latest_charge.balance_transaction'] });
+    }
+    let charge = pi.latest_charge;
+    if (charge && typeof charge === 'string') charge = await stripe.charges.retrieve(charge, { expand: ['balance_transaction'] });
+    let bt = charge?.balance_transaction || null;
+    if (bt && typeof bt === 'string') bt = await stripe.balanceTransactions.retrieve(bt);
+    if (bt) {
+      out.stripe_fee = typeof bt.fee === 'number' ? bt.fee : null;
+      out.net_amount = typeof bt.net === 'number' ? bt.net : null;
+      out.balance_transaction_id = bt.id || null;
+      out.amount = typeof bt.amount === 'number' ? bt.amount : null;
+      out.currency = bt.currency || null;
+      out.financial_currency = bt.currency || null;
+    }
+  } catch(e) {
+    console.log('[payment] could not retrieve balance transaction:', e.message);
+  }
+  return out;
 }
 
 function subscriptionIdFromInvoice(invoice) {
@@ -396,26 +529,34 @@ async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null, f
 
   const status = forcedStatus || (pi.status === 'succeeded' ? 'succeeded' : (pi.status || 'failed'));
   const failureReason = pi.last_payment_error?.message || pi.cancellation_reason || null;
-  const amount = pi.amount_received || pi.amount || 0;
-  const currency = pi.currency || 'usd';
+  const financials = await getFinancialsFromPaymentIntent(stripe, pi);
+  const amount = pi.amount_received || financials.amount || pi.amount || 0;
+  const currency = pi.currency || financials.currency || 'usd';
 
-  const existingPayment = await pool.query('SELECT id FROM payments WHERE stripe_payment_intent=$1', [pi.id]);
+  const existingPayment = await pool.query('SELECT id, status, was_failed, recovered_at FROM payments WHERE stripe_payment_intent=$1', [pi.id]);
   if (existingPayment.rows[0]) {
     await pool.query(`UPDATE payments SET customer_id=$1, subscription_id=COALESCE($2,subscription_id), amount=$3, currency=$4, status=$5, failure_reason=$6,
       stripe_invoice_id=COALESCE($7,stripe_invoice_id), card_brand=COALESCE($8,card_brand), card_last4=COALESCE($9,card_last4),
-      card_exp_month=COALESCE($10,card_exp_month), card_exp_year=COALESCE($11,card_exp_year), card_country=COALESCE($12,card_country), card_funding=COALESCE($13,card_funding)
-      WHERE id=$14`,
-      [localCustomer.id, localSubId, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, existingPayment.rows[0].id]);
-    console.log('[external-import] updated payment:', pi.id, 'customer:', localCustomer.email);
+      card_exp_month=COALESCE($10,card_exp_month), card_exp_year=COALESCE($11,card_exp_year), card_country=COALESCE($12,card_country), card_funding=COALESCE($13,card_funding),
+      stripe_fee=COALESCE($14,stripe_fee), net_amount=COALESCE($15,net_amount), balance_transaction_id=COALESCE($16,balance_transaction_id), financial_currency=COALESCE($17,financial_currency),
+      was_failed=COALESCE(was_failed,false) OR $18='failed',
+      recovered_at=CASE WHEN $18='succeeded' AND (COALESCE(was_failed,false) OR status='failed') THEN COALESCE(recovered_at,NOW()) ELSE recovered_at END
+      WHERE id=$19`,
+      [localCustomer.id, localSubId, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency, status, existingPayment.rows[0].id]);
+    await pool.query(`UPDATE payments SET payment_method_type=COALESCE($1,payment_method_type), wallet_type=COALESCE($2,wallet_type), wallet_checked=TRUE WHERE id=$3`,
+      [cardDetails.payment_method_type, cardDetails.wallet_type, existingPayment.rows[0].id]).catch(()=>{});
+    console.log('[external-import] updated payment:', pi.id, 'customer:', localCustomer.email, 'method:', cardDetails.payment_method_type || '-', 'wallet:', cardDetails.wallet_type || '-');
     return existingPayment.rows[0].id;
   }
 
   const ins = await pool.query(
-    `INSERT INTO payments (customer_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,stripe_invoice_id,card_brand,card_last4,card_exp_month,card_exp_year,card_country,card_funding)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id`,
-    [localCustomer.id, localSubId, pi.id, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding]
+    `INSERT INTO payments (customer_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,stripe_invoice_id,card_brand,card_last4,card_exp_month,card_exp_year,card_country,card_funding,stripe_fee,net_amount,balance_transaction_id,financial_currency,was_failed)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING id`,
+    [localCustomer.id, localSubId, pi.id, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency, status==='failed']
   );
-  console.log('[external-import] saved payment:', pi.id, 'row id:', ins.rows[0].id, 'customer:', localCustomer.email);
+  await pool.query(`UPDATE payments SET payment_method_type=COALESCE($1,payment_method_type), wallet_type=COALESCE($2,wallet_type), wallet_checked=TRUE WHERE id=$3`,
+    [cardDetails.payment_method_type, cardDetails.wallet_type, ins.rows[0].id]).catch(()=>{});
+  console.log('[external-import] saved payment:', pi.id, 'row id:', ins.rows[0].id, 'customer:', localCustomer.email, 'method:', cardDetails.payment_method_type || '-', 'wallet:', cardDetails.wallet_type || '-');
   await activityLog.add('payment', `Payment ${status} for ${localCustomer.email}`, localCustomer.id, amount).catch(()=>{});
   return ins.rows[0].id;
 }
@@ -559,6 +700,53 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 app.use(express.json());
 app.use('/icons', express.static(path.join(__dirname, 'public', 'icons')));
 app.use(express.static(path.join(__dirname)));
+
+
+// Require a verified session token for the application API and enforce page/read-only permissions.
+app.use('/api', async (req, res, next) => {
+  const openPaths = ['/auth/verify', '/auth/check', '/security/2fa/validate'];
+  if (openPaths.includes(req.path)) return next();
+  try {
+    const data = parseAdminToken(bearerToken(req), 'access');
+    if (!data) return res.status(401).json({ error: 'Authentication required' });
+    const user = await adminUsers.byId(data.id);
+    if (!user) return res.status(401).json({ error: 'Access has been revoked' });
+    req.currentUser = user;
+    const selfSecurityPath = req.path === '/security/login-history' || req.path.startsWith('/security/2fa/');
+    const sensitive = ['/admin-users', '/settings', '/debug'];
+    if (sensitive.some(prefix => req.path.startsWith(prefix)) && !isOwnerOrAdmin(user)) {
+      return res.status(403).json({ error: 'Owner or admin access required' });
+    }
+    // Every signed-in user may manage only their own 2FA and view only their own login activity.
+    if (req.path.startsWith('/security') && !selfSecurityPath && !isOwnerOrAdmin(user)) {
+      return res.status(403).json({ error: 'Owner or admin access required' });
+    }
+    // Stripe connection management stays protected: scoped users may inspect assigned accounts only.
+    if (req.path.startsWith('/stripe-accounts') && req.method !== 'GET' && !isOwnerOrAdmin(user)) {
+      return res.status(403).json({ error: 'Owner or admin access required' });
+    }
+    // A Custom user with Subscriptions management may run rebills, restricted below to assigned accounts.
+    if (req.path.startsWith('/run-rebills') && !isOwnerOrAdmin(user)) {
+      if (isReadOnlyUser(user)) return res.status(403).json({ error: 'View-only access' });
+      if (!(user.role === 'custom' && canUseSection(user, 'subscriptions'))) {
+        return res.status(403).json({ error: 'Subscriptions management access required' });
+      }
+    }
+    const section = sectionForApiPath(req);
+    // Dashboard reads recent payments/subscriptions/activity; customer details read subscription status.
+    // These supporting reads grant no write actions and remain Stripe-account scoped.
+    const dashboardSupportingRead = req.method === 'GET' && canUseSection(user, 'dashboard') && ['subscriptions','payments','activity'].includes(section);
+    const customerSupportingRead = req.method === 'GET' && canUseSection(user, 'customers') && section === 'subscriptions';
+    if (section && section !== 'security' && !canUseSection(user, section) && !dashboardSupportingRead && !customerSupportingRead) {
+      return res.status(403).json({ error: 'Access restricted' });
+    }
+    if (section === 'security' && !selfSecurityPath && !isOwnerOrAdmin(user)) {
+      return res.status(403).json({ error: 'Access restricted' });
+    }
+    if (isReadOnlyUser(user) && req.method !== 'GET' && !selfSecurityPath) return res.status(403).json({ error: 'View-only access' });
+    next();
+  } catch (err) { res.status(401).json({ error: 'Authentication required' }); }
+});
 
 // ── Stripe Accounts ───────────────────────────────────────────────────────────
 function formatStripeRequirementKey(key) {
@@ -705,6 +893,15 @@ async function getStripeAccountDisplayStatus(accountRow) {
   }
 }
 
+// Minimal account list for Payment Links. Custom users receive only assigned Stripe accounts.
+app.get('/api/payment-link-accounts', async (req, res) => {
+  try {
+    const r = await pool.query('SELECT id, name, is_default FROM stripe_accounts ORDER BY created_at DESC, id DESC');
+    const ids = scopedAccountIds(req);
+    res.json(ids === null ? r.rows : r.rows.filter(account => ids.includes(Number(account.id))));
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
 app.get('/api/stripe-accounts', async (req, res) => {
   try {
     const r = await pool.query(`
@@ -716,7 +913,7 @@ app.get('/api/stripe-accounts', async (req, res) => {
         secret_key,
         LEFT(secret_key,12)||'...' as key_preview
       FROM stripe_accounts
-      ORDER BY created_at ASC
+      ORDER BY created_at DESC, id DESC
     `);
 
     const accounts = await Promise.all(r.rows.map(async (account) => {
@@ -725,7 +922,8 @@ app.get('/api/stripe-accounts', async (req, res) => {
       return { ...safeAccount, ...health };
     }));
 
-    res.json(accounts);
+    const ids = scopedAccountIds(req);
+    res.json(ids === null ? accounts : accounts.filter(account => ids.includes(Number(account.id))));
   } catch(err) {
     res.status(500).json({ error: err.message });
   }
@@ -735,6 +933,7 @@ app.get('/api/stripe-accounts/:id/verification-debug', async (req, res) => {
   try {
     const account = await stripeAccounts.byId(req.params.id);
     if (!account) return res.status(404).json({ error: 'Stripe account not found' });
+    if (!ensureRowScope(req, res, { stripe_account_id: account.id })) return;
     if (!account.secret_key || !String(account.secret_key).startsWith('sk_')) {
       return res.status(400).json({ error: 'Missing or invalid secret key' });
     }
@@ -835,25 +1034,42 @@ app.patch('/api/stripe-accounts/:id/default', async (req, res) => {
     res.json({ success: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
+app.patch('/api/stripe-accounts/default/clear', async (req, res) => {
+  try {
+    await pool.query('UPDATE stripe_accounts SET is_default=false');
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
 app.delete('/api/stripe-accounts/:id', async (req, res) => { try { await stripeAccounts.delete(req.params.id); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
 
 // ── Customers ─────────────────────────────────────────────────────────────────
-app.get('/api/customers', async (req, res) => { try { res.json(await customers.all()); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.get('/api/customers', async (req, res) => { try { const list=await customers.all(); res.json(list.filter(c => rowWithinScope(req,c))); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.get('/api/customers/:id/details', async (req, res) => {
+  try {
+    const data = await customers.detail(req.params.id);
+    if (!data.customer) return res.status(404).json({ error: 'Customer not found' });
+    if (!ensureRowScope(req, res, data.customer)) return;
+    res.json(data);
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
 app.post('/api/customers', async (req, res) => {
   try {
     const { name, email, stripe_customer_id, stripe_payment_method, card_brand, card_last4, card_exp_month, card_exp_year, stripe_account_id, note } = req.body;
     if (!email || !stripe_customer_id) return res.status(400).json({ error: 'Email and Stripe ID required' });
+    if (!ensureRowScope(req, res, { stripe_account_id })) return;
     await customers.upsert({ name, email, stripe_customer_id, stripe_payment_method, stripe_account_id, card_brand, card_last4, card_exp_month, card_exp_year });
     const c = await customers.byStripeId(stripe_customer_id);
     if (note) await customers.updateNote(c.id, note);
     res.json({ success: true, id: c.id });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
-app.patch('/api/customers/:id/status', async (req, res) => { try { await customers.updateStatus(req.params.id, req.body.status); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
-app.patch('/api/customers/:id/note', async (req, res) => { try { await customers.updateNote(req.params.id, req.body.note); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.patch('/api/customers/:id/status', async (req, res) => { try { const c=await customers.byId(req.params.id); if(!c) return res.status(404).json({ error:'Customer not found' }); if(!ensureRowScope(req,res,c)) return; await customers.updateStatus(req.params.id, req.body.status); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.patch('/api/customers/:id/note', async (req, res) => { try { const c=await customers.byId(req.params.id); if(!c) return res.status(404).json({ error:'Customer not found' }); if(!ensureRowScope(req,res,c)) return; await customers.updateNote(req.params.id, req.body.note); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
 app.post('/api/customers/:id/portal', async (req, res) => {
   try {
     const c = await customers.byId(req.params.id);
+    if (!c) return res.status(404).json({ error: 'Customer not found' });
+    if (!ensureRowScope(req, res, c)) return;
     const acc = await stripeAccounts.byId(c.stripe_account_id);
     const stripe = require('stripe')(acc.secret_key);
     const session = await stripe.billingPortal.sessions.create({ customer: c.stripe_customer_id, return_url: process.env.BASE_URL || 'https://rebill-production.up.railway.app' });
@@ -864,6 +1080,8 @@ app.post('/api/customers/:id/charge-once', async (req, res) => {
   try {
     const { amount, description, currency } = req.body;
     const c = await customers.byId(req.params.id);
+    if (!c) return res.status(404).json({ error: 'Customer not found' });
+    if (!ensureRowScope(req, res, c)) return;
     const acc = await stripeAccounts.byId(c.stripe_account_id);
     const stripe = require('stripe')(acc.secret_key);
     const pi = await stripe.paymentIntents.create({ amount, currency: currency||'usd', customer: c.stripe_customer_id, payment_method: c.stripe_payment_method, confirm: true, description: description||'Manual invoice', off_session: true });
@@ -873,17 +1091,26 @@ app.post('/api/customers/:id/charge-once', async (req, res) => {
 });
 app.get('/api/customers/export', async (req, res) => {
   try {
-    const list = await customers.all();
-    const csv = ['Name,Email,Card,Status,Total Paid'].concat(list.map(c=>`${c.name},${c.email},${c.card_brand||''} ${c.card_last4||''},${c.status},${(c.total_paid||0)/100}`)).join('\n');
+    if (isReadOnlyUser(req.currentUser)) return res.status(403).json({ error: 'View-only access cannot export customer data' });
+    const list = (await customers.all()).filter(c => rowWithinScope(req,c));
+    const csv = ['Name,Email,Card,Status,Last Payment,Created,Total Paid'].concat(list.map(c=>`${c.name},${c.email},${c.card_brand||''} ${c.card_last4||''},${c.status},${c.last_payment_at||''},${c.created_at||''},${(c.total_paid||0)/100}`)).join('\n');
     res.setHeader('Content-Type','text/csv'); res.setHeader('Content-Disposition','attachment; filename=customers.csv'); res.send(csv);
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
 // ── Subscriptions ─────────────────────────────────────────────────────────────
-app.get('/api/subscriptions', async (req, res) => { try { res.json(await subscriptions.all()); } catch(err) { res.status(500).json({ error: err.message }); } });
-app.post('/api/subscriptions', async (req, res) => { try { await subscriptions.create(req.body); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
+async function scopedSubscription(req, res, id) {
+  const r = await pool.query('SELECT s.*, c.stripe_account_id FROM subscriptions s JOIN customers c ON c.id=s.customer_id WHERE s.id=$1', [id]);
+  const sub = r.rows[0];
+  if (!sub) { res.status(404).json({ error: 'Subscription not found' }); return null; }
+  if (!ensureRowScope(req, res, sub)) return null;
+  return sub;
+}
+app.get('/api/subscriptions', async (req, res) => { try { const list=await subscriptions.all(); res.json(list.filter(sub => rowWithinScope(req,sub))); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.post('/api/subscriptions', async (req, res) => { try { const c=await customers.byId(req.body.customer_id); if(!c) return res.status(404).json({ error:'Customer not found' }); if(!ensureRowScope(req,res,c)) return; await subscriptions.create(req.body); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
 app.patch('/api/subscriptions/:id', async (req, res) => {
   try {
+    if (!(await scopedSubscription(req, res, req.params.id))) return;
     const { status, amount, next_billing_date, resume_date } = req.body;
     if (status) await subscriptions.updateStatus(req.params.id, status);
     if (amount) await subscriptions.updateAmount(req.params.id, parseInt(amount));
@@ -894,6 +1121,7 @@ app.patch('/api/subscriptions/:id', async (req, res) => {
 });
 app.patch('/api/subscriptions/:id/status', async (req, res) => {
   try {
+    if (!(await scopedSubscription(req, res, req.params.id))) return;
     const { status, resume_date } = req.body;
     await subscriptions.updateStatus(req.params.id, status);
     if (status === 'paused' && resume_date) await subscriptions.setResumeDate(req.params.id, resume_date);
@@ -903,12 +1131,14 @@ app.patch('/api/subscriptions/:id/status', async (req, res) => {
 });
 app.patch('/api/subscriptions/:id/amount', async (req, res) => {
   try {
+    if (!(await scopedSubscription(req, res, req.params.id))) return;
     await subscriptions.updateAmount(req.params.id, parseInt(req.body.amount));
     res.json({ success: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.post('/api/subscriptions/:id/charge', async (req, res) => {
   try {
+    if (!(await scopedSubscription(req, res, req.params.id))) return;
     const allSubs = await subscriptions.all();
     const sub = allSubs.find(s => s.id === parseInt(req.params.id));
     if (!sub) return res.status(404).json({ error: 'Not found' });
@@ -922,25 +1152,66 @@ app.post('/api/subscriptions/:id/charge', async (req, res) => {
     res.json({ success: true, paymentIntentId: pi.id });
   } catch(err) { res.status(500).json({ success: false, error: err.message }); }
 });
-app.delete('/api/subscriptions/:id', async (req, res) => { try { await subscriptions.updateStatus(req.params.id, 'cancelled'); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.delete('/api/subscriptions/:id', async (req, res) => { try { if (!(await scopedSubscription(req,res,req.params.id))) return; await subscriptions.updateStatus(req.params.id, 'cancelled'); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
 
 // ── Payments ──────────────────────────────────────────────────────────────────
-app.get('/api/payments', async (req, res) => { try { res.json(await payments.recent(200)); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.get('/api/payments', async (req, res) => { try { const list=await payments.recent(1000); res.json(list.filter(p => rowWithinScope(req,p))); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.get('/api/payments/:id/financials', async (req, res) => {
+  try {
+    await ensureWebhookColumns();
+    const r = await pool.query(`SELECT p.*, c.stripe_account_id, sa.secret_key, sa.name AS account_name
+      FROM payments p
+      JOIN customers c ON c.id=p.customer_id
+      LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id
+      WHERE p.id=$1`, [req.params.id]);
+    const payment = r.rows[0];
+    if (!payment) return res.status(404).json({ error: 'Payment not found' });
+    if (!ensureRowScope(req, res, payment)) return;
+    if (!payment.stripe_payment_intent) return res.json(payment);
+    if (!payment.secret_key) return res.status(400).json({ error: 'Stripe account secret key not found for this payment' });
+    const stripe = require('stripe')(payment.secret_key);
+    const pi = await stripe.paymentIntents.retrieve(payment.stripe_payment_intent, { expand: ['latest_charge.balance_transaction', 'payment_method', 'invoice'] });
+    const financials = await getFinancialsFromPaymentIntent(stripe, pi);
+    const cardDetails = await getCardDetailsFromPaymentIntent(stripe, pi);
+    const invoice = await getInvoiceFromPaymentIntent(stripe, pi);
+    const invoiceId = typeof invoice === 'string' ? invoice : invoice?.id || payment.stripe_invoice_id || null;
+    await pool.query(`UPDATE payments SET
+      stripe_fee=COALESCE($1,stripe_fee), net_amount=COALESCE($2,net_amount), balance_transaction_id=COALESCE($3,balance_transaction_id), financial_currency=COALESCE($4,financial_currency),
+      stripe_invoice_id=COALESCE($5,stripe_invoice_id), card_brand=COALESCE($6,card_brand), card_last4=COALESCE($7,card_last4),
+      card_exp_month=COALESCE($8,card_exp_month), card_exp_year=COALESCE($9,card_exp_year), card_country=COALESCE($10,card_country), card_funding=COALESCE($11,card_funding)
+      WHERE id=$12`, [financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, payment.id]);
+    await pool.query(`UPDATE payments SET payment_method_type=COALESCE($1,payment_method_type), wallet_type=COALESCE($2,wallet_type), wallet_checked=TRUE WHERE id=$3`,
+      [cardDetails.payment_method_type, cardDetails.wallet_type, payment.id]).catch(()=>{});
+    const updated = await pool.query(`SELECT p.*, c.email, c.name, COALESCE(p.card_brand,c.card_brand) AS card_brand, COALESCE(p.card_last4,c.card_last4) AS card_last4, sa.name AS account_name
+      FROM payments p JOIN customers c ON c.id=p.customer_id LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id WHERE p.id=$1`, [payment.id]);
+    res.json(updated.rows[0] || payment);
+  } catch(err) {
+    console.error('[payment-financials] ERROR:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 app.post('/api/payments/:id/retry', async (req, res) => {
   try {
+    await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS retry_of_payment_id INT REFERENCES payments(id)').catch(()=>{});
     const r = await pool.query('SELECT p.*, c.stripe_customer_id, c.stripe_payment_method, c.stripe_account_id, c.email, c.name FROM payments p JOIN customers c ON c.id=p.customer_id WHERE p.id=$1', [req.params.id]);
-    const p = r.rows[0]; if (!p) return res.status(404).json({ error: 'Not found' });
+    const p = r.rows[0];
+    if (!p) return res.status(404).json({ error: 'Not found' });
+    if (!ensureRowScope(req, res, p)) return;
+    if (p.status !== 'failed') return res.status(400).json({ error: 'Only failed payments can be retried' });
     const acc = await stripeAccounts.byId(p.stripe_account_id);
     const stripe = require('stripe')(acc.secret_key);
     const pi = await stripe.paymentIntents.create({ amount: p.amount, currency: p.currency||'usd', customer: p.stripe_customer_id, payment_method: p.stripe_payment_method, confirm: true, off_session: true });
     const status = pi.status==='succeeded'?'succeeded':'failed';
-    await payments.insert({ customer_id: p.customer_id, subscription_id: p.subscription_id, stripe_payment_intent: pi.id, amount: p.amount, currency: p.currency, status, failure_reason: null });
+    await payments.insert({ customer_id: p.customer_id, subscription_id: p.subscription_id, stripe_payment_intent: pi.id, amount: p.amount, currency: p.currency, status, failure_reason: null, retry_of_payment_id: p.id });
     await activityLog.add('retry', `Retried payment for ${p.name}: ${status}`, p.customer_id, p.amount);
-    res.json({ success: status==='succeeded', status });
+    res.json({ success: status==='succeeded', status, retry_of_payment_id: p.id });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.patch('/api/payments/:id/note', async (req, res) => {
   try {
+    const paymentScope = await pool.query('SELECT c.stripe_account_id FROM payments p JOIN customers c ON c.id=p.customer_id WHERE p.id=$1', [req.params.id]);
+    if (!paymentScope.rows[0]) return res.status(404).json({ error: 'Payment not found' });
+    if (!ensureRowScope(req, res, paymentScope.rows[0])) return;
     await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS note TEXT');
     await pool.query('UPDATE payments SET note=$1 WHERE id=$2', [req.body.note, req.params.id]);
     res.json({ success: true });
@@ -948,7 +1219,8 @@ app.patch('/api/payments/:id/note', async (req, res) => {
 });
 app.get('/api/payments/export', async (req, res) => {
   try {
-    const list = await payments.recent(10000);
+    if (isReadOnlyUser(req.currentUser)) return res.status(403).json({ error: 'View-only access cannot export payment data' });
+    const list = (await payments.recent(10000)).filter(p => rowWithinScope(req,p));
     const csv = ['Customer,Email,Amount,Status,Date'].concat(list.map(p=>`${p.name||''},${p.email||''},${(p.amount||0)/100},${p.status},${p.created_at}`)).join('\n');
     res.setHeader('Content-Type','text/csv'); res.setHeader('Content-Disposition','attachment; filename=payments.csv'); res.send(csv);
   } catch(err) { res.status(500).json({ error: err.message }); }
@@ -960,6 +1232,7 @@ app.post('/api/payment-links', async (req, res) => {
     const { name, amount, currency, interval_days, stripe_account_id } = req.body;
     const acc = stripe_account_id ? await stripeAccounts.byId(stripe_account_id) : await stripeAccounts.default();
     if (!acc) return res.status(400).json({ error: 'No Stripe account found' });
+    if (!ensureRowScope(req, res, { stripe_account_id: acc.id })) return;
     const stripe = require('stripe')(acc.secret_key);
     const product = await stripe.products.create({ name: name||'Subscription', metadata: { source: 'subloop' } });
     const intervalMap = { 7: 'week', 14: 'week', 30: 'month', 90: 'month', 365: 'year' };
@@ -993,17 +1266,23 @@ app.get('/api/plan-templates', async (req, res) => {
     res.json(r.rows);
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
-app.post('/api/plan-templates', async (req, res) => { try { const { name, amount, currency, interval_days } = req.body; await pool.query('INSERT INTO plan_templates (name,amount,currency,interval_days) VALUES ($1,$2,$3,$4)', [name, amount, currency||'usd', interval_days||30]); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
-app.delete('/api/plan-templates/:id', async (req, res) => { try { await pool.query('DELETE FROM plan_templates WHERE id=$1', [req.params.id]); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.post('/api/plan-templates', async (req, res) => { try { if (!isOwnerOrAdmin(req.currentUser)) return res.status(403).json({ error: 'Only an administrator can manage shared templates' }); const { name, amount, currency, interval_days } = req.body; await pool.query('INSERT INTO plan_templates (name,amount,currency,interval_days) VALUES ($1,$2,$3,$4)', [name, amount, currency||'usd', interval_days||30]); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.delete('/api/plan-templates/:id', async (req, res) => { try { if (!isOwnerOrAdmin(req.currentUser)) return res.status(403).json({ error: 'Only an administrator can manage shared templates' }); await pool.query('DELETE FROM plan_templates WHERE id=$1', [req.params.id]); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
 
 // ── Run Rebills ───────────────────────────────────────────────────────────────
 app.post('/api/run-rebills', async (req, res) => {
   try {
     const due = await subscriptions.due();
-    let charged = 0, failed = 0;
+    const eligible = [];
     for (const sub of due) {
+      const customer = await customers.byId(sub.customer_id);
+      if (customer && rowWithinScope(req, customer)) eligible.push({ sub, customer });
+    }
+    let charged = 0, failed = 0;
+    for (const item of eligible) {
+      const sub = item.sub;
+      const c = item.customer;
       try {
-        const c = await customers.byId(sub.customer_id);
         const acc = await stripeAccounts.byId(c.stripe_account_id);
         const stripe = require('stripe')(acc.secret_key);
         const pi = await stripe.paymentIntents.create({ amount: sub.amount, currency: sub.currency||'usd', customer: c.stripe_customer_id, payment_method: c.stripe_payment_method, confirm: true, off_session: true });
@@ -1019,18 +1298,18 @@ app.post('/api/run-rebills', async (req, res) => {
         }
       } catch(e) { failed++; }
     }
-    res.json({ success: true, charged, failed, total: due.length });
+    res.json({ success: true, charged, failed, total: eligible.length });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
 // ── Activity ──────────────────────────────────────────────────────────────────
 app.get('/api/activity', async (req, res) => {
   try {
-    const username = req.headers['x-username'];
-    let list = await activityLog.recent(100);
+    const username = req.currentUser ? req.currentUser.username : req.headers['x-username'];
+    let list = (await activityLog.recent(100)).filter(row => rowWithinScope(req,row));
     if (username) {
       try {
-        const userRow = await pool.query('SELECT role FROM admin_users WHERE username=$1', [username]);
+        const userRow = await pool.query('SELECT role FROM admin_users WHERE LOWER(username)=LOWER($1)', [username]);
         if (userRow.rows[0] && userRow.rows[0].role === 'viewer') {
           list = list.filter(a => ['payment','failed','retry','charge','dunning','proration','resume'].includes(a.type));
         }
@@ -1041,7 +1320,15 @@ app.get('/api/activity', async (req, res) => {
 });
 
 // ── Settings ──────────────────────────────────────────────────────────────────
-app.get('/api/settings', async (req, res) => { try { res.json(await settingsDb.getAll()); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.get('/api/settings', async (req, res) => {
+  try {
+    const settings = await settingsDb.getAll();
+    delete settings.two_fa_secret;
+    delete settings.two_fa_secret_pending;
+    delete settings.two_fa_enabled;
+    res.json(settings);
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
 app.post('/api/settings', async (req, res) => {
   try { await settingsDb.set(req.body.key, req.body.value); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); }
 });
@@ -1050,62 +1337,104 @@ app.patch('/api/settings', async (req, res) => {
 });
 
 // ── Webhook Logs ──────────────────────────────────────────────────────────────
-app.get('/api/webhook-logs', async (req, res) => { try { res.json(await webhookLogs.recent(50)); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.get('/api/webhook-logs', async (req, res) => { try { const list=await webhookLogs.recent(50); const ids=scopedAccountIds(req); if(ids===null) return res.json(list); const visible=await pool.query('SELECT name FROM stripe_accounts WHERE id=ANY($1::int[])',[ids]); const names=new Set(visible.rows.map(r=>r.name)); res.json(list.filter(w=>names.has(w.account_name))); } catch(err) { res.status(500).json({ error: err.message }); } });
 
 // ── Security ──────────────────────────────────────────────────────────────────
-app.get('/api/security/login-history', async (req, res) => { try { res.json(await security.recentLogins(20)); } catch(err) { res.status(500).json({ error: err.message }); } });
+// Security is personal: each signed-in user sees their own logins and controls their own authenticator.
+app.get('/api/security/login-history', async (req, res) => {
+  try { res.json(await security.recentLoginsForUser(req.currentUser.id, 20)); }
+  catch(err) { res.status(500).json({ error: err.message }); }
+});
 app.get('/api/security/2fa/status', async (req, res) => {
-  try {
-    const enabled = await settingsDb.get('two_fa_enabled');
-    res.json({ enabled: enabled === 'true' });
-  } catch(err) { res.status(500).json({ error: err.message }); }
+  try { const state = await adminUsers.twoFAState(req.currentUser.id); res.json({ enabled: !!state.enabled }); }
+  catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.post('/api/security/2fa/setup', async (req, res) => {
   try {
     if (!speakeasy) return res.status(400).json({ error: 'speakeasy not installed' });
-    const secret = speakeasy.generateSecret({ name: 'Subloop' });
-    await settingsDb.set('two_fa_secret_pending', secret.base32);
+    const secret = speakeasy.generateSecret({ name: 'Subloop (' + req.currentUser.username + ')' });
+    await adminUsers.setPending2FA(req.currentUser.id, secret.base32);
     const qr = await QRCode.toDataURL(secret.otpauth_url);
     res.json({ secret: secret.base32, qrCode: qr });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.post('/api/security/2fa/verify', async (req, res) => {
   try {
-    if (!speakeasy) return res.json({ valid: true, success: true });
-    const secret = await settingsDb.get('two_fa_secret_pending');
-    if (!secret) return res.status(400).json({ error: 'No pending 2FA setup' });
-    const valid = speakeasy.totp.verify({ secret, encoding: 'base32', token: req.body.token, window: 2 });
+    if (!speakeasy) return res.status(503).json({ valid: false, success: false, error: 'Authenticator verification is unavailable' });
+    const state = await adminUsers.twoFAState(req.currentUser.id);
+    if (!state.two_fa_secret_pending) return res.status(400).json({ error: 'No pending 2FA setup' });
+    const valid = speakeasy.totp.verify({ secret: state.two_fa_secret_pending, encoding: 'base32', token: req.body.token, window: 2 });
     if (!valid) return res.json({ success: false, error: 'Invalid code' });
-    await settingsDb.set('two_fa_secret', secret);
-    await settingsDb.set('two_fa_enabled', 'true');
-    await settingsDb.set('two_fa_secret_pending', '');
+    await adminUsers.enable2FA(req.currentUser.id, state.two_fa_secret_pending);
     res.json({ success: true, valid: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.post('/api/security/2fa/validate', async (req, res) => {
   try {
-    if (!speakeasy) return res.json({ valid: true });
-    const enabled = await settingsDb.get('two_fa_enabled');
-    if (enabled !== 'true') return res.json({ valid: true });
-    const secret = await settingsDb.get('two_fa_secret');
-    if (!secret) return res.json({ valid: true });
-    const valid = speakeasy.totp.verify({ secret, encoding: 'base32', token: req.body.token, window: 2 });
-    res.json({ valid });
-  } catch(err) { res.json({ valid: false }); }
+    const challenge = parseAdminToken(req.body.login_challenge, '2fa');
+    if (!challenge) return res.status(401).json({ valid: false, error: 'Login session expired. Please sign in again.' });
+    const user = await adminUsers.byId(challenge.id);
+    if (!user) return res.status(401).json({ valid: false, error: 'Access has been revoked.' });
+    const state = await adminUsers.twoFAState(user.id);
+    if (!state.enabled) return res.json({ valid: true, token: issueAdminToken(user), ...accessResponse(user) });
+    if (!speakeasy) return res.status(503).json({ valid: false, error: 'Authenticator verification is unavailable' });
+    if (!state.two_fa_secret) return res.status(503).json({ valid: false, error: 'Authenticator configuration is missing' });
+    const valid = speakeasy.totp.verify({ secret: state.two_fa_secret, encoding: 'base32', token: req.body.token, window: 2 });
+    if (!valid) return res.json({ valid: false });
+    res.json({ valid: true, token: issueAdminToken(user), ...accessResponse(user) });
+  } catch(err) { res.status(500).json({ valid: false, error: 'Could not verify authenticator code' }); }
 });
 app.post('/api/security/2fa/disable', async (req, res) => {
-  try { await settingsDb.set('two_fa_enabled', 'false'); await settingsDb.set('two_fa_secret', ''); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); }
+  try { await adminUsers.disable2FA(req.currentUser.id); res.json({ success: true }); }
+  catch(err) { res.status(500).json({ error: err.message }); }
 });
 
 // ── Admin Users ───────────────────────────────────────────────────────────────
-app.get('/api/admin-users', async (req, res) => { try { res.json(await adminUsers.all()); } catch(err) { res.status(500).json({ error: err.message }); } });
+function cleanAccountAccessInput(role, accountScope, allowedAccountIds) {
+  const readonlyRole = role === 'analyst' || role === 'viewer';
+  const scope = (readonlyRole || role === 'custom') && accountScope === 'selected' ? 'selected' : 'all';
+  const ids = Array.isArray(allowedAccountIds) ? [...new Set(allowedAccountIds.map(Number).filter(Number.isInteger))] : [];
+  return { accountScope: scope, allowedAccountIds: scope === 'selected' ? ids : [] };
+}
+async function validateSelectedAccounts(scope, ids) {
+  if (scope !== 'selected') return true;
+  if (!ids.length) return false;
+  const r = await pool.query('SELECT COUNT(*) AS n FROM stripe_accounts WHERE id=ANY($1::int[])', [ids]);
+  return Number(r.rows[0]?.n) === ids.length;
+}
+function actorCanCreateManagedUser(actor, role) {
+  if (!actor) return false;
+  if (actor.role === 'owner') return ['admin','analyst','viewer','custom'].includes(role);
+  if (actor.role === 'admin') return ['analyst','viewer','custom'].includes(role);
+  return false;
+}
+function actorCanManageUser(actor, target) {
+  if (!actor || !target) return false;
+  if (actor.role === 'owner') return target.role !== 'owner';
+  if (actor.role === 'admin') return ['analyst','viewer','custom'].includes(target.role);
+  return false;
+}
+app.get('/api/admin-users', async (req, res) => {
+  try {
+    const list = await adminUsers.all();
+    if (req.currentUser.role === 'owner') return res.json(list);
+    res.json(list.map(({ two_fa_enabled, ...user }) => user));
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
 app.post('/api/admin-users', async (req, res) => {
   try {
-    const { username, password, role, permissions } = req.body;
+    const { username, password, role, permissions, account_scope, allowed_account_ids } = req.body;
     if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
     if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
-    await adminUsers.create(username, password, role || 'admin', permissions || []);
-    await activityLog.add('security', `New admin user created: ${username}`);
+    const safeRole = ['admin','analyst','viewer','custom'].includes(role) ? role : null;
+    if (!safeRole) return res.status(400).json({ error: 'Select a valid access level' });
+    if (!actorCanCreateManagedUser(req.currentUser, safeRole)) {
+      return res.status(403).json({ error: req.currentUser.role === 'admin' ? 'Only the Owner can grant Admin access' : 'Not allowed to create this access level' });
+    }
+    const access = cleanAccountAccessInput(safeRole, account_scope, allowed_account_ids);
+    if (!(await validateSelectedAccounts(access.accountScope, access.allowedAccountIds))) return res.status(400).json({ error: 'Select at least one valid Stripe account' });
+    await adminUsers.create(username, password, safeRole, sanitizeSections(safeRole, permissions), access.accountScope, access.allowedAccountIds);
+    await activityLog.add('security', `New access user created: ${username}`);
     res.json({ success: true });
   } catch(err) {
     if (err.message.includes('unique')) return res.status(400).json({ error: 'Username already exists' });
@@ -1114,24 +1443,40 @@ app.post('/api/admin-users', async (req, res) => {
 });
 app.delete('/api/admin-users/:id', async (req, res) => {
   try {
-    const all = await adminUsers.all();
-    if (all.length <= 1) return res.status(400).json({ error: 'Cannot delete the last admin user' });
+    const target = await adminUsers.byId(req.params.id);
+    if (!target) return res.status(404).json({ error: 'User not found' });
+    if (!actorCanManageUser(req.currentUser, target)) {
+      return res.status(403).json({ error: 'You cannot remove this user access' });
+    }
     await adminUsers.delete(req.params.id);
     res.json({ success: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.patch('/api/admin-users/:id/permissions', async (req, res) => {
   try {
-    const { role, permissions } = req.body;
-    const current = await pool.query('SELECT role FROM admin_users WHERE id=$1', [req.params.id]);
-    if (current.rows[0]?.role === 'owner') return res.status(400).json({ error: 'Cannot change owner role' });
-    if (role) await pool.query('UPDATE admin_users SET role=$1 WHERE id=$2', [role, req.params.id]);
-    await adminUsers.updatePermissions(req.params.id, permissions || []);
+    const { role, permissions, account_scope, allowed_account_ids } = req.body;
+    const current = await adminUsers.byId(req.params.id);
+    if (!current) return res.status(404).json({ error: 'User not found' });
+    if (!actorCanManageUser(req.currentUser, current)) {
+      return res.status(403).json({ error: 'You cannot edit this user access' });
+    }
+    const safeRole = ['admin','analyst','viewer','custom'].includes(role) ? role : current.role;
+    if (!actorCanCreateManagedUser(req.currentUser, safeRole)) {
+      return res.status(403).json({ error: req.currentUser.role === 'admin' ? 'Only the Owner can grant Admin access' : 'Not allowed to grant this access level' });
+    }
+    const access = cleanAccountAccessInput(safeRole, account_scope, allowed_account_ids);
+    if (!(await validateSelectedAccounts(access.accountScope, access.allowedAccountIds))) return res.status(400).json({ error: 'Select at least one valid Stripe account' });
+    await adminUsers.updateAccess(req.params.id, safeRole, sanitizeSections(safeRole, permissions), access.accountScope, access.allowedAccountIds);
     res.json({ success: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.post('/api/admin-users/:id/change-password', async (req, res) => {
   try {
+    const target = await adminUsers.byId(req.params.id);
+    if (!target) return res.status(404).json({ error: 'User not found' });
+    const isSelf = Number(target.id) === Number(req.currentUser.id);
+    const ownerReset = req.currentUser.role === 'owner' && target.role !== 'owner';
+    if (!isSelf && !ownerReset) return res.status(403).json({ error: 'You cannot reset this user password' });
     const { password } = req.body;
     if (!password || password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
     await adminUsers.changePassword(req.params.id, password);
@@ -1139,35 +1484,90 @@ app.post('/api/admin-users/:id/change-password', async (req, res) => {
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
+// Owner-only oversight; secrets are never returned.
+app.get('/api/admin-users/:id/security', async (req, res) => {
+  try {
+    if (req.currentUser.role !== 'owner') return res.status(403).json({ error: 'Owner access required' });
+    const target = await adminUsers.byId(req.params.id);
+    if (!target) return res.status(404).json({ error: 'User not found' });
+    const history = await security.recentLoginsForUser(target.id, 20);
+    res.json({ username: target.username, two_fa_enabled: !!target.two_fa_enabled, login_history: history });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+app.post('/api/admin-users/:id/security/reset-2fa', async (req, res) => {
+  try {
+    if (req.currentUser.role !== 'owner') return res.status(403).json({ error: 'Owner access required' });
+    const target = await adminUsers.byId(req.params.id);
+    if (!target) return res.status(404).json({ error: 'User not found' });
+    if (Number(target.id) === Number(req.currentUser.id)) return res.status(400).json({ error: 'Disable your own 2FA from the Security page' });
+    await adminUsers.disable2FA(target.id);
+    res.json({ success: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
 // ── Auth ──────────────────────────────────────────────────────────────────────
+function requestClientIp(req) {
+  const forwarded = String(req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  return forwarded || String(req.socket.remoteAddress || 'unknown');
+}
+function safeIntegerSetting(value, fallback, min, max) {
+  const parsed = parseInt(value, 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(min, Math.min(max, parsed));
+}
 app.post('/api/auth/verify', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+    const ip = requestClientIp(req);
+    const maxAttempts = safeIntegerSetting(await settingsDb.get('max_login_attempts'), 5, 3, 20);
+    const lockoutMinutes = safeIntegerSetting(await settingsDb.get('lockout_minutes'), 15, 1, 60);
+    const recentFailures = await security.recentFailures(ip, lockoutMinutes);
+
+    if (recentFailures >= maxAttempts) {
+      return res.status(429).json({
+        success: false,
+        locked: true,
+        lockout_minutes: lockoutMinutes,
+        error: `Too many failed login attempts. Try again after ${lockoutMinutes} minutes.`
+      });
+    }
+
     const user = await adminUsers.verify(username, password);
     if (user) {
       await adminUsers.updateLastLogin(user.id);
-      await security.logAttempt(ip, true);
-      res.json({ success: true, role: user.role, username: user.username, permissions: user.permissions || [] });
-    } else {
-      await security.logAttempt(ip, false);
-      res.json({ success: false });
+      await security.logAttempt(ip, true, user.id, user.username);
+      const twoFaState = await adminUsers.twoFAState(user.id);
+      if (twoFaState.enabled) return res.json({ success: true, requires_2fa: true, login_challenge: issueAdminToken(user, '2fa', 5), ...accessResponse(user) });
+      return res.json({ success: true, token: issueAdminToken(user), ...accessResponse(user) });
     }
+
+    const attemptedUser = username ? await adminUsers.byUsername(username) : null;
+    await security.logAttempt(ip, false, attemptedUser ? attemptedUser.id : null, username || null);
+    if (recentFailures + 1 >= maxAttempts) {
+      return res.status(429).json({
+        success: false,
+        locked: true,
+        lockout_minutes: lockoutMinutes,
+        error: `Too many failed login attempts. Login locked for ${lockoutMinutes} minutes.`
+      });
+    }
+    res.json({ success: false });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.post('/api/auth/check', async (req, res) => {
   try {
-    const { username } = req.body;
-    if (!username) return res.json({ valid: false });
-    const r = await pool.query('SELECT id, username, role, permissions FROM admin_users WHERE username=$1', [username]);
-    if (!r.rows[0]) return res.json({ valid: false });
-    res.json({ valid: true, role: r.rows[0].role, permissions: r.rows[0].permissions || [] });
-  } catch(err) { res.json({ valid: true, role: 'owner', permissions: [] }); }
+    const token = parseAdminToken(bearerToken(req), 'access');
+    if (!token) return res.json({ valid: false });
+    const user = await adminUsers.byId(token.id);
+    if (!user) return res.json({ valid: false });
+    res.json({ valid: true, ...accessResponse(user) });
+  } catch(err) { res.json({ valid: false }); }
 });
 
 // ── Stats & Dashboard ─────────────────────────────────────────────────────────
 app.get('/api/stats', async (req, res) => {
   try {
+    const ids = scopedAccountIds(req);
     const r = await pool.query(`
       SELECT
         COALESCE(SUM(CASE WHEN s.status='active' THEN ${usdAmountSql('s')} ELSE 0 END),0) as mrr,
@@ -1181,40 +1581,39 @@ app.get('/api/stats', async (req, res) => {
       FROM customers c
       LEFT JOIN subscriptions s ON s.customer_id=c.id
       LEFT JOIN payments p ON p.customer_id=c.id
-    `);
+      WHERE ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[]))
+    `, [ids]);
     const row = r.rows[0];
-    const sc = await pool.query("SELECT COUNT(*) as n FROM payments WHERE status='succeeded' AND created_at >= NOW()-INTERVAL '30 days'");
-    const fc = await pool.query("SELECT COUNT(*) as n FROM payments WHERE status='failed' AND created_at >= NOW()-INTERVAL '30 days'");
+    const sc = await pool.query("SELECT COUNT(*) as n FROM payments p JOIN customers c ON c.id=p.customer_id WHERE p.status='succeeded' AND p.created_at >= NOW()-INTERVAL '30 days' AND ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[]))", [ids]);
+    const fc = await pool.query("SELECT COUNT(*) as n FROM payments p JOIN customers c ON c.id=p.customer_id WHERE p.status='failed' AND p.created_at >= NOW()-INTERVAL '30 days' AND ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[]))", [ids]);
     const total = parseInt(sc.rows[0].n)+parseInt(fc.rows[0].n);
-    const custStats = await pool.query("SELECT COUNT(*) as total, COUNT(CASE WHEN status='cancelled' AND created_at >= NOW()-INTERVAL '30 days' THEN 1 END) as churned_30d FROM customers");
+    const custStats = await pool.query("SELECT COUNT(*) as total, COUNT(CASE WHEN status='cancelled' AND created_at >= NOW()-INTERVAL '30 days' THEN 1 END) as churned_30d FROM customers WHERE ($1::int[] IS NULL OR stripe_account_id=ANY($1::int[]))", [ids]);
     const cs = custStats.rows[0];
     const churnRate = parseInt(cs.total)>0?((parseInt(cs.churned_30d)||0)/parseInt(cs.total)*100).toFixed(1):0;
     const avgLtv = parseInt(cs.total)>0?Math.round(parseInt(row.total_revenue)/parseInt(cs.total)):0;
-    res.json({
-      ...row,
-      payment_success_rate: total>0?Math.round((parseInt(sc.rows[0].n)/total)*100):100,
-      churn_rate: churnRate,
-      avg_ltv: avgLtv,
-      revenue_30d: row.revenue_month
-    });
+    res.json({ ...row, payment_success_rate: total>0?Math.round((parseInt(sc.rows[0].n)/total)*100):100, churn_rate: churnRate, avg_ltv: avgLtv, revenue_30d: row.revenue_month });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.get('/api/revenue-chart', async (req, res) => {
   try {
-    const r = await pool.query(`SELECT DATE(created_at) as day, SUM(CASE WHEN status='succeeded' THEN ${usdAmountSql()} ELSE 0 END) as revenue, COUNT(CASE WHEN status='succeeded' THEN 1 END) as count FROM payments WHERE created_at >= NOW() - INTERVAL '60 days' GROUP BY DATE(created_at) ORDER BY day ASC`);
+    const ids = scopedAccountIds(req);
+    const allTime = String(req.query.period || '').toLowerCase() === 'all';
+    const dateCondition = allTime ? '' : " AND p.created_at >= NOW() - INTERVAL '60 days'";
+    const r = await pool.query(`SELECT DATE(p.created_at) as day, SUM(CASE WHEN p.status='succeeded' THEN ${usdAmountSql('p')} ELSE 0 END) as revenue, COUNT(CASE WHEN p.status='succeeded' THEN 1 END) as count FROM payments p JOIN customers c ON c.id=p.customer_id WHERE ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[]))${dateCondition} GROUP BY DATE(p.created_at) ORDER BY day ASC`, [ids]);
     res.json(r.rows);
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.get('/api/daily-summary', async (req, res) => {
   try {
-    const r = await pool.query(`SELECT COALESCE(SUM(CASE WHEN status='succeeded' AND created_at >= CURRENT_DATE THEN ${usdAmountSql()} ELSE 0 END),0) as revenue_today, COALESCE(COUNT(CASE WHEN status='succeeded' AND created_at >= CURRENT_DATE THEN 1 END),0) as payments_today, COALESCE(COUNT(CASE WHEN status='failed' AND created_at >= CURRENT_DATE THEN 1 END),0) as failed_today, COALESCE(SUM(CASE WHEN status='succeeded' AND created_at >= CURRENT_DATE - INTERVAL '7 days' THEN ${usdAmountSql()} ELSE 0 END),0) as revenue_7d, COALESCE(COUNT(CASE WHEN status='succeeded' AND created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END),0) as payments_7d, COALESCE(SUM(CASE WHEN status='succeeded' AND created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN ${usdAmountSql()} ELSE 0 END),0) as revenue_month, COALESCE(COUNT(CASE WHEN status='succeeded' AND created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN 1 END),0) as payments_month FROM payments`);
-    const c = await pool.query(`SELECT COUNT(*) as active_total, COUNT(CASE WHEN created_at >= CURRENT_DATE THEN 1 END) as new_today, COUNT(CASE WHEN created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as new_7d FROM customers WHERE status='active'`);
+    const ids = scopedAccountIds(req);
+    const r = await pool.query(`SELECT COALESCE(SUM(CASE WHEN p.status='succeeded' AND p.created_at >= CURRENT_DATE THEN ${usdAmountSql('p')} ELSE 0 END),0) as revenue_today, COALESCE(COUNT(CASE WHEN p.status='succeeded' AND p.created_at >= CURRENT_DATE THEN 1 END),0) as payments_today, COALESCE(COUNT(CASE WHEN p.status='failed' AND p.created_at >= CURRENT_DATE THEN 1 END),0) as failed_today, COALESCE(SUM(CASE WHEN p.status='succeeded' AND p.created_at >= CURRENT_DATE - INTERVAL '7 days' THEN ${usdAmountSql('p')} ELSE 0 END),0) as revenue_7d, COALESCE(COUNT(CASE WHEN p.status='succeeded' AND p.created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END),0) as payments_7d, COALESCE(SUM(CASE WHEN p.status='succeeded' AND p.created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN ${usdAmountSql('p')} ELSE 0 END),0) as revenue_month, COALESCE(COUNT(CASE WHEN p.status='succeeded' AND p.created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN 1 END),0) as payments_month FROM payments p JOIN customers c ON c.id=p.customer_id WHERE ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[]))`, [ids]);
+    const c = await pool.query(`SELECT COUNT(*) as active_total, COUNT(CASE WHEN created_at >= CURRENT_DATE THEN 1 END) as new_today, COUNT(CASE WHEN created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as new_7d FROM customers WHERE status='active' AND ($1::int[] IS NULL OR stripe_account_id=ANY($1::int[]))`, [ids]);
     res.json({ ...r.rows[0], ...c.rows[0] });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.get('/api/forecast', async (req, res) => {
   try {
-    const allSubs = await subscriptions.all();
+    const allSubs = (await subscriptions.all()).filter(sub => rowWithinScope(req, sub));
     const activeSubs = allSubs.filter(s => s.status === 'active');
     const now = new Date();
     let forecast30=0, forecast60=0, forecast90=0;
@@ -1231,33 +1630,101 @@ app.get('/api/forecast', async (req, res) => {
 });
 app.get('/api/churn-alerts', async (req, res) => {
   try {
-    const cancelled = await pool.query(`SELECT c.id,c.name,c.email,s.updated_at as churned_at FROM subscriptions s JOIN customers c ON c.id=s.customer_id WHERE s.status='cancelled' AND s.updated_at >= NOW()-INTERVAL '7 days' ORDER BY s.updated_at DESC LIMIT 20`);
-    const failing = await pool.query(`SELECT c.id,c.name,c.email,s.dunning_count FROM subscriptions s JOIN customers c ON c.id=s.customer_id WHERE s.dunning_count >= 3 AND s.status != 'cancelled' ORDER BY s.dunning_count DESC LIMIT 20`);
+    const ids = scopedAccountIds(req);
+    const cancelled = await pool.query(`SELECT c.id,c.name,c.email,s.updated_at as churned_at FROM subscriptions s JOIN customers c ON c.id=s.customer_id WHERE s.status='cancelled' AND s.updated_at >= NOW()-INTERVAL '7 days' AND ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[])) ORDER BY s.updated_at DESC LIMIT 20`, [ids]);
+    const failing = await pool.query(`SELECT c.id,c.name,c.email,s.dunning_count FROM subscriptions s JOIN customers c ON c.id=s.customer_id WHERE s.dunning_count >= 3 AND s.status != 'cancelled' AND ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[])) ORDER BY s.dunning_count DESC LIMIT 20`, [ids]);
     res.json({ cancelled: cancelled.rows, failing: failing.rows });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.get('/api/mrr-history', async (req, res) => {
   try {
-    const r = await pool.query(`SELECT TO_CHAR(DATE_TRUNC('month', created_at), 'Mon YY') as month, DATE_TRUNC('month', created_at) as month_date, SUM(CASE WHEN status='succeeded' THEN ${usdAmountSql()} ELSE 0 END) as revenue FROM payments WHERE created_at >= NOW() - INTERVAL '12 months' GROUP BY DATE_TRUNC('month', created_at) ORDER BY month_date ASC`);
+    const ids = scopedAccountIds(req);
+    const r = await pool.query(`SELECT TO_CHAR(DATE_TRUNC('month', p.created_at), 'Mon YY') as month, DATE_TRUNC('month', p.created_at) as month_date, SUM(CASE WHEN p.status='succeeded' THEN ${usdAmountSql('p')} ELSE 0 END) as revenue FROM payments p JOIN customers c ON c.id=p.customer_id WHERE p.created_at >= NOW() - INTERVAL '12 months' AND ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[])) GROUP BY DATE_TRUNC('month', p.created_at) ORDER BY month_date ASC`, [ids]);
     res.json(r.rows);
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.get('/api/recovery-rate', async (req, res) => {
   try {
-    const r = await pool.query(`SELECT COUNT(CASE WHEN status='failed' THEN 1 END) as total_failed, COUNT(CASE WHEN status='succeeded' THEN 1 END) as total_succeeded FROM payments WHERE created_at >= NOW()-INTERVAL '30 days'`);
-    const row = r.rows[0];
-    const tf=parseInt(row.total_failed)||0, ts=parseInt(row.total_succeeded)||0;
-    res.json({ total_failed: tf, recovered: 0, rate: (tf+ts)>0?Math.round((ts/(tf+ts))*100):0, total_succeeded: ts });
+    await ensureWebhookColumns();
+    const ids = scopedAccountIds(req);
+    const r = await pool.query(`
+      WITH failed AS (
+        SELECT p.*
+        FROM payments p
+        JOIN customers fc ON fc.id=p.customer_id
+        WHERE (p.status='failed' OR COALESCE(p.was_failed,false)=true)
+          AND p.created_at >= NOW()-INTERVAL '30 days'
+          AND ($1::int[] IS NULL OR fc.stripe_account_id=ANY($1::int[]))
+      ),
+      recovered_successes AS (
+        /* 1) A retry started through Subloop and linked to a failed payment. */
+        SELECT DISTINCT s.id AS recovery_id
+        FROM payments s
+        JOIN failed f ON f.id=s.retry_of_payment_id
+        WHERE s.status='succeeded'
+
+        UNION
+
+        /* 2) Stripe updates the same PaymentIntent from failed to succeeded. */
+        SELECT DISTINCT f.id AS recovery_id
+        FROM failed f
+        WHERE f.recovered_at IS NOT NULL
+
+        UNION
+
+        /* 3) Stripe payment/invoice/subscription retry: later successful attempt for the same bill. */
+        SELECT DISTINCT s.id AS recovery_id
+        FROM payments s
+        JOIN failed f
+          ON s.customer_id=f.customer_id
+         AND s.status='succeeded'
+         AND s.created_at > f.created_at
+         AND s.created_at <= f.created_at + INTERVAL '30 days'
+         AND s.amount=f.amount
+         AND LOWER(COALESCE(s.currency,'usd'))=LOWER(COALESCE(f.currency,'usd'))
+         AND (
+           (f.stripe_invoice_id IS NOT NULL AND s.stripe_invoice_id=f.stripe_invoice_id)
+           OR (f.subscription_id IS NOT NULL AND s.subscription_id=f.subscription_id)
+         )
+
+        UNION
+
+        /* 4) Customer self-retry for one-time checkout: same customer/amount/currency shortly after failure. */
+        SELECT DISTINCT s.id AS recovery_id
+        FROM payments s
+        JOIN failed f
+          ON s.customer_id=f.customer_id
+         AND s.status='succeeded'
+         AND s.created_at > f.created_at
+         AND s.created_at <= f.created_at + INTERVAL '24 hours'
+         AND s.amount=f.amount
+         AND LOWER(COALESCE(s.currency,'usd'))=LOWER(COALESCE(f.currency,'usd'))
+         AND COALESCE(s.subscription_id,0)=0
+         AND COALESCE(f.subscription_id,0)=0
+         AND (
+           f.card_last4 IS NULL OR s.card_last4 IS NULL OR f.card_last4=s.card_last4
+         )
+      )
+      SELECT
+        (SELECT COUNT(*) FROM failed) AS total_failed,
+        (SELECT COUNT(*) FROM recovered_successes) AS recovered
+    `, [ids]);
+    const row = r.rows[0] || {};
+    const tf = parseInt(row.total_failed) || 0;
+    const recovered = parseInt(row.recovered) || 0;
+    const rate = tf > 0 ? Math.round((recovered / tf) * 100) : 0;
+    res.json({ total_failed: tf, recovered, rate });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.get('/api/search', async (req, res) => {
   try {
+    const ids = scopedAccountIds(req);
     const q = '%'+(req.query.q||'').trim()+'%';
     if (!req.query.q || req.query.q.trim().length < 2) return res.json({ customers:[], payments:[], subscriptions:[] });
     const [cust, pmts, subs] = await Promise.all([
-      pool.query(`SELECT id,name,email,card_brand,card_last4,status FROM customers WHERE name ILIKE $1 OR email ILIKE $1 LIMIT 5`, [q]),
-      pool.query(`SELECT p.id,c.name,c.email,p.amount,p.currency,p.status,p.created_at FROM payments p JOIN customers c ON c.id=p.customer_id WHERE c.name ILIKE $1 OR c.email ILIKE $1 ORDER BY p.created_at DESC LIMIT 5`, [q]),
-      pool.query(`SELECT s.id,c.name,c.email,s.amount,s.currency,s.status FROM subscriptions s JOIN customers c ON c.id=s.customer_id WHERE c.name ILIKE $1 OR c.email ILIKE $1 LIMIT 5`, [q]),
+      pool.query(`SELECT id,name,email,card_brand,card_last4,status FROM customers WHERE (name ILIKE $1 OR email ILIKE $1) AND ($2::int[] IS NULL OR stripe_account_id=ANY($2::int[])) LIMIT 5`, [q, ids]),
+      pool.query(`SELECT p.id,c.name,c.email,p.amount,p.currency,p.status,p.created_at FROM payments p JOIN customers c ON c.id=p.customer_id WHERE (c.name ILIKE $1 OR c.email ILIKE $1) AND ($2::int[] IS NULL OR c.stripe_account_id=ANY($2::int[])) ORDER BY p.created_at DESC LIMIT 5`, [q, ids]),
+      pool.query(`SELECT s.id,c.name,c.email,s.amount,s.currency,s.status FROM subscriptions s JOIN customers c ON c.id=s.customer_id WHERE (c.name ILIKE $1 OR c.email ILIKE $1) AND ($2::int[] IS NULL OR c.stripe_account_id=ANY($2::int[])) LIMIT 5`, [q, ids]),
     ]);
     res.json({ customers: cust.rows, payments: pmts.rows, subscriptions: subs.rows });
   } catch(err) { res.status(500).json({ error: err.message }); }
@@ -1288,6 +1755,8 @@ app.get('/api/debug/admins', async (req, res) => {
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
 const PORT = process.env.PORT || 8080;
+// Database migrations, including admin access columns, finish once before accepting requests.
+// API permission checks then use fast SELECT queries only; they never run ALTER TABLE during page loads.
 init().then(() => {
   app.listen(PORT, () => console.log(`Subloop running on port ${PORT}`));
 }).catch(err => { console.error('DB init failed:', err.message); process.exit(1); });

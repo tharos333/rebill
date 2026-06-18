@@ -56,6 +56,17 @@ async function init() {
       card_exp_year INT,
       card_country TEXT,
       card_funding TEXT,
+      payment_method_type TEXT,
+      wallet_type TEXT,
+      wallet_checked BOOLEAN DEFAULT FALSE,
+      stripe_invoice_id TEXT,
+      stripe_fee INT,
+      net_amount INT,
+      balance_transaction_id TEXT,
+      financial_currency TEXT,
+      retry_of_payment_id INT REFERENCES payments(id),
+      was_failed BOOLEAN DEFAULT false,
+      recovered_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS settings (
@@ -91,16 +102,31 @@ async function init() {
       password_hash TEXT NOT NULL,
       role TEXT DEFAULT 'admin',
       permissions JSONB DEFAULT '[]'::jsonb,
+      account_scope TEXT DEFAULT 'all',
+      allowed_account_ids JSONB DEFAULT '[]'::jsonb,
+      two_fa_enabled BOOLEAN DEFAULT false,
+      two_fa_secret TEXT,
+      two_fa_secret_pending TEXT,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       last_login TIMESTAMPTZ
     );
     ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT '[]'::jsonb;
+    ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS account_scope TEXT DEFAULT 'all';
+    ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS allowed_account_ids JSONB DEFAULT '[]'::jsonb;
+    ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ;
+    ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS two_fa_enabled BOOLEAN DEFAULT false;
+    ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS two_fa_secret TEXT;
+    ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS two_fa_secret_pending TEXT;
     CREATE TABLE IF NOT EXISTS login_attempts (
       id SERIAL PRIMARY KEY,
+      admin_user_id INT REFERENCES admin_users(id) ON DELETE SET NULL,
+      username TEXT,
       ip TEXT,
       success BOOLEAN DEFAULT false,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
+    ALTER TABLE login_attempts ADD COLUMN IF NOT EXISTS admin_user_id INT REFERENCES admin_users(id) ON DELETE SET NULL;
+    ALTER TABLE login_attempts ADD COLUMN IF NOT EXISTS username TEXT;
   `);
   const migrations = [
     'ALTER TABLE customers ADD COLUMN IF NOT EXISTS stripe_account_id INT',
@@ -114,6 +140,14 @@ async function init() {
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_exp_year INT',
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_country TEXT',
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_funding TEXT',
+    'ALTER TABLE payments ADD COLUMN IF NOT EXISTS stripe_invoice_id TEXT',
+    'ALTER TABLE payments ADD COLUMN IF NOT EXISTS stripe_fee INT',
+    'ALTER TABLE payments ADD COLUMN IF NOT EXISTS net_amount INT',
+    'ALTER TABLE payments ADD COLUMN IF NOT EXISTS balance_transaction_id TEXT',
+    'ALTER TABLE payments ADD COLUMN IF NOT EXISTS financial_currency TEXT',
+    'ALTER TABLE payments ADD COLUMN IF NOT EXISTS retry_of_payment_id INT REFERENCES payments(id)',
+    'ALTER TABLE payments ADD COLUMN IF NOT EXISTS was_failed BOOLEAN DEFAULT false',
+    'ALTER TABLE payments ADD COLUMN IF NOT EXISTS recovered_at TIMESTAMPTZ',
   ];
   for (const m of migrations) await pool.query(m).catch(() => {});
   const adminCount = await pool.query('SELECT COUNT(*) FROM admin_users');
@@ -132,6 +166,19 @@ async function init() {
   for (const [key, value] of Object.entries(defaults)) {
     await pool.query('INSERT INTO settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO NOTHING', [key, value]);
   }
+  // One-time migration: preserve any previously shared active 2FA secret on the Owner account only.
+  // Other access users must enroll their own authenticator after this migration.
+  await pool.query(`
+    UPDATE admin_users
+    SET two_fa_enabled=true,
+        two_fa_secret=(SELECT value FROM settings WHERE key='two_fa_secret'),
+        two_fa_secret_pending=NULL
+    WHERE role='owner'
+      AND COALESCE(two_fa_enabled,false)=false
+      AND COALESCE(two_fa_secret,'')=''
+      AND COALESCE((SELECT value FROM settings WHERE key='two_fa_enabled'),'false')='true'
+      AND COALESCE((SELECT value FROM settings WHERE key='two_fa_secret'),'')<>''
+  `).catch(()=>{});
   const existing = await pool.query('SELECT COUNT(*) FROM stripe_accounts');
   if (parseInt(existing.rows[0].count) === 0 && process.env.STRIPE_SECRET_KEY) {
     await pool.query('INSERT INTO stripe_accounts (name,secret_key,webhook_secret,is_default) VALUES ($1,$2,$3,true)',
@@ -145,7 +192,7 @@ const settingsDb = {
   set: async (key, value) => { await pool.query('INSERT INTO settings (key,value,updated_at) VALUES ($1,$2,NOW()) ON CONFLICT (key) DO UPDATE SET value=$2, updated_at=NOW()', [key, value]); },
 };
 const stripeAccounts = {
-  all: async () => { const r = await pool.query("SELECT id, name, is_default, created_at, LEFT(secret_key,12)||'...' as key_preview FROM stripe_accounts ORDER BY created_at ASC"); return r.rows; },
+  all: async () => { const r = await pool.query("SELECT id, name, is_default, created_at, LEFT(secret_key,12)||'...' as key_preview FROM stripe_accounts ORDER BY created_at DESC, id DESC"); return r.rows; },
   byId: async (id) => { const r = await pool.query('SELECT * FROM stripe_accounts WHERE id=$1', [id]); return r.rows[0]; },
   default: async () => { const r = await pool.query('SELECT * FROM stripe_accounts WHERE is_default=true LIMIT 1'); if (r.rows[0]) return r.rows[0]; const r2 = await pool.query('SELECT * FROM stripe_accounts ORDER BY created_at ASC LIMIT 1'); return r2.rows[0]; },
   create: async (data) => { const count = await pool.query('SELECT COUNT(*) FROM stripe_accounts'); const isDefault = parseInt(count.rows[0].count) === 0; const r = await pool.query('INSERT INTO stripe_accounts (name,secret_key,webhook_secret,is_default) VALUES ($1,$2,$3,$4) RETURNING id', [data.name, data.secret_key, data.webhook_secret || '', isDefault]); return r.rows[0]; },
@@ -153,16 +200,192 @@ const stripeAccounts = {
   delete: async (id) => { await pool.query('DELETE FROM stripe_accounts WHERE id=$1', [id]); },
 };
 const customers = {
-  all: async () => { const r = await pool.query(`SELECT c.*, sa.name as account_name, COUNT(CASE WHEN s.status='active' THEN 1 END) as active_subs, COALESCE(SUM(CASE WHEN p.status='succeeded' THEN p.amount ELSE 0 END),0) as total_paid FROM customers c LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id LEFT JOIN subscriptions s ON s.customer_id=c.id LEFT JOIN payments p ON p.customer_id=c.id GROUP BY c.id, sa.name ORDER BY c.created_at DESC`); return r.rows; },
+  all: async () => { const r = await pool.query(`
+    WITH sub_stats AS (
+      SELECT customer_id, COUNT(*) FILTER (WHERE status='active') as active_subs
+      FROM subscriptions
+      GROUP BY customer_id
+    ),
+    pay_stats AS (
+      SELECT
+        customer_id,
+        COALESCE(SUM(CASE WHEN status='succeeded' THEN amount ELSE 0 END), 0) as total_paid,
+        MAX(CASE WHEN status='succeeded' THEN created_at END) as last_payment_at,
+        MAX(created_at) as last_any_payment_at
+      FROM payments
+      GROUP BY customer_id
+    )
+    SELECT
+      c.*,
+      sa.name as account_name,
+      COALESCE(s.active_subs, 0) as active_subs,
+      COALESCE(p.total_paid, 0) as total_paid,
+      p.last_payment_at,
+      p.last_any_payment_at,
+      COALESCE(p.last_payment_at, c.created_at) as sort_date,
+      pm.payment_method_type as primary_payment_method_type,
+      pm.wallet_type as primary_wallet_type,
+      COALESCE(pm.card_brand, c.card_brand) as primary_card_brand,
+      COALESCE(pm.card_last4, c.card_last4) as primary_card_last4,
+      COALESCE(pm.card_exp_month, c.card_exp_month) as primary_card_exp_month,
+      COALESCE(pm.card_exp_year, c.card_exp_year) as primary_card_exp_year,
+      pm.card_country as primary_card_country,
+      pm.card_funding as primary_card_funding
+    FROM customers c
+    LEFT JOIN stripe_accounts sa ON sa.id = c.stripe_account_id
+    LEFT JOIN sub_stats s ON s.customer_id = c.id
+    LEFT JOIN pay_stats p ON p.customer_id = c.id
+    LEFT JOIN LATERAL (
+      SELECT payment_method_type, wallet_type, card_brand, card_last4, card_exp_month, card_exp_year, card_country, card_funding
+      FROM payments
+      WHERE customer_id=c.id
+        AND (payment_method_type IS NOT NULL OR wallet_type IS NOT NULL OR card_brand IS NOT NULL OR card_last4 IS NOT NULL)
+      ORDER BY CASE WHEN status='succeeded' THEN 0 ELSE 1 END, created_at DESC
+      LIMIT 1
+    ) pm ON true
+    WHERE NOT (
+      COALESCE(p.total_paid, 0) = 0
+      AND (
+        COALESCE(c.email, '') ILIKE '%@stripe.local'
+        OR COALESCE(c.stripe_customer_id, '') LIKE 'external_%'
+        OR COALESCE(c.name, '') LIKE 'pi_%'
+      )
+    )
+    ORDER BY
+      CASE WHEN p.last_payment_at IS NOT NULL THEN 0 ELSE 1 END ASC,
+      p.last_payment_at DESC NULLS LAST,
+      COALESCE(p.total_paid, 0) DESC,
+      c.created_at DESC
+  `); return r.rows; },
   byId: async (id) => { const r = await pool.query('SELECT * FROM customers WHERE id=$1', [id]); return r.rows[0]; },
   byStripeId: async (sid) => { const r = await pool.query('SELECT * FROM customers WHERE stripe_customer_id=$1', [sid]); return r.rows[0]; },
   upsert: async (data) => { await pool.query(`INSERT INTO customers (email,name,stripe_customer_id,stripe_payment_method,stripe_account_id,card_brand,card_last4,card_exp_month,card_exp_year) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (stripe_customer_id) DO UPDATE SET stripe_payment_method=EXCLUDED.stripe_payment_method, stripe_account_id=EXCLUDED.stripe_account_id, card_brand=EXCLUDED.card_brand, card_last4=EXCLUDED.card_last4, card_exp_month=EXCLUDED.card_exp_month, card_exp_year=EXCLUDED.card_exp_year`, [data.email, data.name, data.stripe_customer_id, data.stripe_payment_method, data.stripe_account_id||null, data.card_brand, data.card_last4, data.card_exp_month, data.card_exp_year]); },
   updateStatus: async (id, status) => { await pool.query('UPDATE customers SET status=$1 WHERE id=$2', [status, id]); },
   updateNote: async (id, note) => { await pool.query('UPDATE customers SET note=$1 WHERE id=$2', [note, id]); },
+  detail: async (id) => {
+    const customerRes = await pool.query(`
+      WITH sub_stats AS (
+        SELECT customer_id,
+          COUNT(*) FILTER (WHERE status='active') as active_subs,
+          COUNT(*) FILTER (WHERE status='paused') as paused_subs,
+          COUNT(*) as total_subs,
+          MIN(next_billing_date) FILTER (WHERE status='active') as next_billing_date
+        FROM subscriptions
+        WHERE customer_id=$1
+        GROUP BY customer_id
+      ),
+      pay_stats AS (
+        SELECT customer_id,
+          COALESCE(SUM(CASE WHEN status='succeeded' THEN amount ELSE 0 END),0) as total_paid,
+          COUNT(*) FILTER (WHERE status='succeeded') as successful_payments,
+          COUNT(*) FILTER (WHERE status='failed') as failed_payments,
+          AVG(amount) FILTER (WHERE status='succeeded') as avg_payment
+        FROM payments
+        WHERE customer_id=$1
+        GROUP BY customer_id
+      )
+      SELECT c.*, sa.name as account_name,
+        COALESCE(ss.active_subs,0) as active_subs,
+        COALESCE(ss.paused_subs,0) as paused_subs,
+        COALESCE(ss.total_subs,0) as total_subs,
+        ss.next_billing_date,
+        COALESCE(ps.total_paid,0) as total_paid,
+        COALESCE(ps.successful_payments,0) as successful_payments,
+        COALESCE(ps.failed_payments,0) as failed_payments,
+        COALESCE(ps.avg_payment,0) as avg_payment,
+        lp.amount as last_payment_amount,
+        lp.currency as last_payment_currency,
+        lp.created_at as last_payment_at,
+        lp.status as last_payment_status,
+        pm.payment_method_type as primary_payment_method_type,
+        pm.wallet_type as primary_wallet_type,
+        COALESCE(pm.card_brand, c.card_brand) as primary_card_brand,
+        COALESCE(pm.card_last4, c.card_last4) as primary_card_last4,
+        COALESCE(pm.card_exp_month, c.card_exp_month) as primary_card_exp_month,
+        COALESCE(pm.card_exp_year, c.card_exp_year) as primary_card_exp_year,
+        pm.card_country as primary_card_country,
+        pm.card_funding as primary_card_funding,
+        pm.card_country as card_country,
+        pm.card_funding as card_funding
+      FROM customers c
+      LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id
+      LEFT JOIN sub_stats ss ON ss.customer_id=c.id
+      LEFT JOIN pay_stats ps ON ps.customer_id=c.id
+      LEFT JOIN LATERAL (
+        SELECT amount, currency, created_at, status
+        FROM payments
+        WHERE customer_id=c.id
+        ORDER BY created_at DESC
+        LIMIT 1
+      ) lp ON true
+      LEFT JOIN LATERAL (
+        SELECT payment_method_type, wallet_type, card_brand, card_last4, card_exp_month, card_exp_year, card_country, card_funding
+        FROM payments
+        WHERE customer_id=c.id
+          AND (payment_method_type IS NOT NULL OR wallet_type IS NOT NULL OR card_brand IS NOT NULL OR card_last4 IS NOT NULL)
+        ORDER BY CASE WHEN status='succeeded' THEN 0 ELSE 1 END, created_at DESC
+        LIMIT 1
+      ) pm ON true
+      WHERE c.id=$1
+      LIMIT 1
+    `,[id]);
+
+    const recentRes = await pool.query(`
+      SELECT id, amount, currency, status, failure_reason, created_at
+      FROM payments
+      WHERE customer_id=$1
+      ORDER BY created_at DESC
+      LIMIT 5
+    `,[id]);
+
+    return { customer: customerRes.rows[0] || null, recent_payments: recentRes.rows };
+  },
   stats: async () => { const r = await pool.query(`SELECT COUNT(*) as total, COUNT(CASE WHEN status='active' THEN 1 END) as active, COUNT(CASE WHEN created_at >= NOW() - INTERVAL '30 days' THEN 1 END) as new_30d, COUNT(CASE WHEN status='cancelled' AND created_at >= NOW() - INTERVAL '30 days' THEN 1 END) as churned_30d FROM customers`); return r.rows[0]; },
 };
 const subscriptions = {
-  all: async () => { const r = await pool.query(`SELECT s.*, c.email, c.name, c.card_brand, c.card_last4, c.stripe_account_id, sa.name as account_name FROM subscriptions s JOIN customers c ON c.id=s.customer_id LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id ORDER BY s.next_billing_date ASC`); return r.rows; },
+  all: async () => { const r = await pool.query(`
+    WITH sub_pay_stats AS (
+      SELECT
+        subscription_id,
+        MAX(CASE WHEN status='succeeded' THEN created_at END) as last_subscription_payment_at,
+        MAX(created_at) as last_subscription_attempt_at
+      FROM payments
+      WHERE subscription_id IS NOT NULL
+      GROUP BY subscription_id
+    ),
+    customer_pay_stats AS (
+      SELECT
+        customer_id,
+        MAX(CASE WHEN status='succeeded' THEN created_at END) as last_customer_payment_at,
+        MAX(created_at) as last_customer_attempt_at
+      FROM payments
+      GROUP BY customer_id
+    )
+    SELECT
+      s.*,
+      c.email,
+      c.name,
+      c.card_brand,
+      c.card_last4,
+      c.stripe_account_id,
+      sa.name as account_name,
+      COALESCE(
+        sp.last_subscription_payment_at,
+        cp.last_customer_payment_at,
+        sp.last_subscription_attempt_at,
+        cp.last_customer_attempt_at,
+        s.created_at
+      ) as order_sort_date
+    FROM subscriptions s
+    JOIN customers c ON c.id=s.customer_id
+    LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id
+    LEFT JOIN sub_pay_stats sp ON sp.subscription_id=s.id
+    LEFT JOIN customer_pay_stats cp ON cp.customer_id=s.customer_id
+    ORDER BY
+      order_sort_date DESC NULLS LAST,
+      s.created_at DESC,
+      s.id DESC
+  `); return r.rows; },
   byCustomer: async (cid) => { const r = await pool.query('SELECT * FROM subscriptions WHERE customer_id=$1', [cid]); return r.rows; },
   due: async () => { const r = await pool.query(`SELECT s.*, c.stripe_customer_id, c.stripe_payment_method, c.email, c.name, c.stripe_account_id, sa.secret_key as stripe_secret_key FROM subscriptions s JOIN customers c ON c.id=s.customer_id LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id WHERE s.status='active' AND c.status='active' AND s.next_billing_date <= CURRENT_DATE`); return r.rows; },
   dunningDue: async () => { const r = await pool.query(`SELECT s.*, c.stripe_customer_id, c.stripe_payment_method, c.email, c.name, c.stripe_account_id, sa.secret_key as stripe_secret_key FROM subscriptions s JOIN customers c ON c.id=s.customer_id LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id WHERE s.status='dunning' AND c.status='active' AND s.next_billing_date <= CURRENT_DATE`); return r.rows; },
@@ -175,38 +398,69 @@ const subscriptions = {
   markDunning: async (id, retryDate) => { await pool.query("UPDATE subscriptions SET status='dunning', next_billing_date=$1, dunning_count=dunning_count+1, last_failed_at=NOW() WHERE id=$2", [retryDate, id]); },
 };
 const payments = {
-  recent: async (limit=50) => { const r = await pool.query('SELECT p.*, c.email, c.name, COALESCE(p.card_brand,c.card_brand) AS card_brand, COALESCE(p.card_last4,c.card_last4) AS card_last4 FROM payments p JOIN customers c ON c.id=p.customer_id ORDER BY p.created_at DESC LIMIT $1', [limit]); return r.rows; },
+  recent: async (limit=50) => { const r = await pool.query('SELECT p.*, c.email, c.name, c.stripe_account_id, COALESCE(p.card_brand,c.card_brand) AS card_brand, COALESCE(p.card_last4,c.card_last4) AS card_last4, sa.name AS account_name FROM payments p JOIN customers c ON c.id=p.customer_id LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id ORDER BY p.created_at DESC LIMIT $1', [limit]); return r.rows; },
   byCustomer: async (cid) => { const r = await pool.query('SELECT * FROM payments WHERE customer_id=$1 ORDER BY created_at DESC', [cid]); return r.rows; },
   stats: async () => { const r = await pool.query(`SELECT COUNT(CASE WHEN status='succeeded' THEN 1 END) as succeeded_count, COUNT(CASE WHEN status='failed' THEN 1 END) as failed_count, COALESCE(SUM(CASE WHEN status='succeeded' THEN amount ELSE 0 END),0) as total_revenue, COUNT(CASE WHEN status='succeeded' AND created_at >= NOW()-INTERVAL '30 days' THEN 1 END) as count_30d, COALESCE(SUM(CASE WHEN status='succeeded' AND created_at >= NOW()-INTERVAL '30 days' THEN amount ELSE 0 END),0) as revenue_30d FROM payments`); return r.rows[0]; },
-  insert: async (data) => { await pool.query('INSERT INTO payments (customer_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,card_brand,card_last4,card_exp_month,card_exp_year,card_country,card_funding) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)', [data.customer_id, data.subscription_id, data.stripe_payment_intent, data.amount, data.currency, data.status, data.failure_reason, data.card_brand||null, data.card_last4||null, data.card_exp_month||null, data.card_exp_year||null, data.card_country||null, data.card_funding||null]); },
+  insert: async (data) => { await pool.query('INSERT INTO payments (customer_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,card_brand,card_last4,card_exp_month,card_exp_year,card_country,card_funding,stripe_invoice_id,stripe_fee,net_amount,balance_transaction_id,financial_currency,retry_of_payment_id,was_failed,recovered_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)', [data.customer_id, data.subscription_id, data.stripe_payment_intent, data.amount, data.currency, data.status, data.failure_reason, data.card_brand||null, data.card_last4||null, data.card_exp_month||null, data.card_exp_year||null, data.card_country||null, data.card_funding||null, data.stripe_invoice_id||null, data.stripe_fee??null, data.net_amount??null, data.balance_transaction_id||null, data.financial_currency||null, data.retry_of_payment_id||null, data.was_failed ?? (data.status==='failed'), data.recovered_at||null]); },
 };
 const activityLog = {
   add: async (type, description, customer_id=null, amount=null) => { await pool.query('INSERT INTO activity_log (type,description,customer_id,amount) VALUES ($1,$2,$3,$4)', [type, description, customer_id, amount]).catch(()=>{}); },
-  recent: async (limit=50) => { const r = await pool.query('SELECT a.*, c.name as customer_name, c.email FROM activity_log a LEFT JOIN customers c ON c.id=a.customer_id ORDER BY a.created_at DESC LIMIT $1', [limit]); return r.rows; },
+  recent: async (limit=50) => { const r = await pool.query('SELECT a.*, c.name as customer_name, c.email, c.stripe_account_id FROM activity_log a LEFT JOIN customers c ON c.id=a.customer_id ORDER BY a.created_at DESC LIMIT $1', [limit]); return r.rows; },
 };
 const webhookLogs = {
   add: async (data) => { await pool.query('INSERT INTO webhook_logs (event_type,account_name,status,error) VALUES ($1,$2,$3,$4)', [data.event_type, data.account_name||null, data.status||'ok', data.error||null]).catch(()=>{}); },
   recent: async (limit=50) => { const r = await pool.query('SELECT * FROM webhook_logs ORDER BY created_at DESC LIMIT $1', [limit]); return r.rows; },
 };
 const security = {
-  logAttempt: async (ip, success) => { await pool.query('INSERT INTO login_attempts (ip, success) VALUES ($1,$2)', [ip, success]).catch(()=>{}); },
-  recentFailures: async (ip, minutes=15) => { const r = await pool.query("SELECT COUNT(*) FROM login_attempts WHERE ip=$1 AND success=false AND created_at > NOW()-INTERVAL '1 minute'*$2", [ip, minutes]); return parseInt(r.rows[0].count)||0; },
+  logAttempt: async (ip, success, adminUserId=null, username=null) => {
+    await pool.query('INSERT INTO login_attempts (admin_user_id, username, ip, success) VALUES ($1,$2,$3,$4)', [adminUserId, username, ip, success]).catch(()=>{});
+  },
+  recentFailures: async (ip, minutes=15) => {
+    const r = await pool.query(`
+      SELECT COUNT(*) AS count
+      FROM login_attempts
+      WHERE ip=$1
+        AND success=false
+        AND created_at > NOW() - ($2::int * INTERVAL '1 minute')
+        AND created_at > COALESCE(
+          (SELECT MAX(created_at) FROM login_attempts WHERE ip=$1 AND success=true),
+          '-infinity'::timestamptz
+        )
+    `, [ip, minutes]);
+    return parseInt(r.rows[0]?.count, 10) || 0;
+  },
   clearAttempts: async (ip) => { await pool.query('DELETE FROM login_attempts WHERE ip=$1', [ip]).catch(()=>{}); },
-  recentLogins: async (limit=20) => { const r = await pool.query('SELECT * FROM login_attempts ORDER BY created_at DESC LIMIT $1', [limit]); return r.rows; },
+  recentLoginsForUser: async (adminUserId, limit=20) => {
+    const r = await pool.query('SELECT id, ip, success, created_at FROM login_attempts WHERE admin_user_id=$1 ORDER BY created_at DESC LIMIT $2', [adminUserId, limit]);
+    return r.rows;
+  },
 };
 const adminUsers = {
   all: async () => {
-    await pool.query("ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT '[]'");
-    await pool.query('ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ');
-    const r = await pool.query("SELECT id, username, role, COALESCE(permissions, '[]') as permissions, created_at, last_login FROM admin_users ORDER BY created_at ASC");
+    const r = await pool.query("SELECT id, username, role, COALESCE(permissions, '[]') as permissions, COALESCE(account_scope,'all') AS account_scope, COALESCE(allowed_account_ids,'[]') AS allowed_account_ids, COALESCE(two_fa_enabled,false) AS two_fa_enabled, created_at, last_login FROM admin_users ORDER BY created_at ASC");
     return r.rows;
   },
-  byUsername: async (username) => { const r = await pool.query('SELECT * FROM admin_users WHERE username=$1', [username]); return r.rows[0]; },
-  create: async (username, password, role='admin', permissions=[]) => { const crypto = require('crypto'); const hash = crypto.createHash('sha256').update(password).digest('hex'); await pool.query('INSERT INTO admin_users (username, password_hash, role, permissions) VALUES ($1,$2,$3,$4)', [username, hash, role, JSON.stringify(permissions)]); },
+  byId: async (id) => { const r = await pool.query("SELECT id, username, role, COALESCE(permissions,'[]') AS permissions, COALESCE(account_scope,'all') AS account_scope, COALESCE(allowed_account_ids,'[]') AS allowed_account_ids, COALESCE(two_fa_enabled,false) AS two_fa_enabled, created_at, last_login FROM admin_users WHERE id=$1", [id]); return r.rows[0]; },
+  byUsername: async (username) => { const r = await pool.query('SELECT * FROM admin_users WHERE LOWER(username)=LOWER($1)', [username]); return r.rows[0]; },
+  create: async (username, password, role='admin', permissions=[], accountScope='all', allowedAccountIds=[]) => {
+    const crypto = require('crypto');
+    const hash = crypto.createHash('sha256').update(password).digest('hex');
+    await pool.query('INSERT INTO admin_users (username, password_hash, role, permissions, account_scope, allowed_account_ids) VALUES ($1,$2,$3,$4,$5,$6)', [username, hash, role, JSON.stringify(permissions), accountScope, JSON.stringify(allowedAccountIds)]);
+  },
   delete: async (id) => { await pool.query('DELETE FROM admin_users WHERE id=$1', [id]); },
   updateLastLogin: async (id) => { await pool.query('UPDATE admin_users SET last_login=NOW() WHERE id=$1', [id]); },
   changePassword: async (id, newPassword) => { const crypto = require('crypto'); const hash = crypto.createHash('sha256').update(newPassword).digest('hex'); await pool.query('UPDATE admin_users SET password_hash=$1 WHERE id=$2', [hash, id]); },
+  updateAccess: async (id, role, permissions, accountScope, allowedAccountIds) => {
+    await pool.query('UPDATE admin_users SET role=$1, permissions=$2, account_scope=$3, allowed_account_ids=$4 WHERE id=$5', [role, JSON.stringify(permissions || []), accountScope || 'all', JSON.stringify(allowedAccountIds || []), id]);
+  },
   updatePermissions: async (id, permissions) => { await pool.query('UPDATE admin_users SET permissions=$1 WHERE id=$2', [JSON.stringify(permissions), id]); },
-  verify: async (username, password) => { const crypto = require('crypto'); const hash = crypto.createHash('sha256').update(password).digest('hex'); const r = await pool.query('SELECT * FROM admin_users WHERE username=$1 AND password_hash=$2', [username, hash]); return r.rows[0] || null; },
+  twoFAState: async (id) => {
+    const r = await pool.query('SELECT COALESCE(two_fa_enabled,false) AS enabled, two_fa_secret, two_fa_secret_pending FROM admin_users WHERE id=$1', [id]);
+    return r.rows[0] || { enabled:false, two_fa_secret:null, two_fa_secret_pending:null };
+  },
+  setPending2FA: async (id, secret) => { await pool.query('UPDATE admin_users SET two_fa_secret_pending=$1 WHERE id=$2', [secret, id]); },
+  enable2FA: async (id, secret) => { await pool.query('UPDATE admin_users SET two_fa_enabled=true, two_fa_secret=$1, two_fa_secret_pending=NULL WHERE id=$2', [secret, id]); },
+  disable2FA: async (id) => { await pool.query('UPDATE admin_users SET two_fa_enabled=false, two_fa_secret=NULL, two_fa_secret_pending=NULL WHERE id=$1', [id]); },
+  verify: async (username, password) => { const crypto = require('crypto'); const hash = crypto.createHash('sha256').update(password).digest('hex'); const r = await pool.query('SELECT * FROM admin_users WHERE LOWER(username)=LOWER($1) AND password_hash=$2', [username, hash]); return r.rows[0] || null; },
 };
 module.exports = { init, pool, settingsDb, stripeAccounts, customers, subscriptions, payments, activityLog, webhookLogs, security, adminUsers };
