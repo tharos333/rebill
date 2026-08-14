@@ -78,7 +78,7 @@ function sectionForApiPath(req) {
   if (path.startsWith('/customers')) return 'customers';
   if (path.startsWith('/subscriptions')) return 'subscriptions';
   if (path.startsWith('/payments')) return 'payments';
-  if (path.startsWith('/payment-link-accounts') || path.startsWith('/payment-links') || path.startsWith('/plan-templates')) return 'links';
+  if (path.startsWith('/payment-link-accounts') || path.startsWith('/payment-links') || path.startsWith('/plan-templates') || path.startsWith('/embedded-checkout-token')) return 'links';
   if (path.startsWith('/stripe-accounts')) return 'accounts';
   if (path.startsWith('/forecast')) return 'forecast';
   if (path.startsWith('/daily-summary')) return 'summary';
@@ -476,6 +476,8 @@ function subscriptionIdFromInvoice(invoice) {
   if (!invoice) return null;
   if (typeof invoice.subscription === 'string') return invoice.subscription;
   if (invoice.subscription?.id) return invoice.subscription.id;
+  if (typeof invoice.parent?.subscription_details?.subscription === 'string') return invoice.parent.subscription_details.subscription;
+  if (invoice.parent?.subscription_details?.subscription?.id) return invoice.parent.subscription_details.subscription.id;
   for (const line of (invoice.lines?.data || [])) {
     if (typeof line.subscription === 'string') return line.subscription;
     if (line.subscription?.id) return line.subscription.id;
@@ -590,6 +592,146 @@ async function retrieveFullCheckoutSession(stripe, session) {
   }
 }
 
+
+// ── Embedded checkout helpers ─────────────────────────────────────────────────
+// A signed embed token is intentionally safe to place in a public checkout page.
+// It identifies only a Stripe account + recurring Price. Secret keys never leave Subloop.
+async function getCheckoutSigningSecret() {
+  let value = await settingsDb.get('checkout_signing_secret');
+  if (!value) {
+    value = crypto.randomBytes(48).toString('hex');
+    await settingsDb.set('checkout_signing_secret', value);
+  }
+  return value;
+}
+
+async function signCheckoutPlan(payload) {
+  const secret = await getCheckoutSigningSecret();
+  const body = Buffer.from(JSON.stringify({ v: 1, ...payload })).toString('base64url');
+  const sig = crypto.createHmac('sha256', secret).update(body).digest('base64url');
+  return `${body}.${sig}`;
+}
+
+async function verifyCheckoutPlan(token) {
+  try {
+    const raw = String(token || '');
+    const parts = raw.split('.');
+    if (parts.length !== 2) return null;
+    const [body, sig] = parts;
+    const secret = await getCheckoutSigningSecret();
+    const expected = crypto.createHmac('sha256', secret).update(body).digest('base64url');
+    const a = Buffer.from(sig);
+    const b = Buffer.from(expected);
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+    const data = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
+    if (!data || data.v !== 1 || !Number.isInteger(Number(data.account_id)) || !String(data.price_id || '').startsWith('price_')) return null;
+    return data;
+  } catch (_err) { return null; }
+}
+
+function checkoutTokenHash(token) {
+  return crypto.createHash('sha256').update(String(token || '')).digest('hex');
+}
+
+function cleanCheckoutString(value, max = 200) {
+  const out = String(value || '').trim();
+  return out ? out.slice(0, max) : null;
+}
+
+function normalizeCheckoutAddress(input) {
+  if (!input || typeof input !== 'object') return null;
+  const address = {
+    line1: cleanCheckoutString(input.line1 || input.address, 200),
+    line2: cleanCheckoutString(input.line2 || input.apartment, 200),
+    city: cleanCheckoutString(input.city, 100),
+    state: cleanCheckoutString(input.state || input.region, 100),
+    postal_code: cleanCheckoutString(input.postal_code || input.postcode || input.zip, 40),
+    country: cleanCheckoutString(input.country, 2)?.toUpperCase() || null,
+  };
+  Object.keys(address).forEach((key) => { if (!address[key]) delete address[key]; });
+  return Object.keys(address).length ? address : null;
+}
+
+function embeddedStripeClient(account) {
+  // The custom subscription flow uses the same API version as the current Stripe
+  // Dashboard webhook destination. Override with STRIPE_CHECKOUT_API_VERSION if needed.
+  return Stripe(account.secret_key, { apiVersion: process.env.STRIPE_CHECKOUT_API_VERSION || '2026-07-29.dahlia' });
+}
+
+function keysMatchMode(account) {
+  const sk = String(account?.secret_key || '');
+  const pk = String(account?.publishable_key || '');
+  if (!pk.startsWith('pk_')) return false;
+  if (sk.startsWith('sk_live_')) return pk.startsWith('pk_live_');
+  if (sk.startsWith('sk_test_')) return pk.startsWith('pk_test_');
+  return true;
+}
+
+async function resolveEmbeddedPlan(token) {
+  const plan = await verifyCheckoutPlan(token);
+  if (!plan) throw Object.assign(new Error('Invalid embedded checkout token'), { statusCode: 400 });
+  const account = await stripeAccounts.byId(plan.account_id);
+  if (!account) throw Object.assign(new Error('Stripe account no longer exists'), { statusCode: 404 });
+  if (!account.publishable_key || !keysMatchMode(account)) {
+    throw Object.assign(new Error('Add the matching Stripe publishable key (pk_...) to this Stripe account in Subloop'), { statusCode: 409 });
+  }
+  const stripe = embeddedStripeClient(account);
+  const price = await stripe.prices.retrieve(plan.price_id, { expand: ['product'] });
+  if (!price || !price.active || !price.recurring || typeof price.unit_amount !== 'number') {
+    throw Object.assign(new Error('This embedded checkout Price is inactive or is not a fixed recurring Price'), { statusCode: 409 });
+  }
+  return { plan, account, stripe, price };
+}
+
+function subscriptionClientSecret(subscription) {
+  if (subscription?.pending_setup_intent) {
+    const si = subscription.pending_setup_intent;
+    return { type: 'setup', clientSecret: typeof si === 'string' ? null : si.client_secret || null };
+  }
+  const invoice = subscription?.latest_invoice;
+  const secret = invoice && typeof invoice !== 'string' ? invoice.confirmation_secret?.client_secret || null : null;
+  return secret ? { type: 'payment', clientSecret: secret } : { type: 'none', clientSecret: null };
+}
+
+// Public checkout API CORS. If CHECKOUT_ALLOWED_ORIGINS is empty, signed plan tokens may
+// be used from any HTTPS origin (similar to a public Payment Link). In production, set it
+// to your storefront domains, comma-separated.
+const CHECKOUT_ALLOWED_ORIGINS = String(process.env.CHECKOUT_ALLOWED_ORIGINS || '')
+  .split(',').map((v) => v.trim()).filter(Boolean);
+function checkoutCors(req, res, next) {
+  const origin = String(req.headers.origin || '');
+  if (origin && CHECKOUT_ALLOWED_ORIGINS.length && !CHECKOUT_ALLOWED_ORIGINS.includes(origin)) {
+    return res.status(403).json({ error: 'Checkout origin is not allowed' });
+  }
+  if (origin) res.setHeader('Access-Control-Allow-Origin', origin);
+  else if (!CHECKOUT_ALLOWED_ORIGINS.length) res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Vary', 'Origin');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Max-Age', '86400');
+  if (req.method === 'OPTIONS') return res.status(204).end();
+  next();
+}
+
+const checkoutRateBuckets = new Map();
+function checkoutRateLimit(req, res, next) {
+  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  const ip = forwarded || req.socket?.remoteAddress || 'unknown';
+  const now = Date.now();
+  const windowMs = 10 * 60 * 1000;
+  const limit = 60;
+  const bucket = checkoutRateBuckets.get(ip);
+  if (!bucket || now - bucket.started > windowMs) checkoutRateBuckets.set(ip, { started: now, count: 1 });
+  else {
+    bucket.count += 1;
+    if (bucket.count > limit) return res.status(429).json({ error: 'Too many checkout requests. Please try again shortly.' });
+  }
+  if (checkoutRateBuckets.size > 5000) {
+    for (const [key, value] of checkoutRateBuckets.entries()) if (now - value.started > windowMs) checkoutRateBuckets.delete(key);
+  }
+  next();
+}
+
 app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   let event = null, usedAccount = null;
   try {
@@ -664,6 +806,10 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
         await handleInvoiceEvent(stripe, usedAccount, event.data.object, 'failed');
       }
 
+      else if (event.type === 'invoice.payment_action_required') {
+        await handleInvoiceEvent(stripe, usedAccount, event.data.object, 'requires_action');
+      }
+
       else if (event.type === 'customer.subscription.created' || event.type === 'customer.subscription.updated') {
         await saveSubscriptionFromStripe(stripe, usedAccount, event.data.object, event.type);
       }
@@ -701,6 +847,145 @@ app.use(express.json());
 app.use('/icons', express.static(path.join(__dirname, 'public', 'icons')));
 app.use(express.static(path.join(__dirname)));
 
+
+
+// ── Public embedded subscription checkout API ─────────────────────────────────
+app.use('/checkout', checkoutCors, checkoutRateLimit);
+
+app.get('/checkout/config', async (req, res) => {
+  try {
+    const { account, price } = await resolveEmbeddedPlan(req.query.token);
+    const product = price.product && typeof price.product !== 'string' ? price.product : null;
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({
+      success: true,
+      publishableKey: account.publishable_key,
+      priceId: price.id,
+      productName: product?.name || 'Subscription',
+      amount: price.unit_amount,
+      currency: String(price.currency || 'usd').toLowerCase(),
+      interval: price.recurring.interval,
+      intervalCount: price.recurring.interval_count || 1,
+      elementsOptions: {
+        mode: 'subscription',
+        amount: price.unit_amount,
+        currency: String(price.currency || 'usd').toLowerCase(),
+        paymentMethodTypes: ['card']
+      }
+    });
+  } catch (err) {
+    console.error('[embedded-checkout] config error:', err.message);
+    res.status(err.statusCode || 500).json({ error: err.message });
+  }
+});
+
+app.post('/checkout/create-subscription', async (req, res) => {
+  try {
+    const token = req.body?.token;
+    const checkoutReference = cleanCheckoutString(req.body?.checkout_reference, 120);
+    const email = cleanEmail(req.body?.customer?.email || req.body?.email);
+    const firstName = cleanCheckoutString(req.body?.customer?.first_name, 100);
+    const lastName = cleanCheckoutString(req.body?.customer?.last_name, 100);
+    const suppliedName = cleanCheckoutString(req.body?.customer?.name || req.body?.name, 200);
+    const name = suppliedName || [firstName, lastName].filter(Boolean).join(' ') || null;
+    const phone = cleanCheckoutString(req.body?.customer?.phone || req.body?.phone, 50);
+    const address = normalizeCheckoutAddress(req.body?.customer?.address || req.body?.address);
+
+    if (!checkoutReference || !/^[A-Za-z0-9._:-]{6,120}$/.test(checkoutReference)) {
+      return res.status(400).json({ error: 'checkout_reference is required (6-120 letters/numbers/._:-)' });
+    }
+    if (!email || !email.includes('@')) return res.status(400).json({ error: 'A valid customer email is required' });
+
+    const { account, stripe, price } = await resolveEmbeddedPlan(token);
+    const planHash = checkoutTokenHash(token);
+
+    // Return the existing Stripe Subscription for retries/double-clicks using the same checkout reference.
+    const existing = await pool.query(
+      'SELECT * FROM embedded_checkout_sessions WHERE plan_token_hash=$1 AND checkout_reference=$2 LIMIT 1',
+      [planHash, checkoutReference]
+    );
+    if (existing.rows[0]?.stripe_subscription_id) {
+      const subscription = await stripe.subscriptions.retrieve(existing.rows[0].stripe_subscription_id, {
+        expand: ['latest_invoice.confirmation_secret', 'pending_setup_intent', 'items.data.price']
+      });
+      const confirmation = subscriptionClientSecret(subscription);
+      return res.json({
+        success: true,
+        reused: true,
+        type: confirmation.type,
+        clientSecret: confirmation.clientSecret,
+        subscriptionId: subscription.id,
+        customerId: typeof subscription.customer === 'string' ? subscription.customer : subscription.customer?.id,
+        status: subscription.status
+      });
+    }
+
+    let customer = null;
+    const matching = await stripe.customers.list({ email, limit: 1 });
+    if (matching.data?.[0] && !matching.data[0].deleted) {
+      customer = await stripe.customers.update(matching.data[0].id, {
+        ...(name ? { name } : {}),
+        ...(phone ? { phone } : {}),
+        ...(address ? { address } : {}),
+        metadata: { ...matching.data[0].metadata, subloop_source: 'embedded_checkout' }
+      });
+    } else {
+      customer = await stripe.customers.create({
+        email,
+        ...(name ? { name } : {}),
+        ...(phone ? { phone } : {}),
+        ...(address ? { address } : {}),
+        metadata: { subloop_source: 'embedded_checkout' }
+      });
+    }
+
+    const shipping = address && name ? { name, address, ...(phone ? { phone } : {}) } : null;
+    if (shipping) customer = await stripe.customers.update(customer.id, { shipping });
+
+    const idempotencyKey = crypto.createHash('sha256').update(`${planHash}|${checkoutReference}`).digest('hex');
+    const subscription = await stripe.subscriptions.create({
+      customer: customer.id,
+      items: [{ price: price.id }],
+      payment_behavior: 'default_incomplete',
+      payment_settings: {
+        save_default_payment_method: 'on_subscription',
+        payment_method_types: ['card']
+      },
+      metadata: {
+        source: 'subloop_embedded_checkout',
+        checkout_reference: checkoutReference
+      },
+      expand: ['latest_invoice.confirmation_secret', 'pending_setup_intent', 'items.data.price']
+    }, { idempotencyKey });
+
+    await pool.query(
+      `INSERT INTO embedded_checkout_sessions (plan_token_hash,checkout_reference,stripe_account_id,stripe_customer_id,stripe_subscription_id,updated_at)
+       VALUES ($1,$2,$3,$4,$5,NOW())
+       ON CONFLICT (plan_token_hash,checkout_reference)
+       DO UPDATE SET stripe_account_id=EXCLUDED.stripe_account_id,stripe_customer_id=EXCLUDED.stripe_customer_id,stripe_subscription_id=EXCLUDED.stripe_subscription_id,updated_at=NOW()`,
+      [planHash, checkoutReference, account.id, customer.id, subscription.id]
+    );
+
+    // Save immediately as incomplete; normal Stripe webhooks update it to active/paid after confirmation.
+    await saveSubscriptionFromStripe(stripe, account, subscription, 'embedded.checkout.created').catch((e) => {
+      console.error('[embedded-checkout] local subscription save failed:', e.message);
+    });
+
+    const confirmation = subscriptionClientSecret(subscription);
+    res.json({
+      success: true,
+      reused: false,
+      type: confirmation.type,
+      clientSecret: confirmation.clientSecret,
+      subscriptionId: subscription.id,
+      customerId: customer.id,
+      status: subscription.status
+    });
+  } catch (err) {
+    console.error('[embedded-checkout] create subscription error:', err.message, err.stack);
+    res.status(err.statusCode || 500).json({ error: err.message });
+  }
+});
 
 // Require a verified session token for the application API and enforce page/read-only permissions.
 app.use('/api', async (req, res, next) => {
@@ -911,6 +1196,8 @@ app.get('/api/stripe-accounts', async (req, res) => {
         is_default,
         created_at,
         secret_key,
+        CASE WHEN COALESCE(publishable_key,'')<>'' THEN LEFT(publishable_key,12)||'...' ELSE NULL END as publishable_key_preview,
+        COALESCE(publishable_key,'')<>'' AS has_publishable_key,
         LEFT(secret_key,12)||'...' as key_preview
       FROM stripe_accounts
       ORDER BY created_at DESC, id DESC
@@ -1009,21 +1296,25 @@ app.get('/api/stripe-accounts/:id/verification-debug', async (req, res) => {
 
 app.post('/api/stripe-accounts', async (req, res) => {
   try {
-    const { name, secret_key, webhook_secret } = req.body;
+    const { name, secret_key, publishable_key, webhook_secret } = req.body;
     if (!name || !secret_key) return res.status(400).json({ error: 'Name and secret key required' });
-    await stripeAccounts.create({ name, secret_key, webhook_secret });
+    if (publishable_key && !String(publishable_key).startsWith('pk_')) return res.status(400).json({ error: 'Publishable key must start with pk_' });
+    await stripeAccounts.create({ name, secret_key, publishable_key, webhook_secret });
     res.json({ success: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.patch('/api/stripe-accounts/:id', async (req, res) => {
   try {
-    const { name, secret_key, webhook_secret } = req.body;
+    const { name, secret_key, publishable_key, webhook_secret } = req.body;
     if (!name) return res.status(400).json({ error: 'Name is required' });
-    if (secret_key && secret_key.trim()) {
-      await pool.query('UPDATE stripe_accounts SET name=$1, secret_key=$2, webhook_secret=$3 WHERE id=$4', [name, secret_key.trim(), webhook_secret||null, req.params.id]);
-    } else {
-      await pool.query('UPDATE stripe_accounts SET name=$1, webhook_secret=$2 WHERE id=$3', [name, webhook_secret||null, req.params.id]);
-    }
+    if (publishable_key && !String(publishable_key).startsWith('pk_')) return res.status(400).json({ error: 'Publishable key must start with pk_' });
+    const updates = ['name=$1'];
+    const values = [name];
+    if (secret_key && secret_key.trim()) { values.push(secret_key.trim()); updates.push(`secret_key=$${values.length}`); }
+    if (publishable_key && publishable_key.trim()) { values.push(publishable_key.trim()); updates.push(`publishable_key=$${values.length}`); }
+    if (webhook_secret && webhook_secret.trim()) { values.push(webhook_secret.trim()); updates.push(`webhook_secret=$${values.length}`); }
+    values.push(req.params.id);
+    await pool.query(`UPDATE stripe_accounts SET ${updates.join(', ')} WHERE id=$${values.length}`, values);
     res.json({ success: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
@@ -1226,6 +1517,22 @@ app.get('/api/payments/export', async (req, res) => {
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
+// ── Embedded Checkout Token ──────────────────────────────────────────────────
+app.post('/api/embedded-checkout-token', async (req, res) => {
+  try {
+    const { stripe_account_id, price_id } = req.body || {};
+    const acc = stripe_account_id ? await stripeAccounts.byId(stripe_account_id) : await stripeAccounts.default();
+    if (!acc) return res.status(400).json({ error: 'No Stripe account found' });
+    if (!ensureRowScope(req, res, { stripe_account_id: acc.id })) return;
+    if (!price_id || !String(price_id).startsWith('price_')) return res.status(400).json({ error: 'A recurring Stripe price_id is required' });
+    const stripe = embeddedStripeClient(acc);
+    const price = await stripe.prices.retrieve(price_id);
+    if (!price.active || !price.recurring || typeof price.unit_amount !== 'number') return res.status(400).json({ error: 'Price must be an active fixed recurring Price' });
+    const embed_token = await signCheckoutPlan({ account_id: Number(acc.id), price_id: price.id });
+    res.json({ success: true, embed_token, embed_ready: !!acc.publishable_key && keysMatchMode(acc) });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // ── Payment Links ─────────────────────────────────────────────────────────────
 app.post('/api/payment-links', async (req, res) => {
   try {
@@ -1235,23 +1542,37 @@ app.post('/api/payment-links', async (req, res) => {
     if (!ensureRowScope(req, res, { stripe_account_id: acc.id })) return;
     const stripe = require('stripe')(acc.secret_key);
     const product = await stripe.products.create({ name: name||'Subscription', metadata: { source: 'subloop' } });
-    const intervalMap = { 7: 'week', 14: 'week', 30: 'month', 90: 'month', 365: 'year' };
-    const recurringInterval = intervalMap[Number(interval_days)] || 'month';
+    const intervalMap = {
+      7: { interval: 'week', interval_count: 1 },
+      14: { interval: 'week', interval_count: 2 },
+      30: { interval: 'month', interval_count: 1 },
+      90: { interval: 'month', interval_count: 3 },
+      365: { interval: 'year', interval_count: 1 }
+    };
+    const recurring = intervalMap[Number(interval_days)] || intervalMap[30];
     const price = await stripe.prices.create({
       product: product.id,
       unit_amount: amount,
       currency: currency||'usd',
-      recurring: { interval: recurringInterval },
+      recurring,
       metadata: { source: 'subloop', interval_days: String(interval_days || 30) }
     });
-    console.log('[payment-link] created recurring price:', price.id, 'interval:', recurringInterval, 'amount:', amount, 'account:', acc.name);
+    console.log('[payment-link] created recurring price:', price.id, 'interval:', recurring.interval, 'count:', recurring.interval_count, 'amount:', amount, 'account:', acc.name);
     const link = await stripe.paymentLinks.create({
       line_items: [{ price: price.id, quantity: 1 }],
       subscription_data: { metadata: { source: 'subloop', interval_days: String(interval_days || 30) } },
       metadata: { source: 'subloop', type: 'subscription_link' }
     });
     console.log('[payment-link] created subscription payment link:', link.id, link.url);
-    res.json({ success: true, url: link.url, price_id: price.id, payment_link_id: link.id });
+    const embed_token = await signCheckoutPlan({ account_id: Number(acc.id), price_id: price.id });
+    res.json({
+      success: true,
+      url: link.url,
+      price_id: price.id,
+      payment_link_id: link.id,
+      embed_token,
+      embed_ready: !!acc.publishable_key && keysMatchMode(acc)
+    });
   } catch(err) {
     console.error('[payment-links] ERROR:', err.message, err.stack);
     res.status(500).json({ error: err.message });

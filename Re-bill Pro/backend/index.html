@@ -6306,11 +6306,20 @@ body.view-only-access #verification-debug-modal .modal-content{
       </div>
       <button class="btn btn-primary" onclick="createPaymentLink()" id="create-link-btn">Generate Payment Link</button>
       <div class="link-result" id="link-result">
-        <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;">✓ Link created</div>
+        <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;">✓ Hosted link created</div>
         <div class="link-url" id="link-url"></div>
         <div style="display:flex;gap:8px;margin-top:10px;">
-          <button class="btn btn-sm" onclick="copyLink()">Copy</button>
+          <button class="btn btn-sm" onclick="copyLink()">Copy hosted link</button>
           <button class="btn btn-sm btn-primary" onclick="openLink()">Open ↗</button>
+        </div>
+        <div style="border-top:1px solid var(--border2);margin:14px 0 10px;padding-top:12px;">
+          <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;">Embedded checkout token</div>
+          <div class="link-url" id="embed-token" style="word-break:break-all;max-height:72px;overflow:auto;"></div>
+          <div id="embed-status" style="font-size:11px;font-family:var(--mono);margin-top:7px;color:var(--muted);"></div>
+          <div style="display:flex;gap:8px;margin-top:10px;">
+            <button class="btn btn-sm" onclick="copyEmbedToken()">Copy embed token</button>
+            <button class="btn btn-sm" onclick="copyEmbedConfigUrl()">Copy config URL</button>
+          </div>
         </div>
       </div>
     </div>
@@ -6408,8 +6417,8 @@ body.view-only-access #verification-debug-modal .modal-content{
     <button id="stripe-add-account-btn" class="btn btn-primary" onclick="openModal('add-account-modal')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Account</button>
   </div>
   <div class="card"><div class="scrollable"><table>
-    <thead><tr><th>Name</th><th>Key</th><th>Status</th><th>Verification</th><th>Actions</th></tr></thead>
-    <tbody id="accounts-table"><tr><td colspan="5" class="empty">Loading...</td></tr></tbody>
+    <thead><tr><th>Name</th><th>Key</th><th>Embedded</th><th>Status</th><th>Verification</th><th>Actions</th></tr></thead>
+    <tbody id="accounts-table"><tr><td colspan="6" class="empty">Loading...</td></tr></tbody>
   </table></div></div>
 </div>
 
@@ -6552,6 +6561,7 @@ body.view-only-access #verification-debug-modal .modal-content{
     <h3>Add Stripe Account</h3><p>Connect a new Stripe account</p>
     <div class="form-group"><label>Account name</label><input type="text" id="acc-name" placeholder="My Store"></div>
     <div class="form-group"><label>Secret key (sk_live_...)</label><input type="password" id="acc-key" placeholder="sk_live_..."></div>
+    <div class="form-group"><label>Publishable key (pk_live_...) — required for embedded checkout</label><input type="text" id="acc-publishable" placeholder="pk_live_..."></div>
     <div class="form-group"><label>Webhook secret (whsec_...) — optional</label><input type="text" id="acc-webhook" placeholder="whsec_..."></div>
     <div class="modal-footer"><button class="btn" onclick="closeModal('add-account-modal')">Cancel</button><button class="btn btn-primary" onclick="addAccount()">Save account</button></div>
   </div>
@@ -6662,7 +6672,8 @@ body.view-only-access #verification-debug-modal .modal-content{
     <input type="hidden" id="edit-acc-id">
     <div class="form-group"><label>Account name</label><input type="text" id="edit-acc-name" placeholder="My Store"></div>
     <div class="form-group"><label>New secret key (sk_live_...)</label><input type="password" id="edit-acc-key" placeholder="Leave blank to keep existing key"></div>
-    <div class="form-group"><label>Webhook secret (whsec_...) — optional</label><input type="text" id="edit-acc-webhook" placeholder="whsec_..."></div>
+    <div class="form-group"><label>Publishable key (pk_live_...)</label><input type="text" id="edit-acc-publishable" placeholder="Leave blank to keep existing key"></div>
+    <div class="form-group"><label>Webhook secret (whsec_...)</label><input type="text" id="edit-acc-webhook" placeholder="Leave blank to keep existing secret"></div>
     <div id="edit-acc-error" style="display:none;background:var(--red-bg);border:1px solid var(--red);color:var(--red);border-radius:8px;padding:10px 14px;font-size:12px;font-family:var(--mono);margin-bottom:10px;"></div>
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('edit-account-modal')">Cancel</button>
@@ -6797,7 +6808,7 @@ body.view-only-access #verification-debug-modal .modal-content{
 
 <div id="toast"></div>
 <script>
-let currentLink=null,allCustomers=[],allSubscriptions=[],allPayments=[],allStripeAccounts=[],allAdminUsers=[],appSettings={},selectedSubs=new Set(),currentRevPeriod='all',bulkMode=false;
+let currentLink=null,currentEmbedToken=null,allCustomers=[],allSubscriptions=[],allPayments=[],allStripeAccounts=[],allAdminUsers=[],appSettings={},selectedSubs=new Set(),currentRevPeriod='all',bulkMode=false;
 function toggleTheme(){const isLight=document.documentElement.classList.toggle('light');localStorage.setItem('subloop_theme',isLight?'light':'dark');document.getElementById('theme-label').textContent=isLight?'Light mode':'Dark mode';updateLogos(isLight);}
 function updateLogos(isLight){const src=isLight?'https://i.ibb.co/6cD50Q6H/2.png':'https://i.ibb.co/xq0HVT9G/1.png';['sidebar-logo','login-logo'].forEach(id=>{const el=document.getElementById(id);if(el)el.src=src;});}
 function initTheme(){const isLight=localStorage.getItem('subloop_theme')==='light';if(isLight){document.documentElement.classList.add('light');const l=document.getElementById('theme-label');if(l)l.textContent='Light mode';}updateLogos(isLight);}
@@ -8562,11 +8573,13 @@ function openNoteModal(id,note){if(blockViewOnlyAction())return;document.getElem
 async function saveNote(){const id=document.getElementById('note-customer-id').value,note=document.getElementById('note-text').value;await api('/api/customers/'+id+'/note',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({note})});toast('✓ Note saved');closeModal('note-modal');loadCustomers();}
 async function createPaymentLink(){
   const btn=document.getElementById('create-link-btn');btn.textContent='Creating…';btn.disabled=true;
-  try{const r=await api('/api/payment-links',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:document.getElementById('link-name').value,amount:Math.round(parseFloat(document.getElementById('link-amount').value)*100),currency:document.getElementById('link-currency').value,interval_days:parseInt(document.getElementById('link-interval').value),stripe_account_id:document.getElementById('link-account').value||null})});if(r.url){currentLink=r.url;document.getElementById('link-url').textContent=r.url;document.getElementById('link-result').classList.add('visible');toast('✓ Link created');}else toast('Error: '+(r.error||'Unknown'),'error');}catch(e){toast('Server error','error');}
+  try{const r=await api('/api/payment-links',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:document.getElementById('link-name').value,amount:Math.round(parseFloat(document.getElementById('link-amount').value)*100),currency:document.getElementById('link-currency').value,interval_days:parseInt(document.getElementById('link-interval').value),stripe_account_id:document.getElementById('link-account').value||null})});if(r.url){currentLink=r.url;currentEmbedToken=r.embed_token||null;document.getElementById('link-url').textContent=r.url;document.getElementById('embed-token').textContent=currentEmbedToken||'Not generated';var status=document.getElementById('embed-status');if(status){status.textContent=r.embed_ready?'✓ Ready for Payment Element':'⚠ Add the matching pk_ publishable key in Stripe Accounts to enable embedded checkout';status.style.color=r.embed_ready?'var(--green)':'var(--amber)';}document.getElementById('link-result').classList.add('visible');toast('✓ Link + embed token created');}else toast('Error: '+(r.error||'Unknown'),'error');}catch(e){toast('Server error','error');}
   btn.textContent='Generate Payment Link';btn.disabled=false;
 }
-function copyLink(){navigator.clipboard.writeText(currentLink);toast('Copied!');}
-function openLink(){window.open(currentLink,'_blank');}
+function copyLink(){if(!currentLink)return;navigator.clipboard.writeText(currentLink);toast('Copied!');}
+function openLink(){if(currentLink)window.open(currentLink,'_blank');}
+function copyEmbedToken(){if(!currentEmbedToken){toast('No embed token yet','error');return;}navigator.clipboard.writeText(currentEmbedToken);toast('Embed token copied!');}
+function copyEmbedConfigUrl(){if(!currentEmbedToken){toast('No embed token yet','error');return;}navigator.clipboard.writeText(location.origin+'/checkout/config?token='+encodeURIComponent(currentEmbedToken));toast('Config URL copied!');}
 
 async function debugStripeAccount(id){
   openModal('verification-debug-modal');
@@ -8655,7 +8668,7 @@ async function loadAccounts(){
     const tb=document.getElementById('accounts-table');
     if(tb){
       if(!list.length){
-        tb.innerHTML='<tr><td colspan="5" class="empty">'+(usesSelectedStripeScope()?'No assigned Stripe accounts':'No accounts yet')+'</td></tr>';
+        tb.innerHTML='<tr><td colspan="6" class="empty">'+(usesSelectedStripeScope()?'No assigned Stripe accounts':'No accounts yet')+'</td></tr>';
       } else {
         tb.innerHTML=list.map(function(a){
           var st=(a.account_status||a.status||'active').toLowerCase();
@@ -8695,7 +8708,7 @@ async function loadAccounts(){
             manageActions='<button class="btn btn-sm" onclick="debugStripeAccount('+a.id+')" title="View verification details">View details</button>';
           }
           var actionClass=canManageStripeAccounts()?'actions':'actions readonly-allowed-actions';
-          return '<tr style="'+rowBg+'"><td><strong style="font-size:13px;">'+a.name+'</strong></td><td class="mono" style="font-size:12px;color:var(--muted);">'+(a.key_preview||'—')+'</td><td>'+statusBadge+defaultBadge+'</td><td>'+verificationHtml+'</td><td><div class="'+actionClass+'">'+manageActions+'</div></td></tr>';
+          var embedBadge=a.has_publishable_key?'<span class="badge badge-green">Ready</span>':'<span class="badge badge-amber">Add pk_ key</span>';return '<tr style="'+rowBg+'"><td><strong style="font-size:13px;">'+a.name+'</strong></td><td class="mono" style="font-size:12px;color:var(--muted);">'+(a.key_preview||'—')+'</td><td>'+embedBadge+'</td><td>'+statusBadge+defaultBadge+'</td><td>'+verificationHtml+'</td><td><div class="'+actionClass+'">'+manageActions+'</div></td></tr>';
         }).join('');
       }
     }
@@ -8717,7 +8730,7 @@ function configurePaymentLinksAccessUI(){
   var canManageTemplates=getCurrentRole()==='owner'||getCurrentRole()==='admin';
   var builder=document.getElementById('template-builder-row');if(builder)builder.style.display=canManageTemplates?'flex':'none';
 }
-async function addAccount(){const name=document.getElementById('acc-name').value.trim(),key=document.getElementById('acc-key').value.trim(),webhook=document.getElementById('acc-webhook').value.trim();if(!name||!key){toast('Name and key required','error');return;}const r=await api('/api/stripe-accounts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,secret_key:key,webhook_secret:webhook})});if(r.success){toast('✓ Account added');closeModal('add-account-modal');document.getElementById('acc-name').value='';document.getElementById('acc-key').value='';document.getElementById('acc-webhook').value='';loadAccounts();}else toast('Error: '+(r.error||'Failed'),'error');}
+async function addAccount(){const name=document.getElementById('acc-name').value.trim(),key=document.getElementById('acc-key').value.trim(),publishable=document.getElementById('acc-publishable').value.trim(),webhook=document.getElementById('acc-webhook').value.trim();if(!name||!key){toast('Name and key required','error');return;}const r=await api('/api/stripe-accounts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,secret_key:key,publishable_key:publishable||null,webhook_secret:webhook})});if(r.success){toast('✓ Account added');closeModal('add-account-modal');document.getElementById('acc-name').value='';document.getElementById('acc-key').value='';document.getElementById('acc-publishable').value='';document.getElementById('acc-webhook').value='';loadAccounts();}else toast('Error: '+(r.error||'Failed'),'error');}
 async function setDefaultAccount(id){var r=await api('/api/stripe-accounts/'+id+'/default',{method:'PATCH'});if(r.success){toast('✓ Default updated');loadAccounts();}else toast('Error: '+(r.error||'Failed'),'error');}
 async function clearDefaultAccount(){if(!confirm('Remove the default account selection?'))return;var r=await api('/api/stripe-accounts/default/clear',{method:'PATCH'});if(r.success){toast('✓ Default removed');loadAccounts();}else toast('Error: '+(r.error||'Failed'),'error');}
 async function deleteAccount(id){if(!confirm('Delete this account?'))return;await api('/api/stripe-accounts/'+id,{method:'DELETE'});toast('Account deleted');loadAccounts();}
@@ -9221,6 +9234,7 @@ function openEditAcc(id){
   document.getElementById('edit-acc-id').value=id;
   document.getElementById('edit-acc-name').value=a?a.name:'';
   document.getElementById('edit-acc-key').value='';
+  document.getElementById('edit-acc-publishable').value='';
   document.getElementById('edit-acc-webhook').value='';
   document.getElementById('edit-acc-error').style.display='none';
   openModal('edit-account-modal');
@@ -9229,11 +9243,12 @@ async function saveEditAccount(){
   var id=document.getElementById('edit-acc-id').value;
   var name=document.getElementById('edit-acc-name').value.trim();
   var key=document.getElementById('edit-acc-key').value.trim();
+  var publishable=document.getElementById('edit-acc-publishable').value.trim();
   var webhook=document.getElementById('edit-acc-webhook').value.trim();
   var errEl=document.getElementById('edit-acc-error');
   errEl.style.display='none';
   if(!name){errEl.textContent='Account name is required';errEl.style.display='block';return;}
-  try{var r=await api('/api/stripe-accounts/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,secret_key:key||null,webhook_secret:webhook||null})});if(r.success){toast('✓ Account updated');closeModal('edit-account-modal');loadAccounts();}else{errEl.textContent=r.error||'Update failed';errEl.style.display='block';}}catch(e){errEl.textContent='Server error';errEl.style.display='block';}
+  try{var r=await api('/api/stripe-accounts/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,secret_key:key||null,publishable_key:publishable||null,webhook_secret:webhook||null})});if(r.success){toast('✓ Account updated');closeModal('edit-account-modal');loadAccounts();}else{errEl.textContent=r.error||'Update failed';errEl.style.display='block';}}catch(e){errEl.textContent='Server error';errEl.style.display='block';}
 }
 function toggleSettingsNav(){var sub=document.getElementById('settings-subnav');var chev=document.getElementById('settings-chevron');var open=sub.style.display==='none';sub.style.display=open?'block':'none';if(chev)chev.style.transform=open?'rotate(180deg)':'rotate(0deg)';}
 function expandSettingsIfNeeded(name){var settingsPages=['admins','settings','security','webhooks'];if(settingsPages.includes(name)){var sub=document.getElementById('settings-subnav');var chev=document.getElementById('settings-chevron');if(sub&&sub.style.display==='none'){sub.style.display='block';if(chev)chev.style.transform='rotate(180deg)';}}}

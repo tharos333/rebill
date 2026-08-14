@@ -9,9 +9,21 @@ async function init() {
       id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
       secret_key TEXT NOT NULL,
+      publishable_key TEXT,
       webhook_secret TEXT,
       is_default BOOLEAN DEFAULT false,
       created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS embedded_checkout_sessions (
+      id BIGSERIAL PRIMARY KEY,
+      plan_token_hash TEXT NOT NULL,
+      checkout_reference TEXT NOT NULL,
+      stripe_account_id INT,
+      stripe_customer_id TEXT,
+      stripe_subscription_id TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(plan_token_hash, checkout_reference)
     );
     CREATE TABLE IF NOT EXISTS customers (
       id SERIAL PRIMARY KEY,
@@ -129,6 +141,7 @@ async function init() {
     ALTER TABLE login_attempts ADD COLUMN IF NOT EXISTS username TEXT;
   `);
   const migrations = [
+    'ALTER TABLE stripe_accounts ADD COLUMN IF NOT EXISTS publishable_key TEXT',
     'ALTER TABLE customers ADD COLUMN IF NOT EXISTS stripe_account_id INT',
     'ALTER TABLE customers ADD COLUMN IF NOT EXISTS note TEXT',
     'ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS resume_date DATE',
@@ -181,8 +194,8 @@ async function init() {
   `).catch(()=>{});
   const existing = await pool.query('SELECT COUNT(*) FROM stripe_accounts');
   if (parseInt(existing.rows[0].count) === 0 && process.env.STRIPE_SECRET_KEY) {
-    await pool.query('INSERT INTO stripe_accounts (name,secret_key,webhook_secret,is_default) VALUES ($1,$2,$3,true)',
-      ['Default Account', process.env.STRIPE_SECRET_KEY, process.env.STRIPE_WEBHOOK_SECRET || '']);
+    await pool.query('INSERT INTO stripe_accounts (name,secret_key,publishable_key,webhook_secret,is_default) VALUES ($1,$2,$3,$4,true)',
+      ['Default Account', process.env.STRIPE_SECRET_KEY, process.env.STRIPE_PUBLISHABLE_KEY || '', process.env.STRIPE_WEBHOOK_SECRET || '']);
   }
   console.log('[db] PostgreSQL ready');
 }
@@ -192,10 +205,10 @@ const settingsDb = {
   set: async (key, value) => { await pool.query('INSERT INTO settings (key,value,updated_at) VALUES ($1,$2,NOW()) ON CONFLICT (key) DO UPDATE SET value=$2, updated_at=NOW()', [key, value]); },
 };
 const stripeAccounts = {
-  all: async () => { const r = await pool.query("SELECT id, name, is_default, created_at, LEFT(secret_key,12)||'...' as key_preview FROM stripe_accounts ORDER BY created_at DESC, id DESC"); return r.rows; },
+  all: async () => { const r = await pool.query("SELECT id, name, is_default, created_at, LEFT(secret_key,12)||'...' as key_preview, CASE WHEN COALESCE(publishable_key,'')<>'' THEN LEFT(publishable_key,12)||'...' ELSE NULL END as publishable_key_preview, COALESCE(publishable_key,'')<>'' AS has_publishable_key FROM stripe_accounts ORDER BY created_at DESC, id DESC"); return r.rows; },
   byId: async (id) => { const r = await pool.query('SELECT * FROM stripe_accounts WHERE id=$1', [id]); return r.rows[0]; },
   default: async () => { const r = await pool.query('SELECT * FROM stripe_accounts WHERE is_default=true LIMIT 1'); if (r.rows[0]) return r.rows[0]; const r2 = await pool.query('SELECT * FROM stripe_accounts ORDER BY created_at ASC LIMIT 1'); return r2.rows[0]; },
-  create: async (data) => { const count = await pool.query('SELECT COUNT(*) FROM stripe_accounts'); const isDefault = parseInt(count.rows[0].count) === 0; const r = await pool.query('INSERT INTO stripe_accounts (name,secret_key,webhook_secret,is_default) VALUES ($1,$2,$3,$4) RETURNING id', [data.name, data.secret_key, data.webhook_secret || '', isDefault]); return r.rows[0]; },
+  create: async (data) => { const count = await pool.query('SELECT COUNT(*) FROM stripe_accounts'); const isDefault = parseInt(count.rows[0].count) === 0; const r = await pool.query('INSERT INTO stripe_accounts (name,secret_key,publishable_key,webhook_secret,is_default) VALUES ($1,$2,$3,$4,$5) RETURNING id', [data.name, data.secret_key, data.publishable_key || '', data.webhook_secret || '', isDefault]); return r.rows[0]; },
   setDefault: async (id) => { await pool.query('UPDATE stripe_accounts SET is_default=false'); await pool.query('UPDATE stripe_accounts SET is_default=true WHERE id=$1', [id]); },
   delete: async (id) => { await pool.query('DELETE FROM stripe_accounts WHERE id=$1', [id]); },
 };
