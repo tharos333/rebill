@@ -8246,7 +8246,7 @@ function renderPaymentDetailModal(p, syncing){
   if(isFailed&&fullReason){
     h+='<div class="pd-fail-box">'+escHtml(fullReason)+'</div>';
     var recovery=paymentRecoveryAdvice(p.failure_reason);
-    h+='<div class="pd-recovery-box '+recovery.tone+'"><div class="pd-recovery-label">Recommended action</div><div class="pd-recovery-title">'+escHtml(recovery.label)+'</div><div class="pd-recovery-detail">'+escHtml(recovery.detail)+'</div></div>';
+    h+='<div class="pd-recovery-box '+recovery.tone+'"><div class="pd-recovery-inline"><span class="pd-recovery-label">Recommended action:</span><span class="pd-recovery-title">'+escHtml(recovery.label)+'</span></div></div>';
   }
   if(syncing){h+='<div class="pd-sync-note">Fetching real Stripe fee/net…</div>';}
 
@@ -10453,5 +10453,33 @@ html.light #payment-detail-modal .pd-recovery-box{
   margin-top:0!important;
 }
 
+/* Compact recommended action: one line only */
+#payment-detail-modal .pd-recovery-box{
+  padding:11px 12px!important;
+}
+#payment-detail-modal .pd-recovery-inline{
+  display:flex!important;
+  align-items:center!important;
+  gap:6px!important;
+  min-width:0!important;
+  white-space:nowrap!important;
+}
+#payment-detail-modal .pd-recovery-inline .pd-recovery-label{
+  margin:0!important;
+  flex:0 0 auto!important;
+  font-size:12px!important;
+  font-weight:600!important;
+  letter-spacing:0!important;
+  text-transform:none!important;
+}
+#payment-detail-modal .pd-recovery-inline .pd-recovery-title{
+  margin:0!important;
+  min-width:0!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  font-size:13px!important;
+  font-weight:600!important;
+  line-height:1.25!important;
+}
 /* Keep status colors/backgrounds unchanged; typography only. */
 </style>
