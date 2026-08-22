@@ -8117,15 +8117,15 @@ function renderPayPagination(total,totalPages){
 var reasonLabels={'insufficient_funds':'Insufficient funds','card_declined':'Card declined','expired_card':'Card expired','incorrect_cvc':'Wrong CVC','lost_card':'Card reported lost','stolen_card':'Reported stolen','do_not_honor':'Bank declined','processing_error':'Processing error','fraudulent':'Fraud suspected','generic_decline':'Generic decline','no_such_customer':'Customer not found','authentication_required':'Auth required','payment_method_unsupported':'Payment method unsupported','payment_method_error':'Payment method error'};
 function paymentRecoveryAdvice(reason){
   var r=String(reason||'').toLowerCase();
-  if(!r)return {label:'Review before retry',detail:'Check the Stripe result before trying the payment again.',tone:'neutral'};
+  if(!r)return {label:'Review before retry',detail:'Check the Stripe result before trying the payment again.',inline:'Recommended action: Review before retry — check the Stripe result before trying the payment again.',tone:'neutral'};
   if(r.includes('insufficient'))return {label:'Retry later',detail:'The card may not have enough funds right now.',tone:'amber'};
-  if(r.includes('authentication')||r.includes('3d secure')||r.includes('requires_action')||r.includes('requires action'))return {label:'Customer action required',detail:'The customer needs to authenticate the payment before another off-session attempt.',tone:'blue'};
-  if(r.includes('expired'))return {label:'Update card',detail:'This card is expired. Use a new saved payment method.',tone:'red'};
+  if(r.includes('authentication')||r.includes('3d secure')||r.includes('requires_action')||r.includes('requires action'))return {label:'Customer action required',detail:'The customer needs to authenticate the payment before another off-session attempt.',inline:'Recommended action: Customer action required — the customer needs to authenticate the payment before another off-session attempt.',tone:'blue'};
+  if(r.includes('expired'))return {label:'Update card',detail:'This card is expired. Use a new saved payment method.',inline:'Recommended action: Update card — this card is expired. Use a new saved payment method.',tone:'red'};
   if(r.includes('incorrect_cvc')||r.includes('wrong cvc')||r.includes('payment method unsupported')||r.includes('payment_method_unsupported')||r.includes('payment method error')||r.includes('payment_method_error'))return {label:'Update payment method',detail:'Use another valid saved payment method before retrying.',tone:'red'};
-  if(r.includes('lost')||r.includes('stolen')||r.includes('fraud')||r.includes('radar')||r.includes('blocked'))return {label:'Do not retry now',detail:'Review the payment in Stripe or ask the customer for another card.',tone:'red'};
+  if(r.includes('lost')||r.includes('stolen')||r.includes('fraud')||r.includes('radar')||r.includes('blocked'))return {label:'Do not retry now',detail:'Review the payment in Stripe or ask the customer for another card.',inline:'Recommended action: Do not retry now — review the payment in Stripe or ask the customer for another card.',tone:'red'};
   if(r.includes('processing'))return {label:'Retry later',detail:'This looks temporary. Wait before another attempt.',tone:'amber'};
   if(r.includes('do not honor')||r.includes('do_not_honor')||r.includes('card declined')||r.includes('card_declined')||r.includes('generic decline')||r.includes('generic_decline'))return {label:'Wait or update card',detail:'The issuer declined the charge. Avoid rapid repeated retries.',tone:'amber'};
-  return {label:'Review before retry',detail:'Check the decline details and use the best saved card before retrying.',tone:'neutral'};
+  return {label:'Review before retry',detail:'Check the decline details and use the best saved card before retrying.',inline:'Recommended action: Review before retry — check decline details and use the best saved card.',tone:'neutral'};
 }
 function tableAccountDisplayName(accountName){
   var full=String(accountName||'').trim();
@@ -8246,7 +8246,7 @@ function renderPaymentDetailModal(p, syncing){
   if(isFailed&&fullReason){
     h+='<div class="pd-fail-box">'+escHtml(fullReason)+'</div>';
     var recovery=paymentRecoveryAdvice(p.failure_reason);
-    h+='<div class="pd-recovery-box '+recovery.tone+'"><div class="pd-recovery-inline"><span class="pd-recovery-label">Recommended action:</span><span class="pd-recovery-title">'+escHtml(recovery.label)+'</span></div></div>';
+    h+='<div class="pd-recovery-box '+recovery.tone+'"><div class="pd-recovery-inline"><span class="pd-recovery-title">'+escHtml(recovery.inline || ('Recommended action: '+recovery.label))+'</span></div></div>';
   }
   if(syncing){h+='<div class="pd-sync-note">Fetching real Stripe fee/net…</div>';}
 
