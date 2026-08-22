@@ -8108,7 +8108,19 @@ function renderPayPagination(total,totalPages){
   html+='<button class="btn btn-sm" onclick="payCurrentPage=Math.min('+totalPages+',payCurrentPage+1);filterPayments();" '+(payCurrentPage===totalPages?'disabled':'')+'> Next →</button>';
   el.innerHTML=html;
 }
-var reasonLabels={'insufficient_funds':'Insufficient funds','card_declined':'Card declined','expired_card':'Card expired','incorrect_cvc':'Wrong CVC','lost_card':'Card reported lost','stolen_card':'Reported stolen','do_not_honor':'Bank declined','processing_error':'Processing error','fraudulent':'Fraud suspected','generic_decline':'Generic decline','no_such_customer':'Customer not found','authentication_required':'Auth required'};
+var reasonLabels={'insufficient_funds':'Insufficient funds','card_declined':'Card declined','expired_card':'Card expired','incorrect_cvc':'Wrong CVC','lost_card':'Card reported lost','stolen_card':'Reported stolen','do_not_honor':'Bank declined','processing_error':'Processing error','fraudulent':'Fraud suspected','generic_decline':'Generic decline','no_such_customer':'Customer not found','authentication_required':'Auth required','payment_method_unsupported':'Payment method unsupported','payment_method_error':'Payment method error'};
+function paymentRecoveryAdvice(reason){
+  var r=String(reason||'').toLowerCase();
+  if(!r)return {label:'Review before retry',detail:'Check the Stripe result before trying the payment again.',tone:'neutral'};
+  if(r.includes('insufficient'))return {label:'Retry later',detail:'The card may not have enough funds right now.',tone:'amber'};
+  if(r.includes('authentication')||r.includes('3d secure')||r.includes('requires_action')||r.includes('requires action'))return {label:'Customer action required',detail:'The customer needs to authenticate the payment before another off-session attempt.',tone:'blue'};
+  if(r.includes('expired'))return {label:'Update card',detail:'This card is expired. Use a new saved payment method.',tone:'red'};
+  if(r.includes('incorrect_cvc')||r.includes('wrong cvc')||r.includes('payment method unsupported')||r.includes('payment_method_unsupported')||r.includes('payment method error')||r.includes('payment_method_error'))return {label:'Update payment method',detail:'Use another valid saved payment method before retrying.',tone:'red'};
+  if(r.includes('lost')||r.includes('stolen')||r.includes('fraud')||r.includes('radar')||r.includes('blocked'))return {label:'Do not retry now',detail:'Review the payment in Stripe or ask the customer for another card.',tone:'red'};
+  if(r.includes('processing'))return {label:'Retry later',detail:'This looks temporary. Wait before another attempt.',tone:'amber'};
+  if(r.includes('do not honor')||r.includes('do_not_honor')||r.includes('card declined')||r.includes('card_declined')||r.includes('generic decline')||r.includes('generic_decline'))return {label:'Wait or update card',detail:'The issuer declined the charge. Avoid rapid repeated retries.',tone:'amber'};
+  return {label:'Review before retry',detail:'Check the decline details and use the best saved card before retrying.',tone:'neutral'};
+}
 function tableAccountDisplayName(accountName){
   var full=String(accountName||'').trim();
   if(!full)return '—';
@@ -8225,7 +8237,11 @@ function renderPaymentDetailModal(p, syncing){
   h+='<div class="pd-meta-card"><div class="pd-meta-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 0 20"/><path d="M12 2a15.3 15.3 0 0 0 0 20"/></svg><span>Timezone</span></div><div class="pd-meta-value">Local</div></div>';
   h+='<div class="pd-meta-card"><div class="pd-meta-label"><span class="pd-title-icon '+drawerStatusClass+'" style="width:14px;height:14px;">'+iconSvg(drawerStatusIcon)+'</span><span>Status</span></div><div class="pd-meta-value '+(isRedState?'red':(isSucceeded?'green':(isPaymentNeeded?'blue':'')))+'">'+escHtml(statusPill)+'</div></div></div>';
 
-  if(isFailed&&fullReason){h+='<div class="pd-fail-box">'+escHtml(fullReason)+'</div>';}
+  if(isFailed&&fullReason){
+    h+='<div class="pd-fail-box">'+escHtml(fullReason)+'</div>';
+    var recovery=paymentRecoveryAdvice(p.failure_reason);
+    h+='<div class="pd-recovery-box '+recovery.tone+'"><div class="pd-recovery-label">Recommended action</div><div class="pd-recovery-title">'+escHtml(recovery.label)+'</div><div class="pd-recovery-detail">'+escHtml(recovery.detail)+'</div></div>';
+  }
   if(syncing){h+='<div class="pd-sync-note">Fetching real Stripe fee/net…</div>';}
 
   h+='<div class="pd-drawer-scroll-body">';
@@ -8417,6 +8433,26 @@ function customerPrimaryPaymentRecord(c){
 function customerPrimaryPaymentDisplay(c,drawer){
   return paymentMethodDisplay(customerPrimaryPaymentRecord(c),!!drawer);
 }
+function customerRebillPaymentRecord(data,c){
+  var pm=(data&&data.rebill_payment_method)||null;
+  if(pm){
+    return {
+      payment_method_type: pm.type || 'card',
+      wallet_type: null,
+      card_brand: pm.brand || null,
+      card_last4: pm.last4 || null
+    };
+  }
+  return customerPrimaryPaymentRecord(c||{});
+}
+function customerRebillPaymentDisplay(data,c,drawer){
+  return paymentMethodDisplay(customerRebillPaymentRecord(data,c),!!drawer);
+}
+function customerRebillHasPaymentMethod(data,c){
+  var pm=(data&&data.rebill_payment_method)||null;
+  if(pm&&pm.id)return true;
+  return customerHasPrimaryPaymentMethod(c||{});
+}
 function customerHasPrimaryPaymentMethod(c){
   return !!(c.primary_payment_method_type || c.primary_wallet_type || c.primary_card_brand || c.primary_card_last4 || c.card_brand || c.card_last4);
 }
@@ -8466,13 +8502,14 @@ function buildCustomerDrawer(data){
   const effectiveStatus=customerEffectiveStatus(c);
   const status=customerStatusText(effectiveStatus);
   const statusCls=customerValueClass(effectiveStatus)||'';
-  const primaryExpMonth=c.primary_card_exp_month||c.card_exp_month; const primaryExpYear=c.primary_card_exp_year||c.card_exp_year;
+  const liveRebillPm=data.rebill_payment_method||null;
+  const primaryExpMonth=liveRebillPm?.exp_month||c.primary_card_exp_month||c.card_exp_month; const primaryExpYear=liveRebillPm?.exp_year||c.primary_card_exp_year||c.card_exp_year;
   const expiry=(primaryExpMonth&&primaryExpYear)?String(primaryExpMonth).padStart(2,'0')+' / '+String(primaryExpYear).slice(-2):'—';
   const customerMoneyCurrency = customerOriginalCurrency(c);
   const avgAmount=(c.avg_payment&&Number(c.avg_payment)>0)?fmt(Math.round(Number(c.avg_payment)), customerMoneyCurrency):'—';
   const lastAmount=(c.last_payment_amount)?fmt(c.last_payment_amount, customerMoneyCurrency):'—';
   const totalPaid=fmt(c.total_paid||0, customerMoneyCurrency);
-  const hasCard=customerHasPrimaryPaymentMethod(c);
+  const hasCard=customerRebillHasPaymentMethod(data,c);
   let h='';
   h+='<div class="customer-profile-hero">';
   h+='<div class="customer-profile-identity"><div class="customer-profile-name" title="'+name+'">'+name+'</div><div class="customer-profile-email" title="'+email+'">'+email+'</div></div>';
@@ -8489,14 +8526,15 @@ function buildCustomerDrawer(data){
   h+=customerDrawerRow('Created date',fmtDate(c.created_at));
   h+='</section>';
 
-  h+='<section class="customer-profile-section"><h3>Primary payment method</h3>';
+  h+='<section class="customer-profile-section"><h3>Rebill payment method</h3>';
   if(hasCard){
-    h+='<div class="customer-profile-card-line">'+customerPrimaryPaymentDisplay(c,true)+'</div>';
-    h+=customerDrawerRow('Funding',escapeCustomerHtml(c.primary_card_funding||c.card_funding||'—'));
-    h+=customerDrawerRow('Country',escapeCustomerHtml(customerCountryFullLabel(c.primary_card_country||c.card_country)));
+    h+='<div class="customer-rebill-card-head"><div class="customer-profile-card-line">'+customerRebillPaymentDisplay(data,c,true)+'</div><span class="customer-rebill-will-charge">Will be charged</span></div>';
+    h+=customerDrawerRow('Selected by',escapeCustomerHtml(liveRebillPm?.source_label||'Saved payment method'));
+    h+=customerDrawerRow('Funding',escapeCustomerHtml(liveRebillPm?.funding||c.primary_card_funding||c.card_funding||'—'));
+    h+=customerDrawerRow('Country',escapeCustomerHtml(customerCountryFullLabel(liveRebillPm?.country||c.primary_card_country||c.card_country)));
     h+=customerDrawerRow('Expires',escapeCustomerHtml(expiry));
   }else{
-    h+='<div class="customer-profile-empty">No payment method details available</div>';
+    h+='<div class="customer-profile-empty">No usable saved card found for rebilling</div>';
   }
   h+='</section>';
 
@@ -10309,6 +10347,92 @@ html.light #settings-toggle.nav-section-toggle svg{
   line-height:1!important;
   letter-spacing:-0.01em!important;
   -webkit-font-smoothing:antialiased!important;
+}
+
+/* Phase 2: live rebill card preview + payment recovery guidance */
+#customer-detail-modal .customer-rebill-card-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin:2px 0 8px;
+}
+#customer-detail-modal .customer-rebill-card-head .customer-profile-card-line{
+  flex:1 1 auto;
+  min-width:0;
+  margin:0;
+}
+#customer-detail-modal .customer-rebill-will-charge{
+  flex:0 0 auto;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:24px;
+  padding:0 8px;
+  border-radius:7px;
+  border:1px solid rgba(34,197,94,.20);
+  background:rgba(34,197,94,.09);
+  color:var(--green);
+  font-family:var(--font-ui);
+  font-size:11px;
+  font-weight:600;
+  line-height:1;
+  white-space:nowrap;
+}
+#payment-detail-modal .pd-recovery-box{
+  margin:10px 0 4px;
+  padding:11px 12px;
+  border-radius:10px;
+  border:1px solid var(--border2);
+  background:var(--surface2);
+}
+#payment-detail-modal .pd-recovery-box.amber{
+  border-color:rgba(245,158,11,.22);
+  background:rgba(245,158,11,.07);
+}
+#payment-detail-modal .pd-recovery-box.red{
+  border-color:rgba(248,113,113,.22);
+  background:rgba(248,113,113,.07);
+}
+#payment-detail-modal .pd-recovery-box.blue{
+  border-color:rgba(96,165,250,.22);
+  background:rgba(59,130,246,.07);
+}
+#payment-detail-modal .pd-recovery-label{
+  margin-bottom:4px;
+  color:var(--muted);
+  font-family:var(--font-ui);
+  font-size:10px;
+  font-weight:600;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+}
+#payment-detail-modal .pd-recovery-title{
+  color:var(--text);
+  font-family:var(--font-ui);
+  font-size:13px;
+  font-weight:600;
+  line-height:1.25;
+}
+#payment-detail-modal .pd-recovery-box.amber .pd-recovery-title{color:#f59e0b;}
+#payment-detail-modal .pd-recovery-box.red .pd-recovery-title{color:var(--red);}
+#payment-detail-modal .pd-recovery-box.blue .pd-recovery-title{color:#60a5fa;}
+#payment-detail-modal .pd-recovery-detail{
+  margin-top:3px;
+  color:var(--muted);
+  font-family:var(--font-ui);
+  font-size:12px;
+  font-weight:500;
+  line-height:1.45;
+}
+html.light #customer-detail-modal .customer-rebill-will-charge{
+  background:rgba(22,163,74,.08);
+  border-color:rgba(22,163,74,.20);
+  color:#16a34a;
+}
+html.light #payment-detail-modal .pd-recovery-box{
+  background:#fafafa;
+  border-color:rgba(0,0,0,.10);
 }
 
 /* Keep status colors/backgrounds unchanged; typography only. */

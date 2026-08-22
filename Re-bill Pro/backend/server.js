@@ -218,13 +218,10 @@ async function retrieveAttachedPaymentMethod(stripe, customerId, candidate) {
   }
 }
 
-// Pick the safest/most relevant saved card for a rebill:
-// 1) subscription default payment method
-// 2) customer invoice default payment method
-// 3) the payment method already stored locally
-// 4) newest card attached to the Stripe customer
-async function resolveBestPaymentMethod(stripe, customerId, options = {}) {
-  if (!customerId) return null;
+// Pick the safest/most relevant saved card for a rebill.
+// We also keep the selection source so the UI can show exactly which card will be charged.
+async function resolveBestPaymentMethodInfo(stripe, customerId, options = {}) {
+  if (!customerId) return { paymentMethod: null, source: null, sourceLabel: null };
   const candidates = [];
 
   if (options.subscriptionId) {
@@ -232,34 +229,56 @@ async function resolveBestPaymentMethod(stripe, customerId, options = {}) {
       const sub = await stripe.subscriptions.retrieve(options.subscriptionId, {
         expand: ['default_payment_method']
       });
-      if (sub?.default_payment_method) candidates.push(sub.default_payment_method);
+      if (sub?.default_payment_method) {
+        candidates.push({
+          candidate: sub.default_payment_method,
+          source: 'subscription_default',
+          sourceLabel: 'Subscription default'
+        });
+      }
     } catch(e) {
       console.log('[payment-method] could not read subscription default:', e.message);
     }
   }
 
-  if (options.preferredPaymentMethodId) candidates.push(options.preferredPaymentMethodId);
+  if (options.preferredPaymentMethodId) {
+    candidates.push({
+      candidate: options.preferredPaymentMethodId,
+      source: 'preferred',
+      sourceLabel: 'Preferred saved card'
+    });
+  }
 
   try {
     const customer = await stripe.customers.retrieve(customerId, {
       expand: ['invoice_settings.default_payment_method']
     });
     if (customer && !customer.deleted && customer.invoice_settings?.default_payment_method) {
-      candidates.push(customer.invoice_settings.default_payment_method);
+      candidates.push({
+        candidate: customer.invoice_settings.default_payment_method,
+        source: 'customer_default',
+        sourceLabel: 'Customer default'
+      });
     }
   } catch(e) {
     console.log('[payment-method] could not read customer default:', e.message);
   }
 
-  if (options.localPaymentMethodId) candidates.push(options.localPaymentMethodId);
+  if (options.localPaymentMethodId) {
+    candidates.push({
+      candidate: options.localPaymentMethodId,
+      source: 'subloop_saved',
+      sourceLabel: 'Saved in Subloop'
+    });
+  }
 
   const seen = new Set();
-  for (const candidate of candidates) {
-    const id = paymentMethodId(candidate);
+  for (const entry of candidates) {
+    const id = paymentMethodId(entry.candidate);
     if (!id || seen.has(id)) continue;
     seen.add(id);
-    const pm = await retrieveAttachedPaymentMethod(stripe, customerId, candidate);
-    if (pm) return pm;
+    const pm = await retrieveAttachedPaymentMethod(stripe, customerId, entry.candidate);
+    if (pm) return { paymentMethod: pm, source: entry.source, sourceLabel: entry.sourceLabel };
   }
 
   try {
@@ -268,13 +287,24 @@ async function resolveBestPaymentMethod(stripe, customerId, options = {}) {
     for (const pm of ordered) {
       if (seen.has(pm.id)) continue;
       const usable = await retrieveAttachedPaymentMethod(stripe, customerId, pm);
-      if (usable) return usable;
+      if (usable) {
+        return {
+          paymentMethod: usable,
+          source: 'newest_saved',
+          sourceLabel: 'Newest saved card'
+        };
+      }
     }
   } catch(e) {
     console.log('[payment-method] could not list customer cards:', e.message);
   }
 
-  return null;
+  return { paymentMethod: null, source: null, sourceLabel: null };
+}
+
+async function resolveBestPaymentMethod(stripe, customerId, options = {}) {
+  const info = await resolveBestPaymentMethodInfo(stripe, customerId, options);
+  return info.paymentMethod;
 }
 
 async function syncLocalPaymentMethod(localCustomerId, pm) {
@@ -1423,6 +1453,59 @@ app.get('/api/customers/:id/details', async (req, res) => {
     const data = await customers.detail(req.params.id);
     if (!data.customer) return res.status(404).json({ error: 'Customer not found' });
     if (!ensureRowScope(req, res, data.customer)) return;
+
+    // Live rebill preview: show the exact saved card Subloop would choose right now.
+    // This is read-only and does not modify any Stripe object or old transaction.
+    data.rebill_payment_method = null;
+    try {
+      const c = data.customer;
+      if (c.stripe_customer_id && c.stripe_account_id) {
+        const acc = await stripeAccounts.byId(c.stripe_account_id);
+        if (acc?.secret_key) {
+          const stripe = require('stripe')(acc.secret_key);
+          const subResult = await pool.query(`
+            SELECT stripe_subscription_id
+            FROM subscriptions
+            WHERE customer_id=$1
+              AND stripe_subscription_id IS NOT NULL
+              AND stripe_subscription_id LIKE 'sub_%'
+              AND LOWER(COALESCE(status,'')) NOT IN ('cancelled','canceled','incomplete_expired')
+            ORDER BY
+              CASE WHEN LOWER(COALESCE(status,''))='active' THEN 0
+                   WHEN LOWER(COALESCE(status,''))='trialing' THEN 1
+                   WHEN LOWER(COALESCE(status,''))='past_due' THEN 2
+                   ELSE 3 END,
+              next_billing_date ASC NULLS LAST,
+              id DESC
+            LIMIT 1
+          `, [c.id]);
+          const subscriptionId = subResult.rows[0]?.stripe_subscription_id || null;
+          const info = await resolveBestPaymentMethodInfo(stripe, c.stripe_customer_id, {
+            subscriptionId,
+            localPaymentMethodId: c.stripe_payment_method
+          });
+          const pm = info.paymentMethod;
+          if (pm) {
+            data.rebill_payment_method = {
+              id: pm.id,
+              type: pm.type || 'card',
+              brand: pm.card?.brand || null,
+              last4: pm.card?.last4 || null,
+              exp_month: pm.card?.exp_month || null,
+              exp_year: pm.card?.exp_year || null,
+              funding: pm.card?.funding || null,
+              country: pm.card?.country || null,
+              source: info.source,
+              source_label: info.sourceLabel,
+              subscription_id: subscriptionId
+            };
+          }
+        }
+      }
+    } catch(previewErr) {
+      console.log('[rebill-preview] could not build preview:', previewErr.message);
+    }
+
     res.json(data);
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
