@@ -197,14 +197,97 @@ function dateFromUnixOrFallback(unixSeconds, intervalDays = 30) {
   return d.toISOString().split('T')[0];
 }
 
-async function getCustomerPaymentMethod(stripe, customerId, preferredPaymentMethodId = null) {
-  if (preferredPaymentMethodId && typeof preferredPaymentMethodId === 'string') {
-    try { return await stripe.paymentMethods.retrieve(preferredPaymentMethodId); } catch(e) {}
-  }
+function paymentMethodId(value) {
+  if (!value) return null;
+  if (typeof value === 'string') return value;
+  return value.id || null;
+}
+
+async function retrieveAttachedPaymentMethod(stripe, customerId, candidate) {
+  const id = paymentMethodId(candidate);
+  if (!id) return null;
   try {
-    const pms = await stripe.paymentMethods.list({ customer: customerId, type: 'card', limit: 1 });
-    return pms.data[0] || null;
-  } catch(e) { return null; }
+    const pm = typeof candidate === 'object' && candidate.id ? candidate : await stripe.paymentMethods.retrieve(id);
+    const attachedCustomer = typeof pm.customer === 'string' ? pm.customer : pm.customer?.id || null;
+    // A reusable saved card should be attached to this exact Stripe customer.
+    if (attachedCustomer && attachedCustomer !== customerId) return null;
+    if (pm.type !== 'card') return null;
+    return pm;
+  } catch(e) {
+    return null;
+  }
+}
+
+// Pick the safest/most relevant saved card for a rebill:
+// 1) subscription default payment method
+// 2) customer invoice default payment method
+// 3) the payment method already stored locally
+// 4) newest card attached to the Stripe customer
+async function resolveBestPaymentMethod(stripe, customerId, options = {}) {
+  if (!customerId) return null;
+  const candidates = [];
+
+  if (options.subscriptionId) {
+    try {
+      const sub = await stripe.subscriptions.retrieve(options.subscriptionId, {
+        expand: ['default_payment_method']
+      });
+      if (sub?.default_payment_method) candidates.push(sub.default_payment_method);
+    } catch(e) {
+      console.log('[payment-method] could not read subscription default:', e.message);
+    }
+  }
+
+  if (options.preferredPaymentMethodId) candidates.push(options.preferredPaymentMethodId);
+
+  try {
+    const customer = await stripe.customers.retrieve(customerId, {
+      expand: ['invoice_settings.default_payment_method']
+    });
+    if (customer && !customer.deleted && customer.invoice_settings?.default_payment_method) {
+      candidates.push(customer.invoice_settings.default_payment_method);
+    }
+  } catch(e) {
+    console.log('[payment-method] could not read customer default:', e.message);
+  }
+
+  if (options.localPaymentMethodId) candidates.push(options.localPaymentMethodId);
+
+  const seen = new Set();
+  for (const candidate of candidates) {
+    const id = paymentMethodId(candidate);
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    const pm = await retrieveAttachedPaymentMethod(stripe, customerId, candidate);
+    if (pm) return pm;
+  }
+
+  try {
+    const pms = await stripe.paymentMethods.list({ customer: customerId, type: 'card', limit: 10 });
+    const ordered = [...(pms.data || [])].sort((a, b) => (b.created || 0) - (a.created || 0));
+    for (const pm of ordered) {
+      if (seen.has(pm.id)) continue;
+      const usable = await retrieveAttachedPaymentMethod(stripe, customerId, pm);
+      if (usable) return usable;
+    }
+  } catch(e) {
+    console.log('[payment-method] could not list customer cards:', e.message);
+  }
+
+  return null;
+}
+
+async function syncLocalPaymentMethod(localCustomerId, pm) {
+  if (!localCustomerId || !pm?.id) return;
+  await pool.query(
+    `UPDATE customers SET stripe_payment_method=$1, card_brand=COALESCE($2,card_brand), card_last4=COALESCE($3,card_last4),
+      card_exp_month=COALESCE($4,card_exp_month), card_exp_year=COALESCE($5,card_exp_year) WHERE id=$6`,
+    [pm.id, pm.card?.brand || null, pm.card?.last4 || null, pm.card?.exp_month || null, pm.card?.exp_year || null, localCustomerId]
+  ).catch(()=>{});
+}
+
+async function getCustomerPaymentMethod(stripe, customerId, preferredPaymentMethodId = null) {
+  return resolveBestPaymentMethod(stripe, customerId, { preferredPaymentMethodId });
 }
 
 
@@ -1375,7 +1458,10 @@ app.post('/api/customers/:id/charge-once', async (req, res) => {
     if (!ensureRowScope(req, res, c)) return;
     const acc = await stripeAccounts.byId(c.stripe_account_id);
     const stripe = require('stripe')(acc.secret_key);
-    const pi = await stripe.paymentIntents.create({ amount, currency: currency||'usd', customer: c.stripe_customer_id, payment_method: c.stripe_payment_method, confirm: true, description: description||'Manual invoice', off_session: true });
+    const pm = await resolveBestPaymentMethod(stripe, c.stripe_customer_id, { localPaymentMethodId: c.stripe_payment_method });
+    if (!pm) return res.status(400).json({ error: 'No usable saved card found for this customer' });
+    await syncLocalPaymentMethod(c.id, pm);
+    const pi = await stripe.paymentIntents.create({ amount, currency: currency||'usd', customer: c.stripe_customer_id, payment_method: pm.id, confirm: true, description: description||'Manual invoice', off_session: true });
     await payments.insert({ customer_id: c.id, subscription_id: null, stripe_payment_intent: pi.id, amount, currency: currency||'usd', status: pi.status==='succeeded'?'succeeded':'failed', failure_reason: null });
     res.json({ success: pi.status==='succeeded', status: pi.status });
   } catch(err) { res.status(500).json({ error: err.message }); }
@@ -1436,7 +1522,13 @@ app.post('/api/subscriptions/:id/charge', async (req, res) => {
     const c = await customers.byId(sub.customer_id);
     const acc = await stripeAccounts.byId(c.stripe_account_id);
     const stripe = require('stripe')(acc.secret_key);
-    const pi = await stripe.paymentIntents.create({ amount: sub.amount, currency: sub.currency, customer: c.stripe_customer_id, payment_method: c.stripe_payment_method, off_session: true, confirm: true });
+    const pm = await resolveBestPaymentMethod(stripe, c.stripe_customer_id, {
+      subscriptionId: sub.stripe_subscription_id || null,
+      localPaymentMethodId: c.stripe_payment_method
+    });
+    if (!pm) return res.status(400).json({ success: false, error: 'No usable saved card found for this customer' });
+    await syncLocalPaymentMethod(c.id, pm);
+    const pi = await stripe.paymentIntents.create({ amount: sub.amount, currency: sub.currency, customer: c.stripe_customer_id, payment_method: pm.id, off_session: true, confirm: true });
     await payments.insert({ customer_id: c.id, subscription_id: sub.id, stripe_payment_intent: pi.id, amount: sub.amount, currency: sub.currency, status: 'succeeded', failure_reason: null });
     await subscriptions.advanceBillingDate(sub.id, sub.interval_days);
     await activityLog.add('charge', `Manual charge of ${(sub.amount/100).toFixed(2)} for ${c.email}`, c.id, sub.amount);
@@ -1484,14 +1576,24 @@ app.get('/api/payments/:id/financials', async (req, res) => {
 app.post('/api/payments/:id/retry', async (req, res) => {
   try {
     await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS retry_of_payment_id INT REFERENCES payments(id)').catch(()=>{});
-    const r = await pool.query('SELECT p.*, c.stripe_customer_id, c.stripe_payment_method, c.stripe_account_id, c.email, c.name FROM payments p JOIN customers c ON c.id=p.customer_id WHERE p.id=$1', [req.params.id]);
+    const r = await pool.query(`SELECT p.*, c.stripe_customer_id, c.stripe_payment_method, c.stripe_account_id, c.email, c.name, s.stripe_subscription_id
+      FROM payments p
+      JOIN customers c ON c.id=p.customer_id
+      LEFT JOIN subscriptions s ON s.id=p.subscription_id
+      WHERE p.id=$1`, [req.params.id]);
     const p = r.rows[0];
     if (!p) return res.status(404).json({ error: 'Not found' });
     if (!ensureRowScope(req, res, p)) return;
     if (p.status !== 'failed') return res.status(400).json({ error: 'Only failed payments can be retried' });
     const acc = await stripeAccounts.byId(p.stripe_account_id);
     const stripe = require('stripe')(acc.secret_key);
-    const pi = await stripe.paymentIntents.create({ amount: p.amount, currency: p.currency||'usd', customer: p.stripe_customer_id, payment_method: p.stripe_payment_method, confirm: true, off_session: true });
+    const pm = await resolveBestPaymentMethod(stripe, p.stripe_customer_id, {
+      subscriptionId: p.stripe_subscription_id || null,
+      localPaymentMethodId: p.stripe_payment_method
+    });
+    if (!pm) return res.status(400).json({ error: 'No usable saved card found for this customer' });
+    await syncLocalPaymentMethod(p.customer_id, pm);
+    const pi = await stripe.paymentIntents.create({ amount: p.amount, currency: p.currency||'usd', customer: p.stripe_customer_id, payment_method: pm.id, confirm: true, off_session: true });
     const status = pi.status==='succeeded'?'succeeded':'failed';
     await payments.insert({ customer_id: p.customer_id, subscription_id: p.subscription_id, stripe_payment_intent: pi.id, amount: p.amount, currency: p.currency, status, failure_reason: null, retry_of_payment_id: p.id });
     await activityLog.add('retry', `Retried payment for ${p.name}: ${status}`, p.customer_id, p.amount);
@@ -1599,14 +1701,23 @@ app.post('/api/run-rebills', async (req, res) => {
       const customer = await customers.byId(sub.customer_id);
       if (customer && rowWithinScope(req, customer)) eligible.push({ sub, customer });
     }
-    let charged = 0, failed = 0;
+    let charged = 0, failed = 0, skippedStripeManaged = 0;
     for (const item of eligible) {
       const sub = item.sub;
       const c = item.customer;
+      // Real Stripe Billing subscriptions renew themselves. Do not create a second manual
+      // PaymentIntent for the same renewal, which could cause duplicate billing.
+      if (sub.stripe_subscription_id) {
+        skippedStripeManaged++;
+        continue;
+      }
       try {
         const acc = await stripeAccounts.byId(c.stripe_account_id);
         const stripe = require('stripe')(acc.secret_key);
-        const pi = await stripe.paymentIntents.create({ amount: sub.amount, currency: sub.currency||'usd', customer: c.stripe_customer_id, payment_method: c.stripe_payment_method, confirm: true, off_session: true });
+        const pm = await resolveBestPaymentMethod(stripe, c.stripe_customer_id, { localPaymentMethodId: c.stripe_payment_method });
+        if (!pm) throw new Error('No usable saved card found for this customer');
+        await syncLocalPaymentMethod(c.id, pm);
+        const pi = await stripe.paymentIntents.create({ amount: sub.amount, currency: sub.currency||'usd', customer: c.stripe_customer_id, payment_method: pm.id, confirm: true, off_session: true });
         const status = pi.status==='succeeded'?'succeeded':'failed';
         await payments.insert({ customer_id: c.id, subscription_id: sub.id, stripe_payment_intent: pi.id, amount: sub.amount, currency: sub.currency||'usd', status, failure_reason: null });
         if (status==='succeeded') {
@@ -1619,7 +1730,7 @@ app.post('/api/run-rebills', async (req, res) => {
         }
       } catch(e) { failed++; }
     }
-    res.json({ success: true, charged, failed, total: eligible.length });
+    res.json({ success: true, charged, failed, skippedStripeManaged, total: eligible.length });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
