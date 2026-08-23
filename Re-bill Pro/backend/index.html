@@ -8939,7 +8939,18 @@ function configurePaymentLinksAccessUI(){
 async function addAccount(){const name=document.getElementById('acc-name').value.trim(),key=document.getElementById('acc-key').value.trim(),publishable=document.getElementById('acc-publishable').value.trim(),webhook=document.getElementById('acc-webhook').value.trim();if(!name||!key){toast('Name and key required','error');return;}const r=await api('/api/stripe-accounts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,secret_key:key,publishable_key:publishable||null,webhook_secret:webhook})});if(r.success){toast('✓ Account added');closeModal('add-account-modal');document.getElementById('acc-name').value='';document.getElementById('acc-key').value='';document.getElementById('acc-publishable').value='';document.getElementById('acc-webhook').value='';loadAccounts();}else toast('Error: '+(r.error||'Failed'),'error');}
 async function setDefaultAccount(id){var r=await api('/api/stripe-accounts/'+id+'/default',{method:'PATCH'});if(r.success){toast('✓ Default updated');loadAccounts();}else toast('Error: '+(r.error||'Failed'),'error');}
 async function clearDefaultAccount(){if(!confirm('Remove the default account selection?'))return;var r=await api('/api/stripe-accounts/default/clear',{method:'PATCH'});if(r.success){toast('✓ Default removed');loadAccounts();}else toast('Error: '+(r.error||'Failed'),'error');}
-async function deleteAccount(id){if(!confirm('Delete this account?'))return;await api('/api/stripe-accounts/'+id,{method:'DELETE'});toast('Account deleted');loadAccounts();}
+function deleteAccount(id){
+  openAppActionConfirm({
+    title:'Delete Stripe account?',
+    message:'This will remove the Stripe account from Subloop. This action cannot be undone.',
+    cancelText:'Keep account',
+    confirmText:'Delete account'
+  },async function(){
+    await api('/api/stripe-accounts/'+id,{method:'DELETE'});
+    toast('Account deleted');
+    loadAccounts();
+  });
+}
 async function loadForecast(){try{const d=await api('/api/forecast');document.getElementById('forecast-30').textContent=fmt(d.forecast30||0);document.getElementById('forecast-60').textContent=fmt(d.forecast60||0);document.getElementById('forecast-90').textContent=fmt(d.forecast90||0);}catch(e){}}
 async function loadExpiry(){try{var days=document.getElementById('expiry-days')?document.getElementById('expiry-days').value:30;var list=await api('/api/expiring-cards?days='+days);var tb=document.getElementById('expiry-table');if(!list.length){tb.innerHTML='<tr><td colspan="5" class="empty">No expiring cards in this period</td></tr>';return;}var now=new Date();tb.innerHTML=list.map(function(c){var expMonth=String(c.card_exp_month||'?').padStart(2,'0');var expYear=String(c.card_exp_year||'?');var yr=parseInt(c.card_exp_year)||9999;var mo=parseInt(c.card_exp_month)||12;var isExpired=yr<now.getFullYear()||(yr===now.getFullYear()&&mo<=now.getMonth()+1);var color=isExpired?'var(--red)':'var(--amber)';return '<tr><td><div class="customer-cell"><div class="avatar">'+initials(c.name)+'</div><div><div class="customer-name">'+(c.name||'—')+'</div><div class="customer-email">'+(c.email||'')+'</div></div></div></td><td>'+cardBadge(c.card_brand,c.card_last4)+'</td><td><span style="color:'+color+';font-family:var(--mono);font-weight:600;">'+expMonth+'/'+expYear+'</span></td><td class="mono">'+fmtDate(c.next_billing_date)+'</td><td><button class="btn btn-sm" onclick="openPortal('+c.id+')">Update card ↗</button></td></tr>';}).join('');}catch(e){}}
 function formatPaymentCount(value){
@@ -9250,7 +9261,22 @@ async function addAdmin(){
   if(accountScope==='selected'&&!accountIds.length){toast('Select at least one Stripe account','error');return;}
   try{var r=await api('/api/admin-users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:username,password:password,role:role,permissions:permissions,account_scope:accountScope,allowed_account_ids:accountIds})});if(r.success){toast('✓ Admin added');closeModal('add-admin-modal');document.getElementById('admin-username').value='';document.getElementById('admin-password').value='';loadAdmins();}else toast('Error: '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}
 }
-async function deleteAdmin(id){var target=(allAdminUsers||[]).find(function(a){return Number(a.id)===Number(id);});if(!canManageAccessUser(target)){toast('You cannot remove this user access','error');return;}if(!confirm('Remove access for this user?'))return;try{var r=await api('/api/admin-users/'+id,{method:'DELETE'});if(r.success){toast('✓ Access removed');loadAdmins();}else toast('Error: '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
+function deleteAdmin(id){
+  var target=(allAdminUsers||[]).find(function(a){return Number(a.id)===Number(id);});
+  if(!canManageAccessUser(target)){toast('You cannot remove this user access','error');return;}
+  openAppActionConfirm({
+    title:'Remove user access?',
+    message:'This user will lose access to Subloop. You can add them again later if needed.',
+    cancelText:'Keep access',
+    confirmText:'Remove access'
+  },async function(){
+    try{
+      var r=await api('/api/admin-users/'+id,{method:'DELETE'});
+      if(r.success){toast('✓ Access removed');loadAdmins();}
+      else toast('Error: '+(r.error||'Failed'),'error');
+    }catch(e){toast('Error','error');}
+  });
+}
 async function changeMyPassword(){var np=document.getElementById('change-pass-new').value;var cp=document.getElementById('change-pass-confirm').value;if(!np||np.length<8){toast('Password must be at least 8 characters','error');return;}if(np!==cp){toast('Passwords do not match','error');return;}try{var list=await api('/api/admin-users');var me=list.find(function(a){return a.username===localStorage.getItem('subloop_username');});if(!me){toast('Could not find your account','error');return;}var r=await api('/api/admin-users/'+me.id+'/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:np})});if(r.success){toast('✓ Password updated');document.getElementById('change-pass-new').value='';document.getElementById('change-pass-confirm').value='';}else toast('Error: '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
 var searchTimer=null;
 function closeGlobalSearch(){
