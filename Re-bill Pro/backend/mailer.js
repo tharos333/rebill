@@ -23,7 +23,7 @@ async function sendFailedPaymentEmail({ email, name, amount, currency, updateUrl
   }).format(amount / 100);
 
   await transporter.sendMail({
-    from: process.env.EMAIL_FROM || 'Rebill <noreply@rebill.app>',
+    from: process.env.EMAIL_FROM || 'Subloop <noreply@rebill.app>',
     to: email,
     subject: `Action required: Your ${formatted} payment failed`,
     html: `
@@ -61,7 +61,7 @@ async function sendReceiptEmail({ email, name, amount, currency, paymentIntentId
   }).format(amount / 100);
 
   await transporter.sendMail({
-    from: process.env.EMAIL_FROM || 'Rebill <noreply@rebill.app>',
+    from: process.env.EMAIL_FROM || 'Subloop <noreply@rebill.app>',
     to: email,
     subject: `Payment receipt — ${formatted}`,
     html: `

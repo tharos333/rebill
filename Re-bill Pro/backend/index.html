@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="icon" type="image/png" href="https://i.ibb.co/6cnnDkWy/Blue-and-White-Minimalist-Professional-Brand-Logo-1.png">
-<title>Subloop Beta 1.0 — Manage & Rebill Subscriptions</title>
+<title>Subloop Beta 1.0 — Manage Recurring Subscriptions</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -5050,7 +5050,7 @@ tbody td strong{
 }
 
 
-/* Dashboard only: match Upcoming rebills Paused text weight with Subscriptions Paused */
+/* Dashboard only: match Upcoming recurring payments Paused text weight with Subscriptions Paused */
 #page-dashboard #upcoming-table .dashboard-upcoming-paused,
 #page-dashboard #upcoming-table .dashboard-upcoming-paused > span{
   font-weight:600!important;
@@ -6007,7 +6007,7 @@ body.view-only-access #verification-debug-modal .modal-content{
     <div id="revenue-summary" style="padding:14px 18px 16px;"><div style="color:var(--muted);font-size:13px;font-family:var(--mono)">Loading...</div></div>
   </div>
   <div class="card">
-    <div class="card-header"><h3>Upcoming rebills</h3></div>
+    <div class="card-header"><h3>Upcoming recurring payments</h3></div>
     <div class="scrollable"><table>
       <thead><tr><th>Customer</th><th>Amount</th><th>Next billing</th><th>Status</th><th class="view-write-only">Action</th></tr></thead>
       <tbody id="upcoming-table"><tr><td colspan="5" class="empty">Loading...</td></tr></tbody>
@@ -6145,7 +6145,7 @@ body.view-only-access #verification-debug-modal .modal-content{
 <!-- Subscriptions -->
 <div id="page-subscriptions" class="page">
   <div class="page-header">
-    <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg><span>Subscriptions</span></h2><p>All rebilling schedules</p></div>
+    <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg><span>Subscriptions</span></h2><p>All recurring billing schedules</p></div>
     <div class="page-header-actions">
       <div id="sub-default-btn" class="view-write-only">
         <button class="btn btn-sm" onclick="enterBulkMode()">Select</button>
@@ -6309,7 +6309,7 @@ body.view-only-access #verification-debug-modal .modal-content{
         <div class="form-group"><label>Currency</label><select id="link-currency"><option value="usd">USD</option><option value="eur">EUR</option><option value="gbp">GBP</option><option value="mad">MAD</option></select></div>
       </div>
       <div class="form-group"><label>Stripe account</label><select id="link-account"><option value="">Loading...</option></select></div>
-      <div class="form-group"><label>Rebill interval</label>
+      <div class="form-group"><label>Billing interval</label>
         <select id="link-interval"><option value="7">Weekly</option><option value="14">Biweekly</option><option value="30" selected>Monthly</option><option value="90">Quarterly</option><option value="365">Yearly</option></select>
       </div>
       <button class="btn btn-primary" onclick="createPaymentLink()" id="create-link-btn">Generate Payment Link</button>
@@ -6353,7 +6353,7 @@ body.view-only-access #verification-debug-modal .modal-content{
   <div class="card" style="max-width:600px;">
     <div class="card-header"><h3>Dunning Management</h3></div>
     <div style="padding:4px 18px 18px;">
-      <p style="font-size:12px;color:var(--muted);font-family:var(--mono);margin:10px 0 16px;">When a rebill fails, automatically retry before canceling.</p>
+      <p style="font-size:12px;color:var(--muted);font-family:var(--mono);margin:10px 0 16px;">When a recurring payment fails, automatically retry before canceling.</p>
       <div class="setting-row">
         <div class="setting-info"><div class="setting-label">Enable Dunning</div><div class="setting-desc">Auto-retry failed payments before canceling</div></div>
         <label class="switch"><input type="checkbox" id="setting-dunning" onchange="setDunningScheduleState(this.checked);saveSetting('dunning_enabled',this.checked)"><span class="slider"></span></label>
@@ -6567,7 +6567,7 @@ body.view-only-access #verification-debug-modal .modal-content{
 <!-- Modals -->
 <div class="modal-bg" id="add-customer-modal">
   <div class="modal">
-    <h3>Add Customer Manually</h3><p>Link a Stripe customer to Subloop for rebilling</p>
+    <h3>Add Customer Manually</h3><p>Link a Stripe customer to Subloop for recurring payments</p>
     <div class="form-row"><div class="form-group"><label>Name</label><input type="text" id="mc-name" placeholder="John Doe"></div><div class="form-group"><label>Email</label><input type="email" id="mc-email" placeholder="john@example.com"></div></div>
     <div class="form-group"><label>Stripe customer ID (cus_...)</label><input type="text" id="mc-stripe-id" placeholder="cus_xxx..."></div>
     <div class="form-group"><label>Payment method ID (pm_...) — optional</label><input type="text" id="mc-pm-id" placeholder="pm_xxx..."></div>
@@ -6954,15 +6954,15 @@ function canManageOperationalSection(section){
 function applyRoleBasedPageCopy(){
   var role=getCurrentRole();
   var assigned=(localStorage.getItem('subloop_account_scope')||'all')==='selected';
-  var defaults={dashboard:'Your business overview',activity:'All actions and events',customers:'Manage customers and payment methods',subscriptions:'All rebilling schedules',payments:'Full payment history',links:'Create payment links for recurring payments',accounts:'Manage multiple Stripe accounts',forecast:'Projected revenue based on active subscriptions',summary:'Your business at a glance',mrr:'Revenue performance over time',recovery:'Failed payments later completed successfully',webhooks:'Incoming Stripe events'};
+  var defaults={dashboard:'Your business overview',activity:'All actions and events',customers:'Manage customers and payment methods',subscriptions:'All recurring billing schedules',payments:'Full payment history',links:'Create payment links for recurring payments',accounts:'Manage multiple Stripe accounts',forecast:'Projected revenue based on active subscriptions',summary:'Your business at a glance',mrr:'Revenue performance over time',recovery:'Failed payments later completed successfully',webhooks:'Incoming Stripe events'};
   Object.keys(defaults).forEach(function(k){setPageSubtitle(k,defaults[k]);});
   if(role==='viewer'||role==='analyst'){
     var suffix=assigned?' for assigned Stripe accounts':'';
-    var copy={dashboard:'View business results'+suffix,activity:'View activity history'+suffix,customers:'View customer payment results'+suffix,subscriptions:'View rebilling schedules'+suffix,payments:'View payment history and statuses'+suffix,links:'View payment link templates'+suffix,accounts:assigned?'View assigned Stripe accounts':'View connected Stripe accounts',forecast:'View projected revenue'+suffix,summary:'View daily results'+suffix,mrr:'View revenue performance'+suffix,recovery:'View failed payment recovery results'+suffix,webhooks:'View Stripe events'+suffix};
+    var copy={dashboard:'View business results'+suffix,activity:'View activity history'+suffix,customers:'View customer payment results'+suffix,subscriptions:'View recurring billing schedules'+suffix,payments:'View payment history and statuses'+suffix,links:'View payment link templates'+suffix,accounts:assigned?'View assigned Stripe accounts':'View connected Stripe accounts',forecast:'View projected revenue'+suffix,summary:'View daily results'+suffix,mrr:'View revenue performance'+suffix,recovery:'View failed payment recovery results'+suffix,webhooks:'View Stripe events'+suffix};
     Object.keys(copy).forEach(function(k){setPageSubtitle(k,copy[k]);});
   }else if(role==='custom'){
     var suffix=assigned?' for assigned Stripe accounts':'';
-    var copy={dashboard:'Overview'+suffix,activity:'Activity'+suffix,customers:'Manage customers'+suffix,subscriptions:'Manage rebilling schedules'+suffix,payments:'Manage payments'+suffix,links:'Create payment links'+suffix,accounts:assigned?'View assigned Stripe accounts':'View connected Stripe accounts',forecast:'Projected revenue'+suffix,summary:'Daily results'+suffix,mrr:'Revenue performance'+suffix,recovery:'Failed payment recovery'+suffix,webhooks:'Stripe events'+suffix};
+    var copy={dashboard:'Overview'+suffix,activity:'Activity'+suffix,customers:'Manage customers'+suffix,subscriptions:'Manage recurring billing schedules'+suffix,payments:'Manage payments'+suffix,links:'Create payment links'+suffix,accounts:assigned?'View assigned Stripe accounts':'View connected Stripe accounts',forecast:'Projected revenue'+suffix,summary:'Daily results'+suffix,mrr:'Revenue performance'+suffix,recovery:'Failed payment recovery'+suffix,webhooks:'Stripe events'+suffix};
     Object.keys(copy).forEach(function(k){setPageSubtitle(k,copy[k]);});
   }
 }
@@ -8236,6 +8236,14 @@ function pdCopyButton(v){
   return '<button class="pd-copy" title="Copy" onclick="copyPdValue(\''+String(safe).replace(/'/g,'&#39;')+'\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
 }
 function paymentTypeLabel(p){
+  var origin=String(p.payment_origin||'').toLowerCase();
+  if(origin==='rebill')return 'Recurring';
+  if(origin==='subscription_renewal')return 'Subscription renewal';
+  if(origin==='subscription_initial'||origin==='subscription')return 'Subscription';
+  if(origin==='one_time')return 'One-time';
+  // Backward-compatible inference for payments created before payment_origin existed.
+  // A local subscription id without a Stripe invoice is a Subloop saved-card rebill.
+  if(p.subscription_id&&!p.stripe_invoice_id)return 'Recurring';
   if(p.subscription_id||p.stripe_invoice_id)return 'Subscription';
   return 'One-time';
 }
@@ -8280,7 +8288,7 @@ function renderPaymentDetailModal(p, syncing){
   var isFailed=p.status==='failed', isSucceeded=p.status==='succeeded', isPaymentNeeded=badgeLabel(p.status)==='Payment needed', isCanceled=badgeLabel(p.status)==='Canceled';
   var isRedState=isFailed||isCanceled;
   var isWalletPayment=!!p.wallet_type||['link','amazon_pay'].includes(normalizeStripeMethodKey(p.payment_method_type));
-  var typeLabel=isWalletPayment?((p.subscription_id||p.stripe_invoice_id)?'Subscription wallet payment':'One-time wallet payment'):(paymentTypeLabel(p)+' card payment');
+  var typeLabel=paymentTypeLabel(p)+(isWalletPayment?' wallet payment':' card payment');
   var headerTitle=isSucceeded?'Payment successful':(isFailed?'Payment failed':(isCanceled?'Payment canceled':(isPaymentNeeded?'Payment needed':'Payment details')));
   var statusPill=isFailed?'Failed':(isSucceeded?'Succeeded':(isCanceled?'Canceled':(isPaymentNeeded?'Payment needed':(p.status||'Unknown'))));
   var statusClass=isRedState?'failed':(isSucceeded?'success':'info');
@@ -8391,7 +8399,7 @@ function renderPaymentDetailModal(p, syncing){
 
 function openPaymentModal(p){
   if(!p||!p.id)return;
-  var needsFinancialSync=!!p.stripe_payment_intent&&((p.status==='succeeded'&&(p.stripe_fee===undefined||p.stripe_fee===null||p.net_amount===undefined||p.net_amount===null||!p.financial_currency))||!p.payment_method_type||p.wallet_checked!==true);
+  var needsFinancialSync=!!p.stripe_payment_intent&&((p.status==='succeeded'&&(p.stripe_fee===undefined||p.stripe_fee===null||p.net_amount===undefined||p.net_amount===null||!p.financial_currency))||!p.payment_method_type||p.wallet_checked!==true||!p.payment_origin);
   renderPaymentDetailModal(p, needsFinancialSync);
   openModal('payment-detail-modal');
   if(needsFinancialSync){
@@ -8729,7 +8737,7 @@ function buildCustomerDrawer(data){
   h+=customerDrawerRow('Created date',fmtDate(c.created_at));
   h+='</section>';
 
-  h+='<section class="customer-profile-section"><h3>Rebill payment method</h3>';
+  h+='<section class="customer-profile-section"><h3>Recurring payment method</h3>';
   if(hasCard){
     h+='<div class="customer-rebill-card-head"><div class="customer-profile-card-line">'+customerRebillPaymentDisplay(data,c,true)+'</div><span class="customer-rebill-will-charge">Will be charged</span></div>';
     h+=customerDrawerRow('Selected by',escapeCustomerHtml(liveRebillPm?.source_label||'Saved payment method'));
@@ -8737,7 +8745,7 @@ function buildCustomerDrawer(data){
     h+=customerDrawerRow('Country',escapeCustomerHtml(customerCountryFullLabel(liveRebillPm?.country||c.primary_card_country||c.card_country)));
     h+=customerDrawerRow('Expires',escapeCustomerHtml(expiry));
   }else{
-    h+='<div class="customer-profile-empty">No usable saved card found for rebilling</div>';
+    h+='<div class="customer-profile-empty">No usable saved card found for recurring payments</div>';
   }
   h+='</section>';
 
@@ -8749,7 +8757,7 @@ function buildCustomerDrawer(data){
   h+=customerDrawerRow('Average payment',avgAmount);
   h+='</section>';
 
-  h+='<section class="customer-profile-section"><h3>Subscription / rebill</h3>';
+  h+='<section class="customer-profile-section"><h3>Subscription / recurring billing</h3>';
   h+=customerDrawerRow('Payment type',escapeCustomerHtml(customerPaymentType(c)));
   h+=customerDrawerRow('Active subscriptions',String(c.active_subs||0));
   h+=customerDrawerRow('Next billing',fmtDate(c.next_billing_date));
@@ -8849,7 +8857,7 @@ async function cancelCustomerSubscriptionsNow(id){
   },function(){return setCustStatus(id,'cancelled');});
 }
 async function openPortal(customerId){if(blockViewOnlyAction())return;try{const r=await api('/api/customers/'+customerId+'/portal',{method:'POST'});if(r.url)window.open(r.url,'_blank');else toast('Could not open portal','error');}catch(e){toast('Error','error');}}
-async function runRebills(){toast('Running rebill job…');try{const r=await api('/api/run-rebills',{method:'POST'});if(r.success){toast('✓ Done: '+r.succeeded+' charged, '+r.failed+' failed'+(r.resumed>0?', '+r.resumed+' resumed':''));loadStats();loadUpcoming();}}catch(e){toast('Error','error');}}
+async function runRebills(){toast('Running recurring charges…');try{const r=await api('/api/run-rebills',{method:'POST'});if(r.success){toast('✓ Done: '+r.succeeded+' charged, '+r.failed+' failed'+(r.resumed>0?', '+r.resumed+' resumed':''));loadStats();loadUpcoming();}}catch(e){toast('Error','error');}}
 async function addCustomer(){
   const body={name:document.getElementById('mc-name').value.trim(),email:document.getElementById('mc-email').value.trim(),stripe_customer_id:document.getElementById('mc-stripe-id').value.trim(),stripe_payment_method:document.getElementById('mc-pm-id').value.trim()||null,card_brand:document.getElementById('mc-brand').value.trim()||null,card_last4:document.getElementById('mc-last4').value.trim()||null,card_exp_month:document.getElementById('mc-exp-m').value||null,card_exp_year:document.getElementById('mc-exp-y').value||null,stripe_account_id:document.getElementById('mc-account').value||null,note:document.getElementById('mc-note').value.trim()||null};
   if(!body.email||!body.stripe_customer_id){toast('Email and Stripe ID required','error');return;}
@@ -9066,7 +9074,7 @@ var PERM_LIST=[
   {value:'dashboard',label:'Dashboard',desc:'Overview statistics and revenue charts'},
   {value:'activity',label:'Activity Log',desc:'Full activity history'},
   {value:'customers',label:'Customers',desc:'Customer payment results'},
-  {value:'subscriptions',label:'Subscriptions',desc:'Rebilling schedules'},
+  {value:'subscriptions',label:'Subscriptions',desc:'Recurring billing schedules'},
   {value:'payments',label:'Payments',desc:'Payment history and statuses'},
   {value:'links',label:'Payment Links',desc:'Payment links for assigned accounts'},
   {value:'accounts',label:'Stripe Accounts',desc:'Assigned Stripe account details'},
@@ -9080,7 +9088,7 @@ var VIEW_ONLY_PERMISSION_COPY={
   dashboard:'View statistics and revenue charts',
   activity:'View activity history',
   customers:'View customer payment results',
-  subscriptions:'View rebilling schedules',
+  subscriptions:'View recurring billing schedules',
   payments:'View payment history and statuses',
   links:'View payment link templates',
   accounts:'View assigned Stripe accounts',
@@ -9094,7 +9102,7 @@ var CUSTOM_PERMISSION_COPY={
   dashboard:'View statistics for assigned accounts',
   activity:'View activity for assigned accounts',
   customers:'Manage customers for assigned accounts',
-  subscriptions:'Manage rebilling schedules',
+  subscriptions:'Manage recurring billing schedules',
   payments:'Manage payments and notes',
   links:'Create links for assigned Stripe accounts',
   accounts:'View assigned Stripe accounts only',

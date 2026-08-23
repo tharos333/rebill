@@ -173,6 +173,7 @@ async function ensureWebhookColumns() {
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS retry_of_payment_id INT REFERENCES payments(id)').catch(()=>{});
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS was_failed BOOLEAN DEFAULT false').catch(()=>{});
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS recovered_at TIMESTAMPTZ').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_origin TEXT').catch(()=>{});
   await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT').catch(()=>{});
   await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_price_id TEXT').catch(()=>{});
   await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_invoice_id TEXT').catch(()=>{});
@@ -219,7 +220,7 @@ async function retrieveAttachedPaymentMethod(stripe, customerId, candidate) {
   }
 }
 
-// Pick the safest/most relevant saved card for a rebill.
+// Pick the safest/most relevant saved card for a recurring charge.
 // We also keep the selection source so the UI can show exactly which card will be charged.
 async function resolveBestPaymentMethodInfo(stripe, customerId, options = {}) {
   if (!customerId) return { paymentMethod: null, source: null, sourceLabel: null };
@@ -708,6 +709,18 @@ function subscriptionIdFromInvoice(invoice) {
   return null;
 }
 
+function paymentOriginFromStripeContext(pi, invoice, hasSubscription) {
+  const explicit = String(pi?.metadata?.subloop_payment_origin || '').toLowerCase();
+  if (['rebill','one_time','subscription_initial','subscription_renewal'].includes(explicit)) return explicit;
+  const reason = String(invoice?.billing_reason || '').toLowerCase();
+  if (hasSubscription) {
+    if (reason === 'subscription_create') return 'subscription_initial';
+    if (reason === 'subscription_cycle') return 'subscription_renewal';
+    return 'subscription';
+  }
+  return 'one_time';
+}
+
 async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null, fallbackCustomer = {}) {
   await ensureWebhookColumns();
   if (!pi?.id && typeof pi === 'string') pi = await stripe.paymentIntents.retrieve(pi, { expand: ['latest_charge', 'payment_method', 'invoice'] });
@@ -750,6 +763,16 @@ async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null, f
     try { localSubId = await saveSubscriptionFromStripe(stripe, usedAccount, subId, 'payment_intent.' + pi.id); }
     catch(e) { console.error('[payment] failed saving related subscription:', e.message); }
   }
+  // Subloop manual recurring charges are standalone PaymentIntents, so Stripe has no invoice/subscription
+  // relationship to infer from. Preserve the local subscription id in PaymentIntent metadata.
+  if (!localSubId && pi?.metadata?.subloop_subscription_id) {
+    const metadataSubId = parseInt(pi.metadata.subloop_subscription_id, 10);
+    if (Number.isFinite(metadataSubId)) {
+      const owned = await pool.query(`SELECT s.id FROM subscriptions s JOIN customers c ON c.id=s.customer_id WHERE s.id=$1 AND c.id=$2 AND c.stripe_account_id=$3`, [metadataSubId, localCustomer.id, usedAccount.id]).catch(()=>({rows:[]}));
+      if (owned.rows[0]) localSubId = owned.rows[0].id;
+    }
+  }
+  const paymentOrigin = paymentOriginFromStripeContext(pi, invoice, !!(subId || localSubId));
 
   const status = forcedStatus || (pi.status === 'succeeded' ? 'succeeded' : (pi.status || 'failed'));
   const failureReason = pi.last_payment_error?.message || pi.cancellation_reason || null;
@@ -764,9 +787,10 @@ async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null, f
       card_exp_month=COALESCE($10,card_exp_month), card_exp_year=COALESCE($11,card_exp_year), card_country=COALESCE($12,card_country), card_funding=COALESCE($13,card_funding),
       stripe_fee=COALESCE($14,stripe_fee), net_amount=COALESCE($15,net_amount), balance_transaction_id=COALESCE($16,balance_transaction_id), financial_currency=COALESCE($17,financial_currency),
       was_failed=COALESCE(was_failed,false) OR $18='failed',
-      recovered_at=CASE WHEN $18='succeeded' AND (COALESCE(was_failed,false) OR status='failed') THEN COALESCE(recovered_at,NOW()) ELSE recovered_at END
-      WHERE id=$19`,
-      [localCustomer.id, localSubId, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency, status, existingPayment.rows[0].id]);
+      recovered_at=CASE WHEN $18='succeeded' AND (COALESCE(was_failed,false) OR status='failed') THEN COALESCE(recovered_at,NOW()) ELSE recovered_at END,
+      payment_origin=COALESCE($19,payment_origin)
+      WHERE id=$20`,
+      [localCustomer.id, localSubId, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency, status, paymentOrigin, existingPayment.rows[0].id]);
     await pool.query(`UPDATE payments SET payment_method_type=COALESCE($1,payment_method_type), wallet_type=COALESCE($2,wallet_type), wallet_checked=TRUE WHERE id=$3`,
       [cardDetails.payment_method_type, cardDetails.wallet_type, existingPayment.rows[0].id]).catch(()=>{});
     await syncFirstPaymentEligibility(localCustomer.id, localSubId, status).catch(e => console.error('[payment] eligibility sync failed:', e.message));
@@ -775,9 +799,9 @@ async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null, f
   }
 
   const ins = await pool.query(
-    `INSERT INTO payments (customer_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,stripe_invoice_id,card_brand,card_last4,card_exp_month,card_exp_year,card_country,card_funding,stripe_fee,net_amount,balance_transaction_id,financial_currency,was_failed)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING id`,
-    [localCustomer.id, localSubId, pi.id, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency, status==='failed']
+    `INSERT INTO payments (customer_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,stripe_invoice_id,card_brand,card_last4,card_exp_month,card_exp_year,card_country,card_funding,stripe_fee,net_amount,balance_transaction_id,financial_currency,was_failed,payment_origin)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20) RETURNING id`,
+    [localCustomer.id, localSubId, pi.id, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency, status==='failed', paymentOrigin]
   );
   await pool.query(`UPDATE payments SET payment_method_type=COALESCE($1,payment_method_type), wallet_type=COALESCE($2,wallet_type), wallet_checked=TRUE WHERE id=$3`,
     [cardDetails.payment_method_type, cardDetails.wallet_type, ins.rows[0].id]).catch(()=>{});
@@ -1570,7 +1594,7 @@ app.get('/api/customers/:id/details', async (req, res) => {
     if (!data.customer) return res.status(404).json({ error: 'Customer not found' });
     if (!ensureRowScope(req, res, data.customer)) return;
 
-    // Live rebill preview: show the exact saved card Subloop would choose right now.
+    // Live recurring-payment preview: show the exact saved card Subloop would choose right now.
     // This is read-only and does not modify any Stripe object or old transaction.
     data.rebill_payment_method = null;
     try {
@@ -1619,7 +1643,7 @@ app.get('/api/customers/:id/details', async (req, res) => {
         }
       }
     } catch(previewErr) {
-      console.log('[rebill-preview] could not build preview:', previewErr.message);
+      console.log('[recurring-preview] could not build preview:', previewErr.message);
     }
 
     res.json(data);
@@ -1810,8 +1834,8 @@ app.post('/api/customers/:id/charge-once', async (req, res) => {
     const pm = await resolveBestPaymentMethod(stripe, c.stripe_customer_id, { localPaymentMethodId: c.stripe_payment_method });
     if (!pm) return res.status(400).json({ error: 'No usable saved card found for this customer' });
     await syncLocalPaymentMethod(c.id, pm);
-    const pi = await stripe.paymentIntents.create({ amount, currency: currency||'usd', customer: c.stripe_customer_id, payment_method: pm.id, confirm: true, description: description||'Manual invoice', off_session: true });
-    await payments.insert({ customer_id: c.id, subscription_id: null, stripe_payment_intent: pi.id, amount, currency: currency||'usd', status: pi.status==='succeeded'?'succeeded':'failed', failure_reason: null });
+    const pi = await stripe.paymentIntents.create({ amount, currency: currency||'usd', customer: c.stripe_customer_id, payment_method: pm.id, confirm: true, description: description||'Manual invoice', off_session: true, metadata: { subloop_payment_origin: 'one_time' } });
+    await payments.insert({ customer_id: c.id, subscription_id: null, stripe_payment_intent: pi.id, amount, currency: currency||'usd', status: pi.status==='succeeded'?'succeeded':'failed', failure_reason: null, payment_origin: 'one_time' });
     res.json({ success: pi.status==='succeeded', status: pi.status });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
@@ -1904,8 +1928,8 @@ app.post('/api/subscriptions/:id/charge', async (req, res) => {
     });
     if (!pm) return res.status(400).json({ success: false, error: 'No usable saved card found for this customer' });
     await syncLocalPaymentMethod(c.id, pm);
-    const pi = await stripe.paymentIntents.create({ amount: sub.amount, currency: sub.currency, customer: c.stripe_customer_id, payment_method: pm.id, off_session: true, confirm: true });
-    await payments.insert({ customer_id: c.id, subscription_id: sub.id, stripe_payment_intent: pi.id, amount: sub.amount, currency: sub.currency, status: 'succeeded', failure_reason: null });
+    const pi = await stripe.paymentIntents.create({ amount: sub.amount, currency: sub.currency, customer: c.stripe_customer_id, payment_method: pm.id, off_session: true, confirm: true, metadata: { subloop_payment_origin: 'rebill', subloop_subscription_id: String(sub.id) } });
+    await payments.insert({ customer_id: c.id, subscription_id: sub.id, stripe_payment_intent: pi.id, amount: sub.amount, currency: sub.currency, status: 'succeeded', failure_reason: null, payment_origin: 'rebill' });
     await subscriptions.advanceBillingDate(sub.id, sub.interval_days);
     await activityLog.add('charge', `Manual charge of ${(sub.amount/100).toFixed(2)} for ${c.email}`, c.id, sub.amount);
     res.json({ success: true, paymentIntentId: pi.id });
@@ -1944,11 +1968,36 @@ app.get('/api/payments/:id/financials', async (req, res) => {
     const cardDetails = await getCardDetailsFromPaymentIntent(stripe, pi);
     const invoice = await getInvoiceFromPaymentIntent(stripe, pi);
     const invoiceId = typeof invoice === 'string' ? invoice : invoice?.id || payment.stripe_invoice_id || null;
+    const invoiceSubId = subscriptionIdFromInvoice(invoice);
+    let resolvedOrigin = payment.payment_origin || null;
+    let inferredLocalSubId = payment.subscription_id || null;
+    if (!resolvedOrigin) {
+      const explicitOrigin = String(pi?.metadata?.subloop_payment_origin || '').toLowerCase();
+      if (explicitOrigin) {
+        resolvedOrigin = paymentOriginFromStripeContext(pi, invoice, !!(invoiceSubId || payment.subscription_id));
+      } else if (invoiceSubId || payment.subscription_id) {
+        resolvedOrigin = paymentOriginFromStripeContext(pi, invoice, true);
+      } else if (pi.description) {
+        // Standalone charges created from Subloop's one-time invoice UI always have a description.
+        resolvedOrigin = 'one_time';
+      } else {
+        // Legacy Subloop recurring charges (created before payment-origin metadata existed) had no invoice
+        // and no description. If this customer has exactly one subscription, safely associate it.
+        const candidates = await pool.query('SELECT id FROM subscriptions WHERE customer_id=$1 ORDER BY created_at DESC LIMIT 2', [payment.customer_id]).catch(()=>({rows:[]}));
+        if (candidates.rows.length === 1) {
+          inferredLocalSubId = candidates.rows[0].id;
+          resolvedOrigin = 'rebill';
+        } else {
+          resolvedOrigin = 'one_time';
+        }
+      }
+    }
     await pool.query(`UPDATE payments SET
       stripe_fee=COALESCE($1,stripe_fee), net_amount=COALESCE($2,net_amount), balance_transaction_id=COALESCE($3,balance_transaction_id), financial_currency=COALESCE($4,financial_currency),
       stripe_invoice_id=COALESCE($5,stripe_invoice_id), card_brand=COALESCE($6,card_brand), card_last4=COALESCE($7,card_last4),
-      card_exp_month=COALESCE($8,card_exp_month), card_exp_year=COALESCE($9,card_exp_year), card_country=COALESCE($10,card_country), card_funding=COALESCE($11,card_funding)
-      WHERE id=$12`, [financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, payment.id]);
+      card_exp_month=COALESCE($8,card_exp_month), card_exp_year=COALESCE($9,card_exp_year), card_country=COALESCE($10,card_country), card_funding=COALESCE($11,card_funding),
+      payment_origin=COALESCE(payment_origin,$12), subscription_id=COALESCE(subscription_id,$13)
+      WHERE id=$14`, [financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, resolvedOrigin, inferredLocalSubId, payment.id]);
     await pool.query(`UPDATE payments SET payment_method_type=COALESCE($1,payment_method_type), wallet_type=COALESCE($2,wallet_type), wallet_checked=TRUE WHERE id=$3`,
       [cardDetails.payment_method_type, cardDetails.wallet_type, payment.id]).catch(()=>{});
     const updated = await pool.query(`SELECT p.*, c.email, c.name, COALESCE(p.card_brand,c.card_brand) AS card_brand, COALESCE(p.card_last4,c.card_last4) AS card_last4, sa.name AS account_name
@@ -1979,9 +2028,12 @@ app.post('/api/payments/:id/retry', async (req, res) => {
     });
     if (!pm) return res.status(400).json({ error: 'No usable saved card found for this customer' });
     await syncLocalPaymentMethod(p.customer_id, pm);
-    const pi = await stripe.paymentIntents.create({ amount: p.amount, currency: p.currency||'usd', customer: p.stripe_customer_id, payment_method: pm.id, confirm: true, off_session: true });
+    const retryOrigin = p.subscription_id ? 'rebill' : 'one_time';
+    const retryMetadata = { subloop_payment_origin: retryOrigin };
+    if (p.subscription_id) retryMetadata.subloop_subscription_id = String(p.subscription_id);
+    const pi = await stripe.paymentIntents.create({ amount: p.amount, currency: p.currency||'usd', customer: p.stripe_customer_id, payment_method: pm.id, confirm: true, off_session: true, metadata: retryMetadata });
     const status = pi.status==='succeeded'?'succeeded':'failed';
-    await payments.insert({ customer_id: p.customer_id, subscription_id: p.subscription_id, stripe_payment_intent: pi.id, amount: p.amount, currency: p.currency, status, failure_reason: null, retry_of_payment_id: p.id });
+    await payments.insert({ customer_id: p.customer_id, subscription_id: p.subscription_id, stripe_payment_intent: pi.id, amount: p.amount, currency: p.currency, status, failure_reason: null, retry_of_payment_id: p.id, payment_origin: retryOrigin });
     await activityLog.add('retry', `Retried payment for ${p.name}: ${status}`, p.customer_id, p.amount);
     res.json({ success: status==='succeeded', status, retry_of_payment_id: p.id });
   } catch(err) { res.status(500).json({ error: err.message }); }
@@ -2078,7 +2130,7 @@ app.get('/api/plan-templates', async (req, res) => {
 app.post('/api/plan-templates', async (req, res) => { try { if (!isOwnerOrAdmin(req.currentUser)) return res.status(403).json({ error: 'Only an administrator can manage shared templates' }); const { name, amount, currency, interval_days } = req.body; await pool.query('INSERT INTO plan_templates (name,amount,currency,interval_days) VALUES ($1,$2,$3,$4)', [name, amount, currency||'usd', interval_days||30]); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
 app.delete('/api/plan-templates/:id', async (req, res) => { try { if (!isOwnerOrAdmin(req.currentUser)) return res.status(403).json({ error: 'Only an administrator can manage shared templates' }); await pool.query('DELETE FROM plan_templates WHERE id=$1', [req.params.id]); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
 
-// ── Run Rebills ───────────────────────────────────────────────────────────────
+// ── Run Recurring Charges ───────────────────────────────────────────────────────────────
 app.post('/api/run-rebills', async (req, res) => {
   try {
     const due = await subscriptions.due();
@@ -2103,9 +2155,9 @@ app.post('/api/run-rebills', async (req, res) => {
         const pm = await resolveBestPaymentMethod(stripe, c.stripe_customer_id, { localPaymentMethodId: c.stripe_payment_method });
         if (!pm) throw new Error('No usable saved card found for this customer');
         await syncLocalPaymentMethod(c.id, pm);
-        const pi = await stripe.paymentIntents.create({ amount: sub.amount, currency: sub.currency||'usd', customer: c.stripe_customer_id, payment_method: pm.id, confirm: true, off_session: true });
+        const pi = await stripe.paymentIntents.create({ amount: sub.amount, currency: sub.currency||'usd', customer: c.stripe_customer_id, payment_method: pm.id, confirm: true, off_session: true, metadata: { subloop_payment_origin: 'rebill', subloop_subscription_id: String(sub.id) } });
         const status = pi.status==='succeeded'?'succeeded':'failed';
-        await payments.insert({ customer_id: c.id, subscription_id: sub.id, stripe_payment_intent: pi.id, amount: sub.amount, currency: sub.currency||'usd', status, failure_reason: null });
+        await payments.insert({ customer_id: c.id, subscription_id: sub.id, stripe_payment_intent: pi.id, amount: sub.amount, currency: sub.currency||'usd', status, failure_reason: null, payment_origin: 'rebill' });
         if (status==='succeeded') {
           charged++;
           await subscriptions.advanceBillingDate(sub.id, sub.interval_days);

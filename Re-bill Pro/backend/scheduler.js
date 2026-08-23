@@ -11,11 +11,11 @@ function initScheduler() {
 
   // Run every day at 9:00 AM UTC
   cron.schedule('0 9 * * *', () => {
-    console.log('[scheduler] Running daily rebill job...');
+    console.log('[scheduler] Running daily recurring charge job...');
     processDueSubscriptions();
   });
 
-  console.log('[scheduler] Daily rebill cron initialized (runs at 09:00 UTC)');
+  console.log('[scheduler] Daily recurring charge cron initialized (runs at 09:00 UTC)');
 }
 
 async function processDueSubscriptions() {
@@ -38,7 +38,7 @@ async function chargeSubscription(sub) {
       payment_method: sub.stripe_payment_method,
       off_session: true,
       confirm: true,
-      description: `Rebill subscription #${sub.id}`,
+      description: `Recurring payment for subscription #${sub.id}`,
       metadata: {
         subscription_id: String(sub.id),
         customer_email: sub.email,
