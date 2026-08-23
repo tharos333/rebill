@@ -6617,6 +6617,20 @@ body.view-only-access #verification-debug-modal .modal-content{
   </div>
 </div>
 
+<div class="modal-bg" id="action-confirm-modal">
+  <div class="modal app-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="action-confirm-title">
+    <div class="app-confirm-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.7 2.4 17.4A2 2 0 0 0 4.1 20h15.8a2 2 0 0 0 1.7-2.6L13.7 3.7a2 2 0 0 0-3.4 0Z"/></svg>
+    </div>
+    <h3 id="action-confirm-title">Confirm action</h3>
+    <p id="action-confirm-message"></p>
+    <div class="modal-footer">
+      <button class="btn" id="action-confirm-cancel" onclick="cancelAppActionConfirm()">Keep active</button>
+      <button class="btn btn-danger" id="action-confirm-submit" onclick="confirmAppAction()">Confirm</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg" id="invoice-modal">
   <div class="modal">
     <h3>Manual Invoice</h3><p>Charge this customer a one-time amount</p>
@@ -7879,7 +7893,7 @@ function updateBulkBar(){var n=selectedSubs.size;var countEl=document.getElement
 function clearSelection(){selectedSubs.clear();document.querySelectorAll('.sub-checkbox').forEach(function(cb){cb.checked=false;});document.querySelectorAll('[id^="sub-row-"]').forEach(function(row){row.style.background='';});var cb=document.getElementById('select-all-checkbox');if(cb)cb.checked=false;updateBulkBar();}
 async function bulkCharge(){if(!selectedSubs.size)return;if(!confirm('Charge '+selectedSubs.size+' subscriptions now?'))return;toast('Charging '+selectedSubs.size+' subscriptions…');let ok=0,fail=0;for(const id of selectedSubs){try{const r=await api('/api/subscriptions/'+id+'/charge',{method:'POST'});if(r.success)ok++;else fail++;}catch(e){fail++;}}toast('✓ '+ok+' charged'+(fail?' — '+fail+' failed':''));exitBulkMode();loadStats();loadSubscriptions();}
 async function bulkPause(){if(!selectedSubs.size)return;if(!confirm('Pause '+selectedSubs.size+' subscriptions?'))return;for(const id of selectedSubs){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'paused'})}).catch(()=>{});}toast('✓ '+selectedSubs.size+' paused');exitBulkMode();loadSubscriptions();}
-async function bulkCancel(){if(!selectedSubs.size)return;if(!confirm('Schedule '+selectedSubs.size+' subscriptions to cancel at the end of their current paid periods? You can reactivate them before they end.'))return;for(const id of selectedSubs){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'canceling'})}).catch(()=>{});}toast('✓ '+selectedSubs.size+' scheduled to cancel');exitBulkMode();loadSubscriptions();loadStats();}
+async function bulkCancel(){if(!selectedSubs.size)return;var count=selectedSubs.size;openAppActionConfirm({title:'Schedule '+count+' cancellations?',message:'These subscriptions will stay active until the end of their current paid periods and can be reactivated before they end.',cancelText:'Keep active',confirmText:'Cancel at period end'},async function(){for(const id of selectedSubs){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'canceling'})}).catch(()=>{});}toast('✓ '+count+' scheduled to cancel');exitBulkMode();loadSubscriptions();loadStats();});}
 function showEditAmount(subId,currentAmount){const container=document.getElementById('edit-'+subId);if(!container)return;const dollars=(currentAmount/100).toFixed(2);container.innerHTML='<div style="display:inline-flex;align-items:center;gap:4px;"><input type="number" id="new-amount-'+subId+'" value="'+dollars+'" step="0.01" min="0.50" style="width:75px;padding:3px 6px;font-size:12px;"><button class="btn btn-sm btn-primary" onclick="saveAmount('+subId+')">Save</button><button class="btn btn-sm" onclick="loadSubscriptions()">✕</button></div>';document.getElementById('new-amount-'+subId).focus();}
 async function saveAmount(subId){const input=document.getElementById('new-amount-'+subId);if(!input)return;const newCents=Math.round(parseFloat(input.value)*100);if(isNaN(newCents)||newCents<50){toast('Minimum $0.50','error');return;}const r=await api('/api/subscriptions/'+subId+'/amount',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:newCents})});if(r.success){toast('✓ Amount updated');loadSubscriptions();}else toast('Error','error');}
 function compactPayAccountName(accountName){
@@ -8387,6 +8401,36 @@ async function setup2FA(){try{const r=await api('/api/security/2fa/setup',{metho
 async function confirm2FA(){const token=document.getElementById('2fa-verify-code').value;if(token.length!==6){toast('Enter 6-digit code','error');return;}try{const r=await api('/api/security/2fa/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});if(r.success){toast('✓ 2FA enabled!');update2FAView(true);}else toast('Invalid code','error');}catch(e){toast('Error','error');}}
 function cancel2FASetup(){document.getElementById('2fa-setup-view').style.display='none';document.getElementById('2fa-disabled-view').style.display='block';}
 async function disable2FA(){if(!confirm('Disable 2FA?'))return;await api('/api/security/2fa/disable',{method:'POST'});toast('2FA disabled');update2FAView(false);}
+let pendingAppActionConfirm=null;
+function openAppActionConfirm(options,onConfirm){
+  options=options||{};
+  pendingAppActionConfirm=typeof onConfirm==='function'?onConfirm:null;
+  var title=document.getElementById('action-confirm-title');
+  var message=document.getElementById('action-confirm-message');
+  var cancelBtn=document.getElementById('action-confirm-cancel');
+  var submitBtn=document.getElementById('action-confirm-submit');
+  if(title)title.textContent=options.title||'Confirm action';
+  if(message)message.textContent=options.message||'';
+  if(cancelBtn)cancelBtn.textContent=options.cancelText||'Cancel';
+  if(submitBtn){
+    submitBtn.textContent=options.confirmText||'Confirm';
+    submitBtn.classList.toggle('btn-danger',options.danger!==false);
+    submitBtn.classList.toggle('btn-primary',options.danger===false);
+  }
+  openModal('action-confirm-modal');
+}
+function cancelAppActionConfirm(){
+  pendingAppActionConfirm=null;
+  closeModal('action-confirm-modal');
+}
+async function confirmAppAction(){
+  var action=pendingAppActionConfirm;
+  pendingAppActionConfirm=null;
+  closeModal('action-confirm-modal');
+  if(!action)return;
+  try{await action();}catch(e){toast((e&&e.message)||'Could not complete action','error');}
+}
+
 async function chargeNow(subId){if(blockViewOnlyAction())return;toast('Charging…');try{const r=await api('/api/subscriptions/'+subId+'/charge',{method:'POST'});if(r.success){toast('✓ Payment succeeded');loadUpcoming();loadStats();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
 function openPauseModal(subId){if(blockViewOnlyAction())return;document.getElementById('pause-sub-id').value=subId;document.getElementById('pause-resume-date').value='';openModal('pause-modal');}
 async function confirmPause(){
@@ -8410,12 +8454,22 @@ async function resumeSubscriptionFromCustomer(id){
   if(currentCustomerDrawerId){openCustomerDrawer(currentCustomerDrawerId);}
 }
 function cancelSub(id){
-  if(!confirm('Cancel at the end of the current paid period? The subscription will show as Canceling and can be reactivated before it ends.'))return;
-  setSubStatus(id,'canceling');
+  if(blockViewOnlyAction())return;
+  openAppActionConfirm({
+    title:'Schedule cancellation?',
+    message:'The subscription will stay active until the end of the current paid period. You can reactivate it any time before it ends.',
+    cancelText:'Keep active',
+    confirmText:'Cancel at period end'
+  },function(){return setSubStatus(id,'canceling');});
 }
 function cancelSubNow(id){
-  if(!confirm('Cancel this subscription immediately? This permanently ends the current Stripe subscription and cannot be undone.'))return;
-  setSubStatus(id,'cancelled');
+  if(blockViewOnlyAction())return;
+  openAppActionConfirm({
+    title:'Cancel subscription now?',
+    message:'This immediately ends the current Stripe subscription. This action cannot be undone or reactivated.',
+    cancelText:'Keep active',
+    confirmText:'Cancel now'
+  },function(){return setSubStatus(id,'cancelled');});
 }
 async function setSubStatus(id,status){
   if(blockViewOnlyAction())return;
@@ -8637,12 +8691,12 @@ function buildCustomerDrawer(data){
       h+='<button class="btn" onclick="setCustStatus('+c.id+',\'active\')">Resume customer</button>';
     }else if(effectiveStatus==='canceling'){
       h+='<button class="btn btn-success" onclick="reactivateCustomerSubscriptions('+c.id+')">Reactivate all</button>';
-      h+='<button class="btn btn-danger" onclick="cancelCustomerSubscriptionsNow('+c.id+')">Cancel all now</button>';
+      h+='<button class="btn btn-danger customer-action-full" onclick="cancelCustomerSubscriptionsNow('+c.id+')">Cancel all now</button>';
     }else if(effectiveStatus!=='canceled'){
       h+='<button class="btn btn-danger" onclick="setCustStatus('+c.id+',\'paused\')">Pause customer</button>';
     }
     if((Number(c.total_subs||0)>0 || customerHasSubscription(c)) && effectiveStatus!=='canceled' && effectiveStatus!=='canceling'){
-      h+='<button class="btn btn-danger" onclick="cancelCustomerSubscriptions('+c.id+')">Cancel all subscriptions</button>';
+      h+='<button class="btn btn-danger customer-action-full" onclick="cancelCustomerSubscriptions('+c.id+')">Cancel all subscriptions</button>';
     }
     h+='</div>';
   }
@@ -8688,18 +8742,31 @@ async function setCustStatus(id,status){
 }
 async function cancelCustomerSubscriptions(id){
   if(blockViewOnlyAction())return;
-  if(!confirm('Schedule all subscriptions for this customer to cancel at the end of their current paid periods? You can reactivate them before they end.'))return;
-  await setCustStatus(id,'canceling');
+  openAppActionConfirm({
+    title:'Schedule all cancellations?',
+    message:'All active subscriptions for this customer will stay active until the end of their current paid periods. You can reactivate them before they end.',
+    cancelText:'Keep active',
+    confirmText:'Cancel at period end'
+  },function(){return setCustStatus(id,'canceling');});
 }
 async function reactivateCustomerSubscriptions(id){
   if(blockViewOnlyAction())return;
-  if(!confirm('Reactivate all subscriptions that are scheduled to cancel?'))return;
-  await setCustStatus(id,'active');
+  openAppActionConfirm({
+    title:'Reactivate subscriptions?',
+    message:'Subscriptions scheduled to cancel will return to Active and continue billing normally.',
+    cancelText:'Not now',
+    confirmText:'Reactivate all',
+    danger:false
+  },function(){return setCustStatus(id,'active');});
 }
 async function cancelCustomerSubscriptionsNow(id){
   if(blockViewOnlyAction())return;
-  if(!confirm('Cancel all subscriptions immediately? This permanently ends the current Stripe subscriptions and cannot be undone.'))return;
-  await setCustStatus(id,'cancelled');
+  openAppActionConfirm({
+    title:'Cancel all subscriptions now?',
+    message:'This immediately ends the customer’s current Stripe subscriptions. This action cannot be undone or reactivated.',
+    cancelText:'Keep active',
+    confirmText:'Cancel all now'
+  },function(){return setCustStatus(id,'cancelled');});
 }
 async function openPortal(customerId){if(blockViewOnlyAction())return;try{const r=await api('/api/customers/'+customerId+'/portal',{method:'POST'});if(r.url)window.open(r.url,'_blank');else toast('Could not open portal','error');}catch(e){toast('Error','error');}}
 async function runRebills(){toast('Running rebill job…');try{const r=await api('/api/run-rebills',{method:'POST'});if(r.success){toast('✓ Done: '+r.succeeded+' charged, '+r.failed+' failed'+(r.resumed>0?', '+r.resumed+' resumed':''));loadStats();loadUpcoming();}}catch(e){toast('Error','error');}}
@@ -10317,6 +10384,41 @@ html.light #customer-detail-modal .customer-profile-actions{
 /* Customer drawer bottom buttons text size */
 #customer-detail-modal .customer-profile-actions .btn{
   font-size:13px!important;
+}
+
+/* Internal action confirmation modal + full-width destructive customer action */
+#action-confirm-modal{
+  z-index:900!important;
+  padding:18px!important;
+}
+#action-confirm-modal .modal{
+  width:430px!important;
+  max-width:calc(100vw - 36px)!important;
+  padding:22px!important;
+  border-radius:14px!important;
+  box-shadow:0 18px 55px rgba(0,0,0,.38)!important;
+}
+#action-confirm-modal .app-confirm-icon{
+  width:34px;
+  height:34px;
+  border-radius:10px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:#ff7b7b;
+  background:rgba(248,113,113,.10);
+  border:1px solid rgba(248,113,113,.22);
+  margin-bottom:14px;
+}
+#action-confirm-modal .app-confirm-icon svg{width:17px;height:17px;}
+#action-confirm-modal h3{font-size:15px!important;font-weight:700!important;line-height:1.25!important;margin:0 0 8px!important;}
+#action-confirm-modal p{font-size:13px!important;line-height:1.5!important;margin:0!important;color:var(--muted)!important;}
+#action-confirm-modal .modal-footer{margin-top:20px!important;display:grid!important;grid-template-columns:1fr 1fr!important;gap:10px!important;}
+#action-confirm-modal .modal-footer .btn{height:38px!important;justify-content:center!important;font-size:13px!important;font-weight:600!important;}
+#action-confirm-modal .modal-footer .btn-danger{color:#ff7b7b!important;background:rgba(248,113,113,.10)!important;border-color:rgba(248,113,113,.26)!important;}
+#customer-detail-modal .customer-profile-actions .customer-action-full{
+  grid-column:1 / -1!important;
+  width:100%!important;
 }
 
 
