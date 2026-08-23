@@ -194,6 +194,25 @@ async function init() {
       AND COALESCE((SELECT value FROM settings WHERE key='two_fa_enabled'),'false')='true'
       AND COALESCE((SELECT value FROM settings WHERE key='two_fa_secret'),'')<>''
   `).catch(()=>{});
+  // A Stripe Customer/Subscription can exist even when the very first payment failed.
+  // Keep those records internally for the Payments history, but do not treat them as
+  // paying customers or active subscriptions until money has actually succeeded.
+  await pool.query(`
+    UPDATE customers c
+    SET status='pending'
+    WHERE LOWER(COALESCE(c.status,''))='active'
+      AND EXISTS (SELECT 1 FROM payments p WHERE p.customer_id=c.id)
+      AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.customer_id=c.id AND LOWER(p.status)='succeeded')
+  `).catch(()=>{});
+  await pool.query(`
+    UPDATE subscriptions s
+    SET status='incomplete'
+    WHERE s.amount > 0
+      AND LOWER(COALESCE(s.status,''))='active'
+      AND EXISTS (SELECT 1 FROM payments p WHERE p.customer_id=s.customer_id)
+      AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.customer_id=s.customer_id AND LOWER(p.status)='succeeded')
+  `).catch(()=>{});
+
   const existing = await pool.query('SELECT COUNT(*) FROM stripe_accounts');
   if (parseInt(existing.rows[0].count) === 0 && process.env.STRIPE_SECRET_KEY) {
     await pool.query('INSERT INTO stripe_accounts (name,secret_key,publishable_key,webhook_secret,is_default) VALUES ($1,$2,$3,$4,true)',
@@ -258,14 +277,15 @@ const customers = {
       ORDER BY CASE WHEN status='succeeded' THEN 0 ELSE 1 END, created_at DESC
       LIMIT 1
     ) pm ON true
-    WHERE NOT (
-      COALESCE(p.total_paid, 0) = 0
-      AND (
-        COALESCE(c.email, '') ILIKE '%@stripe.local'
-        OR COALESCE(c.stripe_customer_id, '') LIKE 'external_%'
-        OR COALESCE(c.name, '') LIKE 'pi_%'
+    WHERE LOWER(COALESCE(c.status,'')) <> 'pending'
+      AND NOT (
+        COALESCE(p.total_paid, 0) = 0
+        AND (
+          COALESCE(c.email, '') ILIKE '%@stripe.local'
+          OR COALESCE(c.stripe_customer_id, '') LIKE 'external_%'
+          OR COALESCE(c.name, '') LIKE 'pi_%'
+        )
       )
-    )
     ORDER BY
       CASE WHEN p.last_payment_at IS NOT NULL THEN 0 ELSE 1 END ASC,
       p.last_payment_at DESC NULLS LAST,
@@ -396,6 +416,8 @@ const subscriptions = {
     LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id
     LEFT JOIN sub_pay_stats sp ON sp.subscription_id=s.id
     LEFT JOIN customer_pay_stats cp ON cp.customer_id=s.customer_id
+    WHERE LOWER(COALESCE(c.status,'')) <> 'pending'
+      AND LOWER(COALESCE(s.status,'')) NOT IN ('incomplete','incomplete_expired','pending')
     ORDER BY
       order_sort_date DESC NULLS LAST,
       s.created_at DESC,

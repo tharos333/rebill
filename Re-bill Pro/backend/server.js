@@ -423,6 +423,74 @@ async function upsertStripeCustomer(stripe, usedAccount, stripeCustomerId, prefe
   return { id: existing.rows[0].id, email, name };
 }
 
+async function subscriptionPaymentIsConfirmed(stripe, stripeSub, invoiceId = null) {
+  try {
+    // Free subscriptions/trials do not require an initial charge. Paid plans do.
+    const item = stripeSub?.items?.data?.[0];
+    const amount = Number(item?.price?.unit_amount ?? item?.plan?.amount ?? 0);
+    if (amount <= 0 || stripeSub?.status === 'trialing') return true;
+
+    let invoice = stripeSub?.latest_invoice || null;
+    if (typeof invoice === 'string') {
+      try { invoice = await stripe.invoices.retrieve(invoice, { expand: ['payment_intent'] }); }
+      catch (_e) { invoice = null; }
+    }
+    if (!invoice && invoiceId) {
+      try { invoice = await stripe.invoices.retrieve(invoiceId, { expand: ['payment_intent'] }); }
+      catch (_e) { invoice = null; }
+    }
+    if (!invoice) return false;
+    if (invoice.paid === true || String(invoice.status || '').toLowerCase() === 'paid' || Number(invoice.amount_paid || 0) > 0) return true;
+
+    let pi = invoice.payment_intent || null;
+    if (typeof pi === 'string') {
+      try { pi = await stripe.paymentIntents.retrieve(pi); } catch (_e) { pi = null; }
+    }
+    return !!(pi && String(pi.status || '').toLowerCase() === 'succeeded');
+  } catch (e) {
+    console.log('[subscription] payment confirmation check failed:', e.message);
+    return false;
+  }
+}
+
+async function syncFirstPaymentEligibility(customerId, subscriptionId, paymentStatus) {
+  if (!customerId) return;
+  const normalized = String(paymentStatus || '').toLowerCase();
+  const success = await pool.query(
+    "SELECT 1 FROM payments WHERE customer_id=$1 AND LOWER(status)='succeeded' LIMIT 1",
+    [customerId]
+  );
+  const hasSuccessfulPayment = !!success.rows[0] || normalized === 'succeeded';
+
+  if (hasSuccessfulPayment) {
+    // A pending Stripe Customer becomes a real Subloop customer only after a successful payment.
+    await pool.query("UPDATE customers SET status='active' WHERE id=$1 AND LOWER(COALESCE(status,''))='pending'", [customerId]).catch(()=>{});
+    if (subscriptionId) {
+      await pool.query(
+        "UPDATE subscriptions SET status='active' WHERE id=$1 AND LOWER(COALESCE(status,'')) IN ('pending','incomplete')",
+        [subscriptionId]
+      ).catch(()=>{});
+    }
+    return;
+  }
+
+  if (normalized === 'failed' || normalized === 'requires_payment_method' || normalized === 'requires_action') {
+    // Keep failed first attempts for payment history, but do not expose them as customers/subscriptions.
+    await pool.query("UPDATE customers SET status='pending' WHERE id=$1 AND LOWER(COALESCE(status,''))='active'", [customerId]).catch(()=>{});
+    if (subscriptionId) {
+      await pool.query(
+        "UPDATE subscriptions SET status='incomplete' WHERE id=$1 AND amount>0 AND LOWER(COALESCE(status,'')) IN ('active','pending','incomplete')",
+        [subscriptionId]
+      ).catch(()=>{});
+    } else {
+      await pool.query(
+        "UPDATE subscriptions SET status='incomplete' WHERE customer_id=$1 AND amount>0 AND LOWER(COALESCE(status,''))='active'",
+        [customerId]
+      ).catch(()=>{});
+    }
+  }
+}
+
 async function saveSubscriptionFromStripe(stripe, usedAccount, subscriptionOrId, source = 'unknown') {
   await ensureWebhookColumns();
   if (!subscriptionOrId) {
@@ -454,7 +522,7 @@ async function saveSubscriptionFromStripe(stripe, usedAccount, subscriptionOrId,
   // Mirror Stripe billing controls into Subloop. A subscription scheduled to end
   // remains active in Stripe, so show it as "canceling" until the period ends.
   // This must take precedence over pause_collection so the user can see/undo the cancellation.
-  const localSubscriptionStatus = stripeSub.status === 'canceled'
+  let localSubscriptionStatus = stripeSub.status === 'canceled'
     ? 'canceled'
     : (stripeSub.cancel_at_period_end ? 'canceling' : (stripeSub.pause_collection ? 'paused' : (stripeSub.status || 'active')));
 
@@ -462,13 +530,41 @@ async function saveSubscriptionFromStripe(stripe, usedAccount, subscriptionOrId,
   if (!localCustomer?.id) return null;
 
   const existingByStripe = await pool.query('SELECT id FROM subscriptions WHERE stripe_subscription_id=$1', [subId]);
+
+  // Never expose a paid subscription as Active until its first payment is actually confirmed.
+  // Stripe may already have cus_*/sub_* objects after a failed first attempt; those are not
+  // paying customers in Subloop. Keep them internally as pending/incomplete for payment history.
+  if (amount > 0 && localSubscriptionStatus === 'active') {
+    let paymentConfirmed = await subscriptionPaymentIsConfirmed(stripe, stripeSub, invoiceId);
+    if (!paymentConfirmed && existingByStripe.rows[0]) {
+      const localPaid = await pool.query(
+        "SELECT 1 FROM payments WHERE subscription_id=$1 AND LOWER(status)='succeeded' LIMIT 1",
+        [existingByStripe.rows[0].id]
+      ).catch(()=>({rows:[]}));
+      paymentConfirmed = !!localPaid.rows[0];
+    }
+    if (!paymentConfirmed && invoiceId) {
+      const invoicePaid = await pool.query(
+        "SELECT 1 FROM payments WHERE stripe_invoice_id=$1 AND LOWER(status)='succeeded' LIMIT 1",
+        [invoiceId]
+      ).catch(()=>({rows:[]}));
+      paymentConfirmed = !!invoicePaid.rows[0];
+    }
+    if (!paymentConfirmed) localSubscriptionStatus = 'incomplete';
+  }
   if (existingByStripe.rows[0]) {
     await pool.query(
       `UPDATE subscriptions SET customer_id=$1, amount=$2, currency=$3, interval_days=$4, next_billing_date=$5, status=$6,
        stripe_price_id=$7, stripe_invoice_id=$8 WHERE id=$9`,
       [localCustomer.id, amount, currency, intervalDays, nextBilling, localSubscriptionStatus, price.id || null, invoiceId, existingByStripe.rows[0].id]
     );
-    console.log('[subscription] updated subscription:', subId, 'row id:', existingByStripe.rows[0].id);
+    if (localSubscriptionStatus === 'incomplete' || localSubscriptionStatus === 'incomplete_expired') {
+      const paid = await pool.query("SELECT 1 FROM payments WHERE customer_id=$1 AND LOWER(status)='succeeded' LIMIT 1", [localCustomer.id]).catch(()=>({rows:[]}));
+      if (!paid.rows[0]) await pool.query("UPDATE customers SET status='pending' WHERE id=$1 AND LOWER(COALESCE(status,''))='active'", [localCustomer.id]).catch(()=>{});
+    } else if (localSubscriptionStatus === 'active') {
+      await pool.query("UPDATE customers SET status='active' WHERE id=$1 AND LOWER(COALESCE(status,''))='pending'", [localCustomer.id]).catch(()=>{});
+    }
+    console.log('[subscription] updated subscription:', subId, 'row id:', existingByStripe.rows[0].id, 'status:', localSubscriptionStatus);
     return existingByStripe.rows[0].id;
   }
 
@@ -477,7 +573,13 @@ async function saveSubscriptionFromStripe(stripe, usedAccount, subscriptionOrId,
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
     [localCustomer.id, amount, currency, intervalDays, nextBilling, localSubscriptionStatus, subId, price.id || null, invoiceId]
   );
-  console.log('[subscription] saved subscription:', subId, 'row id:', ins.rows[0].id, 'customer:', localCustomer.email, 'next billing:', nextBilling);
+  if (localSubscriptionStatus === 'incomplete' || localSubscriptionStatus === 'incomplete_expired') {
+    const paid = await pool.query("SELECT 1 FROM payments WHERE customer_id=$1 AND LOWER(status)='succeeded' LIMIT 1", [localCustomer.id]).catch(()=>({rows:[]}));
+    if (!paid.rows[0]) await pool.query("UPDATE customers SET status='pending' WHERE id=$1 AND LOWER(COALESCE(status,''))='active'", [localCustomer.id]).catch(()=>{});
+  } else if (localSubscriptionStatus === 'active') {
+    await pool.query("UPDATE customers SET status='active' WHERE id=$1 AND LOWER(COALESCE(status,''))='pending'", [localCustomer.id]).catch(()=>{});
+  }
+  console.log('[subscription] saved subscription:', subId, 'row id:', ins.rows[0].id, 'customer:', localCustomer.email, 'next billing:', nextBilling, 'status:', localSubscriptionStatus);
   await activityLog.add('subscription', `Subscription saved for ${localCustomer.email}`, localCustomer.id, amount).catch(()=>{});
   return ins.rows[0].id;
 }
@@ -667,6 +769,7 @@ async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null, f
       [localCustomer.id, localSubId, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency, status, existingPayment.rows[0].id]);
     await pool.query(`UPDATE payments SET payment_method_type=COALESCE($1,payment_method_type), wallet_type=COALESCE($2,wallet_type), wallet_checked=TRUE WHERE id=$3`,
       [cardDetails.payment_method_type, cardDetails.wallet_type, existingPayment.rows[0].id]).catch(()=>{});
+    await syncFirstPaymentEligibility(localCustomer.id, localSubId, status).catch(e => console.error('[payment] eligibility sync failed:', e.message));
     console.log('[external-import] updated payment:', pi.id, 'customer:', localCustomer.email, 'method:', cardDetails.payment_method_type || '-', 'wallet:', cardDetails.wallet_type || '-');
     return existingPayment.rows[0].id;
   }
@@ -678,6 +781,7 @@ async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null, f
   );
   await pool.query(`UPDATE payments SET payment_method_type=COALESCE($1,payment_method_type), wallet_type=COALESCE($2,wallet_type), wallet_checked=TRUE WHERE id=$3`,
     [cardDetails.payment_method_type, cardDetails.wallet_type, ins.rows[0].id]).catch(()=>{});
+  await syncFirstPaymentEligibility(localCustomer.id, localSubId, status).catch(e => console.error('[payment] eligibility sync failed:', e.message));
   console.log('[external-import] saved payment:', pi.id, 'row id:', ins.rows[0].id, 'customer:', localCustomer.email, 'method:', cardDetails.payment_method_type || '-', 'wallet:', cardDetails.wallet_type || '-');
   await activityLog.add('payment', `Payment ${status} for ${localCustomer.email}`, localCustomer.id, amount).catch(()=>{});
   return ins.rows[0].id;
