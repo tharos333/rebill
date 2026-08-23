@@ -6610,7 +6610,7 @@ body.view-only-access #verification-debug-modal .modal-content{
 </div>
 <div class="modal-bg" id="pause-modal">
   <div class="modal">
-    <h3 id="pause-modal-title">Pause subscription</h3><p id="pause-modal-message">Set an optional date to auto-resume</p>
+    <h3 id="pause-modal-title">Pause this subscription?</h3><p id="pause-modal-message">Billing will be paused until you resume it. Optionally choose an auto-resume date.</p>
     <input type="hidden" id="pause-sub-id">
     <input type="hidden" id="pause-mode" value="single">
     <div class="form-group"><label>Resume date (optional)</label><input type="date" id="pause-resume-date"></div>
@@ -7907,7 +7907,7 @@ function bulkPause(){
   if(id)id.value='';
   if(date)date.value='';
   if(title)title.textContent='Pause '+count+' subscriptions?';
-  if(message)message.textContent='Set an optional date to auto-resume all selected subscriptions.';
+  if(message)message.textContent='Billing will be paused for all selected subscriptions until they are resumed. Optionally choose an auto-resume date.';
   if(cancel)cancel.textContent='Keep active';
   if(submit){submit.textContent='Pause subscriptions';submit.className='btn btn-danger';}
   openModal('pause-modal');
@@ -8479,10 +8479,10 @@ function openPauseModal(subId){
   if(mode)mode.value='single';
   if(id)id.value=subId;
   if(date)date.value='';
-  if(title)title.textContent='Pause subscription';
-  if(message)message.textContent='Set an optional date to auto-resume';
-  if(cancel)cancel.textContent='Cancel';
-  if(submit){submit.textContent='Pause';submit.className='btn btn-danger';}
+  if(title)title.textContent='Pause this subscription?';
+  if(message)message.textContent='Billing will be paused until you resume it. Optionally choose an auto-resume date.';
+  if(cancel)cancel.textContent='Keep active';
+  if(submit){submit.textContent='Pause subscription';submit.className='btn btn-danger';}
   openModal('pause-modal');
 }
 async function confirmPause(){
