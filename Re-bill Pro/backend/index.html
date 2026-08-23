@@ -8239,6 +8239,20 @@ function pdCopyButton(value){
   if(!value)return '<div class="pd-copy-placeholder"></div>';
   return '<button class="pd-copy" title="Copy" onclick="event.stopPropagation();copyPdValue(\''+escHtml(String(value)).replace(/'/g,'&#39;')+'\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
 }
+function bindDrawerScrollFades(el){
+  if(!el)return;
+  function updateDrawerScrollFades(){
+    var canUp=el.scrollTop>3;
+    var canDown=(el.scrollTop+el.clientHeight)<(el.scrollHeight-3);
+    el.classList.toggle('drawer-fade-top',canUp);
+    el.classList.toggle('drawer-fade-bottom',canDown);
+  }
+  if(el._subloopFadeHandler){el.removeEventListener('scroll',el._subloopFadeHandler);}
+  el._subloopFadeHandler=updateDrawerScrollFades;
+  el.addEventListener('scroll',updateDrawerScrollFades,{passive:true});
+  requestAnimationFrame(updateDrawerScrollFades);
+}
+
 function renderPaymentDetailModal(p, syncing){
   if(!p||!p.id)return;
   var isGhost=((p.email||'').toLowerCase().endsWith('@stripe.local')||(p.name||'').startsWith('pi_')||(p.name||'').startsWith('external_'));
@@ -8338,9 +8352,11 @@ function renderPaymentDetailModal(p, syncing){
   h+='<div class="pd-activity-row"><div class="pd-activity-compact-icon">'+iconSvg('info')+'</div><div class="pd-activity-label">Payment started</div><div class="pd-activity-stamp">'+formatPdDate(p.created_at)+', '+formatPdLocalTime(p.created_at)+'</div></div>';
   h+='</div></section>';
 
-  if(!isViewer&&isFailed&&!isGhost){h+='<button class="pd-retry-btn" onclick="closeModal(\'payment-detail-modal\');retryPayment('+p.id+')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg><span>Retry payment</span></button>';}
-  h+='</div></div></div>';
+  h+='</div>';
+  if(!isViewer&&isFailed&&!isGhost){h+='<div class="pd-fixed-actions"><button class="pd-retry-btn" onclick="closeModal(\'payment-detail-modal\');retryPayment('+p.id+')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg><span>Retry payment</span></button></div>';}
+  h+='</div></div>';
   document.getElementById('payment-detail-body').innerHTML=h;
+  bindDrawerScrollFades(document.querySelector('#payment-detail-modal .pd-drawer-scroll-body'));
   var pdModal=document.getElementById('payment-detail-modal');
   if(pdModal){
     pdModal.classList.remove('payment-anim-in');
@@ -8720,6 +8736,7 @@ async function openCustomerDrawer(id){
   try{
     const data=await api('/api/customers/'+id+'/details');
     document.getElementById('customer-detail-body').innerHTML=buildCustomerDrawer(data);
+    bindDrawerScrollFades(document.querySelector('#customer-detail-modal .customer-profile-sections'));
   }catch(e){
     toast('Could not load customer details','error');
     closeCustomerDrawer();
@@ -10694,6 +10711,48 @@ html.light #payment-detail-modal .pd-recovery-box{
   line-height:1!important;
   letter-spacing:-0.01em!important;
 }
+
+
+/* Drawer scroll-edge fades + fixed payment retry footer */
+.payment-detail-shell .pd-drawer-scroll-body,
+#customer-detail-modal .customer-profile-sections{
+  -webkit-mask-repeat:no-repeat!important;
+  mask-repeat:no-repeat!important;
+  -webkit-mask-size:100% 100%!important;
+  mask-size:100% 100%!important;
+}
+.payment-detail-shell .pd-drawer-scroll-body.drawer-fade-top,
+#customer-detail-modal .customer-profile-sections.drawer-fade-top{
+  -webkit-mask-image:linear-gradient(to bottom,rgba(0,0,0,.35) 0,#000 22px,#000 100%)!important;
+  mask-image:linear-gradient(to bottom,rgba(0,0,0,.35) 0,#000 22px,#000 100%)!important;
+}
+.payment-detail-shell .pd-drawer-scroll-body.drawer-fade-bottom,
+#customer-detail-modal .customer-profile-sections.drawer-fade-bottom{
+  -webkit-mask-image:linear-gradient(to bottom,#000 0,#000 calc(100% - 22px),rgba(0,0,0,.35) 100%)!important;
+  mask-image:linear-gradient(to bottom,#000 0,#000 calc(100% - 22px),rgba(0,0,0,.35) 100%)!important;
+}
+.payment-detail-shell .pd-drawer-scroll-body.drawer-fade-top.drawer-fade-bottom,
+#customer-detail-modal .customer-profile-sections.drawer-fade-top.drawer-fade-bottom{
+  -webkit-mask-image:linear-gradient(to bottom,rgba(0,0,0,.35) 0,#000 22px,#000 calc(100% - 22px),rgba(0,0,0,.35) 100%)!important;
+  mask-image:linear-gradient(to bottom,rgba(0,0,0,.35) 0,#000 22px,#000 calc(100% - 22px),rgba(0,0,0,.35) 100%)!important;
+}
+.payment-detail-shell .pd-fixed-actions{
+  flex:0 0 auto!important;
+  padding:12px 0 16px!important;
+  margin:0!important;
+  background:var(--surface)!important;
+}
+.payment-detail-shell .pd-fixed-actions .pd-retry-btn{
+  width:100%!important;
+  height:38px!important;
+  min-height:38px!important;
+  margin:0!important;
+  border-radius:9px!important;
+  font-size:13px!important;
+  font-weight:600!important;
+  line-height:1!important;
+}
+html.light .payment-detail-shell .pd-fixed-actions{background:#fff!important;}
 </style>
 
 <style id="subloop-danger-hover-sync">
