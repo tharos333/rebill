@@ -8714,6 +8714,9 @@ function buildCustomerDrawer(data){
   const status=customerStatusText(effectiveStatus);
   const statusCls=customerValueClass(effectiveStatus)||'';
   const liveRebillPm=data.rebill_payment_method||null;
+  const totalSubscriptions=Number(c.total_subs||0);
+  const activeSubscriptions=Number(c.active_subs||0);
+  const isOneTimeOnly=totalSubscriptions===0;
   const primaryExpMonth=liveRebillPm?.exp_month||c.primary_card_exp_month||c.card_exp_month; const primaryExpYear=liveRebillPm?.exp_year||c.primary_card_exp_year||c.card_exp_year;
   const expiry=(primaryExpMonth&&primaryExpYear)?String(primaryExpMonth).padStart(2,'0')+' / '+String(primaryExpYear).slice(-2):'—';
   const customerMoneyCurrency = customerOriginalCurrency(c);
@@ -8737,15 +8740,15 @@ function buildCustomerDrawer(data){
   h+=customerDrawerRow('Created date',fmtDate(c.created_at));
   h+='</section>';
 
-  h+='<section class="customer-profile-section"><h3>Recurring payment method</h3>';
+  h+='<section class="customer-profile-section"><h3>'+(isOneTimeOnly?'Saved payment method':'Recurring payment method')+'</h3>';
   if(hasCard){
-    h+='<div class="customer-rebill-card-head"><div class="customer-profile-card-line">'+customerRebillPaymentDisplay(data,c,true)+'</div><span class="customer-rebill-will-charge">Will be charged</span></div>';
+    h+='<div class="customer-rebill-card-head"><div class="customer-profile-card-line">'+customerRebillPaymentDisplay(data,c,true)+'</div>'+(isOneTimeOnly?'':'<span class="customer-rebill-will-charge">Will be charged</span>')+'</div>';
     h+=customerDrawerRow('Selected by',escapeCustomerHtml(liveRebillPm?.source_label||'Saved payment method'));
     h+=customerDrawerRow('Funding',escapeCustomerHtml(liveRebillPm?.funding||c.primary_card_funding||c.card_funding||'—'));
     h+=customerDrawerRow('Country',escapeCustomerHtml(customerCountryFullLabel(liveRebillPm?.country||c.primary_card_country||c.card_country)));
     h+=customerDrawerRow('Expires',escapeCustomerHtml(expiry));
   }else{
-    h+='<div class="customer-profile-empty">No usable saved card found for recurring payments</div>';
+    h+='<div class="customer-profile-empty">'+(isOneTimeOnly?'No saved payment method found':'No usable saved card found for recurring payments')+'</div>';
   }
   h+='</section>';
 
@@ -8757,11 +8760,13 @@ function buildCustomerDrawer(data){
   h+=customerDrawerRow('Average payment',avgAmount);
   h+='</section>';
 
-  h+='<section class="customer-profile-section"><h3>Subscription / recurring billing</h3>';
+  h+='<section class="customer-profile-section"><h3>'+(isOneTimeOnly?'Billing':'Subscription / recurring billing')+'</h3>';
   h+=customerDrawerRow('Payment type',escapeCustomerHtml(customerPaymentType(c)));
   h+=customerDrawerRow('Active subscriptions',String(c.active_subs||0));
   h+=customerDrawerRow('Next billing',fmtDate(c.next_billing_date));
-  h+=customerDrawerRow('Pause status',escapeCustomerHtml(customerPauseStatus(c)), (effectiveStatus==='paused'||effectiveStatus==='canceled')?'value-red':(effectiveStatus==='canceling'?'':'value-green'));
+  if(!isOneTimeOnly){
+    h+=customerDrawerRow('Pause status',escapeCustomerHtml(customerPauseStatus(c)), (effectiveStatus==='paused'||effectiveStatus==='canceled')?'value-red':(effectiveStatus==='canceling'?'':'value-green'));
+  }
   h+=customerDrawerNoteRow(c);
   h+='</section>';
 
@@ -8773,17 +8778,19 @@ function buildCustomerDrawer(data){
 
   if(!isViewOnlyAccess()){
     h+='<div class="customer-profile-actions">';
-    h+='<button class="btn" onclick="openPortal('+c.id+')">View card</button>';
-    if(effectiveStatus==='paused'){
-      h+='<button class="btn" onclick="setCustStatus('+c.id+',\'active\')">Resume customer</button>';
-    }else if(effectiveStatus==='canceling'){
-      h+='<button class="btn btn-success" onclick="reactivateCustomerSubscriptions('+c.id+')">Reactivate all</button>';
-      h+='<button class="btn btn-danger customer-action-full" onclick="cancelCustomerSubscriptionsNow('+c.id+')">Cancel all now</button>';
-    }else if(effectiveStatus!=='canceled'){
-      h+='<button class="btn btn-danger" onclick="setCustStatus('+c.id+',\'paused\')">Pause customer</button>';
-    }
-    if((Number(c.total_subs||0)>0 || customerHasSubscription(c)) && effectiveStatus!=='canceled' && effectiveStatus!=='canceling'){
-      h+='<button class="btn btn-danger customer-action-full" onclick="cancelCustomerSubscriptions('+c.id+')">Cancel all subscriptions</button>';
+    h+='<button class="btn '+(isOneTimeOnly?'customer-action-full':'')+'" onclick="openPortal('+c.id+')">View card</button>';
+    if(!isOneTimeOnly){
+      if(effectiveStatus==='paused'){
+        h+='<button class="btn" onclick="setCustStatus('+c.id+',\'active\')">Resume customer</button>';
+      }else if(effectiveStatus==='canceling'){
+        h+='<button class="btn btn-success" onclick="reactivateCustomerSubscriptions('+c.id+')">Reactivate all</button>';
+        h+='<button class="btn btn-danger customer-action-full" onclick="cancelCustomerSubscriptionsNow('+c.id+')">Cancel all now</button>';
+      }else if(effectiveStatus!=='canceled' && activeSubscriptions>0){
+        h+='<button class="btn btn-danger" onclick="setCustStatus('+c.id+',\'paused\')">Pause customer</button>';
+      }
+      if((totalSubscriptions>0 || customerHasSubscription(c)) && effectiveStatus!=='canceled' && effectiveStatus!=='canceling'){
+        h+='<button class="btn btn-danger customer-action-full" onclick="cancelCustomerSubscriptions('+c.id+')">Cancel all subscriptions</button>';
+      }
     }
     h+='</div>';
   }
