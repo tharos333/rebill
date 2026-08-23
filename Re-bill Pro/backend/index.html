@@ -7891,8 +7891,8 @@ function toggleSubSelect(id){if(selectedSubs.has(id))selectedSubs.delete(id);els
 function toggleSelectAll(){var cbs=document.querySelectorAll('.sub-checkbox');var allChecked=selectedSubs.size===cbs.length&&cbs.length>0;selectedSubs.clear();if(!allChecked){cbs.forEach(function(cb){selectedSubs.add(parseInt(cb.dataset.id));});}cbs.forEach(function(cb){cb.checked=!allChecked;var row=document.getElementById('sub-row-'+cb.dataset.id);if(row)row.style.background=(!allChecked)?'var(--accent-glow)':'';});updateBulkBar();}
 function updateBulkBar(){var n=selectedSubs.size;var countEl=document.getElementById('bulk-count');if(countEl)countEl.textContent=n>0?n+' selected':'';['bulk-charge-btn','bulk-pause-btn','bulk-cancel-btn'].forEach(function(id){var el=document.getElementById(id);if(el){el.disabled=n===0;el.style.opacity=n===0?'0.4':'1';}});var cb=document.getElementById('select-all-checkbox');var total=document.querySelectorAll('.sub-checkbox').length;if(cb)cb.checked=n>0&&n===total;}
 function clearSelection(){selectedSubs.clear();document.querySelectorAll('.sub-checkbox').forEach(function(cb){cb.checked=false;});document.querySelectorAll('[id^="sub-row-"]').forEach(function(row){row.style.background='';});var cb=document.getElementById('select-all-checkbox');if(cb)cb.checked=false;updateBulkBar();}
-async function bulkCharge(){if(!selectedSubs.size)return;if(!confirm('Charge '+selectedSubs.size+' subscriptions now?'))return;toast('Charging '+selectedSubs.size+' subscriptions…');let ok=0,fail=0;for(const id of selectedSubs){try{const r=await api('/api/subscriptions/'+id+'/charge',{method:'POST'});if(r.success)ok++;else fail++;}catch(e){fail++;}}toast('✓ '+ok+' charged'+(fail?' — '+fail+' failed':''));exitBulkMode();loadStats();loadSubscriptions();}
-async function bulkPause(){if(!selectedSubs.size)return;if(!confirm('Pause '+selectedSubs.size+' subscriptions?'))return;for(const id of selectedSubs){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'paused'})}).catch(()=>{});}toast('✓ '+selectedSubs.size+' paused');exitBulkMode();loadSubscriptions();}
+function bulkCharge(){if(!selectedSubs.size)return;var count=selectedSubs.size;openAppActionConfirm({title:'Charge '+count+' subscriptions?',message:'Subloop will attempt to charge the saved payment method for each selected subscription now.',cancelText:'Go back',confirmText:'Charge now',danger:false},async function(){toast('Charging '+count+' subscriptions…');let ok=0,fail=0;for(const id of selectedSubs){try{const r=await api('/api/subscriptions/'+id+'/charge',{method:'POST'});if(r.success)ok++;else fail++;}catch(e){fail++;}}toast('✓ '+ok+' charged'+(fail?' — '+fail+' failed':''));exitBulkMode();loadStats();loadSubscriptions();});}
+function bulkPause(){if(!selectedSubs.size)return;var count=selectedSubs.size;openAppActionConfirm({title:'Pause '+count+' subscriptions?',message:'Billing will be paused for the selected subscriptions until they are resumed.',cancelText:'Keep active',confirmText:'Pause subscriptions'},async function(){for(const id of selectedSubs){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'paused'})}).catch(()=>{});}toast('✓ '+count+' paused');exitBulkMode();loadSubscriptions();});}
 async function bulkCancel(){if(!selectedSubs.size)return;var count=selectedSubs.size;openAppActionConfirm({title:'Schedule '+count+' cancellations?',message:'These subscriptions will stay active until the end of their current paid periods and can be reactivated before they end.',cancelText:'Keep active',confirmText:'Cancel at period end'},async function(){for(const id of selectedSubs){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'canceling'})}).catch(()=>{});}toast('✓ '+count+' scheduled to cancel');exitBulkMode();loadSubscriptions();loadStats();});}
 function showEditAmount(subId,currentAmount){const container=document.getElementById('edit-'+subId);if(!container)return;const dollars=(currentAmount/100).toFixed(2);container.innerHTML='<div style="display:inline-flex;align-items:center;gap:4px;"><input type="number" id="new-amount-'+subId+'" value="'+dollars+'" step="0.01" min="0.50" style="width:75px;padding:3px 6px;font-size:12px;"><button class="btn btn-sm btn-primary" onclick="saveAmount('+subId+')">Save</button><button class="btn btn-sm" onclick="loadSubscriptions()">✕</button></div>';document.getElementById('new-amount-'+subId).focus();}
 async function saveAmount(subId){const input=document.getElementById('new-amount-'+subId);if(!input)return;const newCents=Math.round(parseFloat(input.value)*100);if(isNaN(newCents)||newCents<50){toast('Minimum $0.50','error');return;}const r=await api('/api/subscriptions/'+subId+'/amount',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:newCents})});if(r.success){toast('✓ Amount updated');loadSubscriptions();}else toast('Error','error');}
@@ -8416,7 +8416,7 @@ function update2FAView(enabled){const badge2fa=document.getElementById('2fa-badg
 async function setup2FA(){try{const r=await api('/api/security/2fa/setup',{method:'POST'});document.getElementById('2fa-qr').src=r.qrCode;document.getElementById('2fa-disabled-view').style.display='none';document.getElementById('2fa-setup-view').style.display='block';}catch(e){toast('Error setting up 2FA','error');}}
 async function confirm2FA(){const token=document.getElementById('2fa-verify-code').value;if(token.length!==6){toast('Enter 6-digit code','error');return;}try{const r=await api('/api/security/2fa/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});if(r.success){toast('✓ 2FA enabled!');update2FAView(true);}else toast('Invalid code','error');}catch(e){toast('Error','error');}}
 function cancel2FASetup(){document.getElementById('2fa-setup-view').style.display='none';document.getElementById('2fa-disabled-view').style.display='block';}
-async function disable2FA(){if(!confirm('Disable 2FA?'))return;await api('/api/security/2fa/disable',{method:'POST'});toast('2FA disabled');update2FAView(false);}
+function disable2FA(){openAppActionConfirm({title:'Disable two-factor authentication?',message:'Your account will no longer require a verification code at sign in.',cancelText:'Keep 2FA',confirmText:'Disable 2FA'},async function(){await api('/api/security/2fa/disable',{method:'POST'});toast('2FA disabled');update2FAView(false);});}
 let pendingAppActionConfirm=null;
 function openAppActionConfirm(options,onConfirm){
   options=options||{};
@@ -8955,7 +8955,7 @@ function configurePaymentLinksAccessUI(){
 }
 async function addAccount(){const name=document.getElementById('acc-name').value.trim(),key=document.getElementById('acc-key').value.trim(),publishable=document.getElementById('acc-publishable').value.trim(),webhook=document.getElementById('acc-webhook').value.trim();if(!name||!key){toast('Name and key required','error');return;}const r=await api('/api/stripe-accounts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,secret_key:key,publishable_key:publishable||null,webhook_secret:webhook})});if(r.success){toast('✓ Account added');closeModal('add-account-modal');document.getElementById('acc-name').value='';document.getElementById('acc-key').value='';document.getElementById('acc-publishable').value='';document.getElementById('acc-webhook').value='';loadAccounts();}else toast('Error: '+(r.error||'Failed'),'error');}
 async function setDefaultAccount(id){var r=await api('/api/stripe-accounts/'+id+'/default',{method:'PATCH'});if(r.success){toast('✓ Default updated');loadAccounts();}else toast('Error: '+(r.error||'Failed'),'error');}
-async function clearDefaultAccount(){if(!confirm('Remove the default account selection?'))return;var r=await api('/api/stripe-accounts/default/clear',{method:'PATCH'});if(r.success){toast('✓ Default removed');loadAccounts();}else toast('Error: '+(r.error||'Failed'),'error');}
+function clearDefaultAccount(){openAppActionConfirm({title:'Remove default Stripe account?',message:'No Stripe account will be selected as the default after this change.',cancelText:'Keep default',confirmText:'Remove default'},async function(){var r=await api('/api/stripe-accounts/default/clear',{method:'PATCH'});if(r.success){toast('✓ Default removed');loadAccounts();}else toast('Error: '+(r.error||'Failed'),'error');});}
 function deleteAccount(id){
   openAppActionConfirm({
     title:'Delete Stripe account?',
@@ -9206,14 +9206,16 @@ async function loadAdminUserSecurity(id){
     if(reset)reset.style.display=result.two_fa_enabled?'inline-flex':'none';
   }catch(e){toast('Unable to load user security','error');}
 }
-async function resetAdminUser2FA(){
+function resetAdminUser2FA(){
   if(!currentAdminDetailUserId)return;
-  if(!confirm('Reset two-factor authentication for this user? They will need to set it up again.'))return;
-  try{
-    await api('/api/admin-users/'+currentAdminDetailUserId+'/security/reset-2fa',{method:'POST'});
-    toast('✓ 2FA reset');
-    loadAdminUserSecurity(currentAdminDetailUserId);
-  }catch(e){toast('Unable to reset 2FA','error');}
+  var userId=currentAdminDetailUserId;
+  openAppActionConfirm({title:'Reset two-factor authentication?',message:'This user will need to set up two-factor authentication again the next time it is required.',cancelText:'Keep 2FA',confirmText:'Reset 2FA'},async function(){
+    try{
+      await api('/api/admin-users/'+userId+'/security/reset-2fa',{method:'POST'});
+      toast('✓ 2FA reset');
+      loadAdminUserSecurity(userId);
+    }catch(e){toast('Unable to reset 2FA','error');}
+  });
 }
 async function viewAdminUserLoginActivity(){
   if(!currentAdminDetailUserId)return;
@@ -9227,23 +9229,25 @@ async function viewAdminUserLoginActivity(){
     openModal('admin-login-activity-modal');
   }catch(e){toast('Unable to load login activity','error');}
 }
-async function removeAdminAccessFromDetails(){
+function removeAdminAccessFromDetails(){
   var user=(allAdminUsers||[]).find(function(a){return Number(a.id)===Number(currentAdminDetailUserId);});
   if(!canManageAccessUser(user)){toast('You cannot remove this user access','error');return;}
-  var message='Remove access for '+(user.username||'this user')+'?\n\nThis user will no longer be able to log in or access assigned Stripe accounts.';
-  if(!confirm(message))return;
-  try{
-    var result=await api('/api/admin-users/'+user.id,{method:'DELETE'});
-    if(result.success){
-      closeModal('admin-details-modal');
-      toast('✓ Access removed');
-      loadAdmins();
-    }else{
-      toast('Error: '+(result.error||'Failed'),'error');
+  var userId=user.id;
+  var username=user.username||'this user';
+  openAppActionConfirm({title:'Remove access for '+username+'?',message:'This user will no longer be able to log in or access assigned Stripe accounts.',cancelText:'Keep access',confirmText:'Remove access'},async function(){
+    try{
+      var result=await api('/api/admin-users/'+userId,{method:'DELETE'});
+      if(result.success){
+        closeModal('admin-details-modal');
+        toast('✓ Access removed');
+        loadAdmins();
+      }else{
+        toast('Error: '+(result.error||'Failed'),'error');
+      }
+    }catch(e){
+      toast('Error','error');
     }
-  }catch(e){
-    toast('Error','error');
-  }
+  });
 }
 async function resetAdminPasswordFromDetails(){if(!currentAdminDetailUserId)return;var password=document.getElementById('admin-detail-new-password').value;var confirm=document.getElementById('admin-detail-confirm-password').value;var err=document.getElementById('admin-detail-password-error');err.style.display='none';if(!password||password.length<8){err.textContent='Password must be at least 8 characters';err.style.display='block';return;}if(password!==confirm){err.textContent='Passwords do not match';err.style.display='block';return;}try{var r=await api('/api/admin-users/'+currentAdminDetailUserId+'/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:password})});if(r.success){toast('✓ Password reset');toggleAdminPasswordReset(false);return;}err.textContent=r.error||'Failed to reset password';err.style.display='block';}catch(e){err.textContent='Server error';err.style.display='block';}}
 
