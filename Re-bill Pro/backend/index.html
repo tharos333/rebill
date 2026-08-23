@@ -8743,7 +8743,9 @@ function buildCustomerDrawer(data){
   h+='<section class="customer-profile-section"><h3>'+(isOneTimeOnly?'Saved payment method':'Recurring payment method')+'</h3>';
   if(hasCard){
     h+='<div class="customer-rebill-card-head"><div class="customer-profile-card-line">'+customerRebillPaymentDisplay(data,c,true)+'</div>'+(isOneTimeOnly?'':'<span class="customer-rebill-will-charge">Will be charged</span>')+'</div>';
-    h+=customerDrawerRow('Selected by',escapeCustomerHtml(liveRebillPm?.source_label||'Saved payment method'));
+    if(!isOneTimeOnly){
+      h+=customerDrawerRow('Selected by',escapeCustomerHtml(liveRebillPm?.source_label||'Saved payment method'));
+    }
     h+=customerDrawerRow('Funding',escapeCustomerHtml(liveRebillPm?.funding||c.primary_card_funding||c.card_funding||'—'));
     h+=customerDrawerRow('Country',escapeCustomerHtml(customerCountryFullLabel(liveRebillPm?.country||c.primary_card_country||c.card_country)));
     h+=customerDrawerRow('Expires',escapeCustomerHtml(expiry));
