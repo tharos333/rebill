@@ -6614,7 +6614,7 @@ body.view-only-access #verification-debug-modal .modal-content{
     <input type="hidden" id="pause-sub-id">
     <input type="hidden" id="pause-mode" value="single">
     <div class="form-group"><label>Resume date (optional)</label><input type="date" id="pause-resume-date"></div>
-    <div class="modal-footer"><button class="btn" id="pause-modal-cancel" onclick="closeModal('pause-modal')">Cancel</button><button class="btn btn-primary" id="pause-modal-submit" onclick="confirmPause()">Pause</button></div>
+    <div class="modal-footer"><button class="btn" id="pause-modal-cancel" onclick="closeModal('pause-modal')">Cancel</button><button class="btn btn-danger" id="pause-modal-submit" onclick="confirmPause()">Pause</button></div>
   </div>
 </div>
 
@@ -8482,7 +8482,7 @@ function openPauseModal(subId){
   if(title)title.textContent='Pause subscription';
   if(message)message.textContent='Set an optional date to auto-resume';
   if(cancel)cancel.textContent='Cancel';
-  if(submit){submit.textContent='Pause';submit.className='btn btn-primary';}
+  if(submit){submit.textContent='Pause';submit.className='btn btn-danger';}
   openModal('pause-modal');
 }
 async function confirmPause(){
