@@ -176,6 +176,7 @@ async function ensureWebhookColumns() {
   await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT').catch(()=>{});
   await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_price_id TEXT').catch(()=>{});
   await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_invoice_id TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS paused_by_customer BOOLEAN DEFAULT false').catch(()=>{});
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS stripe_invoice_id TEXT').catch(()=>{});
   await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS subscriptions_stripe_subscription_uidx ON subscriptions(stripe_subscription_id) WHERE stripe_subscription_id IS NOT NULL').catch(()=>{});
   await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS payments_stripe_payment_intent_uidx ON payments(stripe_payment_intent) WHERE stripe_payment_intent IS NOT NULL').catch(()=>{});
@@ -349,7 +350,7 @@ async function upsertExternalCustomer(usedAccount, fallback = {}, cardDetails = 
     await pool.query(
       `UPDATE customers SET name=COALESCE($1,name), stripe_account_id=COALESCE($2,stripe_account_id),
         stripe_payment_method=COALESCE($3,stripe_payment_method), card_brand=COALESCE($4,card_brand), card_last4=COALESCE($5,card_last4),
-        card_exp_month=COALESCE($6,card_exp_month), card_exp_year=COALESCE($7,card_exp_year), status='active'
+        card_exp_month=COALESCE($6,card_exp_month), card_exp_year=COALESCE($7,card_exp_year)
        WHERE id=$8`,
       [name, usedAccount?.id || null, fallback.paymentMethodId || null, cardDetails.brand || null, cardDetails.last4 || null, cardDetails.exp_month || null, cardDetails.exp_year || null, existingByEmail.rows[0].id]
     );
@@ -362,7 +363,7 @@ async function upsertExternalCustomer(usedAccount, fallback = {}, cardDetails = 
     await pool.query(
       `UPDATE customers SET email=COALESCE($1,email), name=COALESCE($2,name), stripe_account_id=COALESCE($3,stripe_account_id),
         stripe_payment_method=COALESCE($4,stripe_payment_method), card_brand=COALESCE($5,card_brand), card_last4=COALESCE($6,card_last4),
-        card_exp_month=COALESCE($7,card_exp_month), card_exp_year=COALESCE($8,card_exp_year), status='active'
+        card_exp_month=COALESCE($7,card_exp_month), card_exp_year=COALESCE($8,card_exp_year)
        WHERE id=$9`,
       [email, name, usedAccount?.id || null, fallback.paymentMethodId || null, cardDetails.brand || null, cardDetails.last4 || null, cardDetails.exp_month || null, cardDetails.exp_year || null, existingBySynthetic.rows[0].id]
     );
@@ -414,7 +415,7 @@ async function upsertStripeCustomer(stripe, usedAccount, stripeCustomerId, prefe
   await pool.query(
     `UPDATE customers SET email=COALESCE($1,email), name=COALESCE($2,name), stripe_account_id=COALESCE($3,stripe_account_id),
       stripe_payment_method=COALESCE($4,stripe_payment_method), card_brand=COALESCE($5,card_brand), card_last4=COALESCE($6,card_last4),
-      card_exp_month=COALESCE($7,card_exp_month), card_exp_year=COALESCE($8,card_exp_year), status='active'
+      card_exp_month=COALESCE($7,card_exp_month), card_exp_year=COALESCE($8,card_exp_year)
      WHERE stripe_customer_id=$9`,
     [email, name, usedAccount?.id || null, pm?.id || null, pm?.card?.brand || null, pm?.card?.last4 || null, pm?.card?.exp_month || null, pm?.card?.exp_year || null, stripeCustomerId]
   );
@@ -450,6 +451,12 @@ async function saveSubscriptionFromStripe(stripe, usedAccount, subscriptionOrId,
   const intervalDays = intervalToDays(interval, intervalCount);
   const nextBilling = dateFromUnixOrFallback(stripeSub.current_period_end || firstItem?.current_period_end, intervalDays);
   const invoiceId = typeof stripeSub.latest_invoice === 'string' ? stripeSub.latest_invoice : stripeSub.latest_invoice?.id || null;
+  // Mirror Stripe billing controls into Subloop. A subscription scheduled to end
+  // remains active in Stripe, so show it as "canceling" until the period ends.
+  // This must take precedence over pause_collection so the user can see/undo the cancellation.
+  const localSubscriptionStatus = stripeSub.status === 'canceled'
+    ? 'canceled'
+    : (stripeSub.cancel_at_period_end ? 'canceling' : (stripeSub.pause_collection ? 'paused' : (stripeSub.status || 'active')));
 
   const localCustomer = await upsertStripeCustomer(stripe, usedAccount, stripeCustomerId, stripeSub.default_payment_method || null);
   if (!localCustomer?.id) return null;
@@ -459,7 +466,7 @@ async function saveSubscriptionFromStripe(stripe, usedAccount, subscriptionOrId,
     await pool.query(
       `UPDATE subscriptions SET customer_id=$1, amount=$2, currency=$3, interval_days=$4, next_billing_date=$5, status=$6,
        stripe_price_id=$7, stripe_invoice_id=$8 WHERE id=$9`,
-      [localCustomer.id, amount, currency, intervalDays, nextBilling, stripeSub.status || 'active', price.id || null, invoiceId, existingByStripe.rows[0].id]
+      [localCustomer.id, amount, currency, intervalDays, nextBilling, localSubscriptionStatus, price.id || null, invoiceId, existingByStripe.rows[0].id]
     );
     console.log('[subscription] updated subscription:', subId, 'row id:', existingByStripe.rows[0].id);
     return existingByStripe.rows[0].id;
@@ -468,7 +475,7 @@ async function saveSubscriptionFromStripe(stripe, usedAccount, subscriptionOrId,
   const ins = await pool.query(
     `INSERT INTO subscriptions (customer_id,amount,currency,interval_days,next_billing_date,status,stripe_subscription_id,stripe_price_id,stripe_invoice_id)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
-    [localCustomer.id, amount, currency, intervalDays, nextBilling, stripeSub.status || 'active', subId, price.id || null, invoiceId]
+    [localCustomer.id, amount, currency, intervalDays, nextBilling, localSubscriptionStatus, subId, price.id || null, invoiceId]
   );
   console.log('[subscription] saved subscription:', subId, 'row id:', ins.rows[0].id, 'customer:', localCustomer.email, 'next billing:', nextBilling);
   await activityLog.add('subscription', `Subscription saved for ${localCustomer.email}`, localCustomer.id, amount).catch(()=>{});
@@ -931,7 +938,12 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
         const stripeSub = event.data.object;
         console.log('[subscription] deleted/cancelled:', stripeSub.id);
         await saveSubscriptionFromStripe(stripe, usedAccount, stripeSub, event.type).catch(()=>{});
-        await pool.query("UPDATE subscriptions SET status='cancelled' WHERE stripe_subscription_id=$1", [stripeSub.id]).catch(()=>{});
+        const local = await pool.query("UPDATE subscriptions SET status='cancelled' WHERE stripe_subscription_id=$1 RETURNING customer_id", [stripeSub.id]).catch(()=>null);
+        const customerId = local?.rows?.[0]?.customer_id;
+        if (customerId) {
+          const remaining = await pool.query("SELECT COUNT(*)::int AS n FROM subscriptions WHERE customer_id=$1 AND LOWER(status) NOT IN ('cancelled','canceled')", [customerId]);
+          if (Number(remaining.rows[0]?.n || 0) === 0) await customers.updateStatus(customerId, 'cancelled').catch(()=>{});
+        }
       }
 
       else if (event.type === 'customer.updated') {
@@ -1520,7 +1532,157 @@ app.post('/api/customers', async (req, res) => {
     res.json({ success: true, id: c.id });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
-app.patch('/api/customers/:id/status', async (req, res) => { try { const c=await customers.byId(req.params.id); if(!c) return res.status(404).json({ error:'Customer not found' }); if(!ensureRowScope(req,res,c)) return; await customers.updateStatus(req.params.id, req.body.status); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
+async function stripeSubscriptionClientForLocalSub(localSub) {
+  if (!localSub?.stripe_subscription_id) return null;
+  const account = await stripeAccounts.byId(localSub.stripe_account_id);
+  if (!account?.secret_key) throw new Error('Stripe account secret key not found');
+  return require('stripe')(account.secret_key);
+}
+
+function pauseResumeTimestamp(dateValue) {
+  if (!dateValue) return null;
+  const t = Math.floor(new Date(String(dateValue) + 'T00:00:00Z').getTime() / 1000);
+  return Number.isFinite(t) && t > Math.floor(Date.now()/1000) ? t : null;
+}
+
+async function syncStripeSubscriptionState(localSub, targetStatus, options = {}) {
+  if (!localSub?.stripe_subscription_id) return { stripeManaged: false };
+  const stripe = await stripeSubscriptionClientForLocalSub(localSub);
+  const remote = await stripe.subscriptions.retrieve(localSub.stripe_subscription_id);
+
+  if (targetStatus === 'paused') {
+    if (remote.status === 'canceled') throw new Error('This Stripe subscription is already canceled');
+    // For normal active Stripe subscriptions, pause payment collection. Stripe keeps
+    // status=active, so Subloop mirrors pause_collection as status=paused.
+    if (remote.status !== 'paused') {
+      const pauseCollection = { behavior: 'void' };
+      const resumesAt = pauseResumeTimestamp(options.resumeDate);
+      if (resumesAt) pauseCollection.resumes_at = resumesAt;
+      await stripe.subscriptions.update(localSub.stripe_subscription_id, { pause_collection: pauseCollection });
+    }
+    return { stripeManaged: true };
+  }
+
+  if (targetStatus === 'active') {
+    if (remote.status === 'canceled') throw new Error('Canceled Stripe subscriptions cannot be reactivated');
+
+    // If this subscription was only scheduled to cancel, undo that first.
+    // This preserves the same sub_xxx and normal renewal schedule.
+    if (remote.cancel_at_period_end) {
+      await stripe.subscriptions.update(localSub.stripe_subscription_id, { cancel_at_period_end: false });
+      // A canceling subscription was originally live; if it also has pause_collection,
+      // leave the pause in place unless this call is explicitly resuming a paused subscription.
+      if (String(localSub.status || '').toLowerCase() === 'canceling') return { stripeManaged: true, reactivated: true };
+    }
+
+    if (remote.status === 'paused') {
+      await stripe.subscriptions.resume(localSub.stripe_subscription_id, { billing_cycle_anchor: 'unchanged' });
+    } else if (remote.pause_collection) {
+      await stripe.subscriptions.update(localSub.stripe_subscription_id, { pause_collection: '' });
+    }
+    return { stripeManaged: true };
+  }
+
+  if (targetStatus === 'canceling') {
+    if (remote.status === 'canceled') throw new Error('This Stripe subscription is already canceled');
+    if (!remote.cancel_at_period_end) {
+      const updated = await stripe.subscriptions.update(localSub.stripe_subscription_id, { cancel_at_period_end: true });
+      return { stripeManaged: true, cancelAtPeriodEnd: true, currentPeriodEnd: updated.current_period_end || null };
+    }
+    return { stripeManaged: true, cancelAtPeriodEnd: true, currentPeriodEnd: remote.current_period_end || null };
+  }
+
+  // Permanent immediate cancellation. This cannot be undone on the same Stripe subscription.
+  if (targetStatus === 'cancelled' || targetStatus === 'canceled') {
+    if (remote.status !== 'canceled') await stripe.subscriptions.cancel(localSub.stripe_subscription_id);
+    return { stripeManaged: true, canceledImmediately: true };
+  }
+
+  return { stripeManaged: true };
+}
+
+async function customerSubscriptionsWithScope(customerId) {
+  const r = await pool.query(`SELECT s.*, c.stripe_account_id, c.stripe_customer_id
+    FROM subscriptions s JOIN customers c ON c.id=s.customer_id WHERE s.customer_id=$1 ORDER BY s.id ASC`, [customerId]);
+  return r.rows;
+}
+
+app.patch('/api/customers/:id/status', async (req, res) => {
+  try {
+    const c = await customers.byId(req.params.id);
+    if (!c) return res.status(404).json({ error:'Customer not found' });
+    if (!ensureRowScope(req,res,c)) return;
+    const target = String(req.body.status || '').toLowerCase();
+    if (!['active','paused','canceling','cancelled','canceled'].includes(target)) return res.status(400).json({ error:'Invalid customer status' });
+
+    const subs = await customerSubscriptionsWithScope(c.id);
+    let changed = 0;
+
+    if (target === 'paused') {
+      // Customer-level pause only affects currently active subscriptions.
+      for (const sub of subs.filter(s => String(s.status||'').toLowerCase() === 'active')) {
+        await syncStripeSubscriptionState(sub, 'paused');
+        await pool.query("UPDATE subscriptions SET status='paused', paused_by_customer=true, resume_date=NULL WHERE id=$1", [sub.id]);
+        changed++;
+      }
+      await customers.updateStatus(c.id, 'paused');
+      await activityLog.add('subscription', `Paused customer ${c.email} and ${changed} active subscription(s)`, c.id, null).catch(()=>{});
+      return res.json({ success:true, status:'paused', subscriptions_changed:changed });
+    }
+
+    if (target === 'active') {
+      const customerWasCanceling = String(c.status || '').toLowerCase() === 'canceling';
+
+      if (customerWasCanceling) {
+        // Undo scheduled cancellations. The same Stripe sub_xxx remains in place.
+        for (const sub of subs.filter(s => String(s.status||'').toLowerCase() === 'canceling')) {
+          await syncStripeSubscriptionState(sub, 'active');
+          await pool.query("UPDATE subscriptions SET status='active', paused_by_customer=false, resume_date=NULL WHERE id=$1", [sub.id]);
+          changed++;
+        }
+        await customers.updateStatus(c.id, 'active');
+        await activityLog.add('resume', `Reactivated ${changed} scheduled cancellation(s) for ${c.email}`, c.id, null).catch(()=>{});
+        return res.json({ success:true, status:'active', subscriptions_changed:changed, action:'reactivated' });
+      }
+
+      // Normal customer Resume: only subscriptions paused by the customer-level pause action.
+      for (const sub of subs.filter(s => s.paused_by_customer && String(s.status||'').toLowerCase() === 'paused')) {
+        await syncStripeSubscriptionState(sub, 'active');
+        await pool.query("UPDATE subscriptions SET status='active', paused_by_customer=false, resume_date=NULL WHERE id=$1", [sub.id]);
+        changed++;
+      }
+      await customers.updateStatus(c.id, 'active');
+      await activityLog.add('resume', `Resumed customer ${c.email} and ${changed} customer-paused subscription(s)`, c.id, null).catch(()=>{});
+      return res.json({ success:true, status:'active', subscriptions_changed:changed, action:'resumed' });
+    }
+
+    if (target === 'canceling') {
+      // Safe cancel: schedule each live subscription to end at its current paid period.
+      // Until then it can be reactivated by clearing cancel_at_period_end.
+      for (const sub of subs.filter(s => !['canceling','cancelled','canceled'].includes(String(s.status||'').toLowerCase()))) {
+        await syncStripeSubscriptionState(sub, 'canceling');
+        await pool.query("UPDATE subscriptions SET status='canceling', paused_by_customer=false, resume_date=NULL WHERE id=$1", [sub.id]);
+        changed++;
+      }
+      await customers.updateStatus(c.id, 'canceling');
+      await activityLog.add('subscription', `Scheduled ${changed} subscription(s) to cancel at period end for ${c.email}`, c.id, null).catch(()=>{});
+      return res.json({ success:true, status:'canceling', subscriptions_changed:changed, action:'scheduled_cancel' });
+    }
+
+    // Explicit Cancel now: immediately and permanently cancel every non-canceled subscription.
+    for (const sub of subs.filter(s => !['cancelled','canceled'].includes(String(s.status||'').toLowerCase()))) {
+      await syncStripeSubscriptionState(sub, 'cancelled');
+      await pool.query("UPDATE subscriptions SET status='cancelled', paused_by_customer=false, resume_date=NULL WHERE id=$1", [sub.id]);
+      changed++;
+    }
+    await customers.updateStatus(c.id, 'cancelled');
+    await activityLog.add('subscription', `Immediately canceled all subscriptions for ${c.email} (${changed})`, c.id, null).catch(()=>{});
+    return res.json({ success:true, status:'cancelled', subscriptions_changed:changed, action:'canceled_now' });
+  } catch(err) {
+    console.error('[customer-status] sync failed:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 app.patch('/api/customers/:id/note', async (req, res) => { try { const c=await customers.byId(req.params.id); if(!c) return res.status(404).json({ error:'Customer not found' }); if(!ensureRowScope(req,res,c)) return; await customers.updateNote(req.params.id, req.body.note); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
 app.post('/api/customers/:id/portal', async (req, res) => {
   try {
@@ -1581,13 +1743,40 @@ app.patch('/api/subscriptions/:id', async (req, res) => {
 });
 app.patch('/api/subscriptions/:id/status', async (req, res) => {
   try {
-    if (!(await scopedSubscription(req, res, req.params.id))) return;
-    const { status, resume_date } = req.body;
-    await subscriptions.updateStatus(req.params.id, status);
-    if (status === 'paused' && resume_date) await subscriptions.setResumeDate(req.params.id, resume_date);
-    if (status === 'active') await subscriptions.setResumeDate(req.params.id, null);
-    res.json({ success: true });
-  } catch(err) { res.status(500).json({ error: err.message }); }
+    const sub = await scopedSubscription(req, res, req.params.id);
+    if (!sub) return;
+    const status = String(req.body.status || '').toLowerCase();
+    const resume_date = req.body.resume_date || null;
+    if (!['active','paused','canceling','cancelled','canceled'].includes(status)) return res.status(400).json({ error:'Invalid subscription status' });
+
+    await syncStripeSubscriptionState(sub, status, { resumeDate: resume_date });
+    const localStatus = (status === 'canceled') ? 'cancelled' : status;
+    await subscriptions.updateStatus(req.params.id, localStatus);
+    await subscriptions.setPausedByCustomer(req.params.id, false);
+    if (localStatus === 'paused') await subscriptions.setResumeDate(req.params.id, resume_date || null);
+    if (localStatus === 'active' || localStatus === 'canceling' || localStatus === 'cancelled') await subscriptions.setResumeDate(req.params.id, null);
+
+    // If an individual scheduled cancellation is reactivated, make sure a customer that was
+    // only marked canceling does not stay stuck in that state once no canceling subs remain.
+    if (localStatus === 'active') {
+      const cancelingLeft = await pool.query("SELECT COUNT(*)::int AS n FROM subscriptions WHERE customer_id=$1 AND LOWER(status)='canceling'", [sub.customer_id]);
+      const customerRow = await customers.byId(sub.customer_id);
+      if (String(customerRow?.status || '').toLowerCase() === 'canceling' && Number(cancelingLeft.rows[0]?.n || 0) === 0) {
+        await customers.updateStatus(sub.customer_id, 'active');
+      }
+    }
+
+    // Individual pause does NOT pause the customer. If the final live subscription is canceled,
+    // mark the customer canceled; otherwise leave its explicit customer-level status alone.
+    if (localStatus === 'cancelled') {
+      const remaining = await pool.query("SELECT COUNT(*)::int AS n FROM subscriptions WHERE customer_id=$1 AND LOWER(status) NOT IN ('cancelled','canceled')", [sub.customer_id]);
+      if (Number(remaining.rows[0]?.n || 0) === 0) await customers.updateStatus(sub.customer_id, 'cancelled');
+    }
+    res.json({ success: true, status: localStatus, stripe_synced: !!sub.stripe_subscription_id });
+  } catch(err) {
+    console.error('[subscription-status] sync failed:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 app.patch('/api/subscriptions/:id/amount', async (req, res) => {
   try {
@@ -1618,7 +1807,17 @@ app.post('/api/subscriptions/:id/charge', async (req, res) => {
     res.json({ success: true, paymentIntentId: pi.id });
   } catch(err) { res.status(500).json({ success: false, error: err.message }); }
 });
-app.delete('/api/subscriptions/:id', async (req, res) => { try { if (!(await scopedSubscription(req,res,req.params.id))) return; await subscriptions.updateStatus(req.params.id, 'cancelled'); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.delete('/api/subscriptions/:id', async (req, res) => {
+  try {
+    const sub = await scopedSubscription(req,res,req.params.id);
+    if (!sub) return;
+    await syncStripeSubscriptionState(sub, 'cancelled');
+    await subscriptions.updateStatus(req.params.id, 'cancelled');
+    await subscriptions.setPausedByCustomer(req.params.id, false);
+    await subscriptions.setResumeDate(req.params.id, null);
+    res.json({ success: true, stripe_synced: !!sub.stripe_subscription_id });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
 
 // ── Payments ──────────────────────────────────────────────────────────────────
 app.get('/api/payments', async (req, res) => { try { const list=await payments.recent(1000); res.json(list.filter(p => rowWithinScope(req,p))); } catch(err) { res.status(500).json({ error: err.message }); } });

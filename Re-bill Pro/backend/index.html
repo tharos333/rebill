@@ -6070,6 +6070,8 @@ body.view-only-access #verification-debug-modal .modal-content{
               <option value="">All statuses</option>
               <option value="active">Active</option>
               <option value="paused">Paused</option>
+              <option value="canceling">Canceling</option>
+              <option value="canceled">Canceled</option>
             </select>
           </div>
           <div class="pay-advanced-field">
@@ -7092,6 +7094,7 @@ function badgeLabel(s){
   if (raw === 'active') return 'Active';
   if (raw.includes('success') || raw.includes('succeeded') || raw === 'ok' || raw === 'paid') return 'Succeeded';
   if (raw.includes('fail') || raw.includes('declin')) return 'Failed';
+  if (raw === 'canceling' || raw === 'cancelling') return 'Canceling';
   if (raw.includes('cancel')) return 'Canceled';
   if (raw.includes('refund')) return 'Refunded';
   if (raw.includes('requires_payment_method') || raw.includes('requires-payment-method') || raw.includes('payment_required') || raw.includes('payment-required') || raw.includes('requires_payment') || raw.includes('requires-payment') || raw.includes('method')) return 'Payment needed';
@@ -7109,11 +7112,12 @@ function badgeIcon(s){
 
 function badge(s){
   const raw = String(s || '').toLowerCase().trim();
-  const m={active:'green',succeeded:'green',success:'green',failed:'red',declined:'red',paused:'blue',cancelled:'red',canceled:'red',pending:'blue',dunning:'blue',ok:'green'};
+  const m={active:'green',succeeded:'green',success:'green',failed:'red',declined:'red',paused:'blue',canceling:'amber',cancelling:'amber',cancelled:'red',canceled:'red',pending:'blue',dunning:'blue',ok:'green'};
   let cls = m[raw] || 'blue';
 
   if (raw.includes('success') || raw.includes('succeeded')) cls = 'green';
-  if (raw.includes('fail') || raw.includes('declin') || raw.includes('cancel')) cls = 'red';
+  if (raw.includes('fail') || raw.includes('declin') || (raw.includes('cancel') && raw !== 'canceling' && raw !== 'cancelling')) cls = 'red';
+  if (raw === 'canceling' || raw === 'cancelling') cls = 'amber';
   if (raw.includes('require') || raw.includes('payment') || raw.includes('method') || raw.includes('action') || raw.includes('pending') || raw.includes('processing')) cls = 'blue';
 
   const icon = badgeIcon(raw);
@@ -7446,7 +7450,7 @@ async function loadUpcoming(){
     if(!subs.length){tb.innerHTML='<tr><td colspan="'+(canManageSubs?5:4)+'" class="empty">No subscriptions yet.</td></tr>';return;}
     tb.innerHTML=subs.slice(0,10).map(function(s){
       var row='<tr><td><div class="customer-cell"><div class="avatar">'+initials(s.name)+'</div><div><div class="customer-name">'+(s.name||'—')+'</div><div class="customer-email">'+(s.email||'')+'</div></div></div></td><td class="mono">'+fmt(s.amount,s.currency)+'</td><td class="mono">'+fmtDate(s.next_billing_date)+'</td><td>'+(String(s.status||'').toLowerCase()==='paused'?badge(s.status).replace('class="badge ','class="badge dashboard-upcoming-paused '):badge(s.status))+'</td>';
-      if(canManageSubs)row+='<td><div class="actions">'+(s.status==='active'?'<button class="btn btn-sm" onclick="chargeNow('+s.id+')">Charge</button>':'')+(s.status==='active'?'<button class="btn btn-sm btn-danger" onclick="openPauseModal('+s.id+')">Pause</button>':'')+(['paused','cancelled','canceled'].includes(String(s.status||'').toLowerCase())?'<button class="btn btn-sm" onclick="setSubStatus('+s.id+',\'active\')">Resume</button>':'')+'</div></td>';
+      if(canManageSubs)row+='<td><div class="actions">'+(s.status==='active'?'<button class="btn btn-sm" onclick="chargeNow('+s.id+')">Charge</button>':'')+(s.status==='active'?'<button class="btn btn-sm btn-danger" onclick="openPauseModal('+s.id+')">Pause</button>':'')+(String(s.status||'').toLowerCase()==='paused'?'<button class="btn btn-sm" onclick="setSubStatus('+s.id+',\'active\')">Resume</button>':'')+'</div></td>';
       return row+'</tr>';
     }).join('');
   }catch(e){}
@@ -7556,13 +7560,14 @@ function renderCustomers(list){
     const dateLabel = c.last_payment_at ? fmtDate(c.last_payment_at) : '—';
     const dateTitle = c.last_payment_at ? 'Last successful payment date' : 'No successful payment yet';
     const noteValue = encodeURIComponent(c.note||'');
-    const pausedSubscription = customerPausedSubscription(c);
     const displayStatus = customerEffectiveStatus(c);
-    const statusAction = String(c.status||'').toLowerCase()==='paused'
+    const statusAction = displayStatus==='paused'
       ? `<button class="btn btn-sm" onclick="event.stopPropagation();setCustStatus(${c.id},'active')">Resume</button>`
-      : (pausedSubscription
-          ? `<button class="btn btn-sm" onclick="event.stopPropagation();resumeSubscriptionFromCustomer(${pausedSubscription.id})">Resume</button>`
-          : `<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();setCustStatus(${c.id},'paused')">Pause</button>`);
+      : (displayStatus==='canceling'
+          ? `<button class="btn btn-sm" onclick="event.stopPropagation();reactivateCustomerSubscriptions(${c.id})">Reactivate</button>`
+          : (displayStatus==='canceled'
+              ? ''
+              : `<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();setCustStatus(${c.id},'paused')">Pause</button>`));
     return `<tr style="cursor:pointer;" onclick="openCustomerDrawer(${c.id})">
       <td>
         <div class="customer-cell">
@@ -7651,11 +7656,21 @@ function customerHasActiveSubscription(c){
 function customerHasCanceledSubscription(c){
   return customerSubscriptionHasStatus(c,'canceled');
 }
+function customerAllSubscriptionsCanceled(c){
+  var matches=(allSubscriptions||[]).filter(function(s){return customerMatchesSubscription(c,s);});
+  return matches.length>0 && matches.every(function(s){return normalizeSubscriptionStatus(s.status)==='canceled';});
+}
 function customerEffectiveStatus(c){
-  if(String(c.status||'').toLowerCase()==='paused' || customerPausedSubscription(c)) return 'paused';
-  if(customerHasActiveSubscription(c)) return 'active';
-  if(customerHasCanceledSubscription(c)) return 'canceled';
-  return String(c.status||'active').toLowerCase();
+  var raw=normalizeSubscriptionStatus(c.status||'active');
+  // Once every subscription is actually canceled, show Canceled even if the customer
+  // was previously in the customer-level Canceling state.
+  if(customerAllSubscriptionsCanceled(c)) return 'canceled';
+  // Customer status is a customer-level control. An individually paused/canceling subscription
+  // must not change the whole customer unless the customer-level action set that state.
+  if(raw==='paused') return 'paused';
+  if(raw==='canceling'||raw==='cancelling') return 'canceling';
+  if(raw==='canceled') return 'canceled';
+  return 'active';
 }
 function customerTypeKey(c){
   return customerHasSubscription(c)?'subscription':'one-time';
@@ -7835,18 +7850,22 @@ function renderSubscriptions(list){
     var cbDisplay=bulkMode?'table-cell':'none';var cbChecked=sel?'checked':'';
     var subStatus=String(s.status||'').toLowerCase();
     var isCanceled=subStatus==='cancelled'||subStatus==='canceled';
-    var resumeBtn=(subStatus==='paused'||isCanceled)?'<button class="btn btn-sm" onclick="resumeSub('+s.id+')">Resume</button>':'';
+    var isCanceling=subStatus==='canceling'||subStatus==='cancelling';
+    var resumeBtn=subStatus==='paused'?'<button class="btn btn-sm" onclick="resumeSub('+s.id+')">Resume</button>':'';
+    var reactivateBtn=isCanceling?'<button class="btn btn-sm btn-success" onclick="reactivateSub('+s.id+')">Reactivate</button>':'';
     var chargeBtn=subStatus==='active'?'<button class="btn btn-sm" onclick="chargeNow('+s.id+')">Charge</button>':'';
     var pauseBtn=subStatus==='active'?'<button class="btn btn-sm btn-danger" onclick="openPauseModal('+s.id+')">Pause</button>':'';
     var retryBtn=subStatus==='dunning'?'<button class="btn btn-sm btn-success" onclick="chargeNow('+s.id+')">Retry now</button>':'';
-    var cancelBtn=isCanceled?'':'<button class="btn btn-sm btn-danger" onclick="cancelSub('+s.id+')">Cancel</button>';
+    var cancelBtn=(!isCanceled&&!isCanceling)?'<button class="btn btn-sm btn-danger" onclick="cancelSub('+s.id+')">Cancel</button>':'';
+    var cancelNowBtn=isCanceling?'<button class="btn btn-sm btn-danger" onclick="cancelSubNow('+s.id+')">Cancel now</button>':'';
     var editSpan='<button class="btn btn-sm" onclick="showEditAmount('+s.id+','+s.amount+')">Edit $</button><span id="edit-'+s.id+'"></span>';
     var dunningBadge=s.dunning_count>0?'<br><span style="font-size:10px;color:var(--amber);">Retry #'+s.dunning_count+'</span>':'';
     var resumeDate=s.resume_date?'<br><span style="font-size:10px;color:var(--blue);">Resumes '+fmtDate(s.resume_date)+'</span>':'';
+    var cancelEnd=isCanceling?'<br><span style="font-size:10px;color:var(--amber);">Ends '+fmtDate(s.next_billing_date)+'</span>':'';
     var row='<tr id="sub-row-'+s.id+'" style="'+bg+'">';
     if(!isViewer)row+='<td style="width:36px;display:'+cbDisplay+';"><input type="checkbox" class="sub-checkbox" data-id="'+s.id+'" '+cbChecked+' onchange="toggleSubSelect('+s.id+')" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;"></td>';
-    row+='<td><div class="customer-cell"><div class="avatar">'+initials(s.name)+'</div><div><div class="customer-name">'+(s.name||'—')+'</div><div class="customer-email">'+(s.email||'')+'</div></div></div></td><td class="mono">'+fmt(s.amount,s.currency)+'</td><td class="mono">'+(s.interval_days||30)+' days</td><td class="mono">'+fmtDate(s.next_billing_date)+resumeDate+'</td><td>'+badge(s.status)+dunningBadge+'</td>';
-    if(!isViewer)row+='<td><div class="actions">'+chargeBtn+editSpan+pauseBtn+resumeBtn+retryBtn+cancelBtn+'</div></td>';
+    row+='<td><div class="customer-cell"><div class="avatar">'+initials(s.name)+'</div><div><div class="customer-name">'+(s.name||'—')+'</div><div class="customer-email">'+(s.email||'')+'</div></div></div></td><td class="mono">'+fmt(s.amount,s.currency)+'</td><td class="mono">'+(s.interval_days||30)+' days</td><td class="mono">'+fmtDate(s.next_billing_date)+resumeDate+cancelEnd+'</td><td>'+badge(s.status)+dunningBadge+'</td>';
+    if(!isViewer)row+='<td><div class="actions">'+chargeBtn+editSpan+pauseBtn+resumeBtn+reactivateBtn+retryBtn+cancelBtn+cancelNowBtn+'</div></td>';
     rows.push(row+'</tr>');
   });
   tb.innerHTML=rows.join('');
@@ -7860,7 +7879,7 @@ function updateBulkBar(){var n=selectedSubs.size;var countEl=document.getElement
 function clearSelection(){selectedSubs.clear();document.querySelectorAll('.sub-checkbox').forEach(function(cb){cb.checked=false;});document.querySelectorAll('[id^="sub-row-"]').forEach(function(row){row.style.background='';});var cb=document.getElementById('select-all-checkbox');if(cb)cb.checked=false;updateBulkBar();}
 async function bulkCharge(){if(!selectedSubs.size)return;if(!confirm('Charge '+selectedSubs.size+' subscriptions now?'))return;toast('Charging '+selectedSubs.size+' subscriptions…');let ok=0,fail=0;for(const id of selectedSubs){try{const r=await api('/api/subscriptions/'+id+'/charge',{method:'POST'});if(r.success)ok++;else fail++;}catch(e){fail++;}}toast('✓ '+ok+' charged'+(fail?' — '+fail+' failed':''));exitBulkMode();loadStats();loadSubscriptions();}
 async function bulkPause(){if(!selectedSubs.size)return;if(!confirm('Pause '+selectedSubs.size+' subscriptions?'))return;for(const id of selectedSubs){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'paused'})}).catch(()=>{});}toast('✓ '+selectedSubs.size+' paused');exitBulkMode();loadSubscriptions();}
-async function bulkCancel(){if(!selectedSubs.size)return;if(!confirm('Cancel '+selectedSubs.size+' subscriptions? Cannot be undone.'))return;for(const id of selectedSubs){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'cancelled'})}).catch(()=>{});}toast('✓ '+selectedSubs.size+' canceled');exitBulkMode();loadSubscriptions();loadStats();}
+async function bulkCancel(){if(!selectedSubs.size)return;if(!confirm('Schedule '+selectedSubs.size+' subscriptions to cancel at the end of their current paid periods? You can reactivate them before they end.'))return;for(const id of selectedSubs){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'canceling'})}).catch(()=>{});}toast('✓ '+selectedSubs.size+' scheduled to cancel');exitBulkMode();loadSubscriptions();loadStats();}
 function showEditAmount(subId,currentAmount){const container=document.getElementById('edit-'+subId);if(!container)return;const dollars=(currentAmount/100).toFixed(2);container.innerHTML='<div style="display:inline-flex;align-items:center;gap:4px;"><input type="number" id="new-amount-'+subId+'" value="'+dollars+'" step="0.01" min="0.50" style="width:75px;padding:3px 6px;font-size:12px;"><button class="btn btn-sm btn-primary" onclick="saveAmount('+subId+')">Save</button><button class="btn btn-sm" onclick="loadSubscriptions()">✕</button></div>';document.getElementById('new-amount-'+subId).focus();}
 async function saveAmount(subId){const input=document.getElementById('new-amount-'+subId);if(!input)return;const newCents=Math.round(parseFloat(input.value)*100);if(isNaN(newCents)||newCents<50){toast('Minimum $0.50','error');return;}const r=await api('/api/subscriptions/'+subId+'/amount',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:newCents})});if(r.success){toast('✓ Amount updated');loadSubscriptions();}else toast('Error','error');}
 function compactPayAccountName(accountName){
@@ -8370,20 +8389,52 @@ function cancel2FASetup(){document.getElementById('2fa-setup-view').style.displa
 async function disable2FA(){if(!confirm('Disable 2FA?'))return;await api('/api/security/2fa/disable',{method:'POST'});toast('2FA disabled');update2FAView(false);}
 async function chargeNow(subId){if(blockViewOnlyAction())return;toast('Charging…');try{const r=await api('/api/subscriptions/'+subId+'/charge',{method:'POST'});if(r.success){toast('✓ Payment succeeded');loadUpcoming();loadStats();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
 function openPauseModal(subId){if(blockViewOnlyAction())return;document.getElementById('pause-sub-id').value=subId;document.getElementById('pause-resume-date').value='';openModal('pause-modal');}
-async function confirmPause(){const id=document.getElementById('pause-sub-id').value;const resumeDate=document.getElementById('pause-resume-date').value;await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'paused',resume_date:resumeDate||null})});toast('Subscription paused');closeModal('pause-modal');loadUpcoming();loadSubscriptions();}
+async function confirmPause(){
+  const id=document.getElementById('pause-sub-id').value;
+  const resumeDate=document.getElementById('pause-resume-date').value;
+  try{
+    await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'paused',resume_date:resumeDate||null})});
+    toast('Subscription paused');
+    closeModal('pause-modal');
+    await loadSubscriptions();
+    await loadCustomers();
+    loadUpcoming();
+    if(currentCustomerDrawerId){openCustomerDrawer(currentCustomerDrawerId);}
+  }catch(e){toast((e&&e.message)||'Could not pause subscription','error');}
+}
 function resumeSub(id){setSubStatus(id,'active');}
+function reactivateSub(id){setSubStatus(id,'active');}
 async function resumeSubscriptionFromCustomer(id){
   await setSubStatus(id,'active');
   await loadCustomers();
   if(currentCustomerDrawerId){openCustomerDrawer(currentCustomerDrawerId);}
 }
-function cancelSub(id){setSubStatus(id,'cancelled');}
-async function setSubStatus(id,status){if(blockViewOnlyAction())return;await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});toast('Subscription '+(status==='cancelled'?'canceled':status));loadUpcoming();loadSubscriptions();loadStats();}
+function cancelSub(id){
+  if(!confirm('Cancel at the end of the current paid period? The subscription will show as Canceling and can be reactivated before it ends.'))return;
+  setSubStatus(id,'canceling');
+}
+function cancelSubNow(id){
+  if(!confirm('Cancel this subscription immediately? This permanently ends the current Stripe subscription and cannot be undone.'))return;
+  setSubStatus(id,'cancelled');
+}
+async function setSubStatus(id,status){
+  if(blockViewOnlyAction())return;
+  try{
+    await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});
+    var statusLabel=status==='cancelled'?'canceled':(status==='canceling'?'scheduled to cancel':'active');
+    toast('Subscription '+statusLabel);
+    await loadSubscriptions();
+    await loadCustomers();
+    loadUpcoming();
+    loadStats();
+    if(currentCustomerDrawerId){openCustomerDrawer(currentCustomerDrawerId);}
+  }catch(e){toast((e&&e.message)||'Could not update subscription','error');}
+}
 let currentCustomerDrawerId=null;
 function escapeCustomerHtml(v){return String(v==null?'':v).replace(/[&<>"']/g,function(m){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m];});}
-function customerValueClass(status){return status==='failed'||status==='paused'?'value-red':(status==='succeeded'||status==='active'?'value-green':'');}
+function customerValueClass(status){return status==='failed'||status==='paused'||status==='canceled'?'value-red':(status==='succeeded'||status==='active'?'value-green':'');}
 function customerPaymentType(c){if((c.total_subs||0)>0)return 'Subscription'; if((c.successful_payments||0)>0||(c.failed_payments||0)>0)return 'One-time'; return '—';}
-function customerPauseStatus(c){return customerEffectiveStatus(c)==='paused'?'Paused':'Active';}
+function customerPauseStatus(c){var s=customerEffectiveStatus(c);return s==='paused'?'Paused':(s==='canceling'?'Canceling':(s==='canceled'?'Canceled':'Active'));}
 
 function customerStatusText(status){
   var s=(status||'—');
@@ -8569,7 +8620,7 @@ function buildCustomerDrawer(data){
   h+=customerDrawerRow('Payment type',escapeCustomerHtml(customerPaymentType(c)));
   h+=customerDrawerRow('Active subscriptions',String(c.active_subs||0));
   h+=customerDrawerRow('Next billing',fmtDate(c.next_billing_date));
-  h+=customerDrawerRow('Pause status',escapeCustomerHtml(customerPauseStatus(c)), effectiveStatus==='paused'?'value-red':'value-green');
+  h+=customerDrawerRow('Pause status',escapeCustomerHtml(customerPauseStatus(c)), (effectiveStatus==='paused'||effectiveStatus==='canceled')?'value-red':(effectiveStatus==='canceling'?'':'value-green'));
   h+=customerDrawerNoteRow(c);
   h+='</section>';
 
@@ -8582,13 +8633,16 @@ function buildCustomerDrawer(data){
   if(!isViewOnlyAccess()){
     h+='<div class="customer-profile-actions">';
     h+='<button class="btn" onclick="openPortal('+c.id+')">View card</button>';
-    var drawerPausedSub=customerPausedSubscription(c);
-    if(String(c.status||'').toLowerCase()==='paused'){
+    if(effectiveStatus==='paused'){
       h+='<button class="btn" onclick="setCustStatus('+c.id+',\'active\')">Resume customer</button>';
-    }else if(drawerPausedSub){
-      h+='<button class="btn" onclick="resumeSubscriptionFromCustomer('+drawerPausedSub.id+')">Resume subscription</button>';
-    }else{
+    }else if(effectiveStatus==='canceling'){
+      h+='<button class="btn btn-success" onclick="reactivateCustomerSubscriptions('+c.id+')">Reactivate all</button>';
+      h+='<button class="btn btn-danger" onclick="cancelCustomerSubscriptionsNow('+c.id+')">Cancel all now</button>';
+    }else if(effectiveStatus!=='canceled'){
       h+='<button class="btn btn-danger" onclick="setCustStatus('+c.id+',\'paused\')">Pause customer</button>';
+    }
+    if((Number(c.total_subs||0)>0 || customerHasSubscription(c)) && effectiveStatus!=='canceled' && effectiveStatus!=='canceling'){
+      h+='<button class="btn btn-danger" onclick="cancelCustomerSubscriptions('+c.id+')">Cancel all subscriptions</button>';
     }
     h+='</div>';
   }
@@ -8618,7 +8672,35 @@ async function openCustomerDrawer(id){
   }
 }
 function closeCustomerDrawer(){var customerModal=document.getElementById('customer-detail-modal');customerModal.classList.remove('open','customer-anim-prep','customer-anim-in','customer-drawer-anim-prep','customer-drawer-anim-in');document.body.classList.remove('drawer-open');currentCustomerDrawerId=null;}
-async function setCustStatus(id,status){if(blockViewOnlyAction())return;await api('/api/customers/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});toast('Customer '+status);loadCustomers();if(currentCustomerDrawerId===id){openCustomerDrawer(id);}}
+async function setCustStatus(id,status){
+  if(blockViewOnlyAction())return;
+  try{
+    var r=await api('/api/customers/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});
+    var n=Number(r&&r.subscriptions_changed||0);
+    var label=status==='active'?(r&&r.action==='reactivated'?'reactivated':'resumed'):(status==='paused'?'paused':(status==='canceling'?'scheduled to cancel':'canceled'));
+    toast('Customer '+label+(n?' · '+n+' subscription'+(n===1?'':'s')+' updated':''));
+    await loadSubscriptions();
+    await loadCustomers();
+    loadUpcoming();
+    loadStats();
+    if(currentCustomerDrawerId===id){openCustomerDrawer(id);}
+  }catch(e){toast((e&&e.message)||'Could not update customer','error');}
+}
+async function cancelCustomerSubscriptions(id){
+  if(blockViewOnlyAction())return;
+  if(!confirm('Schedule all subscriptions for this customer to cancel at the end of their current paid periods? You can reactivate them before they end.'))return;
+  await setCustStatus(id,'canceling');
+}
+async function reactivateCustomerSubscriptions(id){
+  if(blockViewOnlyAction())return;
+  if(!confirm('Reactivate all subscriptions that are scheduled to cancel?'))return;
+  await setCustStatus(id,'active');
+}
+async function cancelCustomerSubscriptionsNow(id){
+  if(blockViewOnlyAction())return;
+  if(!confirm('Cancel all subscriptions immediately? This permanently ends the current Stripe subscriptions and cannot be undone.'))return;
+  await setCustStatus(id,'cancelled');
+}
 async function openPortal(customerId){if(blockViewOnlyAction())return;try{const r=await api('/api/customers/'+customerId+'/portal',{method:'POST'});if(r.url)window.open(r.url,'_blank');else toast('Could not open portal','error');}catch(e){toast('Error','error');}}
 async function runRebills(){toast('Running rebill job…');try{const r=await api('/api/run-rebills',{method:'POST'});if(r.success){toast('✓ Done: '+r.succeeded+' charged, '+r.failed+' failed'+(r.resumed>0?', '+r.resumed+' resumed':''));loadStats();loadUpcoming();}}catch(e){toast('Error','error');}}
 async function addCustomer(){

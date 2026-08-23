@@ -49,6 +49,7 @@ async function init() {
       next_billing_date DATE NOT NULL,
       status TEXT DEFAULT 'active',
       resume_date DATE,
+      paused_by_customer BOOLEAN DEFAULT false,
       dunning_count INT DEFAULT 0,
       last_failed_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ DEFAULT NOW()
@@ -145,6 +146,7 @@ async function init() {
     'ALTER TABLE customers ADD COLUMN IF NOT EXISTS stripe_account_id INT',
     'ALTER TABLE customers ADD COLUMN IF NOT EXISTS note TEXT',
     'ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS resume_date DATE',
+    'ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS paused_by_customer BOOLEAN DEFAULT false',
     'ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS dunning_count INT DEFAULT 0',
     'ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS last_failed_at TIMESTAMPTZ',
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_brand TEXT',
@@ -215,7 +217,7 @@ const stripeAccounts = {
 const customers = {
   all: async () => { const r = await pool.query(`
     WITH sub_stats AS (
-      SELECT customer_id, COUNT(*) FILTER (WHERE status='active') as active_subs
+      SELECT customer_id, COUNT(*) FILTER (WHERE status IN ('active','canceling')) as active_subs
       FROM subscriptions
       GROUP BY customer_id
     ),
@@ -279,10 +281,10 @@ const customers = {
     const customerRes = await pool.query(`
       WITH sub_stats AS (
         SELECT customer_id,
-          COUNT(*) FILTER (WHERE status='active') as active_subs,
+          COUNT(*) FILTER (WHERE status IN ('active','canceling')) as active_subs,
           COUNT(*) FILTER (WHERE status='paused') as paused_subs,
           COUNT(*) as total_subs,
-          MIN(next_billing_date) FILTER (WHERE status='active') as next_billing_date
+          MIN(next_billing_date) FILTER (WHERE status IN ('active','canceling')) as next_billing_date
         FROM subscriptions
         WHERE customer_id=$1
         GROUP BY customer_id
@@ -408,6 +410,7 @@ const subscriptions = {
   updateStatus: async (id, status) => { await pool.query('UPDATE subscriptions SET status=$1 WHERE id=$2', [status, id]); },
   updateAmount: async (id, amount) => { await pool.query('UPDATE subscriptions SET amount=$1 WHERE id=$2', [amount, id]); },
   setResumeDate: async (id, date) => { await pool.query('UPDATE subscriptions SET resume_date=$1 WHERE id=$2', [date, id]); },
+  setPausedByCustomer: async (id, value) => { await pool.query('UPDATE subscriptions SET paused_by_customer=$1 WHERE id=$2', [!!value, id]); },
   markDunning: async (id, retryDate) => { await pool.query("UPDATE subscriptions SET status='dunning', next_billing_date=$1, dunning_count=dunning_count+1, last_failed_at=NOW() WHERE id=$2", [retryDate, id]); },
 };
 const payments = {
