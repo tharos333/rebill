@@ -8756,7 +8756,7 @@ function buildCustomerDrawer(data){
 
   h+='<section class="customer-profile-section"><h3>Billing and revenue</h3>';
   h+=customerDrawerRow('Total paid',totalPaid,'money');
-  h+=customerDrawerRow('Last payment',lastAmount);
+  h+=customerDrawerRow('Last successful payment',lastAmount);
   h+=customerDrawerRow('Successful payments',String(c.successful_payments||0),'value-green');
   h+=customerDrawerRow('Failed payments',String(c.failed_payments||0),(Number(c.failed_payments||0)>0?'value-red':''));
   h+=customerDrawerRow('Average payment',avgAmount);

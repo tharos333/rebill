@@ -352,6 +352,7 @@ const customers = {
         SELECT amount, currency, created_at, status
         FROM payments
         WHERE customer_id=c.id
+          AND status='succeeded'
         ORDER BY created_at DESC
         LIMIT 1
       ) lp ON true
