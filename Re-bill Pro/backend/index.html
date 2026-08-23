@@ -6610,10 +6610,11 @@ body.view-only-access #verification-debug-modal .modal-content{
 </div>
 <div class="modal-bg" id="pause-modal">
   <div class="modal">
-    <h3>Pause subscription</h3><p>Set an optional date to auto-resume</p>
+    <h3 id="pause-modal-title">Pause subscription</h3><p id="pause-modal-message">Set an optional date to auto-resume</p>
     <input type="hidden" id="pause-sub-id">
+    <input type="hidden" id="pause-mode" value="single">
     <div class="form-group"><label>Resume date (optional)</label><input type="date" id="pause-resume-date"></div>
-    <div class="modal-footer"><button class="btn" onclick="closeModal('pause-modal')">Cancel</button><button class="btn btn-primary" onclick="confirmPause()">Pause</button></div>
+    <div class="modal-footer"><button class="btn" id="pause-modal-cancel" onclick="closeModal('pause-modal')">Cancel</button><button class="btn btn-primary" id="pause-modal-submit" onclick="confirmPause()">Pause</button></div>
   </div>
 </div>
 
@@ -7892,7 +7893,25 @@ function toggleSelectAll(){var cbs=document.querySelectorAll('.sub-checkbox');va
 function updateBulkBar(){var n=selectedSubs.size;var countEl=document.getElementById('bulk-count');if(countEl)countEl.textContent=n>0?n+' selected':'';['bulk-charge-btn','bulk-pause-btn','bulk-cancel-btn'].forEach(function(id){var el=document.getElementById(id);if(el){el.disabled=n===0;el.style.opacity=n===0?'0.4':'1';}});var cb=document.getElementById('select-all-checkbox');var total=document.querySelectorAll('.sub-checkbox').length;if(cb)cb.checked=n>0&&n===total;}
 function clearSelection(){selectedSubs.clear();document.querySelectorAll('.sub-checkbox').forEach(function(cb){cb.checked=false;});document.querySelectorAll('[id^="sub-row-"]').forEach(function(row){row.style.background='';});var cb=document.getElementById('select-all-checkbox');if(cb)cb.checked=false;updateBulkBar();}
 function bulkCharge(){if(!selectedSubs.size)return;var count=selectedSubs.size;openAppActionConfirm({title:'Charge '+count+' subscriptions?',message:'Subloop will attempt to charge the saved payment method for each selected subscription now.',cancelText:'Go back',confirmText:'Charge now',danger:false},async function(){toast('Charging '+count+' subscriptions…');let ok=0,fail=0;for(const id of selectedSubs){try{const r=await api('/api/subscriptions/'+id+'/charge',{method:'POST'});if(r.success)ok++;else fail++;}catch(e){fail++;}}toast('✓ '+ok+' charged'+(fail?' — '+fail+' failed':''));exitBulkMode();loadStats();loadSubscriptions();});}
-function bulkPause(){if(!selectedSubs.size)return;var count=selectedSubs.size;openAppActionConfirm({title:'Pause '+count+' subscriptions?',message:'Billing will be paused for the selected subscriptions until they are resumed.',cancelText:'Keep active',confirmText:'Pause subscriptions'},async function(){for(const id of selectedSubs){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'paused'})}).catch(()=>{});}toast('✓ '+count+' paused');exitBulkMode();loadSubscriptions();});}
+function bulkPause(){
+  if(!selectedSubs.size)return;
+  var count=selectedSubs.size;
+  var mode=document.getElementById('pause-mode');
+  var id=document.getElementById('pause-sub-id');
+  var date=document.getElementById('pause-resume-date');
+  var title=document.getElementById('pause-modal-title');
+  var message=document.getElementById('pause-modal-message');
+  var cancel=document.getElementById('pause-modal-cancel');
+  var submit=document.getElementById('pause-modal-submit');
+  if(mode)mode.value='bulk';
+  if(id)id.value='';
+  if(date)date.value='';
+  if(title)title.textContent='Pause '+count+' subscriptions?';
+  if(message)message.textContent='Set an optional date to auto-resume all selected subscriptions.';
+  if(cancel)cancel.textContent='Keep active';
+  if(submit){submit.textContent='Pause subscriptions';submit.className='btn btn-danger';}
+  openModal('pause-modal');
+}
 async function bulkCancel(){if(!selectedSubs.size)return;var count=selectedSubs.size;openAppActionConfirm({title:'Schedule '+count+' cancellations?',message:'These subscriptions will stay active until the end of their current paid periods and can be reactivated before they end.',cancelText:'Keep active',confirmText:'Cancel at period end'},async function(){for(const id of selectedSubs){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'canceling'})}).catch(()=>{});}toast('✓ '+count+' scheduled to cancel');exitBulkMode();loadSubscriptions();loadStats();});}
 function showEditAmount(subId,currentAmount){const container=document.getElementById('edit-'+subId);if(!container)return;const dollars=(currentAmount/100).toFixed(2);container.innerHTML='<div style="display:inline-flex;align-items:center;gap:4px;"><input type="number" id="new-amount-'+subId+'" value="'+dollars+'" step="0.01" min="0.50" style="width:75px;padding:3px 6px;font-size:12px;"><button class="btn btn-sm btn-primary" onclick="saveAmount('+subId+')">Save</button><button class="btn btn-sm" onclick="loadSubscriptions()">✕</button></div>';document.getElementById('new-amount-'+subId).focus();}
 async function saveAmount(subId){const input=document.getElementById('new-amount-'+subId);if(!input)return;const newCents=Math.round(parseFloat(input.value)*100);if(isNaN(newCents)||newCents<50){toast('Minimum $0.50','error');return;}const r=await api('/api/subscriptions/'+subId+'/amount',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:newCents})});if(r.success){toast('✓ Amount updated');loadSubscriptions();}else toast('Error','error');}
@@ -8448,10 +8467,54 @@ async function confirmAppAction(){
 }
 
 async function chargeNow(subId){if(blockViewOnlyAction())return;toast('Charging…');try{const r=await api('/api/subscriptions/'+subId+'/charge',{method:'POST'});if(r.success){toast('✓ Payment succeeded');loadUpcoming();loadStats();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
-function openPauseModal(subId){if(blockViewOnlyAction())return;document.getElementById('pause-sub-id').value=subId;document.getElementById('pause-resume-date').value='';openModal('pause-modal');}
+function openPauseModal(subId){
+  if(blockViewOnlyAction())return;
+  var mode=document.getElementById('pause-mode');
+  var id=document.getElementById('pause-sub-id');
+  var date=document.getElementById('pause-resume-date');
+  var title=document.getElementById('pause-modal-title');
+  var message=document.getElementById('pause-modal-message');
+  var cancel=document.getElementById('pause-modal-cancel');
+  var submit=document.getElementById('pause-modal-submit');
+  if(mode)mode.value='single';
+  if(id)id.value=subId;
+  if(date)date.value='';
+  if(title)title.textContent='Pause subscription';
+  if(message)message.textContent='Set an optional date to auto-resume';
+  if(cancel)cancel.textContent='Cancel';
+  if(submit){submit.textContent='Pause';submit.className='btn btn-primary';}
+  openModal('pause-modal');
+}
 async function confirmPause(){
+  const mode=document.getElementById('pause-mode')?.value||'single';
+  const resumeDate=document.getElementById('pause-resume-date')?.value||'';
+  if(mode==='bulk'){
+    const ids=Array.from(selectedSubs);
+    const count=ids.length;
+    if(!count){closeModal('pause-modal');return;}
+    const submit=document.getElementById('pause-modal-submit');
+    if(submit){submit.disabled=true;submit.style.opacity='0.65';}
+    let ok=0,fail=0;
+    try{
+      for(const id of ids){
+        try{
+          await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'paused',resume_date:resumeDate||null})});
+          ok++;
+        }catch(e){fail++;}
+      }
+      closeModal('pause-modal');
+      toast('✓ '+ok+' paused'+(resumeDate?' — resumes '+fmtDate(resumeDate):'')+(fail?' — '+fail+' failed':''),fail&&ok===0?'error':undefined);
+      exitBulkMode();
+      await loadSubscriptions();
+      await loadCustomers();
+      loadUpcoming();
+    }finally{
+      if(submit){submit.disabled=false;submit.style.opacity='';}
+    }
+    return;
+  }
+
   const id=document.getElementById('pause-sub-id').value;
-  const resumeDate=document.getElementById('pause-resume-date').value;
   try{
     await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'paused',resume_date:resumeDate||null})});
     toast('Subscription paused');
