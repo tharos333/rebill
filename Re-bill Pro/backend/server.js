@@ -1811,6 +1811,27 @@ app.patch('/api/customers/:id/status', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+app.post('/api/customers/:id/subscriptions/resume-paused', async (req, res) => {
+  try {
+    const c = await customers.byId(req.params.id);
+    if (!c) return res.status(404).json({ error:'Customer not found' });
+    if (!ensureRowScope(req,res,c)) return;
+
+    const subs = await customerSubscriptionsWithScope(c.id);
+    let changed = 0;
+    for (const sub of subs.filter(s => String(s.status||'').toLowerCase() === 'paused')) {
+      await syncStripeSubscriptionState(sub, 'active');
+      await pool.query("UPDATE subscriptions SET status='active', paused_by_customer=false, resume_date=NULL WHERE id=$1", [sub.id]);
+      changed++;
+    }
+    await activityLog.add('resume', `Resumed ${changed} individually paused subscription(s) for ${c.email}`, c.id, null).catch(()=>{});
+    return res.json({ success:true, subscriptions_changed:changed });
+  } catch(err) {
+    console.error('[customer-resume-paused] sync failed:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.patch('/api/customers/:id/note', async (req, res) => { try { const c=await customers.byId(req.params.id); if(!c) return res.status(404).json({ error:'Customer not found' }); if(!ensureRowScope(req,res,c)) return; await customers.updateNote(req.params.id, req.body.note); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
 app.post('/api/customers/:id/portal', async (req, res) => {
   try {

@@ -8716,6 +8716,7 @@ function buildCustomerDrawer(data){
   const liveRebillPm=data.rebill_payment_method||null;
   const totalSubscriptions=Number(c.total_subs||0);
   const activeSubscriptions=Number(c.active_subs||0);
+  const pausedSubscriptions=Number(c.paused_subs||0);
   const isOneTimeOnly=totalSubscriptions===0;
   const primaryExpMonth=liveRebillPm?.exp_month||c.primary_card_exp_month||c.card_exp_month; const primaryExpYear=liveRebillPm?.exp_year||c.primary_card_exp_year||c.card_exp_year;
   const expiry=(primaryExpMonth&&primaryExpYear)?String(primaryExpMonth).padStart(2,'0')+' / '+String(primaryExpYear).slice(-2):'—';
@@ -8764,10 +8765,18 @@ function buildCustomerDrawer(data){
 
   h+='<section class="customer-profile-section"><h3>'+(isOneTimeOnly?'Billing':'Subscription / recurring billing')+'</h3>';
   h+=customerDrawerRow('Payment type',escapeCustomerHtml(customerPaymentType(c)));
-  h+=customerDrawerRow('Active subscriptions',String(c.active_subs||0));
+  h+=customerDrawerRow('Active subscriptions',String(activeSubscriptions));
+  if(pausedSubscriptions>0){
+    h+=customerDrawerRow('Paused subscriptions',String(pausedSubscriptions),'value-red');
+  }
   h+=customerDrawerRow('Next billing',fmtDate(c.next_billing_date));
   if(!isOneTimeOnly){
-    h+=customerDrawerRow('Pause status',escapeCustomerHtml(customerPauseStatus(c)), (effectiveStatus==='paused'||effectiveStatus==='canceled')?'value-red':(effectiveStatus==='canceling'?'':'value-green'));
+    var billingStatus=customerPauseStatus(c);
+    if(effectiveStatus==='active' && activeSubscriptions===0 && pausedSubscriptions>0){
+      billingStatus='Paused';
+    }
+    var billingStatusClass=(billingStatus==='Paused'||billingStatus==='Canceled')?'value-red':(billingStatus==='Canceling'?'':'value-green');
+    h+=customerDrawerRow('Billing status',escapeCustomerHtml(billingStatus),billingStatusClass);
   }
   h+=customerDrawerNoteRow(c);
   h+='</section>';
@@ -8789,6 +8798,8 @@ function buildCustomerDrawer(data){
         h+='<button class="btn btn-danger customer-action-full" onclick="cancelCustomerSubscriptionsNow('+c.id+')">Cancel all now</button>';
       }else if(effectiveStatus!=='canceled' && activeSubscriptions>0){
         h+='<button class="btn btn-danger" onclick="setCustStatus('+c.id+',\'paused\')">Pause customer</button>';
+      }else if(effectiveStatus==='active' && pausedSubscriptions>0){
+        h+='<button class="btn" onclick="resumePausedCustomerSubscriptions('+c.id+')">'+(pausedSubscriptions===1?'Resume subscription':'Resume subscriptions')+'</button>';
       }
       if((totalSubscriptions>0 || customerHasSubscription(c)) && effectiveStatus!=='canceled' && effectiveStatus!=='canceling'){
         h+='<button class="btn btn-danger customer-action-full" onclick="cancelCustomerSubscriptions('+c.id+')">Cancel all subscriptions</button>';
@@ -8836,6 +8847,19 @@ async function setCustStatus(id,status){
     loadStats();
     if(currentCustomerDrawerId===id){openCustomerDrawer(id);}
   }catch(e){toast((e&&e.message)||'Could not update customer','error');}
+}
+async function resumePausedCustomerSubscriptions(id){
+  if(blockViewOnlyAction())return;
+  try{
+    var r=await api('/api/customers/'+id+'/subscriptions/resume-paused',{method:'POST'});
+    var n=Number(r&&r.subscriptions_changed||0);
+    toast((n===1?'Subscription resumed':(n+' subscriptions resumed')));
+    await loadSubscriptions();
+    await loadCustomers();
+    loadUpcoming();
+    loadStats();
+    if(currentCustomerDrawerId===id){openCustomerDrawer(id);}
+  }catch(e){toast((e&&e.message)||'Could not resume subscription','error');}
 }
 async function cancelCustomerSubscriptions(id){
   if(blockViewOnlyAction())return;
