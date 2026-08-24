@@ -167,21 +167,67 @@ async function init() {
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_origin TEXT',
   ];
   for (const m of migrations) await pool.query(m).catch(() => {});
+  // Default owner credentials. These values can be overridden in Railway with
+  // SUBLOOP_OWNER_USERNAME / SUBLOOP_OWNER_PASSWORD.
+  const crypto = require('crypto');
+  const defaultOwnerUsername = process.env.SUBLOOP_OWNER_USERNAME || 'Tharos333';
+  const defaultOwnerPassword = process.env.SUBLOOP_OWNER_PASSWORD || 'IssoMoussa544@###';
+  const defaultOwnerHash = crypto.createHash('sha256').update(defaultOwnerPassword).digest('hex');
+
   const adminCount = await pool.query('SELECT COUNT(*) FROM admin_users');
   if (parseInt(adminCount.rows[0].count) === 0) {
-    const crypto = require('crypto');
-    const hash = crypto.createHash('sha256').update('IssoMoussa544@###').digest('hex');
-    await pool.query("INSERT INTO admin_users (username, password_hash, role) VALUES ($1, $2, 'owner')", ['Tharos333', hash]).catch(()=>{});
+    await pool.query(
+      "INSERT INTO admin_users (username, password_hash, role) VALUES ($1, $2, 'owner')",
+      [defaultOwnerUsername, defaultOwnerHash]
+    );
   }
   const defaults = {
     dunning_enabled: 'false', two_fa_enabled: 'false', two_fa_secret: '',
-    session_timeout: '480', max_login_attempts: '5', lockout_minutes: '15',
+    session_timeout: '480',
     dunning_days: '3,7,14', pause_auto_resume: 'true', proration_enabled: 'false',
     churn_alert_enabled: 'false', bulk_actions_enabled: 'true',
     scheduled_billing_enabled: 'true', webhook_logs_enabled: 'true',
   };
   for (const [key, value] of Object.entries(defaults)) {
     await pool.query('INSERT INTO settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO NOTHING', [key, value]);
+  }
+
+  // One-time recovery for databases that already existed before the default owner
+  // was added. The previous code only created Tharos333 when admin_users was empty,
+  // so an older database could permanently miss this login or keep an older hash.
+  // The marker makes this reset happen once only, so later password changes persist.
+  const ownerRecoveryKey = 'owner_credentials_recovery_2026_08_24';
+  const ownerRecovery = await pool.query('SELECT value FROM settings WHERE key=$1', [ownerRecoveryKey]);
+  if (!ownerRecovery.rows[0]) {
+    const existingOwner = await pool.query(
+      'SELECT id FROM admin_users WHERE LOWER(username)=LOWER($1) ORDER BY id ASC LIMIT 1',
+      [defaultOwnerUsername]
+    );
+    if (existingOwner.rows[0]) {
+      await pool.query(`
+        UPDATE admin_users
+        SET password_hash=$1,
+            role='owner',
+            two_fa_enabled=false,
+            two_fa_secret=NULL,
+            two_fa_secret_pending=NULL
+        WHERE id=$2
+      `, [defaultOwnerHash, existingOwner.rows[0].id]);
+    } else {
+      await pool.query(
+        "INSERT INTO admin_users (username, password_hash, role) VALUES ($1, $2, 'owner')",
+        [defaultOwnerUsername, defaultOwnerHash]
+      );
+    }
+    // Clear any legacy global 2FA state as part of this one-time owner recovery.
+    // Otherwise the migration below could immediately re-enable an old authenticator secret.
+    await pool.query("UPDATE settings SET value='false', updated_at=NOW() WHERE key='two_fa_enabled'");
+    await pool.query("UPDATE settings SET value='', updated_at=NOW() WHERE key='two_fa_secret'");
+    await pool.query(
+      'INSERT INTO settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()',
+      [ownerRecoveryKey, 'done']
+    );
+    console.log(`[db] Owner login repaired for ${defaultOwnerUsername}`);
   }
   // One-time migration: preserve any previously shared active 2FA secret on the Owner account only.
   // Other access users must enroll their own authenticator after this migration.
@@ -456,21 +502,6 @@ const security = {
   logAttempt: async (ip, success, adminUserId=null, username=null) => {
     await pool.query('INSERT INTO login_attempts (admin_user_id, username, ip, success) VALUES ($1,$2,$3,$4)', [adminUserId, username, ip, success]).catch(()=>{});
   },
-  recentFailures: async (ip, minutes=15) => {
-    const r = await pool.query(`
-      SELECT COUNT(*) AS count
-      FROM login_attempts
-      WHERE ip=$1
-        AND success=false
-        AND created_at > NOW() - ($2::int * INTERVAL '1 minute')
-        AND created_at > COALESCE(
-          (SELECT MAX(created_at) FROM login_attempts WHERE ip=$1 AND success=true),
-          '-infinity'::timestamptz
-        )
-    `, [ip, minutes]);
-    return parseInt(r.rows[0]?.count, 10) || 0;
-  },
-  clearAttempts: async (ip) => { await pool.query('DELETE FROM login_attempts WHERE ip=$1', [ip]).catch(()=>{}); },
   recentLoginsForUser: async (adminUserId, limit=20) => {
     const r = await pool.query('SELECT id, ip, success, created_at FROM login_attempts WHERE admin_user_id=$1 ORDER BY created_at DESC LIMIT $2', [adminUserId, limit]);
     return r.rows;

@@ -6464,19 +6464,6 @@ body.view-only-access #verification-debug-modal .modal-content{
       </div>
     </div>
   </div>
-  <div id="login-protection-card" class="card" style="max-width:600px;">
-    <div class="card-header"><h3>Login Protection</h3></div>
-    <div style="padding:4px 18px 18px;">
-      <div class="setting-row">
-        <div class="setting-info"><div class="setting-label">Max Login Attempts</div><div class="setting-desc">Lock after this many failed attempts</div></div>
-        <input type="number" id="setting-max-attempts" style="width:70px;" min="3" max="20" onblur="saveSetting('max_login_attempts',this.value)">
-      </div>
-      <div class="setting-row">
-        <div class="setting-info"><div class="setting-label">Lockout Duration (minutes)</div><div class="setting-desc">How long to block after too many failures</div></div>
-        <input type="number" id="setting-lockout-mins" style="width:70px;" min="5" max="60" onblur="saveSetting('lockout_minutes',this.value)">
-      </div>
-    </div>
-  </div>
   <div class="card" style="max-width:600px;">
     <div class="card-header"><h3>Recent Login Activity</h3></div>
     <div class="scrollable"><table>
@@ -6940,12 +6927,6 @@ function doLogin(){
   })
   .then(function(result){
     var r=result.body||{};
-    if(result.status===429||r.locked){
-      showLoginError(r.error||'Too many failed login attempts. Try again later.');
-      document.getElementById('login-pass').value='';
-      document.getElementById('login-pass').focus();
-      return;
-    }
     if(!result.ok)throw new Error(r.error||'Login request failed');
     if(r.success){
       localStorage.setItem('subloop_username',r.username||user);
@@ -8481,14 +8462,6 @@ async function saveSetting(key,value){await api('/api/settings',{method:'PATCH',
 async function loadSecurity(){
   try{
     const status=await api('/api/security/2fa/status');update2FAView(status.enabled);
-    var mayManageProtection=getCurrentRole()==='owner'||getCurrentRole()==='admin';
-    var protection=document.getElementById('login-protection-card');
-    if(protection)protection.style.display=mayManageProtection?'block':'none';
-    if(mayManageProtection){
-      const s=await api('/api/settings');
-      document.getElementById('setting-max-attempts').value=s.max_login_attempts||'5';
-      document.getElementById('setting-lockout-mins').value=s.lockout_minutes||'15';
-    }
     const history=await api('/api/security/login-history');const tb=document.getElementById('login-history-table');
     if(!history.length){tb.innerHTML='<tr><td colspan="3" class="empty">No login activity recorded for this user</td></tr>';return;}
     tb.innerHTML=history.map(function(h){return '<tr><td class="mono" style="font-size:12px;">'+(h.ip||'unknown')+'</td><td>'+(h.success?'<span class="badge badge-green admin-login-result-badge">Success</span>':'<span class="badge badge-red admin-login-result-badge">Failed</span>')+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+fmtTime(h.created_at)+'</td></tr>';}).join('');

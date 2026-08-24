@@ -569,19 +569,6 @@ textarea{resize:vertical;min-height:60px}
     </div>
   </div>
   <div class="card" style="max-width:600px;">
-    <div class="card-header"><h3>Login Protection</h3></div>
-    <div style="padding:4px 18px 18px;">
-      <div class="setting-row">
-        <div class="setting-info"><div class="setting-label">Max Login Attempts</div><div class="setting-desc">Lock after this many failed attempts</div></div>
-        <input type="number" id="setting-max-attempts" style="width:70px;" min="3" max="20" onblur="saveSetting('max_login_attempts',this.value)">
-      </div>
-      <div class="setting-row">
-        <div class="setting-info"><div class="setting-label">Lockout Duration (minutes)</div><div class="setting-desc">How long to block after too many failures</div></div>
-        <input type="number" id="setting-lockout-mins" style="width:70px;" min="5" max="60" onblur="saveSetting('lockout_minutes',this.value)">
-      </div>
-    </div>
-  </div>
-  <div class="card" style="max-width:600px;">
     <div class="card-header"><h3>Recent Login Activity</h3></div>
     <div class="scrollable"><table>
       <thead><tr><th>IP Address</th><th>Result</th><th>Time</th></tr></thead>
@@ -1398,9 +1385,6 @@ async function saveSetting(key,value){await api('/api/settings',{method:'PATCH',
 async function loadSecurity(){
   try{
     const status=await api('/api/security/2fa/status');update2FAView(status.enabled);
-    const s=await api('/api/settings');
-    document.getElementById('setting-max-attempts').value=s.max_login_attempts||'5';
-    document.getElementById('setting-lockout-mins').value=s.lockout_minutes||'15';
     const history=await api('/api/security/login-history');const tb=document.getElementById('login-history-table');
     if(!history.length){tb.innerHTML='<tr><td colspan="3" class="empty">No login attempts recorded</td></tr>';return;}
     tb.innerHTML=history.map(function(h){return '<tr><td class="mono" style="font-size:12px;">'+(h.ip||'unknown')+'</td><td>'+(h.success?'<span class="badge badge-green">success</span>':'<span class="badge badge-red">failed</span>')+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+fmtTime(h.created_at)+'</td></tr>';}).join('');
@@ -1553,7 +1537,7 @@ async function loadAdmins(){
     tb.innerHTML=rows.join('');
   }catch(e){tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--red);font-size:13px;">Failed to load. <button class="btn btn-sm" onclick="loadAdmins()" style="margin-left:8px;">Retry</button></td></tr>';}
 }
-var PERM_LIST=[{value:'dashboard',label:'Dashboard',desc:'Overview stats and revenue charts'},{value:'activity',label:'Activity',desc:'Full activity log of all actions'},{value:'customers',label:'Customers',desc:'View and manage customer accounts'},{value:'subscriptions',label:'Subscriptions',desc:'Manage recurring billing schedules'},{value:'payments',label:'Payments',desc:'Full payment history and retries'},{value:'links',label:'Payment Links',desc:'Generate Stripe payment links'},{value:'accounts',label:'Stripe Accounts',desc:'Manage connected Stripe accounts'},{value:'forecast',label:'Forecast',desc:'Revenue projection for next 30–90 days'},{value:'expiry',label:'Expiring Cards',desc:'Cards expiring soon that need updating'},{value:'summary',label:'Daily Summary',desc:'Business snapshot and manual invoices'},{value:'settings',label:'Settings',desc:'Dunning, proration and app settings'},{value:'security',label:'Security',desc:'Two-factor auth and login protection'},{value:'webhooks',label:'Webhook Logs',desc:'Incoming Stripe webhook events'}];
+var PERM_LIST=[{value:'dashboard',label:'Dashboard',desc:'Overview stats and revenue charts'},{value:'activity',label:'Activity',desc:'Full activity log of all actions'},{value:'customers',label:'Customers',desc:'View and manage customer accounts'},{value:'subscriptions',label:'Subscriptions',desc:'Manage recurring billing schedules'},{value:'payments',label:'Payments',desc:'Full payment history and retries'},{value:'links',label:'Payment Links',desc:'Generate Stripe payment links'},{value:'accounts',label:'Stripe Accounts',desc:'Manage connected Stripe accounts'},{value:'forecast',label:'Forecast',desc:'Revenue projection for next 30–90 days'},{value:'expiry',label:'Expiring Cards',desc:'Cards expiring soon that need updating'},{value:'summary',label:'Daily Summary',desc:'Business snapshot and manual invoices'},{value:'settings',label:'Settings',desc:'Dunning, proration and app settings'},{value:'security',label:'Security',desc:'Two-factor authentication'},{value:'webhooks',label:'Webhook Logs',desc:'Incoming Stripe webhook events'}];
 function buildPermsList(){var container=document.getElementById('perms-list');if(!container)return;container.innerHTML='';PERM_LIST.forEach(function(p){var row=document.createElement('label');row.style.cssText='display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;cursor:pointer;transition:all 0.15s;';var cb=document.createElement('input');cb.type='checkbox';cb.value=p.value;cb.style.cssText='accent-color:var(--accent);width:16px;height:16px;cursor:pointer;flex-shrink:0;';cb.addEventListener('change',function(){row.style.borderColor=cb.checked?'var(--accent)':'var(--border)';row.style.background=cb.checked?'var(--accent-glow)':'var(--surface2)';});row.addEventListener('click',function(e){if(e.target===cb)return;cb.checked=!cb.checked;cb.dispatchEvent(new Event('change'));});var info=document.createElement('div');info.style.flex='1';info.innerHTML='<div style="font-size:13px;font-weight:500;color:var(--text);">'+p.label+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;">'+p.desc+'</div>';row.appendChild(cb);row.appendChild(info);container.appendChild(row);});}
 function selectAllPerms(){document.querySelectorAll('#perms-list input[type=checkbox]').forEach(function(cb){cb.checked=true;cb.dispatchEvent(new Event('change'));});}
 function clearAllPerms(){document.querySelectorAll('#perms-list input[type=checkbox]').forEach(function(cb){cb.checked=false;cb.dispatchEvent(new Event('change'));});}

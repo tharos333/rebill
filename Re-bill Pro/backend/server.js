@@ -2401,28 +2401,12 @@ function requestClientIp(req) {
   const forwarded = String(req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || '').split(',')[0].trim();
   return forwarded || String(req.socket.remoteAddress || 'unknown');
 }
-function safeIntegerSetting(value, fallback, min, max) {
-  const parsed = parseInt(value, 10);
-  if (!Number.isFinite(parsed)) return fallback;
-  return Math.max(min, Math.min(max, parsed));
-}
 app.post('/api/auth/verify', async (req, res) => {
   try {
     const { username, password } = req.body;
     const ip = requestClientIp(req);
-    const maxAttempts = safeIntegerSetting(await settingsDb.get('max_login_attempts'), 5, 3, 20);
-    const lockoutMinutes = safeIntegerSetting(await settingsDb.get('lockout_minutes'), 15, 1, 60);
-    const recentFailures = await security.recentFailures(ip, lockoutMinutes);
 
-    if (recentFailures >= maxAttempts) {
-      return res.status(429).json({
-        success: false,
-        locked: true,
-        lockout_minutes: lockoutMinutes,
-        error: `Too many failed login attempts. Try again after ${lockoutMinutes} minutes.`
-      });
-    }
-
+    // No failed-login lockout: always verify the supplied credentials immediately.
     const user = await adminUsers.verify(username, password);
     if (user) {
       await adminUsers.updateLastLogin(user.id);
@@ -2434,14 +2418,6 @@ app.post('/api/auth/verify', async (req, res) => {
 
     const attemptedUser = username ? await adminUsers.byUsername(username) : null;
     await security.logAttempt(ip, false, attemptedUser ? attemptedUser.id : null, username || null);
-    if (recentFailures + 1 >= maxAttempts) {
-      return res.status(429).json({
-        success: false,
-        locked: true,
-        lockout_minutes: lockoutMinutes,
-        error: `Too many failed login attempts. Login locked for ${lockoutMinutes} minutes.`
-      });
-    }
     res.json({ success: false });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
