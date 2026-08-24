@@ -4438,10 +4438,25 @@ html.light #payment-detail-modal .payment-detail-shell{
   border-color:rgba(34,197,94,.16)!important;
 }
 #customer-detail-modal .customer-profile-status.value-red,
-#customer-detail-modal .customer-profile-status.paused{
+#customer-detail-modal .customer-profile-status.inactive,
+#customer-detail-modal .customer-profile-status.canceled,
+#customer-detail-modal .customer-profile-status.cancelled{
   color:var(--red)!important;
   background:rgba(248,113,113,.09)!important;
   border-color:rgba(248,113,113,.16)!important;
+}
+#customer-detail-modal .customer-profile-status.value-blue,
+#customer-detail-modal .customer-profile-status.paused{
+  color:var(--blue)!important;
+  background:var(--blue-bg)!important;
+  border-color:rgba(96,165,250,.18)!important;
+}
+#customer-detail-modal .customer-profile-status.value-amber,
+#customer-detail-modal .customer-profile-status.canceling,
+#customer-detail-modal .customer-profile-status.cancelling{
+  color:var(--amber)!important;
+  background:rgba(245,158,11,.10)!important;
+  border-color:rgba(245,158,11,.18)!important;
 }
 #customer-detail-modal .customer-profile-sections{
   flex:1 1 auto!important;
@@ -4502,6 +4517,8 @@ html.light #payment-detail-modal .payment-detail-shell{
 #customer-detail-modal .customer-profile-value.money,
 #customer-detail-modal .customer-profile-value.value-green{color:var(--green)!important;}
 #customer-detail-modal .customer-profile-value.value-red{color:var(--red)!important;}
+#customer-detail-modal .customer-profile-value.value-blue{color:var(--blue)!important;}
+#customer-detail-modal .customer-profile-value.value-amber{color:var(--amber)!important;}
 #customer-detail-modal .customer-profile-value.with-copy{
   display:flex!important;
   align-items:center!important;
@@ -4674,9 +4691,19 @@ html.light #customer-detail-modal .customer-profile-sections::-webkit-scrollbar-
   color:var(--green)!important;
 }
 #customer-detail-modal .customer-profile-status-inline.value-red,
-#customer-detail-modal .customer-profile-status-inline.paused,
-#customer-detail-modal .customer-profile-status-inline.inactive{
+#customer-detail-modal .customer-profile-status-inline.inactive,
+#customer-detail-modal .customer-profile-status-inline.canceled,
+#customer-detail-modal .customer-profile-status-inline.cancelled{
   color:var(--red)!important;
+}
+#customer-detail-modal .customer-profile-status-inline.value-blue,
+#customer-detail-modal .customer-profile-status-inline.paused{
+  color:var(--blue)!important;
+}
+#customer-detail-modal .customer-profile-status-inline.value-amber,
+#customer-detail-modal .customer-profile-status-inline.canceling,
+#customer-detail-modal .customer-profile-status-inline.cancelling{
+  color:var(--amber)!important;
 }
 
 
@@ -4724,11 +4751,25 @@ html.light #customer-detail-modal .customer-profile-sections::-webkit-scrollbar-
   border-color:rgba(34,197,94,0.18)!important;
 }
 #customer-detail-modal .customer-profile-header-status.value-red,
-#customer-detail-modal .customer-profile-header-status.paused,
-#customer-detail-modal .customer-profile-header-status.inactive{
+#customer-detail-modal .customer-profile-header-status.inactive,
+#customer-detail-modal .customer-profile-header-status.canceled,
+#customer-detail-modal .customer-profile-header-status.cancelled{
   color:var(--red)!important;
   background:rgba(248,113,113,0.12)!important;
   border-color:rgba(248,113,113,0.18)!important;
+}
+#customer-detail-modal .customer-profile-header-status.value-blue,
+#customer-detail-modal .customer-profile-header-status.paused{
+  color:var(--blue)!important;
+  background:var(--blue-bg)!important;
+  border-color:rgba(96,165,250,0.18)!important;
+}
+#customer-detail-modal .customer-profile-header-status.value-amber,
+#customer-detail-modal .customer-profile-header-status.canceling,
+#customer-detail-modal .customer-profile-header-status.cancelling{
+  color:var(--amber)!important;
+  background:rgba(245,158,11,0.10)!important;
+  border-color:rgba(245,158,11,0.18)!important;
 }
 
 
@@ -4872,11 +4913,25 @@ html.light #customer-detail-modal .customer-profile-sections::-webkit-scrollbar-
   border-color:rgba(34,197,94,0.18)!important;
 }
 #customer-detail-modal .customer-profile-header-status.value-red,
-#customer-detail-modal .customer-profile-header-status.paused,
-#customer-detail-modal .customer-profile-header-status.inactive{
+#customer-detail-modal .customer-profile-header-status.inactive,
+#customer-detail-modal .customer-profile-header-status.canceled,
+#customer-detail-modal .customer-profile-header-status.cancelled{
   color:var(--red)!important;
   background:rgba(248,113,113,0.12)!important;
   border-color:rgba(248,113,113,0.18)!important;
+}
+#customer-detail-modal .customer-profile-header-status.value-blue,
+#customer-detail-modal .customer-profile-header-status.paused{
+  color:var(--blue)!important;
+  background:var(--blue-bg)!important;
+  border-color:rgba(96,165,250,0.18)!important;
+}
+#customer-detail-modal .customer-profile-header-status.value-amber,
+#customer-detail-modal .customer-profile-header-status.canceling,
+#customer-detail-modal .customer-profile-header-status.cancelling{
+  color:var(--amber)!important;
+  background:rgba(245,158,11,0.10)!important;
+  border-color:rgba(245,158,11,0.18)!important;
 }
 
 
@@ -8573,7 +8628,7 @@ async function setSubStatus(id,status){
 }
 let currentCustomerDrawerId=null;
 function escapeCustomerHtml(v){return String(v==null?'':v).replace(/[&<>"']/g,function(m){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m];});}
-function customerValueClass(status){return status==='failed'||status==='paused'||status==='canceled'?'value-red':(status==='succeeded'||status==='active'?'value-green':'');}
+function customerValueClass(status){return status==='paused'?'value-blue':((status==='canceling'||status==='cancelling')?'value-amber':((status==='failed'||status==='canceled'||status==='cancelled')?'value-red':((status==='succeeded'||status==='active')?'value-green':'')));}
 function customerPaymentType(c){if((c.total_subs||0)>0)return 'Subscription'; if((c.successful_payments||0)>0||(c.failed_payments||0)>0)return 'One-time'; return '—';}
 function customerPauseStatus(c){var s=customerEffectiveStatus(c);return s==='paused'?'Paused':(s==='canceling'?'Canceling':(s==='canceled'?'Canceled':'Active'));}
 
@@ -8767,7 +8822,7 @@ function buildCustomerDrawer(data){
   h+=customerDrawerRow('Payment type',escapeCustomerHtml(customerPaymentType(c)));
   h+=customerDrawerRow('Active subscriptions',String(activeSubscriptions));
   if(pausedSubscriptions>0){
-    h+=customerDrawerRow('Paused subscriptions',String(pausedSubscriptions),'value-red');
+    h+=customerDrawerRow('Paused subscriptions',String(pausedSubscriptions),'value-blue');
   }
   h+=customerDrawerRow('Next billing',fmtDate(c.next_billing_date));
   if(!isOneTimeOnly){
@@ -8775,7 +8830,7 @@ function buildCustomerDrawer(data){
     if(effectiveStatus==='active' && activeSubscriptions===0 && pausedSubscriptions>0){
       billingStatus='Paused';
     }
-    var billingStatusClass=(billingStatus==='Paused'||billingStatus==='Canceled')?'value-red':(billingStatus==='Canceling'?'':'value-green');
+    var billingStatusClass=billingStatus==='Paused'?'value-blue':(billingStatus==='Canceled'?'value-red':(billingStatus==='Canceling'?'value-amber':'value-green'));
     h+=customerDrawerRow('Billing status',escapeCustomerHtml(billingStatus),billingStatusClass);
   }
   h+=customerDrawerNoteRow(c);
