@@ -1,111 +1,96 @@
-// scheduler.js — runs daily to charge due subscriptions
+// scheduler.js — maintenance only. Stripe Billing owns automatic subscription renewals.
 const cron = require('node-cron');
 const Stripe = require('stripe');
-const { subscriptions, payments, customers } = require('./db');
-const { sendFailedPaymentEmail, sendReceiptEmail } = require('./mailer');
+const { pool, settingsDb } = require('./db');
 
-let stripe;
+let running = false;
+let started = false;
 
-function initScheduler() {
-  stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-
-  // Run every day at 9:00 AM UTC
-  cron.schedule('0 9 * * *', () => {
-    console.log('[scheduler] Running daily recurring charge job...');
-    processDueSubscriptions();
-  });
-
-  console.log('[scheduler] Daily recurring charge cron initialized (runs at 09:00 UTC)');
+function normalizeStatus(value) {
+  const v = String(value || '').toLowerCase();
+  if (v === 'cancelled') return 'canceled';
+  if (v === 'cancelling') return 'canceling';
+  return v;
 }
 
-async function processDueSubscriptions() {
-  const due = subscriptions.due();
-  console.log(`[scheduler] Found ${due.length} subscription(s) due for billing`);
-
-  for (const sub of due) {
-    await chargeSubscription(sub);
-  }
-}
-
-async function chargeSubscription(sub) {
-  console.log(`[scheduler] Charging customer ${sub.email} — $${(sub.amount / 100).toFixed(2)}`);
-
+async function processAutoResumes(reconcileCustomerLifecycle = null) {
+  if (running) return { skipped: true, reason: 'already_running' };
+  running = true;
+  let resumed = 0;
+  let canceled = 0;
+  let failed = 0;
   try {
-    const pi = await stripe.paymentIntents.create({
-      amount: sub.amount,
-      currency: sub.currency,
-      customer: sub.stripe_customer_id,
-      payment_method: sub.stripe_payment_method,
-      off_session: true,
-      confirm: true,
-      description: `Recurring payment for subscription #${sub.id}`,
-      metadata: {
-        subscription_id: String(sub.id),
-        customer_email: sub.email,
-      },
-    });
+    const enabled = String(await settingsDb.get('pause_auto_resume') || 'true').toLowerCase();
+    if (!['true','1','yes','on'].includes(enabled)) return { skipped: true, reason: 'disabled' };
 
-    // Record success
-    payments.insert({
-      customer_id: sub.customer_id,
-      subscription_id: sub.id,
-      stripe_payment_intent: pi.id,
-      amount: sub.amount,
-      currency: sub.currency,
-      status: 'succeeded',
-      failure_reason: null,
-    });
+    const due = await pool.query(`
+      SELECT s.*, c.stripe_account_id, sa.secret_key
+      FROM subscriptions s
+      JOIN customers c ON c.id=s.customer_id
+      LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id
+      WHERE LOWER(COALESCE(s.status,''))='paused'
+        AND s.resume_date IS NOT NULL
+        AND s.resume_date <= CURRENT_DATE
+      ORDER BY s.resume_date ASC, s.id ASC
+    `);
 
-    // Advance to next billing date
-    subscriptions.advanceBillingDate(sub.id, sub.interval_days);
+    for (const sub of due.rows) {
+      try {
+        let nextStatus = 'active';
+        if (sub.stripe_subscription_id) {
+          if (!sub.secret_key) throw new Error('Stripe account secret key not found');
+          const stripe = new Stripe(sub.secret_key);
+          let remote = await stripe.subscriptions.retrieve(sub.stripe_subscription_id);
+          if (remote.status === 'canceled') {
+            nextStatus = 'canceled';
+            canceled++;
+          } else if (remote.status === 'paused') {
+            remote = await stripe.subscriptions.resume(sub.stripe_subscription_id, { billing_cycle_anchor:'unchanged' });
+            nextStatus = normalizeStatus(remote.status) || 'active';
+            resumed++;
+          } else if (remote.pause_collection) {
+            remote = await stripe.subscriptions.update(sub.stripe_subscription_id, { pause_collection:'' });
+            nextStatus = normalizeStatus(remote.status) || 'active';
+            resumed++;
+          } else {
+            nextStatus = normalizeStatus(remote.status) || 'active';
+            resumed++;
+          }
+        } else {
+          resumed++;
+        }
 
-    // Send receipt
-    await sendReceiptEmail({
-      email: sub.email,
-      name: sub.name,
-      amount: sub.amount,
-      currency: sub.currency,
-      paymentIntentId: pi.id,
-    });
-
-    console.log(`[scheduler] ✓ Charged ${sub.email}: ${pi.id}`);
-    return { success: true, paymentIntentId: pi.id };
-
-  } catch (err) {
-    const failureReason = err.raw?.message || err.message || 'Unknown error';
-    console.error(`[scheduler] ✗ Failed to charge ${sub.email}: ${failureReason}`);
-
-    // Record failure
-    payments.insert({
-      customer_id: sub.customer_id,
-      subscription_id: sub.id,
-      stripe_payment_intent: null,
-      amount: sub.amount,
-      currency: sub.currency,
-      status: 'failed',
-      failure_reason: failureReason,
-    });
-
-    // Send failure email with card update link (Stripe Customer Portal)
-    try {
-      const portalSession = await stripe.billingPortal.sessions.create({
-        customer: sub.stripe_customer_id,
-        return_url: process.env.BASE_URL || 'http://localhost:3001',
-      });
-
-      await sendFailedPaymentEmail({
-        email: sub.email,
-        name: sub.name,
-        amount: sub.amount,
-        currency: sub.currency,
-        updateUrl: portalSession.url,
-      });
-    } catch (portalErr) {
-      console.error('[scheduler] Could not create portal session:', portalErr.message);
+        await pool.query(
+          `UPDATE subscriptions
+           SET status=$1, resume_date=NULL, paused_by_customer=false, ended_at=CASE WHEN $1='canceled' THEN COALESCE(ended_at,NOW()) ELSE NULL END, updated_at=NOW()
+           WHERE id=$2`,
+          [nextStatus, sub.id]
+        );
+        if (typeof reconcileCustomerLifecycle === 'function') {
+          await reconcileCustomerLifecycle(sub.customer_id).catch(()=>{});
+        }
+      } catch (err) {
+        failed++;
+        console.error('[scheduler] auto-resume failed for subscription', sub.id, err.message);
+      }
     }
-
-    return { success: false, error: failureReason };
+    if (due.rows.length) console.log(`[scheduler] auto-resume checked ${due.rows.length}: resumed=${resumed} canceled=${canceled} failed=${failed}`);
+    return { checked: due.rows.length, resumed, canceled, failed };
+  } finally {
+    running = false;
   }
 }
 
-module.exports = { initScheduler, chargeSubscription, processDueSubscriptions };
+function initScheduler(options = {}) {
+  if (started) return;
+  started = true;
+  // Hourly maintenance only. No charging/retry job exists here.
+  cron.schedule('15 * * * *', () => {
+    processAutoResumes(options.reconcileCustomerLifecycle).catch(err => console.error('[scheduler] maintenance error:', err.message));
+  });
+  // Also reconcile overdue resume dates once at boot.
+  processAutoResumes(options.reconcileCustomerLifecycle).catch(err => console.error('[scheduler] startup maintenance error:', err.message));
+  console.log('[scheduler] Auto-resume maintenance initialized (hourly at :15 UTC); Stripe Billing owns renewals');
+}
+
+module.exports = { initScheduler, processAutoResumes };

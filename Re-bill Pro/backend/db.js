@@ -50,9 +50,15 @@ async function init() {
       status TEXT DEFAULT 'active',
       resume_date DATE,
       paused_by_customer BOOLEAN DEFAULT false,
+      status_before_cancel TEXT,
+      stripe_subscription_id TEXT,
+      stripe_price_id TEXT,
+      stripe_invoice_id TEXT,
       dunning_count INT DEFAULT 0,
       last_failed_at TIMESTAMPTZ,
-      created_at TIMESTAMPTZ DEFAULT NOW()
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      ended_at TIMESTAMPTZ
     );
     CREATE TABLE IF NOT EXISTS payments (
       id SERIAL PRIMARY KEY,
@@ -148,6 +154,13 @@ async function init() {
     'ALTER TABLE customers ADD COLUMN IF NOT EXISTS note TEXT',
     'ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS resume_date DATE',
     'ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS paused_by_customer BOOLEAN DEFAULT false',
+    'ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS status_before_cancel TEXT',
+    'ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT',
+    'ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_price_id TEXT',
+    'ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_invoice_id TEXT',
+    'ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ',
+    'ALTER TABLE subscriptions ALTER COLUMN updated_at SET DEFAULT NOW()',
+    'ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS ended_at TIMESTAMPTZ',
     'ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS dunning_count INT DEFAULT 0',
     'ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS last_failed_at TIMESTAMPTZ',
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_brand TEXT',
@@ -156,6 +169,9 @@ async function init() {
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_exp_year INT',
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_country TEXT',
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_funding TEXT',
+    'ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_method_type TEXT',
+    'ALTER TABLE payments ADD COLUMN IF NOT EXISTS wallet_type TEXT',
+    'ALTER TABLE payments ADD COLUMN IF NOT EXISTS wallet_checked BOOLEAN DEFAULT FALSE',
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS stripe_invoice_id TEXT',
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS stripe_fee INT',
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS net_amount INT',
@@ -167,6 +183,11 @@ async function init() {
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_origin TEXT',
   ];
   for (const m of migrations) await pool.query(m).catch(() => {});
+  // Freeze the terminal lifecycle timestamp once. Reconciliation may update updated_at,
+  // but must not make an old canceled subscription appear newer than a later one-time payment.
+  await pool.query(`UPDATE subscriptions
+    SET ended_at=COALESCE(ended_at,updated_at,created_at)
+    WHERE LOWER(COALESCE(status,'')) IN ('canceled','cancelled','incomplete_expired') AND ended_at IS NULL`).catch(()=>{});
   // Default owner credentials. These values can be overridden in Railway with
   // SUBLOOP_OWNER_USERNAME / SUBLOOP_OWNER_PASSWORD.
   const crypto = require('crypto');
@@ -186,7 +207,7 @@ async function init() {
     session_timeout: '480',
     dunning_days: '3,7,14', pause_auto_resume: 'true', proration_enabled: 'false',
     churn_alert_enabled: 'false', bulk_actions_enabled: 'true',
-    scheduled_billing_enabled: 'true', webhook_logs_enabled: 'true',
+    scheduled_billing_enabled: 'false', webhook_logs_enabled: 'true',
   };
   for (const [key, value] of Object.entries(defaults)) {
     await pool.query('INSERT INTO settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO NOTHING', [key, value]);
@@ -254,11 +275,19 @@ async function init() {
   `).catch(()=>{});
   await pool.query(`
     UPDATE subscriptions s
-    SET status='incomplete'
+    SET status='incomplete', updated_at=NOW()
     WHERE s.amount > 0
       AND LOWER(COALESCE(s.status,''))='active'
-      AND EXISTS (SELECT 1 FROM payments p WHERE p.customer_id=s.customer_id)
-      AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.customer_id=s.customer_id AND LOWER(p.status)='succeeded')
+      AND EXISTS (
+        SELECT 1 FROM payments p
+        WHERE p.customer_id=s.customer_id
+          AND (p.subscription_id=s.id OR (s.stripe_invoice_id IS NOT NULL AND p.stripe_invoice_id=s.stripe_invoice_id))
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM payments p
+        WHERE LOWER(p.status)='succeeded'
+          AND (p.subscription_id=s.id OR (s.stripe_invoice_id IS NOT NULL AND p.stripe_invoice_id=s.stripe_invoice_id))
+      )
   `).catch(()=>{});
 
   const existing = await pool.query('SELECT COUNT(*) FROM stripe_accounts');
@@ -284,7 +313,22 @@ const stripeAccounts = {
 const customers = {
   all: async () => { const r = await pool.query(`
     WITH sub_stats AS (
-      SELECT customer_id, COUNT(*) FILTER (WHERE status IN ('active','canceling')) as active_subs
+      SELECT customer_id,
+        COUNT(*) FILTER (WHERE LOWER(status) IN ('active','trialing','past_due','unpaid','canceling','paused')) as current_subs,
+        COUNT(*) FILTER (WHERE LOWER(status)='active') as active_subs,
+        COUNT(*) FILTER (WHERE LOWER(status)='paused') as paused_subs,
+        COUNT(*) FILTER (WHERE LOWER(status)='paused' AND COALESCE(paused_by_customer,false)=true) as customer_paused_subs,
+        COUNT(*) FILTER (WHERE LOWER(status)='canceling') as canceling_subs,
+        COUNT(*) FILTER (WHERE LOWER(status)='trialing') as trialing_subs,
+        COUNT(*) FILTER (WHERE LOWER(status)='past_due') as past_due_subs,
+        COUNT(*) FILTER (WHERE LOWER(status)='unpaid') as unpaid_subs,
+        COUNT(*) as historical_subs,
+        COUNT(*) FILTER (WHERE LOWER(COALESCE(status,'')) NOT IN ('incomplete','incomplete_expired','pending')) as relationship_subs,
+        MAX(CASE
+          WHEN LOWER(COALESCE(status,'')) IN ('incomplete','incomplete_expired','pending') THEN NULL
+          WHEN LOWER(COALESCE(status,'')) IN ('canceled','cancelled') THEN COALESCE(ended_at,updated_at,created_at)
+          ELSE COALESCE(updated_at,created_at)
+        END) as last_subscription_activity_at
       FROM subscriptions
       GROUP BY customer_id
     ),
@@ -293,6 +337,7 @@ const customers = {
         customer_id,
         COALESCE(SUM(CASE WHEN status='succeeded' THEN amount ELSE 0 END), 0) as total_paid,
         MAX(CASE WHEN status='succeeded' THEN created_at END) as last_payment_at,
+        MAX(CASE WHEN status='succeeded' AND (payment_origin='one_time' OR (subscription_id IS NULL AND stripe_invoice_id IS NULL)) THEN created_at END) as last_one_time_payment_at,
         MAX(created_at) as last_any_payment_at
       FROM payments
       GROUP BY customer_id
@@ -300,9 +345,29 @@ const customers = {
     SELECT
       c.*,
       sa.name as account_name,
+      COALESCE((
+        SELECT jsonb_object_agg(ct.currency, ct.total)
+        FROM (
+          SELECT LOWER(COALESCE(pp.currency,'usd')) AS currency, SUM(pp.amount)::bigint AS total
+          FROM payments pp
+          WHERE pp.customer_id=c.id AND LOWER(pp.status)='succeeded'
+          GROUP BY LOWER(COALESCE(pp.currency,'usd'))
+        ) ct
+      ), '{}'::jsonb) as currency_totals,
+      COALESCE(s.current_subs, 0) as current_subs,
       COALESCE(s.active_subs, 0) as active_subs,
+      COALESCE(s.paused_subs, 0) as paused_subs,
+      COALESCE(s.customer_paused_subs, 0) as customer_paused_subs,
+      COALESCE(s.canceling_subs, 0) as canceling_subs,
+      COALESCE(s.trialing_subs, 0) as trialing_subs,
+      COALESCE(s.past_due_subs, 0) as past_due_subs,
+      COALESCE(s.unpaid_subs, 0) as unpaid_subs,
+      COALESCE(s.historical_subs, 0) as historical_subs,
+      COALESCE(s.relationship_subs, 0) as relationship_subs,
+      s.last_subscription_activity_at,
       COALESCE(p.total_paid, 0) as total_paid,
       p.last_payment_at,
+      p.last_one_time_payment_at,
       p.last_any_payment_at,
       COALESCE(p.last_payment_at, c.created_at) as sort_date,
       pm.payment_method_type as primary_payment_method_type,
@@ -349,10 +414,22 @@ const customers = {
     const customerRes = await pool.query(`
       WITH sub_stats AS (
         SELECT customer_id,
-          COUNT(*) FILTER (WHERE status IN ('active','canceling')) as active_subs,
-          COUNT(*) FILTER (WHERE status='paused') as paused_subs,
+          COUNT(*) FILTER (WHERE LOWER(status) IN ('active','trialing','past_due','unpaid','canceling','paused')) as current_subs,
+          COUNT(*) FILTER (WHERE LOWER(status)='active') as active_subs,
+          COUNT(*) FILTER (WHERE LOWER(status)='paused') as paused_subs,
+          COUNT(*) FILTER (WHERE LOWER(status)='paused' AND COALESCE(paused_by_customer,false)=true) as customer_paused_subs,
+          COUNT(*) FILTER (WHERE LOWER(status)='canceling') as canceling_subs,
+          COUNT(*) FILTER (WHERE LOWER(status)='trialing') as trialing_subs,
+          COUNT(*) FILTER (WHERE LOWER(status)='past_due') as past_due_subs,
+          COUNT(*) FILTER (WHERE LOWER(status)='unpaid') as unpaid_subs,
           COUNT(*) as total_subs,
-          MIN(next_billing_date) FILTER (WHERE status IN ('active','canceling')) as next_billing_date
+          COUNT(*) FILTER (WHERE LOWER(COALESCE(status,'')) NOT IN ('incomplete','incomplete_expired','pending')) as relationship_subs,
+          MAX(CASE
+            WHEN LOWER(COALESCE(status,'')) IN ('incomplete','incomplete_expired','pending') THEN NULL
+            WHEN LOWER(COALESCE(status,'')) IN ('canceled','cancelled') THEN COALESCE(ended_at,updated_at,created_at)
+            ELSE COALESCE(updated_at,created_at)
+          END) as last_subscription_activity_at,
+          MIN(next_billing_date) FILTER (WHERE LOWER(status) IN ('active','trialing','past_due')) as next_billing_date
         FROM subscriptions
         WHERE customer_id=$1
         GROUP BY customer_id
@@ -362,20 +439,39 @@ const customers = {
           COALESCE(SUM(CASE WHEN status='succeeded' THEN amount ELSE 0 END),0) as total_paid,
           COUNT(*) FILTER (WHERE status='succeeded') as successful_payments,
           COUNT(*) FILTER (WHERE status='failed') as failed_payments,
-          AVG(amount) FILTER (WHERE status='succeeded') as avg_payment
+          AVG(amount) FILTER (WHERE status='succeeded') as avg_payment,
+          MAX(created_at) FILTER (WHERE status='succeeded' AND (payment_origin='one_time' OR (subscription_id IS NULL AND stripe_invoice_id IS NULL))) as last_one_time_payment_at
         FROM payments
         WHERE customer_id=$1
         GROUP BY customer_id
       )
       SELECT c.*, sa.name as account_name,
+        COALESCE((
+        SELECT jsonb_object_agg(ct.currency, ct.total)
+        FROM (
+          SELECT LOWER(COALESCE(pp.currency,'usd')) AS currency, SUM(pp.amount)::bigint AS total
+          FROM payments pp
+          WHERE pp.customer_id=c.id AND LOWER(pp.status)='succeeded'
+          GROUP BY LOWER(COALESCE(pp.currency,'usd'))
+        ) ct
+      ), '{}'::jsonb) as currency_totals,
+        COALESCE(ss.current_subs,0) as current_subs,
         COALESCE(ss.active_subs,0) as active_subs,
         COALESCE(ss.paused_subs,0) as paused_subs,
+        COALESCE(ss.customer_paused_subs,0) as customer_paused_subs,
+        COALESCE(ss.canceling_subs,0) as canceling_subs,
+        COALESCE(ss.trialing_subs,0) as trialing_subs,
+        COALESCE(ss.past_due_subs,0) as past_due_subs,
+        COALESCE(ss.unpaid_subs,0) as unpaid_subs,
         COALESCE(ss.total_subs,0) as total_subs,
+        COALESCE(ss.relationship_subs,0) as relationship_subs,
+        ss.last_subscription_activity_at,
         ss.next_billing_date,
         COALESCE(ps.total_paid,0) as total_paid,
         COALESCE(ps.successful_payments,0) as successful_payments,
         COALESCE(ps.failed_payments,0) as failed_payments,
         COALESCE(ps.avg_payment,0) as avg_payment,
+        ps.last_one_time_payment_at,
         lp.amount as last_payment_amount,
         lp.currency as last_payment_currency,
         lp.created_at as last_payment_at,
@@ -474,15 +570,16 @@ const subscriptions = {
   `); return r.rows; },
   byCustomer: async (cid) => { const r = await pool.query('SELECT * FROM subscriptions WHERE customer_id=$1', [cid]); return r.rows; },
   due: async () => { const r = await pool.query(`SELECT s.*, c.stripe_customer_id, c.stripe_payment_method, c.email, c.name, c.stripe_account_id, sa.secret_key as stripe_secret_key FROM subscriptions s JOIN customers c ON c.id=s.customer_id LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id WHERE s.status='active' AND c.status='active' AND s.next_billing_date <= CURRENT_DATE`); return r.rows; },
-  dunningDue: async () => { const r = await pool.query(`SELECT s.*, c.stripe_customer_id, c.stripe_payment_method, c.email, c.name, c.stripe_account_id, sa.secret_key as stripe_secret_key FROM subscriptions s JOIN customers c ON c.id=s.customer_id LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id WHERE s.status='dunning' AND c.status='active' AND s.next_billing_date <= CURRENT_DATE`); return r.rows; },
+  dunningDue: async () => [], // Legacy compatibility only; Stripe Billing owns renewal retries.
   resumeDue: async () => { const r = await pool.query(`SELECT * FROM subscriptions WHERE status='paused' AND resume_date IS NOT NULL AND resume_date <= CURRENT_DATE`); return r.rows; },
   create: async (data) => { await pool.query('INSERT INTO subscriptions (customer_id,amount,currency,interval_days,next_billing_date) VALUES ($1,$2,$3,$4,$5)', [data.customer_id, data.amount, data.currency, data.interval_days, data.next_billing_date]); },
-  advanceBillingDate: async (id, days) => { await pool.query("UPDATE subscriptions SET next_billing_date=next_billing_date+$1*INTERVAL '1 day', dunning_count=0, last_failed_at=NULL WHERE id=$2", [days, id]); },
-  updateStatus: async (id, status) => { await pool.query('UPDATE subscriptions SET status=$1 WHERE id=$2', [status, id]); },
-  updateAmount: async (id, amount) => { await pool.query('UPDATE subscriptions SET amount=$1 WHERE id=$2', [amount, id]); },
-  setResumeDate: async (id, date) => { await pool.query('UPDATE subscriptions SET resume_date=$1 WHERE id=$2', [date, id]); },
-  setPausedByCustomer: async (id, value) => { await pool.query('UPDATE subscriptions SET paused_by_customer=$1 WHERE id=$2', [!!value, id]); },
-  markDunning: async (id, retryDate) => { await pool.query("UPDATE subscriptions SET status='dunning', next_billing_date=$1, dunning_count=dunning_count+1, last_failed_at=NOW() WHERE id=$2", [retryDate, id]); },
+  advanceBillingDate: async () => false, // Disabled: Stripe Billing owns the subscription schedule.
+  updateStatus: async (id, status) => { await pool.query("UPDATE subscriptions SET status=$1, ended_at=CASE WHEN LOWER($1) IN ('canceled','cancelled','incomplete_expired') THEN COALESCE(ended_at,NOW()) ELSE NULL END, updated_at=NOW() WHERE id=$2", [status, id]); },
+  updateAmount: async (id, amount) => { await pool.query('UPDATE subscriptions SET amount=$1, updated_at=NOW() WHERE id=$2', [amount, id]); },
+  setResumeDate: async (id, date) => { await pool.query('UPDATE subscriptions SET resume_date=$1, updated_at=NOW() WHERE id=$2', [date, id]); },
+  setPausedByCustomer: async (id, value) => { await pool.query('UPDATE subscriptions SET paused_by_customer=$1, updated_at=NOW() WHERE id=$2', [!!value, id]); },
+  setStatusBeforeCancel: async (id, status) => { await pool.query('UPDATE subscriptions SET status_before_cancel=$1, updated_at=NOW() WHERE id=$2', [status || null, id]); },
+  markDunning: async () => false, // Disabled: Stripe Billing owns retries/dunning.
 };
 const payments = {
   recent: async (limit=50) => { const r = await pool.query('SELECT p.*, c.email, c.name, c.stripe_account_id, COALESCE(p.card_brand,c.card_brand) AS card_brand, COALESCE(p.card_last4,c.card_last4) AS card_last4, sa.name AS account_name FROM payments p JOIN customers c ON c.id=p.customer_id LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id ORDER BY p.created_at DESC LIMIT $1', [limit]); return r.rows; },
