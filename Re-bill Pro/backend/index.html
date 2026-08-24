@@ -8773,6 +8773,8 @@ function buildCustomerDrawer(data){
   const activeSubscriptions=Number(c.active_subs||0);
   const pausedSubscriptions=Number(c.paused_subs||0);
   const isOneTimeOnly=totalSubscriptions===0;
+  const isFinalCanceled=!isOneTimeOnly && effectiveStatus==='canceled';
+  const isSavedPaymentOnly=isOneTimeOnly || isFinalCanceled;
   const primaryExpMonth=liveRebillPm?.exp_month||c.primary_card_exp_month||c.card_exp_month; const primaryExpYear=liveRebillPm?.exp_year||c.primary_card_exp_year||c.card_exp_year;
   const expiry=(primaryExpMonth&&primaryExpYear)?String(primaryExpMonth).padStart(2,'0')+' / '+String(primaryExpYear).slice(-2):'—';
   const customerMoneyCurrency = customerOriginalCurrency(c);
@@ -8796,17 +8798,17 @@ function buildCustomerDrawer(data){
   h+=customerDrawerRow('Created date',fmtDate(c.created_at));
   h+='</section>';
 
-  h+='<section class="customer-profile-section"><h3>'+(isOneTimeOnly?'Saved payment method':'Recurring payment method')+'</h3>';
+  h+='<section class="customer-profile-section"><h3>'+(isSavedPaymentOnly?'Saved payment method':'Recurring payment method')+'</h3>';
   if(hasCard){
-    h+='<div class="customer-rebill-card-head"><div class="customer-profile-card-line">'+customerRebillPaymentDisplay(data,c,true)+'</div>'+(isOneTimeOnly?'':'<span class="customer-rebill-will-charge">Will be charged</span>')+'</div>';
-    if(!isOneTimeOnly){
+    h+='<div class="customer-rebill-card-head"><div class="customer-profile-card-line">'+customerRebillPaymentDisplay(data,c,true)+'</div>'+(isSavedPaymentOnly?'':'<span class="customer-rebill-will-charge">Will be charged</span>')+'</div>';
+    if(!isSavedPaymentOnly){
       h+=customerDrawerRow('Selected by',escapeCustomerHtml(liveRebillPm?.source_label||'Saved payment method'));
     }
     h+=customerDrawerRow('Funding',escapeCustomerHtml(liveRebillPm?.funding||c.primary_card_funding||c.card_funding||'—'));
     h+=customerDrawerRow('Country',escapeCustomerHtml(customerCountryFullLabel(liveRebillPm?.country||c.primary_card_country||c.card_country)));
     h+=customerDrawerRow('Expires',escapeCustomerHtml(expiry));
   }else{
-    h+='<div class="customer-profile-empty">'+(isOneTimeOnly?'No saved payment method found':'No usable saved card found for recurring payments')+'</div>';
+    h+='<div class="customer-profile-empty">'+(isSavedPaymentOnly?'No saved payment method found':'No usable saved card found for recurring payments')+'</div>';
   }
   h+='</section>';
 
@@ -8844,7 +8846,7 @@ function buildCustomerDrawer(data){
 
   if(!isViewOnlyAccess()){
     h+='<div class="customer-profile-actions">';
-    h+='<button class="btn '+(isOneTimeOnly?'customer-action-full':'')+'" onclick="openPortal('+c.id+')">View card</button>';
+    h+='<button class="btn '+((isOneTimeOnly || effectiveStatus==='canceled')?'customer-action-full':'')+'" onclick="openPortal('+c.id+')">View card</button>';
     if(!isOneTimeOnly){
       if(effectiveStatus==='paused'){
         h+='<button class="btn" onclick="setCustStatus('+c.id+',\'active\')">Resume customer</button>';
