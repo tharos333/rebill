@@ -7740,6 +7740,33 @@ function customerAllSubscriptionsCanceled(c){
   return customerHistoricalSubscriptionCount(c)>0 && customerCurrentSubscriptionCount(c)===0 && !customerLaterOneTimeAfterSubscriptions(c);
 }
 function customerEffectiveStatus(c){
+  // Derive what the UI should show from the actual subscription state first.
+  // This prevents a stale customers.status='active' row from surviving after the
+  // customer's final/only subscription has been fully canceled.
+  var active=Number(c.active_subs||0);
+  var trial=Number(c.trialing_subs||0);
+  var past=Number(c.past_due_subs||0);
+  var unpaid=Number(c.unpaid_subs||0);
+  var canceling=Number(c.canceling_subs||0);
+  var paused=Number(c.paused_subs||0);
+  var customerPaused=Number(c.customer_paused_subs||0);
+  var current=customerCurrentSubscriptionCount(c);
+  var relationship=customerRelationshipSubscriptionCount(c);
+
+  if(active>0 || trial>0)return 'active';
+  if(past>0)return 'past_due';
+  if(unpaid>0)return 'unpaid';
+  if(canceling>0)return 'canceling';
+  // An individually paused subscription does not pause the customer record.
+  if(paused>0)return customerPaused>0?'paused':'active';
+
+  // If a real recurring relationship existed but no subscription is live now,
+  // the customer is Canceled unless a newer standalone one-time payment changed
+  // the current relationship back to one-time.
+  if(relationship>0 && current===0){
+    return customerLaterOneTimeAfterSubscriptions(c)?'active':'canceled';
+  }
+
   var raw=normalizeSubscriptionStatus(c.status||'active');
   if(['active','paused','canceling','canceled','past_due','unpaid','trialing','pending','incomplete'].includes(raw))return raw;
   return 'active';

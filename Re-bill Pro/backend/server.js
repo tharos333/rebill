@@ -267,6 +267,16 @@ async function reconcileCustomerLifecycle(customerId, options = {}) {
   return target;
 }
 
+async function reconcileExistingCustomerLifecycles() {
+  const r = await pool.query('SELECT id FROM customers ORDER BY id');
+  for (const row of r.rows) {
+    await reconcileCustomerLifecycle(row.id).catch(err => {
+      console.log('[customer-reconcile] could not reconcile customer', row.id, err.message);
+    });
+  }
+  console.log(`[customer-reconcile] checked ${r.rows.length} existing customer lifecycle(s)`);
+}
+
 function paymentMethodId(value) {
   if (!value) return null;
   if (typeof value === 'string') return value;
@@ -1665,6 +1675,9 @@ app.delete('/api/stripe-accounts/:id', async (req, res) => {
 app.get('/api/customers', async (req, res) => { try { const list=await customers.all(); res.json(list.filter(c => rowWithinScope(req,c))); } catch(err) { res.status(500).json({ error: err.message }); } });
 app.get('/api/customers/:id/details', async (req, res) => {
   try {
+    // Repair any stale customer status before rendering the drawer. This covers
+    // older records that were canceled before lifecycle reconciliation existed.
+    await reconcileCustomerLifecycle(req.params.id).catch(()=>{});
     const data = await customers.detail(req.params.id);
     if (!data.customer) return res.status(404).json({ error: 'Customer not found' });
     if (!ensureRowScope(req, res, data.customer)) return;
@@ -2931,7 +2944,10 @@ app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 const PORT = process.env.PORT || 8080;
 // Database migrations, including admin access columns, finish once before accepting requests.
 // API permission checks then use fast SELECT queries only; they never run ALTER TABLE during page loads.
-init().then(() => {
+init().then(async () => {
+  // One startup pass repairs legacy/stale customer rows (for example an Active
+  // customer whose final subscription had already been canceled in an older build).
+  await reconcileExistingCustomerLifecycles().catch(err => console.log('[customer-reconcile] startup pass failed:', err.message));
   initScheduler({ reconcileCustomerLifecycle });
   app.listen(PORT, () => console.log(`Subloop running on port ${PORT}`));
 }).catch(err => { console.error('DB init failed:', err.message); process.exit(1); });
