@@ -7525,13 +7525,45 @@ async function loadActivity(){
     var isViewer=localStorage.getItem('subloop_readonly')==='1';
     if(isViewer)list=list.filter(function(a){return['payment','failed','retry','charge','dunning','proration','resume'].includes(a.type);});
     if(!list.length){wrap.innerHTML='<div class="empty">'+(isViewer?'No payment activity yet':'No activity yet')+'</div>';return;}
-    var colors={payment:'var(--green)',failed:'var(--red)',charge:'var(--accent)',dunning:'var(--amber)',resume:'var(--blue)',retry:'var(--green)',proration:'var(--accent)'};
+    function activityDotColor(a){
+      var type=String(a&&a.type||'').toLowerCase();
+      var text=String(a&&a.description||'').toLowerCase();
+
+      // Red = failed or permanently/destructively canceled.
+      if(/payment (failed|declined)|\bfailed\b|immediately cancel(?:ed|led)|cancel(?:ed|led) immediately|permanent(?:ly)? cancel(?:ed|led)|cancel all now/.test(text) || type==='failed') return 'var(--red)';
+
+      // Green = an action that ends in a live/successful state. Check Resume/Reactivate
+      // before words like "paused" or "scheduled cancellation" that may also appear
+      // later in the same description.
+      if(/\bresumed\b|\breactivated\b/.test(text) || type==='resume') return 'var(--green)';
+
+      // Blue = paused state. Keep pause distinct from neutral informational events.
+      if(/\bpaused\b|\bpause(?:d| customer| subscription| billing)?\b/.test(text) || type==='pause') return 'var(--blue)';
+
+      // Amber = a future/scheduled cancellation or another pending billing outcome.
+      if(/scheduled .*cancel|cancel at period end|scheduled cancellation|canceling|cancelling/.test(text) || type==='dunning') return 'var(--amber)';
+
+      // Other successful payment/recovery outcomes are green.
+      if(/payment (succeeded|successful)|\bpaid\b|\bsucceeded\b|\bsuccessful\b/.test(text)) return 'var(--green)';
+
+      // Retry without a final success/failure word is still in progress/attention state.
+      if(type==='retry') return 'var(--amber)';
+
+      // Manual charge entries are written only after Stripe returns a PaymentIntent;
+      // successful charge history should read as a positive outcome.
+      if(type==='charge') return 'var(--green)';
+
+      // Payment events that are neither failed nor pending are successful.
+      if(type==='payment') {
+        if(/requires_|processing|pending|incomplete/.test(text)) return 'var(--amber)';
+        return 'var(--green)';
+      }
+
+      // Neutral/informational events: subscription saved, admin changes, notes, etc.
+      return 'var(--muted)';
+    }
     wrap.innerHTML=list.map(function(a){
-      var text=String(a.description||'').toLowerCase();
-      var dotColor=colors[a.type]||'var(--muted)';
-      if(text.indexOf('payment failed')>=0||text.indexOf('payment declined')>=0)dotColor='var(--red)';
-      else if(text.indexOf('payment succeeded')>=0||text.indexOf('payment successful')>=0)dotColor='var(--green)';
-      else if(text.indexOf('admin user')>=0||text.indexOf('user created')>=0)dotColor='var(--muted)';
+      var dotColor=activityDotColor(a);
       return '<div class="activity-item"><div class="activity-dot" style="background:'+dotColor+'"></div><div style="flex:1;"><div style="font-size:13px;font-weight:550;">'+a.description+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;font-weight:400;">'+fmtTime(a.created_at)+'</div></div></div>';
     }).join('');
   }catch(e){}
