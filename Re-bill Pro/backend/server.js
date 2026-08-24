@@ -2,7 +2,6 @@ const express = require('express');
 const app = express();
 const path = require('path');
 const { init, pool, settingsDb, stripeAccounts, customers, subscriptions, payments, activityLog, webhookLogs, security, adminUsers } = require('./db');
-const { initScheduler } = require('./scheduler');
 let speakeasy, QRCode;
 try { speakeasy = require('speakeasy'); QRCode = require('qrcode'); } catch(e) {}
 
@@ -157,25 +156,31 @@ function toUsdCents(amount, currency) {
   return Math.round((Number(amount) || 0) * rate);
 }
 
-function csvCell(value) {
-  const text = value === null || value === undefined ? '' : String(value);
-  return /[",\n\r]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
-}
-function csvLine(values) { return values.map(csvCell).join(','); }
-
-let webhookColumnsReady = true;
 async function ensureWebhookColumns() {
-  // Schema migrations run once in db.init() before the server accepts requests.
-  // Kept as a compatibility hook for older call sites; it intentionally performs no DDL.
-  return webhookColumnsReady;
-}
-
-async function logWebhookEvent(data, force = false) {
-  if (!force) {
-    const enabled = await settingsDb.get('webhook_logs_enabled').catch(() => 'true');
-    if (String(enabled || 'true') === 'false') return;
-  }
-  await webhookLogs.add(data).catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_brand TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_last4 TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_exp_month INT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_exp_year INT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_country TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_funding TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_method_type TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS wallet_type TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS wallet_checked BOOLEAN DEFAULT FALSE').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS stripe_fee INT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS net_amount INT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS balance_transaction_id TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS financial_currency TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS retry_of_payment_id INT REFERENCES payments(id)').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS was_failed BOOLEAN DEFAULT false').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS recovered_at TIMESTAMPTZ').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_origin TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_price_id TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_invoice_id TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS paused_by_customer BOOLEAN DEFAULT false').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS stripe_invoice_id TEXT').catch(()=>{});
+  await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS subscriptions_stripe_subscription_uidx ON subscriptions(stripe_subscription_id) WHERE stripe_subscription_id IS NOT NULL').catch(()=>{});
+  await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS payments_stripe_payment_intent_uidx ON payments(stripe_payment_intent) WHERE stripe_payment_intent IS NOT NULL').catch(()=>{});
 }
 
 function intervalToDays(interval, count) {
@@ -206,9 +211,8 @@ async function retrieveAttachedPaymentMethod(stripe, customerId, candidate) {
   try {
     const pm = typeof candidate === 'object' && candidate.id ? candidate : await stripe.paymentMethods.retrieve(id);
     const attachedCustomer = typeof pm.customer === 'string' ? pm.customer : pm.customer?.id || null;
-    // A reusable saved card must be attached to this exact Stripe customer.
-    // A card merely seen on a one-time PaymentIntent is not automatically reusable.
-    if (attachedCustomer !== customerId) return null;
+    // A reusable saved card should be attached to this exact Stripe customer.
+    if (attachedCustomer && attachedCustomer !== customerId) return null;
     if (pm.type !== 'card') return null;
     return pm;
   } catch(e) {
@@ -411,7 +415,7 @@ async function upsertStripeCustomer(stripe, usedAccount, stripeCustomerId, prefe
 
   await pool.query(
     `UPDATE customers SET email=COALESCE($1,email), name=COALESCE($2,name), stripe_account_id=COALESCE($3,stripe_account_id),
-      stripe_payment_method=$4, card_brand=COALESCE($5,card_brand), card_last4=COALESCE($6,card_last4),
+      stripe_payment_method=COALESCE($4,stripe_payment_method), card_brand=COALESCE($5,card_brand), card_last4=COALESCE($6,card_last4),
       card_exp_month=COALESCE($7,card_exp_month), card_exp_year=COALESCE($8,card_exp_year)
      WHERE stripe_customer_id=$9`,
     [email, name, usedAccount?.id || null, pm?.id || null, pm?.card?.brand || null, pm?.card?.last4 || null, pm?.card?.exp_month || null, pm?.card?.exp_year || null, stripeCustomerId]
@@ -437,9 +441,7 @@ async function subscriptionPaymentIsConfirmed(stripe, stripeSub, invoiceId = nul
       catch (_e) { invoice = null; }
     }
     if (!invoice) return false;
-    // A partial amount_paid does not mean the subscription's invoice is settled.
-    // Only a paid invoice or a succeeded PaymentIntent confirms the first paid period.
-    if (invoice.paid === true || String(invoice.status || '').toLowerCase() === 'paid') return true;
+    if (invoice.paid === true || String(invoice.status || '').toLowerCase() === 'paid' || Number(invoice.amount_paid || 0) > 0) return true;
 
     let pi = invoice.payment_intent || null;
     if (typeof pi === 'string') {
@@ -455,55 +457,41 @@ async function subscriptionPaymentIsConfirmed(stripe, stripeSub, invoiceId = nul
 async function syncFirstPaymentEligibility(customerId, subscriptionId, paymentStatus) {
   if (!customerId) return;
   const normalized = String(paymentStatus || '').toLowerCase();
-
-  const customerSuccess = await pool.query(
+  const success = await pool.query(
     "SELECT 1 FROM payments WHERE customer_id=$1 AND LOWER(status)='succeeded' LIMIT 1",
     [customerId]
   );
-  const hasAnyCustomerSuccess = !!customerSuccess.rows[0] || normalized === 'succeeded';
+  const hasSuccessfulPayment = !!success.rows[0] || normalized === 'succeeded';
 
-  let hasSubscriptionSuccess = false;
-  if (subscriptionId) {
-    const subscriptionSuccess = await pool.query(
-      "SELECT 1 FROM payments WHERE subscription_id=$1 AND LOWER(status)='succeeded' LIMIT 1",
-      [subscriptionId]
-    );
-    hasSubscriptionSuccess = !!subscriptionSuccess.rows[0] || normalized === 'succeeded';
-  }
-
-  // A customer becomes a real Subloop customer after any successful payment.
-  if (hasAnyCustomerSuccess) {
-    await pool.query(
-      "UPDATE customers SET status='active' WHERE id=$1 AND LOWER(COALESCE(status,'')) IN ('pending','cancelled','canceled')",
-      [customerId]
-    ).catch(()=>{});
-  }
-
-  // A subscription must have its own successful payment. A previous one-time payment or
-  // a different subscription payment must never activate a brand-new failed subscription.
-  if (subscriptionId) {
-    if (hasSubscriptionSuccess) {
+  if (hasSuccessfulPayment) {
+    // A pending Stripe Customer becomes a real Subloop customer only after a successful payment.
+    await pool.query("UPDATE customers SET status='active' WHERE id=$1 AND LOWER(COALESCE(status,''))='pending'", [customerId]).catch(()=>{});
+    if (subscriptionId) {
       await pool.query(
         "UPDATE subscriptions SET status='active' WHERE id=$1 AND LOWER(COALESCE(status,'')) IN ('pending','incomplete')",
         [subscriptionId]
       ).catch(()=>{});
-    } else if (normalized === 'failed' || normalized === 'requires_payment_method' || normalized === 'requires_action') {
+    }
+    return;
+  }
+
+  if (normalized === 'failed' || normalized === 'requires_payment_method' || normalized === 'requires_action') {
+    // Keep failed first attempts for payment history, but do not expose them as customers/subscriptions.
+    await pool.query("UPDATE customers SET status='pending' WHERE id=$1 AND LOWER(COALESCE(status,''))='active'", [customerId]).catch(()=>{});
+    if (subscriptionId) {
       await pool.query(
         "UPDATE subscriptions SET status='incomplete' WHERE id=$1 AND amount>0 AND LOWER(COALESCE(status,'')) IN ('active','pending','incomplete')",
         [subscriptionId]
       ).catch(()=>{});
+    } else {
+      await pool.query(
+        "UPDATE subscriptions SET status='incomplete' WHERE customer_id=$1 AND amount>0 AND LOWER(COALESCE(status,''))='active'",
+        [customerId]
+      ).catch(()=>{});
     }
   }
-
-  // Only hide the customer itself when they have never paid successfully at all.
-  if (!hasAnyCustomerSuccess && (normalized === 'failed' || normalized === 'requires_payment_method' || normalized === 'requires_action')) {
-    await pool.query(
-      "UPDATE customers SET status='pending' WHERE id=$1 AND LOWER(COALESCE(status,''))='active'",
-      [customerId]
-    ).catch(()=>{});
-  }
-  await reconcileCustomerLifecycleFromSubscriptions(customerId).catch(()=>{});
 }
+
 async function saveSubscriptionFromStripe(stripe, usedAccount, subscriptionOrId, source = 'unknown') {
   await ensureWebhookColumns();
   if (!subscriptionOrId) {
@@ -544,11 +532,10 @@ async function saveSubscriptionFromStripe(stripe, usedAccount, subscriptionOrId,
 
   const existingByStripe = await pool.query('SELECT id FROM subscriptions WHERE stripe_subscription_id=$1', [subId]);
 
-  // Never expose a paid subscription in any live/terminal lifecycle state until that
-  // subscription itself has had a confirmed payment. A customer may have an older one-time
-  // success or another subscription; that must not activate a brand-new failed subscription.
-  // Trialing/free subscriptions are intentionally exempt because no first charge is due yet.
-  if (amount > 0 && stripeSub.status !== 'trialing' && !['incomplete','incomplete_expired'].includes(localSubscriptionStatus)) {
+  // Never expose a paid subscription as Active until its first payment is actually confirmed.
+  // Stripe may already have cus_*/sub_* objects after a failed first attempt; those are not
+  // paying customers in Subloop. Keep them internally as pending/incomplete for payment history.
+  if (amount > 0 && localSubscriptionStatus === 'active') {
     let paymentConfirmed = await subscriptionPaymentIsConfirmed(stripe, stripeSub, invoiceId);
     if (!paymentConfirmed && existingByStripe.rows[0]) {
       const localPaid = await pool.query(
@@ -564,65 +551,35 @@ async function saveSubscriptionFromStripe(stripe, usedAccount, subscriptionOrId,
       ).catch(()=>({rows:[]}));
       paymentConfirmed = !!invoicePaid.rows[0];
     }
-    // Legacy rows may not have their historic paid invoice linked locally. Ask Stripe only
-    // when the cheaper checks above cannot prove a successful first period.
-    if (!paymentConfirmed) {
-      try {
-        const paidInvoices = await stripe.invoices.list({ subscription: subId, status: 'paid', limit: 1 });
-        paymentConfirmed = !!paidInvoices?.data?.length;
-      } catch (_e) {}
-    }
-    if (!paymentConfirmed) {
-      localSubscriptionStatus = ['canceled','cancelled'].includes(localSubscriptionStatus) ? 'incomplete_expired' : 'incomplete';
-    }
+    if (!paymentConfirmed) localSubscriptionStatus = 'incomplete';
   }
-  const stripeResumeDate = stripeSub.pause_collection?.resumes_at
-    ? new Date(Number(stripeSub.pause_collection.resumes_at) * 1000).toISOString().slice(0,10)
-    : null;
   if (existingByStripe.rows[0]) {
     await pool.query(
-      `UPDATE subscriptions SET customer_id=$1, amount=$2, currency=$3, interval_days=$4, next_billing_date=$5,
-       status_before_cancel=CASE
-         WHEN $6='canceling' AND LOWER(COALESCE(status,'')) NOT IN ('canceling','cancelling') THEN LOWER(COALESCE(status,'active'))
-         WHEN $6<>'canceling' THEN NULL
-         ELSE status_before_cancel END,
-       status=$6, stripe_price_id=$7, stripe_invoice_id=$8,
-       paused_by_customer=CASE WHEN $6 IN ('paused','canceling') THEN COALESCE(paused_by_customer,false) ELSE false END,
-       resume_date=CASE WHEN $6='paused' THEN $10::date WHEN $6='canceling' THEN resume_date ELSE NULL END
-       WHERE id=$9`,
-      [localCustomer.id, amount, currency, intervalDays, nextBilling, localSubscriptionStatus, price.id || null, invoiceId, existingByStripe.rows[0].id, stripeResumeDate]
+      `UPDATE subscriptions SET customer_id=$1, amount=$2, currency=$3, interval_days=$4, next_billing_date=$5, status=$6,
+       stripe_price_id=$7, stripe_invoice_id=$8 WHERE id=$9`,
+      [localCustomer.id, amount, currency, intervalDays, nextBilling, localSubscriptionStatus, price.id || null, invoiceId, existingByStripe.rows[0].id]
     );
-    if (localSubscriptionStatus === 'canceled' || localSubscriptionStatus === 'cancelled') {
-      const canceledUnix = Number(stripeSub.canceled_at || 0);
-      await pool.query("UPDATE subscriptions SET canceled_at=COALESCE(canceled_at,CASE WHEN $2>0 THEN TO_TIMESTAMP($2) ELSE NOW() END) WHERE id=$1", [existingByStripe.rows[0].id, canceledUnix]).catch(()=>{});
-    }
     if (localSubscriptionStatus === 'incomplete' || localSubscriptionStatus === 'incomplete_expired') {
       const paid = await pool.query("SELECT 1 FROM payments WHERE customer_id=$1 AND LOWER(status)='succeeded' LIMIT 1", [localCustomer.id]).catch(()=>({rows:[]}));
       if (!paid.rows[0]) await pool.query("UPDATE customers SET status='pending' WHERE id=$1 AND LOWER(COALESCE(status,''))='active'", [localCustomer.id]).catch(()=>{});
-    } else if (localSubscriptionStatus === 'active' || localSubscriptionStatus === 'trialing') {
-      await pool.query("UPDATE customers SET status='active' WHERE id=$1 AND LOWER(COALESCE(status,'')) IN ('pending','cancelled','canceled')", [localCustomer.id]).catch(()=>{});
+    } else if (localSubscriptionStatus === 'active') {
+      await pool.query("UPDATE customers SET status='active' WHERE id=$1 AND LOWER(COALESCE(status,''))='pending'", [localCustomer.id]).catch(()=>{});
     }
-    await reconcileCustomerLifecycleFromSubscriptions(localCustomer.id).catch(e => console.log('[subscription] customer lifecycle reconcile failed:', e.message));
     console.log('[subscription] updated subscription:', subId, 'row id:', existingByStripe.rows[0].id, 'status:', localSubscriptionStatus);
     return existingByStripe.rows[0].id;
   }
 
   const ins = await pool.query(
-    `INSERT INTO subscriptions (customer_id,amount,currency,interval_days,next_billing_date,status,status_before_cancel,stripe_subscription_id,stripe_price_id,stripe_invoice_id,canceled_at,resume_date,paused_by_customer)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,false) RETURNING id`,
-    [localCustomer.id, amount, currency, intervalDays, nextBilling, localSubscriptionStatus,
-      localSubscriptionStatus==='canceling' ? (stripeSub.pause_collection ? 'paused' : 'active') : null,
-      subId, price.id || null, invoiceId,
-      (localSubscriptionStatus==='canceled'||localSubscriptionStatus==='cancelled') ? new Date(Number(stripeSub.canceled_at || Math.floor(Date.now()/1000))*1000) : null,
-      localSubscriptionStatus==='paused' ? stripeResumeDate : null]
+    `INSERT INTO subscriptions (customer_id,amount,currency,interval_days,next_billing_date,status,stripe_subscription_id,stripe_price_id,stripe_invoice_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
+    [localCustomer.id, amount, currency, intervalDays, nextBilling, localSubscriptionStatus, subId, price.id || null, invoiceId]
   );
   if (localSubscriptionStatus === 'incomplete' || localSubscriptionStatus === 'incomplete_expired') {
     const paid = await pool.query("SELECT 1 FROM payments WHERE customer_id=$1 AND LOWER(status)='succeeded' LIMIT 1", [localCustomer.id]).catch(()=>({rows:[]}));
     if (!paid.rows[0]) await pool.query("UPDATE customers SET status='pending' WHERE id=$1 AND LOWER(COALESCE(status,''))='active'", [localCustomer.id]).catch(()=>{});
-  } else if (localSubscriptionStatus === 'active' || localSubscriptionStatus === 'trialing') {
-    await pool.query("UPDATE customers SET status='active' WHERE id=$1 AND LOWER(COALESCE(status,'')) IN ('pending','cancelled','canceled')", [localCustomer.id]).catch(()=>{});
+  } else if (localSubscriptionStatus === 'active') {
+    await pool.query("UPDATE customers SET status='active' WHERE id=$1 AND LOWER(COALESCE(status,''))='pending'", [localCustomer.id]).catch(()=>{});
   }
-  await reconcileCustomerLifecycleFromSubscriptions(localCustomer.id).catch(e => console.log('[subscription] customer lifecycle reconcile failed:', e.message));
   console.log('[subscription] saved subscription:', subId, 'row id:', ins.rows[0].id, 'customer:', localCustomer.email, 'next billing:', nextBilling, 'status:', localSubscriptionStatus);
   await activityLog.add('subscription', `Subscription saved for ${localCustomer.email}`, localCustomer.id, amount).catch(()=>{});
   return ins.rows[0].id;
@@ -841,11 +798,10 @@ async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null, f
     return existingPayment.rows[0].id;
   }
 
-  const stripeCreatedAt = Number(pi.created || 0);
   const ins = await pool.query(
-    `INSERT INTO payments (customer_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,stripe_invoice_id,card_brand,card_last4,card_exp_month,card_exp_year,card_country,card_funding,stripe_fee,net_amount,balance_transaction_id,financial_currency,was_failed,payment_origin,created_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,CASE WHEN $21>0 THEN TO_TIMESTAMP($21) ELSE NOW() END) RETURNING id`,
-    [localCustomer.id, localSubId, pi.id, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency, status==='failed', paymentOrigin, stripeCreatedAt]
+    `INSERT INTO payments (customer_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,stripe_invoice_id,card_brand,card_last4,card_exp_month,card_exp_year,card_country,card_funding,stripe_fee,net_amount,balance_transaction_id,financial_currency,was_failed,payment_origin)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20) RETURNING id`,
+    [localCustomer.id, localSubId, pi.id, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency, status==='failed', paymentOrigin]
   );
   await pool.query(`UPDATE payments SET payment_method_type=COALESCE($1,payment_method_type), wallet_type=COALESCE($2,wallet_type), wallet_checked=TRUE WHERE id=$3`,
     [cardDetails.payment_method_type, cardDetails.wallet_type, ins.rows[0].id]).catch(()=>{});
@@ -1042,11 +998,11 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 
     if (!event) {
       console.error('[webhook] signature verification failed for all accounts');
-      await logWebhookEvent({ event_type: 'verification_failed', account_name: null, status: 'failed', error: 'Invalid webhook signature' }, true);
+      await webhookLogs.add({ event_type: 'verification_failed', account_name: null, status: 'failed', error: 'Invalid webhook signature' }).catch(()=>{});
       return res.status(400).json({ error: 'Invalid webhook signature' });
     }
 
-    await logWebhookEvent({ event_type: event.type, account_name: usedAccount?.name });
+    await webhookLogs.add({ event_type: event.type, account_name: usedAccount?.name });
     const stripe = Stripe(usedAccount.secret_key);
     console.log('[webhook] received:', event.type, 'account:', usedAccount.name);
 
@@ -1090,14 +1046,6 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
         await savePaymentIntent(stripe, usedAccount, event.data.object, 'failed');
       }
 
-      else if (event.type === 'payment_intent.processing') {
-        await savePaymentIntent(stripe, usedAccount, event.data.object, 'processing');
-      }
-
-      else if (event.type === 'payment_intent.canceled') {
-        await savePaymentIntent(stripe, usedAccount, event.data.object, 'canceled');
-      }
-
       else if (event.type === 'invoice.paid' || event.type === 'invoice.payment_succeeded') {
         await handleInvoiceEvent(stripe, usedAccount, event.data.object, 'succeeded');
       }
@@ -1110,25 +1058,20 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
         await handleInvoiceEvent(stripe, usedAccount, event.data.object, 'requires_action');
       }
 
-      else if (event.type === 'customer.subscription.created' || event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.paused' || event.type === 'customer.subscription.resumed') {
+      else if (event.type === 'customer.subscription.created' || event.type === 'customer.subscription.updated') {
         await saveSubscriptionFromStripe(stripe, usedAccount, event.data.object, event.type);
       }
 
       else if (event.type === 'customer.subscription.deleted') {
         const stripeSub = event.data.object;
         console.log('[subscription] deleted/cancelled:', stripeSub.id);
-        // saveSubscriptionFromStripe applies the first-payment eligibility rule. Do not
-        // blindly overwrite an unpaid failed-first subscription as visible Canceled afterward.
-        const savedLocalId = await saveSubscriptionFromStripe(stripe, usedAccount, stripeSub, event.type).catch(()=>null);
-        let local = null;
-        if (savedLocalId) {
-          local = await pool.query('SELECT customer_id,status FROM subscriptions WHERE id=$1', [savedLocalId]).catch(()=>null);
-        } else {
-          // Fallback only when the normal mirror failed; preserve Stripe's terminal state.
-          local = await pool.query("UPDATE subscriptions SET status='cancelled', canceled_at=COALESCE(canceled_at,CASE WHEN $2>0 THEN TO_TIMESTAMP($2) ELSE NOW() END), paused_by_customer=false, resume_date=NULL, status_before_cancel=NULL WHERE stripe_subscription_id=$1 RETURNING customer_id,status", [stripeSub.id, Number(stripeSub.canceled_at || 0)]).catch(()=>null);
-        }
+        await saveSubscriptionFromStripe(stripe, usedAccount, stripeSub, event.type).catch(()=>{});
+        const local = await pool.query("UPDATE subscriptions SET status='cancelled' WHERE stripe_subscription_id=$1 RETURNING customer_id", [stripeSub.id]).catch(()=>null);
         const customerId = local?.rows?.[0]?.customer_id;
-        if (customerId) await reconcileCustomerLifecycleFromSubscriptions(customerId).catch(()=>{});
+        if (customerId) {
+          const remaining = await pool.query("SELECT COUNT(*)::int AS n FROM subscriptions WHERE customer_id=$1 AND LOWER(status) NOT IN ('cancelled','canceled')", [customerId]);
+          if (Number(remaining.rows[0]?.n || 0) === 0) await customers.updateStatus(customerId, 'cancelled').catch(()=>{});
+        }
       }
 
       else if (event.type === 'customer.updated') {
@@ -1143,7 +1086,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
       return res.json({ received: true });
     } catch(handlerErr) {
       console.error('[webhook] handler error:', handlerErr.message, handlerErr.stack);
-      await logWebhookEvent({ event_type: event.type, account_name: usedAccount?.name, status: 'failed', error: handlerErr.message }, true);
+      await webhookLogs.add({ event_type: event.type, account_name: usedAccount?.name, status: 'failed', error: handlerErr.message }).catch(()=>{});
       return res.status(500).json({ error: handlerErr.message });
     }
   } catch(err) {
@@ -1154,7 +1097,8 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 
 
 app.use(express.json());
-app.use('/icons', express.static(path.join(__dirname, 'public', 'icons'), { index: false, fallthrough: true }));
+app.use('/icons', express.static(path.join(__dirname, 'public', 'icons')));
+app.use(express.static(path.join(__dirname)));
 
 
 
@@ -1217,23 +1161,10 @@ app.post('/checkout/create-subscription', async (req, res) => {
       const subscription = await stripe.subscriptions.retrieve(existing.rows[0].stripe_subscription_id, {
         expand: ['latest_invoice.confirmation_secret', 'pending_setup_intent', 'items.data.price']
       });
-      const remoteStatus = String(subscription.status || '').toLowerCase();
-      // The checkout reference is an idempotency key for one checkout attempt. Once that
-      // subscription is terminal, reusing the reference cannot safely create a new subscription
-      // because Stripe would return the old idempotent request. Ask the storefront for a new ref.
-      if (remoteStatus === 'canceled' || remoteStatus === 'incomplete_expired') {
-        return res.status(409).json({
-          error: 'This checkout attempt has ended. Start a new checkout with a new checkout_reference.',
-          code: 'checkout_reference_expired',
-          subscriptionId: subscription.id,
-          status: subscription.status
-        });
-      }
       const confirmation = subscriptionClientSecret(subscription);
       return res.json({
         success: true,
         reused: true,
-        alreadyCompleted: remoteStatus === 'active' || remoteStatus === 'trialing',
         type: confirmation.type,
         clientSecret: confirmation.clientSecret,
         subscriptionId: subscription.id,
@@ -1331,6 +1262,13 @@ app.use('/api', async (req, res, next) => {
     // Stripe connection management stays protected: scoped users may inspect assigned accounts only.
     if (req.path.startsWith('/stripe-accounts') && req.method !== 'GET' && !isOwnerOrAdmin(user)) {
       return res.status(403).json({ error: 'Owner or admin access required' });
+    }
+    // A Custom user with Subscriptions management may run rebills, restricted below to assigned accounts.
+    if (req.path.startsWith('/run-rebills') && !isOwnerOrAdmin(user)) {
+      if (isReadOnlyUser(user)) return res.status(403).json({ error: 'View-only access' });
+      if (!(user.role === 'custom' && canUseSection(user, 'subscriptions'))) {
+        return res.status(403).json({ error: 'Subscriptions management access required' });
+      }
     }
     const section = sectionForApiPath(req);
     // Dashboard reads recent payments/subscriptions/activity; customer details read subscription status.
@@ -1533,7 +1471,6 @@ app.get('/api/stripe-accounts', async (req, res) => {
 
 app.get('/api/stripe-accounts/:id/verification-debug', async (req, res) => {
   try {
-    if (!isOwnerOrAdmin(req.currentUser)) return res.status(403).json({ error: 'Owner or admin access required' });
     const account = await stripeAccounts.byId(req.params.id);
     if (!account) return res.status(404).json({ error: 'Stripe account not found' });
     if (!ensureRowScope(req, res, { stripe_account_id: account.id })) return;
@@ -1614,10 +1551,8 @@ app.post('/api/stripe-accounts', async (req, res) => {
   try {
     const { name, secret_key, publishable_key, webhook_secret } = req.body;
     if (!name || !secret_key) return res.status(400).json({ error: 'Name and secret key required' });
-    if (!String(secret_key).trim().startsWith('sk_')) return res.status(400).json({ error: 'Secret key must start with sk_' });
-    if (publishable_key && !String(publishable_key).trim().startsWith('pk_')) return res.status(400).json({ error: 'Publishable key must start with pk_' });
-    if (webhook_secret && !String(webhook_secret).trim().startsWith('whsec_')) return res.status(400).json({ error: 'Webhook secret must start with whsec_' });
-    await stripeAccounts.create({ name: String(name).trim(), secret_key: String(secret_key).trim(), publishable_key: String(publishable_key||'').trim(), webhook_secret: String(webhook_secret||'').trim() });
+    if (publishable_key && !String(publishable_key).startsWith('pk_')) return res.status(400).json({ error: 'Publishable key must start with pk_' });
+    await stripeAccounts.create({ name, secret_key, publishable_key, webhook_secret });
     res.json({ success: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
@@ -1625,9 +1560,7 @@ app.patch('/api/stripe-accounts/:id', async (req, res) => {
   try {
     const { name, secret_key, publishable_key, webhook_secret } = req.body;
     if (!name) return res.status(400).json({ error: 'Name is required' });
-    if (secret_key && !String(secret_key).trim().startsWith('sk_')) return res.status(400).json({ error: 'Secret key must start with sk_' });
-    if (publishable_key && !String(publishable_key).trim().startsWith('pk_')) return res.status(400).json({ error: 'Publishable key must start with pk_' });
-    if (webhook_secret && !String(webhook_secret).trim().startsWith('whsec_')) return res.status(400).json({ error: 'Webhook secret must start with whsec_' });
+    if (publishable_key && !String(publishable_key).startsWith('pk_')) return res.status(400).json({ error: 'Publishable key must start with pk_' });
     const updates = ['name=$1'];
     const values = [name];
     if (secret_key && secret_key.trim()) { values.push(secret_key.trim()); updates.push(`secret_key=$${values.length}`); }
@@ -1640,11 +1573,8 @@ app.patch('/api/stripe-accounts/:id', async (req, res) => {
 });
 app.patch('/api/stripe-accounts/:id/default', async (req, res) => {
   try {
-    const account = await stripeAccounts.byId(req.params.id);
-    if (!account) return res.status(404).json({ error:'Stripe account not found' });
-    if (!ensureRowScope(req,res,{ stripe_account_id: account.id })) return;
     await pool.query('UPDATE stripe_accounts SET is_default=false');
-    await pool.query('UPDATE stripe_accounts SET is_default=true WHERE id=$1', [account.id]);
+    await pool.query('UPDATE stripe_accounts SET is_default=true WHERE id=$1', [req.params.id]);
     res.json({ success: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
@@ -1654,21 +1584,7 @@ app.patch('/api/stripe-accounts/default/clear', async (req, res) => {
     res.json({ success: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
-app.delete('/api/stripe-accounts/:id', async (req, res) => {
-  try {
-    const id = parseInt(req.params.id, 10);
-    const linked = await pool.query('SELECT COUNT(*)::int AS n FROM customers WHERE stripe_account_id=$1', [id]);
-    if (Number(linked.rows[0]?.n || 0) > 0) {
-      return res.status(409).json({ error: 'This Stripe account still has customer/payment history in Subloop. Keep it connected to preserve that data.' });
-    }
-    await stripeAccounts.delete(id);
-    const remainingDefault = await pool.query('SELECT 1 FROM stripe_accounts WHERE is_default=true LIMIT 1');
-    if (!remainingDefault.rows[0]) {
-      await pool.query('UPDATE stripe_accounts SET is_default=true WHERE id=(SELECT id FROM stripe_accounts ORDER BY created_at ASC,id ASC LIMIT 1)');
-    }
-    res.json({ success: true });
-  } catch(err) { res.status(500).json({ error: err.message }); }
-});
+app.delete('/api/stripe-accounts/:id', async (req, res) => { try { await stripeAccounts.delete(req.params.id); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
 
 // ── Customers ─────────────────────────────────────────────────────────────────
 app.get('/api/customers', async (req, res) => { try { const list=await customers.all(); res.json(list.filter(c => rowWithinScope(req,c))); } catch(err) { res.status(500).json({ error: err.message }); } });
@@ -1735,21 +1651,14 @@ app.get('/api/customers/:id/details', async (req, res) => {
 });
 app.post('/api/customers', async (req, res) => {
   try {
-    const { stripe_customer_id, stripe_payment_method, stripe_account_id, note } = req.body;
-    const stripeCustomerId = String(stripe_customer_id || '').trim();
-    if (!stripeCustomerId.startsWith('cus_')) return res.status(400).json({ error: 'Enter a valid Stripe customer ID (cus_...)' });
-    const acc = stripe_account_id ? await stripeAccounts.byId(stripe_account_id) : await stripeAccounts.default();
-    if (!acc?.id || !acc?.secret_key) return res.status(400).json({ error: 'Select a connected Stripe account' });
-    if (!ensureRowScope(req, res, { stripe_account_id: acc.id })) return;
-    const stripe = require('stripe')(acc.secret_key);
-    const local = await upsertStripeCustomer(stripe, acc, stripeCustomerId, stripe_payment_method || null);
-    if (!local?.id) return res.status(400).json({ error: 'Stripe customer could not be linked' });
-    if (note) await customers.updateNote(local.id, note);
-    res.json({ success: true, id: local.id });
-  } catch(err) {
-    const message = String(err?.message || 'Could not link Stripe customer');
-    res.status(400).json({ error: message });
-  }
+    const { name, email, stripe_customer_id, stripe_payment_method, card_brand, card_last4, card_exp_month, card_exp_year, stripe_account_id, note } = req.body;
+    if (!email || !stripe_customer_id) return res.status(400).json({ error: 'Email and Stripe ID required' });
+    if (!ensureRowScope(req, res, { stripe_account_id })) return;
+    await customers.upsert({ name, email, stripe_customer_id, stripe_payment_method, stripe_account_id, card_brand, card_last4, card_exp_month, card_exp_year });
+    const c = await customers.byStripeId(stripe_customer_id);
+    if (note) await customers.updateNote(c.id, note);
+    res.json({ success: true, id: c.id });
+  } catch(err) { res.status(500).json({ error: err.message }); }
 });
 async function stripeSubscriptionClientForLocalSub(localSub) {
   if (!localSub?.stripe_subscription_id) return null;
@@ -1760,11 +1669,8 @@ async function stripeSubscriptionClientForLocalSub(localSub) {
 
 function pauseResumeTimestamp(dateValue) {
   if (!dateValue) return null;
-  const raw = String(dateValue).trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) throw new Error('Resume date must be a valid future date');
-  const t = Math.floor(new Date(raw + 'T00:00:00Z').getTime() / 1000);
-  if (!Number.isFinite(t) || t <= Math.floor(Date.now()/1000)) throw new Error('Resume date must be in the future');
-  return t;
+  const t = Math.floor(new Date(String(dateValue) + 'T00:00:00Z').getTime() / 1000);
+  return Number.isFinite(t) && t > Math.floor(Date.now()/1000) ? t : null;
 }
 
 async function syncStripeSubscriptionState(localSub, targetStatus, options = {}) {
@@ -1788,42 +1694,18 @@ async function syncStripeSubscriptionState(localSub, targetStatus, options = {})
   if (targetStatus === 'active') {
     if (remote.status === 'canceled') throw new Error('Canceled Stripe subscriptions cannot be reactivated');
 
-    const restoreStatus = String(options.restoreStatus || '').toLowerCase();
-    let currentRemote = remote;
-    // If this subscription was only scheduled to cancel, undo that first while preserving
-    // the same sub_xxx and normal renewal schedule.
-    if (currentRemote.cancel_at_period_end) {
-      currentRemote = await stripe.subscriptions.update(localSub.stripe_subscription_id, { cancel_at_period_end: false });
+    // If this subscription was only scheduled to cancel, undo that first.
+    // This preserves the same sub_xxx and normal renewal schedule.
+    if (remote.cancel_at_period_end) {
+      await stripe.subscriptions.update(localSub.stripe_subscription_id, { cancel_at_period_end: false });
+      // A canceling subscription was originally live; if it also has pause_collection,
+      // leave the pause in place unless this call is explicitly resuming a paused subscription.
+      if (String(localSub.status || '').toLowerCase() === 'canceling') return { stripeManaged: true, reactivated: true };
     }
 
-    // Reactivating a cancellation that was scheduled while paused must restore an actual
-    // Stripe pause too, not only a local Paused label.
-    if (restoreStatus === 'paused') {
-      let resumesAt = null;
-      if (localSub.resume_date) {
-        try { resumesAt = pauseResumeTimestamp(localSub.resume_date); }
-        catch (_e) {
-          // The pause would already have auto-resumed while this subscription was scheduled
-          // to cancel. Do not restore a stale pause after its resume date has passed.
-          if (currentRemote.status === 'paused') {
-            await stripe.subscriptions.resume(localSub.stripe_subscription_id, { billing_cycle_anchor: 'unchanged' });
-          } else if (currentRemote.pause_collection) {
-            await stripe.subscriptions.update(localSub.stripe_subscription_id, { pause_collection: '' });
-          }
-          return { stripeManaged: true, reactivated: true, restoredPaused: false, resumeExpired: true };
-        }
-      }
-      if (currentRemote.status !== 'paused' && !currentRemote.pause_collection) {
-        const pauseCollection = { behavior: 'void' };
-        if (resumesAt) pauseCollection.resumes_at = resumesAt;
-        await stripe.subscriptions.update(localSub.stripe_subscription_id, { pause_collection: pauseCollection });
-      }
-      return { stripeManaged: true, reactivated: true, restoredPaused: true };
-    }
-
-    if (currentRemote.status === 'paused') {
+    if (remote.status === 'paused') {
       await stripe.subscriptions.resume(localSub.stripe_subscription_id, { billing_cycle_anchor: 'unchanged' });
-    } else if (currentRemote.pause_collection) {
+    } else if (remote.pause_collection) {
       await stripe.subscriptions.update(localSub.stripe_subscription_id, { pause_collection: '' });
     }
     return { stripeManaged: true };
@@ -1845,62 +1727,6 @@ async function syncStripeSubscriptionState(localSub, targetStatus, options = {})
   }
 
   return { stripeManaged: true };
-}
-
-async function reconcileCustomerLifecycleFromSubscriptions(customerId) {
-  if (!customerId) return null;
-  const current = await customers.byId(customerId);
-  if (!current) return null;
-  const currentStatus = String(current.status || 'active').toLowerCase();
-
-  const r = await pool.query(`
-    SELECT
-      COUNT(*) FILTER (WHERE LOWER(status)='active')::int AS active,
-      COUNT(*) FILTER (WHERE LOWER(status)='paused')::int AS paused,
-      COUNT(*) FILTER (WHERE LOWER(status)='paused' AND COALESCE(paused_by_customer,false)=true)::int AS customer_paused,
-      COUNT(*) FILTER (WHERE LOWER(status) IN ('canceling','cancelling'))::int AS canceling,
-      COUNT(*) FILTER (WHERE LOWER(status) IN ('trialing','dunning','past_due','unpaid'))::int AS other_live,
-      COUNT(*) FILTER (WHERE LOWER(status) IN ('cancelled','canceled'))::int AS canceled,
-      COUNT(*) FILTER (WHERE LOWER(status) NOT IN ('incomplete','incomplete_expired','pending'))::int AS visible_total,
-      MAX(COALESCE(canceled_at,updated_at,created_at)) FILTER (WHERE LOWER(status) IN ('cancelled','canceled')) AS last_canceled_at
-    FROM subscriptions WHERE customer_id=$1
-  `, [customerId]);
-  const row = r.rows[0] || {};
-  const active = Number(row.active || 0);
-  const paused = Number(row.paused || 0);
-  const customerPaused = Number(row.customer_paused || 0);
-  const canceling = Number(row.canceling || 0);
-  const otherLive = Number(row.other_live || 0);
-  const canceled = Number(row.canceled || 0);
-  const visibleTotal = Number(row.visible_total || 0);
-
-  // No real subscription lifecycle exists: keep the customer lifecycle untouched (e.g.
-  // a pending failed checkout or a true one-time customer). A visible trial/live subscription
-  // is allowed to promote a previously pending customer below.
-  if (visibleTotal === 0) return currentStatus;
-
-  let desired = currentStatus;
-  // If every remaining live subscription is scheduled to end, the customer should visibly be Canceling.
-  if (canceling > 0 && active === 0 && paused === 0 && otherLive === 0) {
-    desired = 'canceling';
-  // A customer-level pause remains Paused; individually paused subscriptions do not pause the customer record.
-  } else if (customerPaused > 0 && active === 0 && otherLive === 0 && canceling === 0) {
-    desired = 'paused';
-  } else if (active > 0 || paused > 0 || otherLive > 0) {
-    desired = 'active';
-  } else if (canceled > 0) {
-    // A later successful one-time payment can legitimately reactivate a customer after an old subscription ended.
-    const paidAfterCancel = await pool.query(`
-      SELECT 1 FROM payments
-      WHERE customer_id=$1 AND LOWER(status)='succeeded'
-        AND ($2::timestamptz IS NULL OR created_at > $2::timestamptz)
-      LIMIT 1
-    `, [customerId, row.last_canceled_at || null]).catch(()=>({rows:[]}));
-    desired = paidAfterCancel.rows[0] ? 'active' : 'cancelled';
-  }
-
-  if (desired !== currentStatus) await customers.updateStatus(customerId, desired);
-  return desired;
 }
 
 async function customerSubscriptionsWithScope(customerId) {
@@ -1927,9 +1753,7 @@ app.patch('/api/customers/:id/status', async (req, res) => {
         await pool.query("UPDATE subscriptions SET status='paused', paused_by_customer=true, resume_date=NULL WHERE id=$1", [sub.id]);
         changed++;
       }
-      if (changed === 0) return res.status(400).json({ error:'This customer has no active subscription to pause' });
       await customers.updateStatus(c.id, 'paused');
-      await reconcileCustomerLifecycleFromSubscriptions(c.id);
       await activityLog.add('subscription', `Paused customer ${c.email} and ${changed} active subscription(s)`, c.id, null).catch(()=>{});
       return res.json({ success:true, status:'paused', subscriptions_changed:changed });
     }
@@ -1939,22 +1763,14 @@ app.patch('/api/customers/:id/status', async (req, res) => {
 
       if (customerWasCanceling) {
         // Undo scheduled cancellations. The same Stripe sub_xxx remains in place.
-        const restorable = new Set(['active','paused','trialing','past_due','unpaid','dunning']);
-        for (const sub of subs.filter(s => ['canceling','cancelling'].includes(String(s.status||'').toLowerCase()))) {
-          const prior = String(sub.status_before_cancel || 'active').toLowerCase();
-          const restoreStatus = restorable.has(prior) ? prior : 'active';
-          const stripeRestore = await syncStripeSubscriptionState(sub, 'active', { restoreStatus }); // clears cancel_at_period_end and restores the prior collection state
-          if (restoreStatus === 'paused' && !stripeRestore?.resumeExpired) {
-            await pool.query("UPDATE subscriptions SET status='paused', status_before_cancel=NULL WHERE id=$1", [sub.id]);
-          } else {
-            const actualRestoreStatus = stripeRestore?.resumeExpired ? 'active' : restoreStatus;
-            await pool.query("UPDATE subscriptions SET status=$2, status_before_cancel=NULL, paused_by_customer=false, resume_date=NULL WHERE id=$1", [sub.id, actualRestoreStatus]);
-          }
+        for (const sub of subs.filter(s => String(s.status||'').toLowerCase() === 'canceling')) {
+          await syncStripeSubscriptionState(sub, 'active');
+          await pool.query("UPDATE subscriptions SET status='active', paused_by_customer=false, resume_date=NULL WHERE id=$1", [sub.id]);
           changed++;
         }
-        const restoredCustomerStatus = await reconcileCustomerLifecycleFromSubscriptions(c.id);
+        await customers.updateStatus(c.id, 'active');
         await activityLog.add('resume', `Reactivated ${changed} scheduled cancellation(s) for ${c.email}`, c.id, null).catch(()=>{});
-        return res.json({ success:true, status:restoredCustomerStatus || 'active', subscriptions_changed:changed, action:'reactivated' });
+        return res.json({ success:true, status:'active', subscriptions_changed:changed, action:'reactivated' });
       }
 
       // Normal customer Resume: only subscriptions paused by the customer-level pause action.
@@ -1962,9 +1778,6 @@ app.patch('/api/customers/:id/status', async (req, res) => {
         await syncStripeSubscriptionState(sub, 'active');
         await pool.query("UPDATE subscriptions SET status='active', paused_by_customer=false, resume_date=NULL WHERE id=$1", [sub.id]);
         changed++;
-      }
-      if (changed === 0 && String(c.status || '').toLowerCase() === 'paused') {
-        return res.status(409).json({ error:'No subscription is marked as paused by the customer-level action. Resume the individual subscription instead.' });
       }
       await customers.updateStatus(c.id, 'active');
       await activityLog.add('resume', `Resumed customer ${c.email} and ${changed} customer-paused subscription(s)`, c.id, null).catch(()=>{});
@@ -1974,18 +1787,12 @@ app.patch('/api/customers/:id/status', async (req, res) => {
     if (target === 'canceling') {
       // Safe cancel: schedule each live subscription to end at its current paid period.
       // Until then it can be reactivated by clearing cancel_at_period_end.
-      for (const sub of subs.filter(s => !['canceling','cancelling','cancelled','canceled','incomplete','incomplete_expired','pending'].includes(String(s.status||'').toLowerCase()))) {
-        const priorSubStatus = String(sub.status || 'active').toLowerCase();
-        const stripeState = await syncStripeSubscriptionState(sub, 'canceling');
-        await pool.query("UPDATE subscriptions SET status_before_cancel=$2, status='canceling' WHERE id=$1", [sub.id, priorSubStatus]);
-        if (stripeState?.currentPeriodEnd) {
-          await pool.query("UPDATE subscriptions SET next_billing_date=(TO_TIMESTAMP($2)::date) WHERE id=$1", [sub.id, stripeState.currentPeriodEnd]);
-        }
+      for (const sub of subs.filter(s => !['canceling','cancelled','canceled'].includes(String(s.status||'').toLowerCase()))) {
+        await syncStripeSubscriptionState(sub, 'canceling');
+        await pool.query("UPDATE subscriptions SET status='canceling', paused_by_customer=false, resume_date=NULL WHERE id=$1", [sub.id]);
         changed++;
       }
-      if (changed === 0) return res.status(400).json({ error:'This customer has no live subscription to cancel' });
       await customers.updateStatus(c.id, 'canceling');
-      await reconcileCustomerLifecycleFromSubscriptions(c.id);
       await activityLog.add('subscription', `Scheduled ${changed} subscription(s) to cancel at period end for ${c.email}`, c.id, null).catch(()=>{});
       return res.json({ success:true, status:'canceling', subscriptions_changed:changed, action:'scheduled_cancel' });
     }
@@ -1993,11 +1800,10 @@ app.patch('/api/customers/:id/status', async (req, res) => {
     // Explicit Cancel now: immediately and permanently cancel every non-canceled subscription.
     for (const sub of subs.filter(s => !['cancelled','canceled'].includes(String(s.status||'').toLowerCase()))) {
       await syncStripeSubscriptionState(sub, 'cancelled');
-      await pool.query("UPDATE subscriptions SET status='cancelled', canceled_at=COALESCE(canceled_at,NOW()), status_before_cancel=NULL, paused_by_customer=false, resume_date=NULL WHERE id=$1", [sub.id]);
+      await pool.query("UPDATE subscriptions SET status='cancelled', paused_by_customer=false, resume_date=NULL WHERE id=$1", [sub.id]);
       changed++;
     }
     await customers.updateStatus(c.id, 'cancelled');
-    await reconcileCustomerLifecycleFromSubscriptions(c.id);
     await activityLog.add('subscription', `Immediately canceled all subscriptions for ${c.email} (${changed})`, c.id, null).catch(()=>{});
     return res.json({ success:true, status:'cancelled', subscriptions_changed:changed, action:'canceled_now' });
   } catch(err) {
@@ -2013,47 +1819,15 @@ app.post('/api/customers/:id/subscriptions/resume-paused', async (req, res) => {
 
     const subs = await customerSubscriptionsWithScope(c.id);
     let changed = 0;
-    for (const sub of subs.filter(s => !s.paused_by_customer && String(s.status||'').toLowerCase() === 'paused')) {
+    for (const sub of subs.filter(s => String(s.status||'').toLowerCase() === 'paused')) {
       await syncStripeSubscriptionState(sub, 'active');
       await pool.query("UPDATE subscriptions SET status='active', paused_by_customer=false, resume_date=NULL WHERE id=$1", [sub.id]);
       changed++;
     }
-    if (changed === 0) return res.status(409).json({ error:'No individually paused subscription is available to resume.' });
-    await reconcileCustomerLifecycleFromSubscriptions(c.id);
     await activityLog.add('resume', `Resumed ${changed} individually paused subscription(s) for ${c.email}`, c.id, null).catch(()=>{});
     return res.json({ success:true, subscriptions_changed:changed });
   } catch(err) {
     console.error('[customer-resume-paused] sync failed:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
-app.post('/api/customers/:id/subscriptions/reactivate-canceling', async (req, res) => {
-  try {
-    const c = await customers.byId(req.params.id);
-    if (!c) return res.status(404).json({ error:'Customer not found' });
-    if (!ensureRowScope(req,res,c)) return;
-
-    const subs = await customerSubscriptionsWithScope(c.id);
-    let changed = 0;
-    const restorable = new Set(['active','paused','trialing','past_due','unpaid','dunning']);
-    for (const sub of subs.filter(s => ['canceling','cancelling'].includes(String(s.status||'').toLowerCase()))) {
-      const prior = String(sub.status_before_cancel || 'active').toLowerCase();
-      const restoreStatus = restorable.has(prior) ? prior : 'active';
-      const stripeRestore = await syncStripeSubscriptionState(sub, 'active', { restoreStatus });
-      if (restoreStatus === 'paused' && !stripeRestore?.resumeExpired) {
-        await pool.query("UPDATE subscriptions SET status='paused', status_before_cancel=NULL WHERE id=$1", [sub.id]);
-      } else {
-        const actualRestoreStatus = stripeRestore?.resumeExpired ? 'active' : restoreStatus;
-        await pool.query("UPDATE subscriptions SET status=$2, status_before_cancel=NULL, paused_by_customer=false, resume_date=NULL WHERE id=$1", [sub.id, actualRestoreStatus]);
-      }
-      changed++;
-    }
-    if (changed === 0) return res.status(409).json({ error:'No subscription is currently scheduled to cancel.' });
-    await reconcileCustomerLifecycleFromSubscriptions(c.id);
-    await activityLog.add('resume', `Reactivated ${changed} individually scheduled cancellation(s) for ${c.email}`, c.id, null).catch(()=>{});
-    return res.json({ success:true, subscriptions_changed:changed });
-  } catch(err) {
-    console.error('[customer-reactivate-canceling] sync failed:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -2064,9 +1838,6 @@ app.post('/api/customers/:id/portal', async (req, res) => {
     const c = await customers.byId(req.params.id);
     if (!c) return res.status(404).json({ error: 'Customer not found' });
     if (!ensureRowScope(req, res, c)) return;
-    if (!String(c.stripe_customer_id || '').startsWith('cus_')) {
-      return res.status(400).json({ error: 'This payment was not attached to a Stripe Customer, so a Billing Portal session is unavailable' });
-    }
     const acc = await stripeAccounts.byId(c.stripe_account_id);
     const stripe = require('stripe')(acc.secret_key);
     const session = await stripe.billingPortal.sessions.create({ customer: c.stripe_customer_id, return_url: process.env.BASE_URL || 'https://rebill-production.up.railway.app' });
@@ -2076,50 +1847,25 @@ app.post('/api/customers/:id/portal', async (req, res) => {
 app.post('/api/customers/:id/charge-once', async (req, res) => {
   try {
     const { amount, description, currency } = req.body;
-    const customerRef = String(req.params.id || '').trim();
-    const c = /^\d+$/.test(customerRef) ? await customers.byId(customerRef) : await customers.byStripeId(customerRef);
-    if (!c) return res.status(404).json({ error: 'Customer not found in Subloop' });
+    const c = await customers.byId(req.params.id);
+    if (!c) return res.status(404).json({ error: 'Customer not found' });
     if (!ensureRowScope(req, res, c)) return;
-    if (!String(c.stripe_customer_id || '').startsWith('cus_')) {
-      return res.status(400).json({ error: 'This payment is not attached to a reusable Stripe Customer' });
-    }
-    const amountCents = Number(amount);
-    if (!Number.isInteger(amountCents) || amountCents < 50) return res.status(400).json({ error: 'Minimum amount is 0.50' });
-    const chargeCurrency = String(currency || 'usd').toLowerCase();
-    if (!['usd','eur','gbp','cad','aud','nzd','chf','mad'].includes(chargeCurrency)) return res.status(400).json({ error: 'Unsupported currency' });
     const acc = await stripeAccounts.byId(c.stripe_account_id);
-    if (!acc?.secret_key) return res.status(400).json({ error: 'Stripe account key not found for this customer' });
     const stripe = require('stripe')(acc.secret_key);
     const pm = await resolveBestPaymentMethod(stripe, c.stripe_customer_id, { localPaymentMethodId: c.stripe_payment_method });
     if (!pm) return res.status(400).json({ error: 'No usable saved card found for this customer' });
     await syncLocalPaymentMethod(c.id, pm);
-    let pi;
-    try {
-      pi = await stripe.paymentIntents.create({ amount:amountCents, currency:chargeCurrency, customer: c.stripe_customer_id, payment_method: pm.id, confirm: true, description: description||'Manual invoice', off_session: true, metadata: { subloop_payment_origin: 'one_time' } });
-    } catch (chargeErr) {
-      if (chargeErr?.payment_intent) await savePaymentIntent(stripe, acc, chargeErr.payment_intent, 'failed', { email:c.email, name:c.name }).catch(()=>{});
-      throw chargeErr;
-    }
-    await savePaymentIntent(stripe, acc, pi, pi.status==='succeeded'?'succeeded':pi.status, { email:c.email, name:c.name });
-    res.json({ success: pi.status==='succeeded', status: pi.status, paymentIntentId: pi.id });
+    const pi = await stripe.paymentIntents.create({ amount, currency: currency||'usd', customer: c.stripe_customer_id, payment_method: pm.id, confirm: true, description: description||'Manual invoice', off_session: true, metadata: { subloop_payment_origin: 'one_time' } });
+    await payments.insert({ customer_id: c.id, subscription_id: null, stripe_payment_intent: pi.id, amount, currency: currency||'usd', status: pi.status==='succeeded'?'succeeded':'failed', failure_reason: null, payment_origin: 'one_time' });
+    res.json({ success: pi.status==='succeeded', status: pi.status });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.get('/api/customers/export', async (req, res) => {
   try {
     if (isReadOnlyUser(req.currentUser)) return res.status(403).json({ error: 'View-only access cannot export customer data' });
     const list = (await customers.all()).filter(c => rowWithinScope(req,c));
-    const rows = [csvLine(['Name','Email','Card','Status','Last successful payment','Last payment currency','Created','Total paid','Total paid currency'])];
-    for (const c of list) {
-      const mixed = Number(c.successful_currency_count || 0) > 1;
-      const cur = String(c.last_payment_currency || 'usd').toUpperCase();
-      rows.push(csvLine([
-        c.name || '', c.email || '', [c.card_brand || '', c.card_last4 || ''].filter(Boolean).join(' '), c.status || '',
-        c.last_payment_at || '', c.last_payment_at ? cur : '', c.created_at || '',
-        mixed ? 'Mixed currencies' : ((Number(c.total_paid || 0) / 100).toFixed(2)), mixed ? 'MIXED' : cur
-      ]));
-    }
-    const csv = rows.join('\n');
-    res.setHeader('Content-Type','text/csv; charset=utf-8'); res.setHeader('Content-Disposition','attachment; filename=customers.csv'); res.send(csv);
+    const csv = ['Name,Email,Card,Status,Last Payment,Created,Total Paid'].concat(list.map(c=>`${c.name},${c.email},${c.card_brand||''} ${c.card_last4||''},${c.status},${c.last_payment_at||''},${c.created_at||''},${(c.total_paid||0)/100}`)).join('\n');
+    res.setHeader('Content-Type','text/csv'); res.setHeader('Content-Disposition','attachment; filename=customers.csv'); res.send(csv);
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -2132,23 +1878,13 @@ async function scopedSubscription(req, res, id) {
   return sub;
 }
 app.get('/api/subscriptions', async (req, res) => { try { const list=await subscriptions.all(); res.json(list.filter(sub => rowWithinScope(req,sub))); } catch(err) { res.status(500).json({ error: err.message }); } });
-app.post('/api/subscriptions', async (_req, res) => {
-  // New subscriptions must originate in Stripe so billing state, first-payment eligibility,
-  // Price IDs and webhooks can never drift from a local-only record.
-  return res.status(405).json({ error: 'Direct local subscription creation is disabled. Create the subscription through Stripe Checkout, Payment Links, or embedded checkout.' });
-});
+app.post('/api/subscriptions', async (req, res) => { try { const c=await customers.byId(req.body.customer_id); if(!c) return res.status(404).json({ error:'Customer not found' }); if(!ensureRowScope(req,res,c)) return; await subscriptions.create(req.body); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
 app.patch('/api/subscriptions/:id', async (req, res) => {
   try {
-    const sub = await scopedSubscription(req, res, req.params.id);
-    if (!sub) return;
+    if (!(await scopedSubscription(req, res, req.params.id))) return;
     const { status, amount, next_billing_date, resume_date } = req.body;
-    // Status and amount have dedicated endpoints because Stripe must be updated too.
-    if (status !== undefined || amount !== undefined) {
-      return res.status(400).json({ error: 'Use the subscription status/amount actions so Stripe and Subloop stay synchronized' });
-    }
-    if (sub.stripe_subscription_id && (next_billing_date !== undefined || resume_date !== undefined)) {
-      return res.status(400).json({ error: 'Stripe-managed billing dates cannot be edited only in Subloop. Use Pause/Resume or manage the billing date in Stripe.' });
-    }
+    if (status) await subscriptions.updateStatus(req.params.id, status);
+    if (amount) await subscriptions.updateAmount(req.params.id, parseInt(amount));
     if (next_billing_date) await pool.query('UPDATE subscriptions SET next_billing_date=$1 WHERE id=$2', [next_billing_date, req.params.id]);
     if (resume_date !== undefined) await subscriptions.setResumeDate(req.params.id, resume_date||null);
     res.json({ success: true });
@@ -2162,46 +1898,29 @@ app.patch('/api/subscriptions/:id/status', async (req, res) => {
     const resume_date = req.body.resume_date || null;
     if (!['active','paused','canceling','cancelled','canceled'].includes(status)) return res.status(400).json({ error:'Invalid subscription status' });
 
-    const localStatusBeforeAction = String(sub.status || 'active').toLowerCase();
-    if (status === 'active' && localStatusBeforeAction === 'paused' && sub.paused_by_customer) {
-      return res.status(409).json({ error: 'This subscription was paused by Pause customer. Resume the customer instead.' });
-    }
-    let localStatus = (status === 'canceled') ? 'cancelled' : status;
-    const priorStatus = String(sub.status_before_cancel || '').toLowerCase();
-    if (status === 'active' && ['canceling','cancelling'].includes(String(sub.status || '').toLowerCase())) {
-      // Undoing a scheduled cancellation restores the state that existed before cancel was scheduled.
-      const restorable = new Set(['active','paused','trialing','past_due','unpaid','dunning']);
-      localStatus = restorable.has(priorStatus) ? priorStatus : 'active';
-    }
-    const stripeState = await syncStripeSubscriptionState(sub, status, {
-      resumeDate: resume_date,
-      restoreStatus: status === 'active' && ['canceling','cancelling'].includes(String(sub.status || '').toLowerCase()) ? localStatus : null
-    });
-    if (stripeState?.resumeExpired && localStatus === 'paused') localStatus = 'active';
-    if (localStatus === 'canceling') {
-      const statusBeforeCancel = ['canceling','cancelling'].includes(localStatusBeforeAction)
-        ? (sub.status_before_cancel || 'active')
-        : localStatusBeforeAction;
-      await pool.query("UPDATE subscriptions SET status_before_cancel=$2, status='canceling' WHERE id=$1", [req.params.id, statusBeforeCancel]);
-      if (stripeState?.currentPeriodEnd) {
-        await pool.query("UPDATE subscriptions SET next_billing_date=(TO_TIMESTAMP($2)::date) WHERE id=$1", [req.params.id, stripeState.currentPeriodEnd]);
-      }
-    } else {
-      await subscriptions.updateStatus(req.params.id, localStatus);
-      await pool.query('UPDATE subscriptions SET status_before_cancel=NULL WHERE id=$1', [req.params.id]);
-    }
-    // Keep paused_by_customer while a paused subscription is only scheduled to cancel,
-    // so Reactivate can restore the correct customer-level pause state.
-    if (localStatus === 'active' || localStatus === 'cancelled' || (localStatus === 'paused' && status === 'paused' && priorStatus !== 'paused')) {
-      await subscriptions.setPausedByCustomer(req.params.id, false);
-    }
-    if (localStatus === 'paused' && status === 'paused') await subscriptions.setResumeDate(req.params.id, resume_date || null);
-    if (localStatus === 'active' || localStatus === 'cancelled') await subscriptions.setResumeDate(req.params.id, null);
+    await syncStripeSubscriptionState(sub, status, { resumeDate: resume_date });
+    const localStatus = (status === 'canceled') ? 'cancelled' : status;
+    await subscriptions.updateStatus(req.params.id, localStatus);
+    await subscriptions.setPausedByCustomer(req.params.id, false);
+    if (localStatus === 'paused') await subscriptions.setResumeDate(req.params.id, resume_date || null);
+    if (localStatus === 'active' || localStatus === 'canceling' || localStatus === 'cancelled') await subscriptions.setResumeDate(req.params.id, null);
 
-    // Keep the customer lifecycle consistent with the full set of subscriptions.
-    // Individual Pause keeps the customer Active; if every remaining live subscription is
-    // scheduled to cancel, the customer becomes Canceling; final cancellation becomes Canceled.
-    await reconcileCustomerLifecycleFromSubscriptions(sub.customer_id);
+    // If an individual scheduled cancellation is reactivated, make sure a customer that was
+    // only marked canceling does not stay stuck in that state once no canceling subs remain.
+    if (localStatus === 'active') {
+      const cancelingLeft = await pool.query("SELECT COUNT(*)::int AS n FROM subscriptions WHERE customer_id=$1 AND LOWER(status)='canceling'", [sub.customer_id]);
+      const customerRow = await customers.byId(sub.customer_id);
+      if (String(customerRow?.status || '').toLowerCase() === 'canceling' && Number(cancelingLeft.rows[0]?.n || 0) === 0) {
+        await customers.updateStatus(sub.customer_id, 'active');
+      }
+    }
+
+    // Individual pause does NOT pause the customer. If the final live subscription is canceled,
+    // mark the customer canceled; otherwise leave its explicit customer-level status alone.
+    if (localStatus === 'cancelled') {
+      const remaining = await pool.query("SELECT COUNT(*)::int AS n FROM subscriptions WHERE customer_id=$1 AND LOWER(status) NOT IN ('cancelled','canceled')", [sub.customer_id]);
+      if (Number(remaining.rows[0]?.n || 0) === 0) await customers.updateStatus(sub.customer_id, 'cancelled');
+    }
     res.json({ success: true, status: localStatus, stripe_synced: !!sub.stripe_subscription_id });
   } catch(err) {
     console.error('[subscription-status] sync failed:', err.message);
@@ -2210,46 +1929,9 @@ app.patch('/api/subscriptions/:id/status', async (req, res) => {
 });
 app.patch('/api/subscriptions/:id/amount', async (req, res) => {
   try {
-    const sub = await scopedSubscription(req, res, req.params.id);
-    if (!sub) return;
-    const newAmount = parseInt(req.body.amount, 10);
-    if (!Number.isFinite(newAmount) || newAmount < 50) return res.status(400).json({ error: 'Minimum amount is 0.50' });
-    const currentStatus = String(sub.status || '').toLowerCase();
-    if (!['active','paused','trialing'].includes(currentStatus)) {
-      return res.status(400).json({ error: 'Only active, paused, or trialing subscriptions can have their future renewal amount changed' });
-    }
-
-    if (sub.stripe_subscription_id) {
-      const acc = await stripeAccounts.byId(sub.stripe_account_id);
-      if (!acc?.secret_key) return res.status(400).json({ error: 'Stripe account key not found' });
-      const stripe = require('stripe')(acc.secret_key);
-      const remote = await stripe.subscriptions.retrieve(sub.stripe_subscription_id, { expand: ['items.data.price.product'] });
-      const item = remote.items?.data?.[0];
-      const oldPrice = item?.price;
-      if (!item?.id || !oldPrice?.id) return res.status(400).json({ error: 'Stripe subscription price could not be read' });
-      const productId = typeof oldPrice.product === 'string' ? oldPrice.product : oldPrice.product?.id;
-      if (!productId || !oldPrice.recurring) return res.status(400).json({ error: 'Stripe recurring price details are incomplete' });
-      const newPrice = await stripe.prices.create({
-        product: productId,
-        unit_amount: newAmount,
-        currency: oldPrice.currency || sub.currency || 'usd',
-        recurring: {
-          interval: oldPrice.recurring.interval,
-          interval_count: oldPrice.recurring.interval_count || 1
-        },
-        metadata: { source: 'subloop_amount_update', previous_price: oldPrice.id }
-      });
-      const prorationEnabled = String(await settingsDb.get('proration_enabled') || 'false') === 'true';
-      await stripe.subscriptions.update(sub.stripe_subscription_id, {
-        items: [{ id: item.id, price: newPrice.id }],
-        proration_behavior: prorationEnabled ? 'create_prorations' : 'none'
-      });
-      await pool.query('UPDATE subscriptions SET amount=$1, stripe_price_id=$2 WHERE id=$3', [newAmount, newPrice.id, req.params.id]);
-      return res.json({ success: true, stripe_synced: true, price_id: newPrice.id });
-    }
-
-    await subscriptions.updateAmount(req.params.id, newAmount);
-    res.json({ success: true, stripe_synced: false });
+    if (!(await scopedSubscription(req, res, req.params.id))) return;
+    await subscriptions.updateAmount(req.params.id, parseInt(req.body.amount));
+    res.json({ success: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.post('/api/subscriptions/:id/charge', async (req, res) => {
@@ -2258,9 +1940,6 @@ app.post('/api/subscriptions/:id/charge', async (req, res) => {
     const allSubs = await subscriptions.all();
     const sub = allSubs.find(s => s.id === parseInt(req.params.id));
     if (!sub) return res.status(404).json({ error: 'Not found' });
-    if (String(sub.status || '').toLowerCase() !== 'active') {
-      return res.status(400).json({ success:false, error:'Only active subscriptions can be charged manually' });
-    }
     const c = await customers.byId(sub.customer_id);
     const acc = await stripeAccounts.byId(c.stripe_account_id);
     const stripe = require('stripe')(acc.secret_key);
@@ -2270,19 +1949,11 @@ app.post('/api/subscriptions/:id/charge', async (req, res) => {
     });
     if (!pm) return res.status(400).json({ success: false, error: 'No usable saved card found for this customer' });
     await syncLocalPaymentMethod(c.id, pm);
-    let pi;
-    try {
-      pi = await stripe.paymentIntents.create({ amount: sub.amount, currency: sub.currency, customer: c.stripe_customer_id, payment_method: pm.id, off_session: true, confirm: true, metadata: { subloop_payment_origin: 'rebill', subloop_subscription_id: String(sub.id) } });
-    } catch (chargeErr) {
-      if (chargeErr?.payment_intent) await savePaymentIntent(stripe, acc, chargeErr.payment_intent, 'failed', { email:c.email, name:c.name }).catch(()=>{});
-      throw chargeErr;
-    }
-    await savePaymentIntent(stripe, acc, pi, pi.status === 'succeeded' ? 'succeeded' : pi.status, { email:c.email, name:c.name });
-    // A Stripe-managed subscription keeps its own renewal schedule. A manual saved-card charge
-    // must not silently move Subloop's displayed next billing date away from Stripe.
-    if (pi.status === 'succeeded' && !sub.stripe_subscription_id) await subscriptions.advanceBillingDate(sub.id, sub.interval_days);
-    await activityLog.add('charge', `Manual charge of ${(sub.amount/100).toFixed(2)} for ${c.email}: ${pi.status}`, c.id, sub.amount);
-    res.json({ success: pi.status === 'succeeded', status: pi.status, paymentIntentId: pi.id });
+    const pi = await stripe.paymentIntents.create({ amount: sub.amount, currency: sub.currency, customer: c.stripe_customer_id, payment_method: pm.id, off_session: true, confirm: true, metadata: { subloop_payment_origin: 'rebill', subloop_subscription_id: String(sub.id) } });
+    await payments.insert({ customer_id: c.id, subscription_id: sub.id, stripe_payment_intent: pi.id, amount: sub.amount, currency: sub.currency, status: 'succeeded', failure_reason: null, payment_origin: 'rebill' });
+    await subscriptions.advanceBillingDate(sub.id, sub.interval_days);
+    await activityLog.add('charge', `Manual charge of ${(sub.amount/100).toFixed(2)} for ${c.email}`, c.id, sub.amount);
+    res.json({ success: true, paymentIntentId: pi.id });
   } catch(err) { res.status(500).json({ success: false, error: err.message }); }
 });
 app.delete('/api/subscriptions/:id', async (req, res) => {
@@ -2291,10 +1962,8 @@ app.delete('/api/subscriptions/:id', async (req, res) => {
     if (!sub) return;
     await syncStripeSubscriptionState(sub, 'cancelled');
     await subscriptions.updateStatus(req.params.id, 'cancelled');
-    await pool.query('UPDATE subscriptions SET status_before_cancel=NULL WHERE id=$1', [req.params.id]);
     await subscriptions.setPausedByCustomer(req.params.id, false);
     await subscriptions.setResumeDate(req.params.id, null);
-    await reconcileCustomerLifecycleFromSubscriptions(sub.customer_id);
     res.json({ success: true, stripe_synced: !!sub.stripe_subscription_id });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
@@ -2335,7 +2004,7 @@ app.get('/api/payments/:id/financials', async (req, res) => {
       } else {
         // Legacy Subloop recurring charges (created before payment-origin metadata existed) had no invoice
         // and no description. If this customer has exactly one subscription, safely associate it.
-        const candidates = await pool.query("SELECT id FROM subscriptions WHERE customer_id=$1 AND created_at <= $2::timestamptz + INTERVAL '10 minutes' ORDER BY created_at DESC LIMIT 2", [payment.customer_id, payment.created_at]).catch(()=>({rows:[]}));
+        const candidates = await pool.query('SELECT id FROM subscriptions WHERE customer_id=$1 ORDER BY created_at DESC LIMIT 2', [payment.customer_id]).catch(()=>({rows:[]}));
         if (candidates.rows.length === 1) {
           inferredLocalSubId = candidates.rows[0].id;
           resolvedOrigin = 'rebill';
@@ -2362,106 +2031,40 @@ app.get('/api/payments/:id/financials', async (req, res) => {
 });
 app.post('/api/payments/:id/retry', async (req, res) => {
   try {
-    const r = await pool.query(`SELECT p.*, c.stripe_customer_id, c.stripe_payment_method, c.stripe_account_id, c.email, c.name,
-      s.stripe_subscription_id, s.interval_days, s.status AS subscription_status
+    await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS retry_of_payment_id INT REFERENCES payments(id)').catch(()=>{});
+    const r = await pool.query(`SELECT p.*, c.stripe_customer_id, c.stripe_payment_method, c.stripe_account_id, c.email, c.name, s.stripe_subscription_id
       FROM payments p
       JOIN customers c ON c.id=p.customer_id
       LEFT JOIN subscriptions s ON s.id=p.subscription_id
       WHERE p.id=$1`, [req.params.id]);
-    const pmt = r.rows[0];
-    if (!pmt) return res.status(404).json({ error: 'Not found' });
-    if (!ensureRowScope(req, res, pmt)) return;
-    if (String(pmt.status || '').toLowerCase() !== 'failed') return res.status(400).json({ error: 'Only failed payments can be retried' });
-    if (pmt.recovered_at) return res.status(409).json({ error: 'This failed payment has already been recovered. No further retry is needed.' });
-
-    const acc = await stripeAccounts.byId(pmt.stripe_account_id);
-    if (!acc?.secret_key) return res.status(400).json({ error: 'Stripe account key not found for this payment' });
+    const p = r.rows[0];
+    if (!p) return res.status(404).json({ error: 'Not found' });
+    if (!ensureRowScope(req, res, p)) return;
+    if (p.status !== 'failed') return res.status(400).json({ error: 'Only failed payments can be retried' });
+    const acc = await stripeAccounts.byId(p.stripe_account_id);
     const stripe = require('stripe')(acc.secret_key);
-    const retryOrigin = String(pmt.payment_origin || '').toLowerCase() || (pmt.subscription_id ? 'rebill' : 'one_time');
-    const subscriptionStatus = String(pmt.subscription_status || '').toLowerCase();
-    if (pmt.stripe_invoice_id && ['canceled','cancelled'].includes(subscriptionStatus)) {
-      return res.status(409).json({ error: 'This subscription is canceled, so its failed invoice cannot be retried from Subloop.' });
-    }
-    if (!pmt.stripe_invoice_id && pmt.subscription_id && retryOrigin === 'rebill' && subscriptionStatus !== 'active') {
-      return res.status(409).json({ error: 'This recurring payment belongs to a subscription that is no longer active.' });
-    }
-    const pm = await resolveBestPaymentMethod(stripe, pmt.stripe_customer_id, {
-      subscriptionId: pmt.stripe_subscription_id || null,
-      localPaymentMethodId: pmt.stripe_payment_method
+    const pm = await resolveBestPaymentMethod(stripe, p.stripe_customer_id, {
+      subscriptionId: p.stripe_subscription_id || null,
+      localPaymentMethodId: p.stripe_payment_method
     });
     if (!pm) return res.status(400).json({ error: 'No usable saved card found for this customer' });
-    await syncLocalPaymentMethod(pmt.customer_id, pm);
-
-    // Subscription invoices must be retried as invoices. Creating a separate standalone
-    // PaymentIntent would leave Stripe's invoice unpaid and the subscription state wrong.
-    if (pmt.stripe_invoice_id) {
-      const currentInvoice = await stripe.invoices.retrieve(pmt.stripe_invoice_id, { expand: ['payment_intent', 'subscription', 'lines.data.price'] });
-      if (currentInvoice.paid || String(currentInvoice.status || '').toLowerCase() === 'paid') {
-        await pool.query('UPDATE payments SET recovered_at=COALESCE(recovered_at,NOW()), was_failed=true WHERE id=$1', [pmt.id]);
-        return res.json({ success:true, status:'succeeded', retry_of_payment_id:pmt.id, invoice_retry:true, already_recovered:true });
-      }
-      const invoice = await stripe.invoices.pay(pmt.stripe_invoice_id, {
-        payment_method: pm.id,
-        expand: ['payment_intent', 'subscription', 'lines.data.price']
-      });
-      let pi = invoice.payment_intent || null;
-      if (typeof pi === 'string') pi = await stripe.paymentIntents.retrieve(pi, { expand: ['invoice', 'latest_charge', 'payment_method'] });
-      if (pi?.id) {
-        await savePaymentIntent(stripe, acc, pi, String(pi.status || '').toLowerCase() === 'succeeded' ? 'succeeded' : pi.status);
-        await pool.query('UPDATE payments SET retry_of_payment_id=COALESCE(retry_of_payment_id,$1) WHERE stripe_payment_intent=$2 AND id<>$1', [pmt.id, pi.id]).catch(()=>{});
-      }
-      const status = invoice.paid ? 'succeeded' : (pi?.status || 'failed');
-      if (status === 'succeeded') {
-        await pool.query('UPDATE payments SET recovered_at=COALESCE(recovered_at,NOW()), was_failed=true WHERE id=$1', [pmt.id]);
-      }
-      await activityLog.add('retry', `Retried subscription invoice for ${pmt.name}: ${status}`, pmt.customer_id, pmt.amount);
-      return res.json({ success: status === 'succeeded', status, retry_of_payment_id: pmt.id, invoice_retry: true });
-    }
-
+    await syncLocalPaymentMethod(p.customer_id, pm);
+    const retryOrigin = p.subscription_id ? 'rebill' : 'one_time';
     const retryMetadata = { subloop_payment_origin: retryOrigin };
-    if (pmt.subscription_id) retryMetadata.subloop_subscription_id = String(pmt.subscription_id);
-    let pi;
-    try {
-      pi = await stripe.paymentIntents.create({
-        amount: pmt.amount,
-        currency: pmt.currency||'usd',
-        customer: pmt.stripe_customer_id,
-        payment_method: pm.id,
-        confirm: true,
-        off_session: true,
-        metadata: retryMetadata
-      });
-    } catch (retryErr) {
-      if (retryErr?.payment_intent) {
-        await savePaymentIntent(stripe, acc, retryErr.payment_intent, 'failed', { email:pmt.email, name:pmt.name }).catch(()=>{});
-        const failedPiId = retryErr.payment_intent.id || null;
-        if (failedPiId) await pool.query('UPDATE payments SET retry_of_payment_id=COALESCE(retry_of_payment_id,$1) WHERE stripe_payment_intent=$2 AND id<>$1', [pmt.id, failedPiId]).catch(()=>{});
-      }
-      throw retryErr;
-    }
-    const status = pi.status==='succeeded'?'succeeded':pi.status;
-    await savePaymentIntent(stripe, acc, pi, status, { email:pmt.email, name:pmt.name });
-    await pool.query('UPDATE payments SET retry_of_payment_id=COALESCE(retry_of_payment_id,$1) WHERE stripe_payment_intent=$2 AND id<>$1', [pmt.id, pi.id]).catch(()=>{});
-    await syncFirstPaymentEligibility(pmt.customer_id, pmt.subscription_id, status).catch(()=>{});
-    if (status === 'succeeded') {
-      await pool.query('UPDATE payments SET recovered_at=COALESCE(recovered_at,NOW()), was_failed=true WHERE id=$1', [pmt.id]);
-    }
-    // Local-only recurring schedules move forward only after a recovered recurring payment.
-    if (status==='succeeded' && pmt.subscription_id && !pmt.stripe_subscription_id && retryOrigin==='rebill') {
-      await subscriptions.advanceBillingDate(pmt.subscription_id, pmt.interval_days || 30);
-    }
-    await activityLog.add('retry', `Retried payment for ${pmt.name}: ${status}`, pmt.customer_id, pmt.amount);
-    res.json({ success: status==='succeeded', status, retry_of_payment_id: pmt.id });
-  } catch(err) {
-    const stripeStatus = String(err?.payment_intent?.status || '').toLowerCase();
-    res.status(500).json({ error: err.message, status: stripeStatus || 'failed' });
-  }
+    if (p.subscription_id) retryMetadata.subloop_subscription_id = String(p.subscription_id);
+    const pi = await stripe.paymentIntents.create({ amount: p.amount, currency: p.currency||'usd', customer: p.stripe_customer_id, payment_method: pm.id, confirm: true, off_session: true, metadata: retryMetadata });
+    const status = pi.status==='succeeded'?'succeeded':'failed';
+    await payments.insert({ customer_id: p.customer_id, subscription_id: p.subscription_id, stripe_payment_intent: pi.id, amount: p.amount, currency: p.currency, status, failure_reason: null, retry_of_payment_id: p.id, payment_origin: retryOrigin });
+    await activityLog.add('retry', `Retried payment for ${p.name}: ${status}`, p.customer_id, p.amount);
+    res.json({ success: status==='succeeded', status, retry_of_payment_id: p.id });
+  } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.patch('/api/payments/:id/note', async (req, res) => {
   try {
     const paymentScope = await pool.query('SELECT c.stripe_account_id FROM payments p JOIN customers c ON c.id=p.customer_id WHERE p.id=$1', [req.params.id]);
     if (!paymentScope.rows[0]) return res.status(404).json({ error: 'Payment not found' });
     if (!ensureRowScope(req, res, paymentScope.rows[0])) return;
+    await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS note TEXT');
     await pool.query('UPDATE payments SET note=$1 WHERE id=$2', [req.body.note, req.params.id]);
     res.json({ success: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
@@ -2470,13 +2073,8 @@ app.get('/api/payments/export', async (req, res) => {
   try {
     if (isReadOnlyUser(req.currentUser)) return res.status(403).json({ error: 'View-only access cannot export payment data' });
     const list = (await payments.recent(10000)).filter(p => rowWithinScope(req,p));
-    const rows = [csvLine(['Customer','Email','Amount','Currency','Status','Payment type','Payment Intent','Invoice','Date'])];
-    for (const p of list) rows.push(csvLine([
-      p.name || '', p.email || '', (Number(p.amount || 0) / 100).toFixed(2), String(p.currency || 'usd').toUpperCase(),
-      p.status || '', p.payment_origin || '', p.stripe_payment_intent || '', p.stripe_invoice_id || '', p.created_at || ''
-    ]));
-    const csv = rows.join('\n');
-    res.setHeader('Content-Type','text/csv; charset=utf-8'); res.setHeader('Content-Disposition','attachment; filename=payments.csv'); res.send(csv);
+    const csv = ['Customer,Email,Amount,Status,Date'].concat(list.map(p=>`${p.name||''},${p.email||''},${(p.amount||0)/100},${p.status},${p.created_at}`)).join('\n');
+    res.setHeader('Content-Type','text/csv'); res.setHeader('Content-Disposition','attachment; filename=payments.csv'); res.send(csv);
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -2500,19 +2098,11 @@ app.post('/api/embedded-checkout-token', async (req, res) => {
 app.post('/api/payment-links', async (req, res) => {
   try {
     const { name, amount, currency, interval_days, stripe_account_id } = req.body;
-    const cleanName = String(name || '').trim();
-    const amountCents = Number(amount);
-    const cleanCurrency = String(currency || 'usd').trim().toLowerCase();
-    const intervalDays = Number(interval_days || 30);
-    if (!cleanName || cleanName.length > 120) return res.status(400).json({ error: 'Product name is required (max 120 characters)' });
-    if (!Number.isInteger(amountCents) || amountCents < 50) return res.status(400).json({ error: 'Minimum amount is 0.50' });
-    if (!/^[a-z]{3}$/.test(cleanCurrency)) return res.status(400).json({ error: 'Invalid currency' });
-    if (![7,14,30,90,365].includes(intervalDays)) return res.status(400).json({ error: 'Invalid billing interval' });
     const acc = stripe_account_id ? await stripeAccounts.byId(stripe_account_id) : await stripeAccounts.default();
     if (!acc) return res.status(400).json({ error: 'No Stripe account found' });
     if (!ensureRowScope(req, res, { stripe_account_id: acc.id })) return;
     const stripe = require('stripe')(acc.secret_key);
-    const product = await stripe.products.create({ name: cleanName, metadata: { source: 'subloop' } });
+    const product = await stripe.products.create({ name: name||'Subscription', metadata: { source: 'subloop' } });
     const intervalMap = {
       7: { interval: 'week', interval_count: 1 },
       14: { interval: 'week', interval_count: 2 },
@@ -2520,18 +2110,18 @@ app.post('/api/payment-links', async (req, res) => {
       90: { interval: 'month', interval_count: 3 },
       365: { interval: 'year', interval_count: 1 }
     };
-    const recurring = intervalMap[intervalDays];
+    const recurring = intervalMap[Number(interval_days)] || intervalMap[30];
     const price = await stripe.prices.create({
       product: product.id,
-      unit_amount: amountCents,
-      currency: cleanCurrency,
+      unit_amount: amount,
+      currency: currency||'usd',
       recurring,
-      metadata: { source: 'subloop', interval_days: String(intervalDays) }
+      metadata: { source: 'subloop', interval_days: String(interval_days || 30) }
     });
-    console.log('[payment-link] created recurring price:', price.id, 'interval:', recurring.interval, 'count:', recurring.interval_count, 'amount:', amountCents, 'account:', acc.name);
+    console.log('[payment-link] created recurring price:', price.id, 'interval:', recurring.interval, 'count:', recurring.interval_count, 'amount:', amount, 'account:', acc.name);
     const link = await stripe.paymentLinks.create({
       line_items: [{ price: price.id, quantity: 1 }],
-      subscription_data: { metadata: { source: 'subloop', interval_days: String(intervalDays) } },
+      subscription_data: { metadata: { source: 'subloop', interval_days: String(interval_days || 30) } },
       metadata: { source: 'subloop', type: 'subscription_link' }
     });
     console.log('[payment-link] created subscription payment link:', link.id, link.url);
@@ -2553,32 +2143,54 @@ app.post('/api/payment-links', async (req, res) => {
 // ── Plan Templates ────────────────────────────────────────────────────────────
 app.get('/api/plan-templates', async (req, res) => {
   try {
+    await pool.query(`CREATE TABLE IF NOT EXISTS plan_templates (id SERIAL PRIMARY KEY, name TEXT, amount INT, currency TEXT DEFAULT 'usd', interval_days INT, created_at TIMESTAMPTZ DEFAULT NOW())`);
     const r = await pool.query('SELECT * FROM plan_templates ORDER BY created_at ASC');
     res.json(r.rows);
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
-app.post('/api/plan-templates', async (req, res) => {
-  try {
-    if (!isOwnerOrAdmin(req.currentUser)) return res.status(403).json({ error: 'Only an administrator can manage shared templates' });
-    const cleanName = String(req.body?.name || '').trim();
-    const amount = Number(req.body?.amount);
-    const currency = String(req.body?.currency || 'usd').trim().toLowerCase();
-    const intervalDays = Number(req.body?.interval_days || 30);
-    if (!cleanName || cleanName.length > 120) return res.status(400).json({ error: 'Template name is required (max 120 characters)' });
-    if (!Number.isInteger(amount) || amount < 50) return res.status(400).json({ error: 'Minimum amount is 0.50' });
-    if (!/^[a-z]{3}$/.test(currency)) return res.status(400).json({ error: 'Invalid currency' });
-    if (![7,14,30,90,365].includes(intervalDays)) return res.status(400).json({ error: 'Invalid billing interval' });
-    await pool.query('INSERT INTO plan_templates (name,amount,currency,interval_days) VALUES ($1,$2,$3,$4)', [cleanName, amount, currency, intervalDays]);
-    res.json({ success: true });
-  } catch(err) { res.status(500).json({ error: err.message }); }
-});
+app.post('/api/plan-templates', async (req, res) => { try { if (!isOwnerOrAdmin(req.currentUser)) return res.status(403).json({ error: 'Only an administrator can manage shared templates' }); const { name, amount, currency, interval_days } = req.body; await pool.query('INSERT INTO plan_templates (name,amount,currency,interval_days) VALUES ($1,$2,$3,$4)', [name, amount, currency||'usd', interval_days||30]); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
 app.delete('/api/plan-templates/:id', async (req, res) => { try { if (!isOwnerOrAdmin(req.currentUser)) return res.status(403).json({ error: 'Only an administrator can manage shared templates' }); await pool.query('DELETE FROM plan_templates WHERE id=$1', [req.params.id]); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
 
-// ── Legacy recurring charge runner (disabled) ─────────────────────────────────
-// Stripe Billing owns automatic renewals/retries. Keeping a second automatic charge engine
-// creates duplicate-charge risk, so this legacy endpoint is intentionally disabled.
-app.post('/api/run-rebills', async (_req, res) => {
-  return res.status(410).json({ error: 'Automatic recurring charges are handled by Stripe Billing. This legacy Subloop runner is disabled.' });
+// ── Run Recurring Charges ───────────────────────────────────────────────────────────────
+app.post('/api/run-rebills', async (req, res) => {
+  try {
+    const due = await subscriptions.due();
+    const eligible = [];
+    for (const sub of due) {
+      const customer = await customers.byId(sub.customer_id);
+      if (customer && rowWithinScope(req, customer)) eligible.push({ sub, customer });
+    }
+    let charged = 0, failed = 0, skippedStripeManaged = 0;
+    for (const item of eligible) {
+      const sub = item.sub;
+      const c = item.customer;
+      // Real Stripe Billing subscriptions renew themselves. Do not create a second manual
+      // PaymentIntent for the same renewal, which could cause duplicate billing.
+      if (sub.stripe_subscription_id) {
+        skippedStripeManaged++;
+        continue;
+      }
+      try {
+        const acc = await stripeAccounts.byId(c.stripe_account_id);
+        const stripe = require('stripe')(acc.secret_key);
+        const pm = await resolveBestPaymentMethod(stripe, c.stripe_customer_id, { localPaymentMethodId: c.stripe_payment_method });
+        if (!pm) throw new Error('No usable saved card found for this customer');
+        await syncLocalPaymentMethod(c.id, pm);
+        const pi = await stripe.paymentIntents.create({ amount: sub.amount, currency: sub.currency||'usd', customer: c.stripe_customer_id, payment_method: pm.id, confirm: true, off_session: true, metadata: { subloop_payment_origin: 'rebill', subloop_subscription_id: String(sub.id) } });
+        const status = pi.status==='succeeded'?'succeeded':'failed';
+        await payments.insert({ customer_id: c.id, subscription_id: sub.id, stripe_payment_intent: pi.id, amount: sub.amount, currency: sub.currency||'usd', status, failure_reason: null, payment_origin: 'rebill' });
+        if (status==='succeeded') {
+          charged++;
+          await subscriptions.advanceBillingDate(sub.id, sub.interval_days);
+          await activityLog.add('payment', `Charged ${(sub.amount/100).toFixed(2)} from ${c.name}`, c.id, sub.amount);
+        } else {
+          failed++;
+          await activityLog.add('failed', `Failed charge for ${c.name}`, c.id, sub.amount);
+        }
+      } catch(e) { failed++; }
+    }
+    res.json({ success: true, charged, failed, skippedStripeManaged, total: eligible.length });
+  } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
 // ── Activity ──────────────────────────────────────────────────────────────────
@@ -2847,95 +2459,30 @@ app.post('/api/auth/check', async (req, res) => {
 app.get('/api/stats', async (req, res) => {
   try {
     const ids = scopedAccountIds(req);
-    const mrrSql = `ROUND(${usdAmountSql('s')} * CASE
-      WHEN COALESCE(s.interval_days,30)=7 THEN 52.0/12.0
-      WHEN COALESCE(s.interval_days,30)=14 THEN 26.0/12.0
-      WHEN COALESCE(s.interval_days,30)=30 THEN 1.0
-      WHEN COALESCE(s.interval_days,30)=90 THEN 1.0/3.0
-      WHEN COALESCE(s.interval_days,30)=365 THEN 1.0/12.0
-      ELSE 30.4375/GREATEST(COALESCE(s.interval_days,30),1)
-    END)`;
     const r = await pool.query(`
-      WITH visible_customers AS (
-        SELECT c.*
-        FROM customers c
-        WHERE LOWER(COALESCE(c.status,'')) <> 'pending'
-          AND COALESCE(c.email,'') NOT ILIKE '%@stripe.local'
-          AND COALESCE(c.name,'') NOT LIKE 'pi_%'
-          AND ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[]))
-      ),
-      customer_stats AS (
-        SELECT
-          COUNT(*)::bigint AS total_customers,
-          COUNT(*) FILTER (WHERE stripe_customer_id LIKE 'cus_%' AND stripe_payment_method IS NOT NULL)::bigint AS saved_cards,
-          COUNT(*) FILTER (WHERE created_at >= NOW()-INTERVAL '30 days')::bigint AS new_customers_30d
-        FROM visible_customers
-      ),
-      subscription_stats AS (
-        SELECT
-          COALESCE(SUM(CASE WHEN LOWER(s.status)='active' THEN ${mrrSql} ELSE 0 END),0)::bigint AS mrr,
-          COUNT(*) FILTER (WHERE LOWER(s.status)='active')::bigint AS active_subscriptions,
-          COUNT(DISTINCT s.customer_id) FILTER (WHERE LOWER(s.status) NOT IN ('incomplete','incomplete_expired','pending'))::bigint AS subscription_customers,
-          COUNT(DISTINCT s.customer_id) FILTER (WHERE LOWER(s.status) IN ('active','paused','canceling','cancelling','trialing','past_due','unpaid','dunning'))::bigint AS live_subscription_customers,
-          COUNT(*) FILTER (WHERE LOWER(s.status)='active' AND LOWER(COALESCE(s.currency,'usd'))<>'usd')::bigint AS non_usd_active_subscriptions
-        FROM subscriptions s
-        JOIN visible_customers c ON c.id=s.customer_id
-      ),
-      churn_stats AS (
-        SELECT COUNT(DISTINCT s.customer_id)::bigint AS churned_30d
-        FROM subscriptions s
-        JOIN visible_customers c ON c.id=s.customer_id
-        WHERE LOWER(s.status) IN ('cancelled','canceled')
-          AND COALESCE(s.canceled_at,s.updated_at,s.created_at) >= NOW()-INTERVAL '30 days'
-          AND NOT EXISTS (
-            SELECT 1 FROM subscriptions live
-            WHERE live.customer_id=s.customer_id
-              AND LOWER(COALESCE(live.status,'')) IN ('active','paused','canceling','cancelling','trialing','past_due','unpaid','dunning')
-          )
-      ),
-      payment_stats AS (
-        SELECT
-          COUNT(*) FILTER (WHERE p.status='failed' AND p.created_at >= NOW()-INTERVAL '30 days')::bigint AS failed_payments,
-          COUNT(*) FILTER (WHERE p.status='succeeded' AND LOWER(COALESCE(p.currency,'usd'))<>'usd')::bigint AS non_usd_successful_payments,
-          COALESCE(SUM(CASE WHEN p.status='succeeded' AND p.created_at >= DATE_TRUNC('month',NOW()) THEN ${usdAmountSql('p')} ELSE 0 END),0)::bigint AS revenue_month,
-          COALESCE(SUM(CASE WHEN p.status='succeeded' THEN ${usdAmountSql('p')} ELSE 0 END),0)::bigint AS total_revenue,
-          COALESCE(SUM(CASE WHEN p.status='succeeded'
-            AND LOWER(COALESCE(c.status,'')) <> 'pending'
-            AND COALESCE(c.email,'') NOT ILIKE '%@stripe.local'
-            AND COALESCE(c.name,'') NOT LIKE 'pi_%'
-            THEN ${usdAmountSql('p')} ELSE 0 END),0)::bigint AS visible_customer_revenue,
-          COUNT(*) FILTER (WHERE p.status='succeeded' AND p.created_at >= NOW()-INTERVAL '30 days')::bigint AS succeeded_30d,
-          COUNT(*) FILTER (WHERE p.status='failed' AND p.created_at >= NOW()-INTERVAL '30 days')::bigint AS failed_30d
-        FROM payments p
-        JOIN customers c ON c.id=p.customer_id
-        WHERE ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[]))
-      )
-      SELECT * FROM customer_stats, subscription_stats, churn_stats, payment_stats
+      SELECT
+        COALESCE(SUM(CASE WHEN s.status='active' THEN ${usdAmountSql('s')} ELSE 0 END),0) as mrr,
+        COUNT(DISTINCT CASE WHEN s.status='active' THEN s.id END) as active_subscriptions,
+        COUNT(DISTINCT c.id) as total_customers,
+        COUNT(DISTINCT CASE WHEN c.card_last4 IS NOT NULL THEN c.id END) as saved_cards,
+        COUNT(CASE WHEN p.status='failed' AND p.created_at >= NOW()-INTERVAL '30 days' THEN 1 END) as failed_payments,
+        COALESCE(SUM(CASE WHEN p.status='succeeded' AND p.created_at >= DATE_TRUNC('month',NOW()) THEN ${usdAmountSql('p')} ELSE 0 END),0) as revenue_month,
+        COALESCE(SUM(CASE WHEN p.status='succeeded' THEN ${usdAmountSql('p')} ELSE 0 END),0) as total_revenue,
+        COUNT(DISTINCT CASE WHEN c.created_at >= NOW()-INTERVAL '30 days' THEN c.id END) as new_customers_30d
+      FROM customers c
+      LEFT JOIN subscriptions s ON s.customer_id=c.id
+      LEFT JOIN payments p ON p.customer_id=c.id
+      WHERE ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[]))
     `, [ids]);
-    const row = r.rows[0] || {};
-    const succeeded = Number(row.succeeded_30d || 0);
-    const failed = Number(row.failed_30d || 0);
-    const totalAttempts = succeeded + failed;
-    const totalCustomers = Number(row.total_customers || 0);
-    const subscriptionCustomers = Number(row.subscription_customers || 0);
-    const liveSubscriptionCustomers = Number(row.live_subscription_customers || 0);
-    const churned = Number(row.churned_30d || 0);
-    const totalRevenue = Number(row.total_revenue || 0);
-    const visibleCustomerRevenue = Number(row.visible_customer_revenue || 0);
-    // Churn is a subscription metric; one-time customers must not dilute the denominator.
-    const churnDenominator = liveSubscriptionCustomers + churned;
-    const churnRate = churnDenominator > 0 ? ((churned / churnDenominator) * 100).toFixed(1) : 0;
-    const avgLtv = totalCustomers > 0 ? Math.round(visibleCustomerRevenue / totalCustomers) : 0;
-    delete row.succeeded_30d;
-    delete row.failed_30d;
-    res.json({
-      ...row,
-      payment_success_rate: totalAttempts>0 ? Math.round((succeeded/totalAttempts)*100) : 100,
-      churn_rate: churnRate,
-      avg_ltv: avgLtv,
-      revenue_30d: row.revenue_month,
-      uses_estimated_fx: Number(row.non_usd_active_subscriptions || 0) > 0 || Number(row.non_usd_successful_payments || 0) > 0
-    });
+    const row = r.rows[0];
+    const sc = await pool.query("SELECT COUNT(*) as n FROM payments p JOIN customers c ON c.id=p.customer_id WHERE p.status='succeeded' AND p.created_at >= NOW()-INTERVAL '30 days' AND ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[]))", [ids]);
+    const fc = await pool.query("SELECT COUNT(*) as n FROM payments p JOIN customers c ON c.id=p.customer_id WHERE p.status='failed' AND p.created_at >= NOW()-INTERVAL '30 days' AND ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[]))", [ids]);
+    const total = parseInt(sc.rows[0].n)+parseInt(fc.rows[0].n);
+    const custStats = await pool.query("SELECT COUNT(*) as total, COUNT(CASE WHEN status='cancelled' AND created_at >= NOW()-INTERVAL '30 days' THEN 1 END) as churned_30d FROM customers WHERE ($1::int[] IS NULL OR stripe_account_id=ANY($1::int[]))", [ids]);
+    const cs = custStats.rows[0];
+    const churnRate = parseInt(cs.total)>0?((parseInt(cs.churned_30d)||0)/parseInt(cs.total)*100).toFixed(1):0;
+    const avgLtv = parseInt(cs.total)>0?Math.round(parseInt(row.total_revenue)/parseInt(cs.total)):0;
+    res.json({ ...row, payment_success_rate: total>0?Math.round((parseInt(sc.rows[0].n)/total)*100):100, churn_rate: churnRate, avg_ltv: avgLtv, revenue_30d: row.revenue_month });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.get('/api/revenue-chart', async (req, res) => {
@@ -2951,116 +2498,32 @@ app.get('/api/daily-summary', async (req, res) => {
   try {
     const ids = scopedAccountIds(req);
     const r = await pool.query(`SELECT COALESCE(SUM(CASE WHEN p.status='succeeded' AND p.created_at >= CURRENT_DATE THEN ${usdAmountSql('p')} ELSE 0 END),0) as revenue_today, COALESCE(COUNT(CASE WHEN p.status='succeeded' AND p.created_at >= CURRENT_DATE THEN 1 END),0) as payments_today, COALESCE(COUNT(CASE WHEN p.status='failed' AND p.created_at >= CURRENT_DATE THEN 1 END),0) as failed_today, COALESCE(SUM(CASE WHEN p.status='succeeded' AND p.created_at >= CURRENT_DATE - INTERVAL '7 days' THEN ${usdAmountSql('p')} ELSE 0 END),0) as revenue_7d, COALESCE(COUNT(CASE WHEN p.status='succeeded' AND p.created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END),0) as payments_7d, COALESCE(SUM(CASE WHEN p.status='succeeded' AND p.created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN ${usdAmountSql('p')} ELSE 0 END),0) as revenue_month, COALESCE(COUNT(CASE WHEN p.status='succeeded' AND p.created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN 1 END),0) as payments_month FROM payments p JOIN customers c ON c.id=p.customer_id WHERE ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[]))`, [ids]);
-    const c = await pool.query(`SELECT COUNT(*) as active_total, COUNT(CASE WHEN created_at >= CURRENT_DATE THEN 1 END) as new_today, COUNT(CASE WHEN created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as new_7d FROM customers WHERE LOWER(COALESCE(status,''))='active' AND COALESCE(email,'') NOT ILIKE '%@stripe.local' AND COALESCE(name,'') NOT LIKE 'pi_%' AND ($1::int[] IS NULL OR stripe_account_id=ANY($1::int[]))`, [ids]);
+    const c = await pool.query(`SELECT COUNT(*) as active_total, COUNT(CASE WHEN created_at >= CURRENT_DATE THEN 1 END) as new_today, COUNT(CASE WHEN created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as new_7d FROM customers WHERE status='active' AND ($1::int[] IS NULL OR stripe_account_id=ANY($1::int[]))`, [ids]);
     res.json({ ...r.rows[0], ...c.rows[0] });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.get('/api/forecast', async (req, res) => {
   try {
     const allSubs = (await subscriptions.all()).filter(sub => rowWithinScope(req, sub));
-    const activeSubs = allSubs.filter(s => String(s.status || '').toLowerCase() === 'active');
+    const activeSubs = allSubs.filter(s => s.status === 'active');
     const now = new Date();
-    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-
-    function daysInUtcMonth(year, monthIndex) {
-      return new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
-    }
-    function addMonthsClamped(date, months) {
-      const day = date.getUTCDate();
-      const first = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1));
-      first.setUTCDate(Math.min(day, daysInUtcMonth(first.getUTCFullYear(), first.getUTCMonth())));
-      return first;
-    }
-    function addYearsClamped(date, years) {
-      const year = date.getUTCFullYear() + years;
-      const month = date.getUTCMonth();
-      const day = Math.min(date.getUTCDate(), daysInUtcMonth(year, month));
-      return new Date(Date.UTC(year, month, day));
-    }
-    function advanceDue(date, intervalDays) {
-      const days = Math.max(1, Number(intervalDays || 30));
-      if (days === 30) return addMonthsClamped(date, 1);
-      if (days === 90) return addMonthsClamped(date, 3);
-      if (days === 365) return addYearsClamped(date, 1);
-      return new Date(date.getTime() + days * 86400000);
-    }
-    function parseBillingDate(value) {
-      if (!value) return null;
-      const raw = String(value).slice(0, 10);
-      const d = new Date(raw + 'T00:00:00Z');
-      return Number.isNaN(d.getTime()) ? null : d;
-    }
-    function projectedForDays(days) {
-      const end = new Date(today.getTime() + days * 86400000);
-      let total = 0;
-      for (const sub of activeSubs) {
-        let due = parseBillingDate(sub.next_billing_date);
-        if (!due) continue;
-        // A payment due today still belongs in today's forecast.
-        while (due < today) due = advanceDue(due, sub.interval_days);
-        const usdAmount = toUsdCents(sub.amount, sub.currency);
-        while (due <= end) {
-          total += usdAmount;
-          due = advanceDue(due, sub.interval_days);
-        }
-      }
-      return total;
-    }
-    const usesEstimatedFx = activeSubs.some(s => String(s.currency || 'usd').toLowerCase() !== 'usd');
-    res.json({ forecast30: projectedForDays(30), forecast60: projectedForDays(60), forecast90: projectedForDays(90), uses_estimated_fx: usesEstimatedFx });
+    let forecast30=0, forecast60=0, forecast90=0;
+    activeSubs.forEach(s => {
+      const next = new Date(s.next_billing_date);
+      const diff = (next - now) / (1000*60*60*24);
+      const usdAmount = toUsdCents(s.amount, s.currency);
+      forecast30 += usdAmount * (Math.floor(30/s.interval_days) + (diff<=30?1:0));
+      forecast60 += usdAmount * (Math.floor(60/s.interval_days) + (diff<=60?1:0));
+      forecast90 += usdAmount * (Math.floor(90/s.interval_days) + (diff<=90?1:0));
+    });
+    res.json({ forecast30, forecast60, forecast90 });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.get('/api/churn-alerts', async (req, res) => {
   try {
     const ids = scopedAccountIds(req);
-    const cancelled = await pool.query(`
-      SELECT DISTINCT ON (c.id) c.id,c.name,c.email,COALESCE(s.canceled_at,s.updated_at,s.created_at) as churned_at
-      FROM subscriptions s
-      JOIN customers c ON c.id=s.customer_id
-      WHERE LOWER(s.status) IN ('cancelled','canceled')
-        AND COALESCE(s.canceled_at,s.updated_at,s.created_at) >= NOW()-INTERVAL '7 days'
-        AND NOT EXISTS (
-          SELECT 1 FROM subscriptions live
-          WHERE live.customer_id=s.customer_id
-            AND LOWER(COALESCE(live.status,'')) IN ('active','paused','canceling','cancelling','trialing','past_due','unpaid','dunning')
-        )
-        AND ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[]))
-      ORDER BY c.id, COALESCE(s.canceled_at,s.updated_at,s.created_at) DESC
-      LIMIT 20`, [ids]);
-    const failing = await pool.query(`
-      WITH recent_failures AS (
-        SELECT p.customer_id, COUNT(*)::int AS failure_count, MAX(p.created_at) AS last_failed_at
-        FROM payments p
-        WHERE LOWER(p.status)='failed' AND p.created_at >= NOW()-INTERVAL '7 days'
-        GROUP BY p.customer_id
-      ), live_risk AS (
-        SELECT DISTINCT ON (s.customer_id)
-          s.customer_id,
-          LOWER(COALESCE(s.status,'')) AS subscription_status
-        FROM subscriptions s
-        WHERE LOWER(COALESCE(s.status,'')) IN ('past_due','unpaid','dunning','active','paused','canceling','cancelling','trialing')
-        ORDER BY s.customer_id,
-          CASE LOWER(COALESCE(s.status,'')) WHEN 'unpaid' THEN 0 WHEN 'past_due' THEN 1 WHEN 'dunning' THEN 2 ELSE 3 END,
-          s.updated_at DESC NULLS LAST
-      )
-      SELECT c.id,c.name,c.email,
-        COALESCE(rf.failure_count,0)::int AS failure_count,
-        lr.subscription_status,
-        CASE
-          WHEN lr.subscription_status='unpaid' THEN 'Unpaid'
-          WHEN lr.subscription_status='past_due' THEN 'Past due'
-          WHEN lr.subscription_status='dunning' THEN 'Payment retrying'
-          ELSE COALESCE(rf.failure_count,0)::text || ' failures'
-        END AS risk_label
-      FROM live_risk lr
-      JOIN customers c ON c.id=lr.customer_id
-      LEFT JOIN recent_failures rf ON rf.customer_id=c.id
-      WHERE (lr.subscription_status IN ('past_due','unpaid','dunning') OR COALESCE(rf.failure_count,0) >= 3)
-        AND ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[]))
-      ORDER BY
-        CASE lr.subscription_status WHEN 'unpaid' THEN 0 WHEN 'past_due' THEN 1 WHEN 'dunning' THEN 2 ELSE 3 END,
-        COALESCE(rf.failure_count,0) DESC
-      LIMIT 20`, [ids]);
+    const cancelled = await pool.query(`SELECT c.id,c.name,c.email,s.updated_at as churned_at FROM subscriptions s JOIN customers c ON c.id=s.customer_id WHERE s.status='cancelled' AND s.updated_at >= NOW()-INTERVAL '7 days' AND ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[])) ORDER BY s.updated_at DESC LIMIT 20`, [ids]);
+    const failing = await pool.query(`SELECT c.id,c.name,c.email,s.dunning_count FROM subscriptions s JOIN customers c ON c.id=s.customer_id WHERE s.dunning_count >= 3 AND s.status != 'cancelled' AND ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[])) ORDER BY s.dunning_count DESC LIMIT 20`, [ids]);
     res.json({ cancelled: cancelled.rows, failing: failing.rows });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
@@ -3080,64 +2543,66 @@ app.get('/api/recovery-rate', async (req, res) => {
         SELECT p.*
         FROM payments p
         JOIN customers fc ON fc.id=p.customer_id
-        WHERE (LOWER(p.status)='failed' OR COALESCE(p.was_failed,false)=true)
+        WHERE (p.status='failed' OR COALESCE(p.was_failed,false)=true)
           AND p.created_at >= NOW()-INTERVAL '30 days'
           AND ($1::int[] IS NULL OR fc.stripe_account_id=ANY($1::int[]))
       ),
-      recovered_failed AS (
-        SELECT DISTINCT f.id
+      recovered_successes AS (
+        /* 1) A retry started through Subloop and linked to a failed payment. */
+        SELECT DISTINCT s.id AS recovery_id
+        FROM payments s
+        JOIN failed f ON f.id=s.retry_of_payment_id
+        WHERE s.status='succeeded'
+
+        UNION
+
+        /* 2) Stripe updates the same PaymentIntent from failed to succeeded. */
+        SELECT DISTINCT f.id AS recovery_id
         FROM failed f
-        WHERE
-          f.recovered_at IS NOT NULL
-          OR EXISTS (
-            SELECT 1 FROM payments s
-            WHERE s.retry_of_payment_id=f.id AND LOWER(s.status)='succeeded'
-          )
-          OR EXISTS (
-            SELECT 1 FROM payments s
-            WHERE s.customer_id=f.customer_id
-              AND LOWER(s.status)='succeeded'
-              AND s.created_at > f.created_at
-              AND s.amount=f.amount
-              AND LOWER(COALESCE(s.currency,'usd'))=LOWER(COALESCE(f.currency,'usd'))
-              AND f.stripe_invoice_id IS NOT NULL
-              AND s.stripe_invoice_id=f.stripe_invoice_id
-          )
-          OR EXISTS (
-            SELECT 1 FROM payments s
-            WHERE s.customer_id=f.customer_id
-              AND LOWER(s.status)='succeeded'
-              AND s.created_at > f.created_at
-              AND s.created_at <= f.created_at + INTERVAL '24 hours'
-              AND s.amount=f.amount
-              AND LOWER(COALESCE(s.currency,'usd'))=LOWER(COALESCE(f.currency,'usd'))
-              AND f.stripe_invoice_id IS NULL
-              AND f.subscription_id IS NOT NULL
-              AND s.subscription_id=f.subscription_id
-              AND LOWER(COALESCE(s.payment_origin,''))=LOWER(COALESCE(f.payment_origin,''))
-              AND (f.card_last4 IS NULL OR s.card_last4 IS NULL OR f.card_last4=s.card_last4)
-          )
-          OR EXISTS (
-            SELECT 1 FROM payments s
-            WHERE s.customer_id=f.customer_id
-              AND LOWER(s.status)='succeeded'
-              AND s.created_at > f.created_at
-              AND s.created_at <= f.created_at + INTERVAL '24 hours'
-              AND s.amount=f.amount
-              AND LOWER(COALESCE(s.currency,'usd'))=LOWER(COALESCE(f.currency,'usd'))
-              AND f.subscription_id IS NULL
-              AND s.subscription_id IS NULL
-              AND LOWER(COALESCE(s.payment_origin,''))=LOWER(COALESCE(f.payment_origin,''))
-              AND (f.card_last4 IS NULL OR s.card_last4 IS NULL OR f.card_last4=s.card_last4)
-          )
+        WHERE f.recovered_at IS NOT NULL
+
+        UNION
+
+        /* 3) Stripe payment/invoice/subscription retry: later successful attempt for the same bill. */
+        SELECT DISTINCT s.id AS recovery_id
+        FROM payments s
+        JOIN failed f
+          ON s.customer_id=f.customer_id
+         AND s.status='succeeded'
+         AND s.created_at > f.created_at
+         AND s.created_at <= f.created_at + INTERVAL '30 days'
+         AND s.amount=f.amount
+         AND LOWER(COALESCE(s.currency,'usd'))=LOWER(COALESCE(f.currency,'usd'))
+         AND (
+           (f.stripe_invoice_id IS NOT NULL AND s.stripe_invoice_id=f.stripe_invoice_id)
+           OR (f.subscription_id IS NOT NULL AND s.subscription_id=f.subscription_id)
+         )
+
+        UNION
+
+        /* 4) Customer self-retry for one-time checkout: same customer/amount/currency shortly after failure. */
+        SELECT DISTINCT s.id AS recovery_id
+        FROM payments s
+        JOIN failed f
+          ON s.customer_id=f.customer_id
+         AND s.status='succeeded'
+         AND s.created_at > f.created_at
+         AND s.created_at <= f.created_at + INTERVAL '24 hours'
+         AND s.amount=f.amount
+         AND LOWER(COALESCE(s.currency,'usd'))=LOWER(COALESCE(f.currency,'usd'))
+         AND COALESCE(s.subscription_id,0)=0
+         AND COALESCE(f.subscription_id,0)=0
+         AND (
+           f.card_last4 IS NULL OR s.card_last4 IS NULL OR f.card_last4=s.card_last4
+         )
       )
       SELECT
         (SELECT COUNT(*) FROM failed) AS total_failed,
-        (SELECT COUNT(*) FROM recovered_failed) AS recovered
+        (SELECT COUNT(*) FROM recovered_successes) AS recovered
     `, [ids]);
     const row = r.rows[0] || {};
     const tf = parseInt(row.total_failed) || 0;
-    const recovered = Math.min(tf, parseInt(row.recovered) || 0);
+    const recovered = parseInt(row.recovered) || 0;
     const rate = tf > 0 ? Math.round((recovered / tf) * 100) : 0;
     res.json({ total_failed: tf, recovered, rate });
   } catch(err) { res.status(500).json({ error: err.message }); }
@@ -3147,23 +2612,10 @@ app.get('/api/search', async (req, res) => {
     const ids = scopedAccountIds(req);
     const q = '%'+(req.query.q||'').trim()+'%';
     if (!req.query.q || req.query.q.trim().length < 2) return res.json({ customers:[], payments:[], subscriptions:[] });
-    const mayCustomers = canUseSection(req.currentUser, 'customers');
-    const mayPayments = canUseSection(req.currentUser, 'payments');
-    const maySubscriptions = canUseSection(req.currentUser, 'subscriptions');
-    const empty = { rows: [] };
     const [cust, pmts, subs] = await Promise.all([
-      mayCustomers ? pool.query(`SELECT id,name,email,card_brand,card_last4,status FROM customers
-        WHERE (name ILIKE $1 OR email ILIKE $1)
-          AND LOWER(COALESCE(status,'')) <> 'pending'
-          AND COALESCE(email,'') NOT ILIKE '%@stripe.local'
-          AND COALESCE(name,'') NOT LIKE 'pi_%'
-          AND ($2::int[] IS NULL OR stripe_account_id=ANY($2::int[])) LIMIT 5`, [q, ids]) : Promise.resolve(empty),
-      mayPayments ? pool.query(`SELECT p.id,c.name,c.email,p.amount,p.currency,p.status,p.created_at FROM payments p JOIN customers c ON c.id=p.customer_id WHERE (c.name ILIKE $1 OR c.email ILIKE $1) AND ($2::int[] IS NULL OR c.stripe_account_id=ANY($2::int[])) ORDER BY p.created_at DESC LIMIT 5`, [q, ids]) : Promise.resolve(empty),
-      maySubscriptions ? pool.query(`SELECT s.id,c.name,c.email,s.amount,s.currency,s.status FROM subscriptions s JOIN customers c ON c.id=s.customer_id
-        WHERE (c.name ILIKE $1 OR c.email ILIKE $1)
-          AND LOWER(COALESCE(c.status,'')) <> 'pending'
-          AND LOWER(COALESCE(s.status,'')) NOT IN ('incomplete','incomplete_expired','pending')
-          AND ($2::int[] IS NULL OR c.stripe_account_id=ANY($2::int[])) LIMIT 5`, [q, ids]) : Promise.resolve(empty),
+      pool.query(`SELECT id,name,email,card_brand,card_last4,status FROM customers WHERE (name ILIKE $1 OR email ILIKE $1) AND ($2::int[] IS NULL OR stripe_account_id=ANY($2::int[])) LIMIT 5`, [q, ids]),
+      pool.query(`SELECT p.id,c.name,c.email,p.amount,p.currency,p.status,p.created_at FROM payments p JOIN customers c ON c.id=p.customer_id WHERE (c.name ILIKE $1 OR c.email ILIKE $1) AND ($2::int[] IS NULL OR c.stripe_account_id=ANY($2::int[])) ORDER BY p.created_at DESC LIMIT 5`, [q, ids]),
+      pool.query(`SELECT s.id,c.name,c.email,s.amount,s.currency,s.status FROM subscriptions s JOIN customers c ON c.id=s.customer_id WHERE (c.name ILIKE $1 OR c.email ILIKE $1) AND ($2::int[] IS NULL OR c.stripe_account_id=ANY($2::int[])) LIMIT 5`, [q, ids]),
     ]);
     res.json({ customers: cust.rows, payments: pmts.rows, subscriptions: subs.rows });
   } catch(err) { res.status(500).json({ error: err.message }); }
@@ -3177,6 +2629,18 @@ app.get('/api/ip-geo', async (req, res) => {
     res.json({ country: data.country_name||null, code: data.country_code?data.country_code.toLowerCase():null });
   } catch(err) { res.json({ country: null, code: null }); }
 });
+app.get('/api/debug/webhook', async (req, res) => {
+  const r = await pool.query('SELECT id, name, LEFT(webhook_secret,10) as ws_preview, webhook_secret IS NOT NULL as has_secret FROM stripe_accounts');
+  res.json(r.rows);
+});
+
+app.get('/api/debug/admins', async (req, res) => {
+  const results = {};
+  try { const t1 = await pool.query('SELECT NOW() as time'); results.db_connected=true; results.db_time=t1.rows[0].time; } catch(e) { results.db_connected=false; }
+  try { const t2 = await pool.query("SELECT column_name FROM information_schema.columns WHERE table_name='admin_users'"); results.columns=t2.rows.map(r=>r.column_name); } catch(e) {}
+  try { const t3 = await pool.query('SELECT COUNT(*) FROM admin_users'); results.row_count=t3.rows[0].count; } catch(e) {}
+  res.json(results);
+});
 
 // ── Webhook ───────────────────────────────────────────────────────────────────
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
@@ -3185,7 +2649,5 @@ const PORT = process.env.PORT || 8080;
 // Database migrations, including admin access columns, finish once before accepting requests.
 // API permission checks then use fast SELECT queries only; they never run ALTER TABLE during page loads.
 init().then(() => {
-  if (!process.env.SUBLOOP_AUTH_SECRET) console.warn('[security] SUBLOOP_AUTH_SECRET is not set; login sessions will be invalidated whenever the app restarts.');
-  initScheduler();
   app.listen(PORT, () => console.log(`Subloop running on port ${PORT}`));
 }).catch(err => { console.error('DB init failed:', err.message); process.exit(1); });
