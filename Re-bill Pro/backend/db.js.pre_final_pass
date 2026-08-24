@@ -264,19 +264,6 @@ async function init() {
           AND (p.subscription_id=s.id OR (s.stripe_invoice_id IS NOT NULL AND p.stripe_invoice_id=s.stripe_invoice_id))
       )
   `).catch(()=>{});
-  // Legacy safety net: if the customer has never had any successful payment, a paid
-  // subscription cannot legitimately be Active even when old payment rows were not linked
-  // to the subscription/invoice correctly.
-  await pool.query(`
-    UPDATE subscriptions s
-    SET status='incomplete'
-    WHERE s.amount > 0
-      AND LOWER(COALESCE(s.status,''))='active'
-      AND NOT EXISTS (
-        SELECT 1 FROM payments p
-        WHERE p.customer_id=s.customer_id AND LOWER(p.status)='succeeded'
-      )
-  `).catch(()=>{});
 
   const existing = await pool.query('SELECT COUNT(*) FROM stripe_accounts');
   if (parseInt(existing.rows[0].count) === 0 && process.env.STRIPE_SECRET_KEY) {

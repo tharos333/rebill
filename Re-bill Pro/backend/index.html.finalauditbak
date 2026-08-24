@@ -6034,7 +6034,7 @@ body.view-only-access #verification-debug-modal .modal-content{
     <div class="stat-card"><div class="stat-label">Revenue</div><div class="stat-value" id="stat-revenue">—</div><div class="stat-sub" id="stat-revenue-sub">total collected</div></div>
     <div class="stat-card"><div class="stat-label">Churn rate</div><div class="stat-value" id="stat-churn">—</div><div class="stat-sub">last 30 days</div></div>
     <div class="stat-card"><div class="stat-label">Success rate</div><div class="stat-value" id="stat-success" style="color:var(--green)">—</div><div class="stat-sub">payment success</div></div>
-    <div class="stat-card"><div class="stat-label">Avg customer value</div><div class="stat-value" id="stat-ltv">—</div><div class="stat-sub">collected per customer</div></div>
+    <div class="stat-card"><div class="stat-label">Avg LTV</div><div class="stat-value" id="stat-ltv">—</div><div class="stat-sub">per customer</div></div>
   </div>
   <!-- Churn Alerts -->
   <div id="churn-alerts-section" style="display:none;margin-bottom:16px;">
@@ -6360,7 +6360,7 @@ body.view-only-access #verification-debug-modal .modal-content{
     <div style="padding:18px;">
       <div class="form-group"><label>Product name</label><input type="text" id="link-name" value="Monthly Subscription"></div>
       <div class="form-row">
-        <div class="form-group"><label>Amount</label><input type="number" id="link-amount" value="29" min="0.50" step="0.01"></div>
+        <div class="form-group"><label>Amount ($)</label><input type="number" id="link-amount" value="29" min="0.50" step="0.01"></div>
         <div class="form-group"><label>Currency</label><select id="link-currency"><option value="usd">USD</option><option value="eur">EUR</option><option value="gbp">GBP</option><option value="mad">MAD</option></select></div>
       </div>
       <div class="form-group"><label>Stripe account</label><select id="link-account"><option value="">Loading...</option></select></div>
@@ -7160,9 +7160,6 @@ function badgeLabel(s){
   if (raw.includes('pending')) return 'Pending';
   if (raw.includes('paused')) return 'Paused';
   if (raw.includes('dunning')) return 'Dunning';
-  if (raw === 'trialing') return 'Trialing';
-  if (raw === 'past_due') return 'Past due';
-  if (raw === 'unpaid') return 'Unpaid';
   return raw ? raw.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Status';
 }
 
@@ -7172,16 +7169,13 @@ function badgeIcon(s){
 
 function badge(s){
   const raw = String(s || '').toLowerCase().trim();
-  const m={active:'green',succeeded:'green',success:'green',failed:'red',declined:'red',paused:'blue',trialing:'blue',past_due:'amber',unpaid:'red',canceling:'amber',cancelling:'amber',cancelled:'red',canceled:'red',pending:'blue',dunning:'amber',ok:'green'};
+  const m={active:'green',succeeded:'green',success:'green',failed:'red',declined:'red',paused:'blue',canceling:'amber',cancelling:'amber',cancelled:'red',canceled:'red',pending:'blue',dunning:'amber',ok:'green'};
   let cls = m[raw] || 'blue';
 
   if (raw.includes('success') || raw.includes('succeeded')) cls = 'green';
   if (raw.includes('fail') || raw.includes('declin') || (raw.includes('cancel') && raw !== 'canceling' && raw !== 'cancelling')) cls = 'red';
   if (raw === 'canceling' || raw === 'cancelling') cls = 'amber';
-  if (raw.includes('require') || raw.includes('method') || raw.includes('action') || raw.includes('pending') || raw.includes('processing')) cls = 'blue';
-  if (raw === 'past_due' || raw === 'dunning') cls = 'amber';
-  if (raw === 'unpaid') cls = 'red';
-  if (raw === 'trialing') cls = 'blue';
+  if (raw.includes('require') || raw.includes('payment') || raw.includes('method') || raw.includes('action') || raw.includes('pending') || raw.includes('processing')) cls = 'blue';
 
   const icon = badgeIcon(raw);
   return '<span class="badge badge-'+cls+(icon?' has-status-icon':'')+'"><span>'+badgeLabel(raw)+'</span>'+icon+'</span>';
@@ -7761,14 +7755,7 @@ function customerEffectiveStatus(c){
   return 'active';
 }
 function customerTypeKey(c){
-  var matches=(allSubscriptions||[]).filter(function(s){return customerMatchesSubscription(c,s);});
-  var live=matches.some(function(s){return ['active','paused','canceling','trialing','past_due','unpaid','dunning'].includes(normalizeSubscriptionStatus(s.status));});
-  if(live)return 'subscription';
-  var raw=normalizeSubscriptionStatus(c.status||'active');
-  // Keep a fully canceled customer in Subscription history. If an old subscription ended and
-  // the customer later came back only for a one-time payment, classify their current state as One-time.
-  if(raw==='canceled' && matches.some(function(s){return normalizeSubscriptionStatus(s.status)==='canceled';}))return 'subscription';
-  return 'one-time';
+  return customerHasSubscription(c)?'subscription':'one-time';
 }
 function customerSuccessfulPaymentCount(c){
   var successful=(allPayments||[]).filter(function(p){
@@ -7998,7 +7985,6 @@ function bulkCharge(){
   var count=rows.length;var skipped=selectedSubs.size-count;
   openAppActionConfirm({title:'Charge '+count+' subscription'+(count===1?'':'s')+'?',message:'Subloop will attempt to charge the saved payment method for each active selected subscription now.'+(skipped?' '+skipped+' ineligible selection'+(skipped===1?' will':'s will')+' be skipped.':''),cancelText:'Go back',confirmText:'Charge now',danger:false},async function(){toast('Charging '+count+' subscription'+(count===1?'':'s')+'…');let ok=0,fail=0;for(const sub of rows){try{const r=await api('/api/subscriptions/'+sub.id+'/charge',{method:'POST'});if(r.success)ok++;else fail++;}catch(e){fail++;}}toast('✓ '+ok+' charged'+(fail?' — '+fail+' failed':'')+(skipped?' — '+skipped+' skipped':''));exitBulkMode();loadStats();loadSubscriptions();});
 }
-function pauseMinimumDate(){var d=new Date();d.setDate(d.getDate()+1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function bulkPause(){
   var rows=bulkEligibleRows('pause');
   if(!rows.length){toast('Select at least one active subscription','error');return;}
@@ -8012,7 +7998,7 @@ function bulkPause(){
   var submit=document.getElementById('pause-modal-submit');
   if(mode)mode.value='bulk';
   if(id)id.value='';
-  if(date){date.value='';date.min=pauseMinimumDate();}
+  if(date)date.value='';
   if(title)title.textContent='Pause '+count+' subscription'+(count===1?'':'s')+'?';
   if(message)message.textContent='Billing will be paused for all active selected subscriptions until they are resumed.';
   if(cancel)cancel.textContent='Keep active';
@@ -8528,6 +8514,12 @@ function openPaymentModal(p){
 }
 async function retryPayment(id){if(blockViewOnlyAction())return;toast('Retrying…');try{const r=await api('/api/payments/'+id+'/retry',{method:'POST'});if(r.success){toast('✓ Succeeded — payment recovered');loadPayments();loadStats();loadRecovery();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
 async function loadWebhooks(){try{const list=await api('/api/webhook-logs');const tb=document.getElementById('webhook-table');if(!list.length){tb.innerHTML='<tr><td colspan="4" class="empty">No webhook events yet</td></tr>';return;}tb.innerHTML=list.map(w=>'<tr><td class="mono" style="font-size:12px;">'+w.event_type+'</td><td style="font-size:12px;color:var(--muted);">'+(w.account_name||'—')+'</td><td>'+badge(w.status||'ok').replace('Succeeded','Processed').replace('Success','Processed')+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+fmtTime(w.created_at)+'</td></tr>').join('');}catch(e){}}
+function setDunningScheduleState(enabled){
+  var field=document.getElementById('setting-dunning-days');
+  var row=document.getElementById('setting-dunning-days-row');
+  if(field)field.disabled=!enabled;
+  if(row)row.classList.toggle('setting-disabled',!enabled);
+}
 async function loadSettings(){try{appSettings=await api('/api/settings');var pr=document.getElementById('setting-proration');if(pr)pr.checked=appSettings.proration_enabled==='true';var wl=document.getElementById('setting-webhook-logs');if(wl)wl.checked=appSettings.webhook_logs_enabled==='true';}catch(e){}}
 async function saveSetting(key,value){await api('/api/settings',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({key,value:String(value)})});appSettings[key]=String(value);toast('✓ Setting saved');}
 async function loadSecurity(){
@@ -8593,7 +8585,7 @@ function openPauseModal(subId){
   var submit=document.getElementById('pause-modal-submit');
   if(mode)mode.value='single';
   if(id)id.value=subId;
-  if(date){date.value='';date.min=pauseMinimumDate();}
+  if(date)date.value='';
   if(title)title.textContent='Pause this subscription?';
   if(message)message.textContent='Billing will be paused until you resume it.';
   if(cancel)cancel.textContent='Keep active';
@@ -8603,7 +8595,6 @@ function openPauseModal(subId){
 async function confirmPause(){
   const mode=document.getElementById('pause-mode')?.value||'single';
   const resumeDate=document.getElementById('pause-resume-date')?.value||'';
-  if(resumeDate && resumeDate < pauseMinimumDate()){toast('Resume date must be in the future','error');return;}
   if(mode==='bulk'){
     const ids=bulkEligibleRows('pause').map(function(s){return s.id;});
     const count=ids.length;
@@ -8670,9 +8661,8 @@ function cancelSubNow(id){
 async function setSubStatus(id,status){
   if(blockViewOnlyAction())return;
   try{
-    var result=await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});
-    var actual=normalizeSubscriptionStatus((result&&result.status)||status);
-    var statusLabel=actual==='canceled'?'canceled':(actual==='canceling'?'scheduled to cancel':(actual==='paused'?'paused':(actual==='trialing'?'trialing':(actual==='past_due'?'past due':(actual==='unpaid'?'unpaid':'active')))));
+    await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});
+    var statusLabel=status==='cancelled'?'canceled':(status==='canceling'?'scheduled to cancel':'active');
     toast('Subscription '+statusLabel);
     await loadSubscriptions();
     await loadCustomers();
@@ -8684,19 +8674,7 @@ async function setSubStatus(id,status){
 let currentCustomerDrawerId=null;
 function escapeCustomerHtml(v){return String(v==null?'':v).replace(/[&<>"']/g,function(m){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m];});}
 function customerValueClass(status){return status==='paused'?'value-blue':((status==='canceling'||status==='cancelling')?'value-amber':((status==='failed'||status==='canceled'||status==='cancelled')?'value-red':((status==='succeeded'||status==='active')?'value-green':'')));}
-function customerLiveSubscriptionCount(c){return Number(c.active_subs||0)+Number(c.paused_subs||0)+Number(c.canceling_subs||0)+Number(c.dunning_subs||0)+Number(c.past_due_subs||0)+Number(c.unpaid_subs||0)+Number(c.trialing_subs||0);}
-function customerPaymentType(c){
-  var live=customerLiveSubscriptionCount(c);
-  var raw=normalizeSubscriptionStatus(c.status||'active');
-  if(live>0)return 'Subscription';
-  // A fully canceled subscription remains historical subscription business. If the customer
-  // later makes a successful one-time payment and becomes Active again, show current billing
-  // semantics as One-time instead of pretending an old canceled schedule is still recurring.
-  if(Number(c.canceled_subs||0)>0 && raw==='canceled')return 'Subscription';
-  if((c.successful_payments||0)>0||(c.failed_payments||0)>0)return 'One-time';
-  if((c.total_subs||0)>0)return 'Subscription';
-  return '—';
-}
+function customerPaymentType(c){if((c.total_subs||0)>0)return 'Subscription'; if((c.successful_payments||0)>0||(c.failed_payments||0)>0)return 'One-time'; return '—';}
 function customerPauseStatus(c){var s=customerEffectiveStatus(c);return s==='paused'?'Paused':(s==='canceling'?'Canceling':(s==='canceled'?'Canceled':'Active'));}
 
 function customerStatusText(status){
@@ -8845,15 +8823,13 @@ function buildCustomerDrawer(data){
   const unpaidSubscriptions=Number(c.unpaid_subs||0);
   const trialingSubscriptions=Number(c.trialing_subs||0);
   const canceledSubscriptions=Number(c.canceled_subs||0);
-  const liveSubscriptionCount=activeSubscriptions+pausedSubscriptions+cancelingSubscriptions+dunningSubscriptions+pastDueSubscriptions+unpaidSubscriptions+trialingSubscriptions;
-  const isHistoricalSubscriptionNowOneTime=effectiveStatus==='active' && liveSubscriptionCount===0 && canceledSubscriptions>0 && (Number(c.successful_payments||0)>0 || Number(c.failed_payments||0)>0);
-  const isOneTimeOnly=totalSubscriptions===0 || isHistoricalSubscriptionNowOneTime;
+  const isOneTimeOnly=totalSubscriptions===0;
   const isFinalCanceled=!isOneTimeOnly && effectiveStatus==='canceled';
   const isCustomerLevelCanceling=!isFinalCanceled && effectiveStatus==='canceling';
   // If at least one subscription is still active, the customer still has a recurring card that can be charged.
   // A mixed state (one active + one canceling) must not make the whole customer look fully canceling.
   const isSavedPaymentOnly=isOneTimeOnly || isFinalCanceled || (activeSubscriptions===0 && cancelingSubscriptions>0);
-  const shouldShowWillCharge=!isSavedPaymentOnly && effectiveStatus!=='paused' && (activeSubscriptions+trialingSubscriptions)>0 && !!liveRebillPm?.id;
+  const shouldShowWillCharge=!isSavedPaymentOnly && effectiveStatus!=='paused' && activeSubscriptions>0 && !!liveRebillPm?.id;
   const primaryExpMonth=liveRebillPm?.exp_month||c.primary_card_exp_month||c.card_exp_month; const primaryExpYear=liveRebillPm?.exp_year||c.primary_card_exp_year||c.card_exp_year;
   const expiry=(primaryExpMonth&&primaryExpYear)?String(primaryExpMonth).padStart(2,'0')+' / '+String(primaryExpYear).slice(-2):'—';
   const customerMoneyCurrency = customerOriginalCurrency(c);
@@ -8951,8 +8927,8 @@ function buildCustomerDrawer(data){
       if(effectiveStatus==='paused'){
         actionButtons+='<button class="btn" onclick="setCustStatus('+c.id+',\'active\')">Resume customer</button>';
       }else if(effectiveStatus==='canceling'){
-        actionButtons+='<button class="btn btn-success" onclick="reactivateCustomerSubscriptions('+c.id+')">'+(cancelingSubscriptions===1?'Reactivate subscription':'Reactivate subscriptions')+'</button>';
-        actionButtons+='<button class="btn btn-danger customer-action-full" onclick="cancelCustomerSubscriptionsNow('+c.id+')">'+(cancelingSubscriptions===1?'Cancel now':'Cancel all now')+'</button>';
+        actionButtons+='<button class="btn btn-success" onclick="reactivateCustomerSubscriptions('+c.id+')">Reactivate all</button>';
+        actionButtons+='<button class="btn btn-danger customer-action-full" onclick="cancelCustomerSubscriptionsNow('+c.id+')">Cancel all now</button>';
       }else if(effectiveStatus==='active' && cancelingSubscriptions>0 && activeSubscriptions===0 && pausedSubscriptions===0){
         actionButtons+='<button class="btn" onclick="reactivateCancelingCustomerSubscriptions('+c.id+')">'+(cancelingSubscriptions===1?'Reactivate subscription':'Reactivate subscriptions')+'</button>';
         actionButtons+='<button class="btn btn-danger customer-action-full" onclick="cancelCustomerSubscriptionsNow('+c.id+')">Cancel all now</button>';
@@ -9039,7 +9015,7 @@ async function cancelCustomerSubscriptions(id){
   if(blockViewOnlyAction())return;
   openAppActionConfirm({
     title:'Schedule all cancellations?',
-    message:'All eligible subscriptions for this customer will be scheduled to cancel at the end of their current billing periods. You can reactivate them before they end.',
+    message:'All active subscriptions for this customer will stay active until the end of their current paid periods. You can reactivate them before they end.',
     cancelText:'Keep active',
     confirmText:'Cancel at period end'
   },function(){return setCustStatus(id,'canceling');});
@@ -9253,7 +9229,8 @@ function deleteAccount(id){
     loadAccounts();
   });
 }
-async function loadForecast(){try{const d=await api('/api/forecast');var approx=d.uses_estimated_fx?'≈':'';['forecast-30','forecast-60','forecast-90'].forEach(function(id){var el=document.getElementById(id);if(el)el.title=d.uses_estimated_fx?'Estimated USD equivalent for mixed/non-USD subscriptions':'';});document.getElementById('forecast-30').textContent=approx+fmt(d.forecast30||0);document.getElementById('forecast-60').textContent=approx+fmt(d.forecast60||0);document.getElementById('forecast-90').textContent=approx+fmt(d.forecast90||0);}catch(e){}}
+async function loadForecast(){try{const d=await api('/api/forecast');document.getElementById('forecast-30').textContent=fmt(d.forecast30||0);document.getElementById('forecast-60').textContent=fmt(d.forecast60||0);document.getElementById('forecast-90').textContent=fmt(d.forecast90||0);}catch(e){}}
+async function loadExpiry(){try{var days=document.getElementById('expiry-days')?document.getElementById('expiry-days').value:30;var list=await api('/api/expiring-cards?days='+days);var tb=document.getElementById('expiry-table');if(!list.length){tb.innerHTML='<tr><td colspan="5" class="empty">No expiring cards in this period</td></tr>';return;}var now=new Date();tb.innerHTML=list.map(function(c){var expMonth=String(c.card_exp_month||'?').padStart(2,'0');var expYear=String(c.card_exp_year||'?');var yr=parseInt(c.card_exp_year)||9999;var mo=parseInt(c.card_exp_month)||12;var isExpired=yr<now.getFullYear()||(yr===now.getFullYear()&&mo<=now.getMonth()+1);var color=isExpired?'var(--red)':'var(--amber)';return '<tr><td><div class="customer-cell"><div class="avatar">'+initials(c.name)+'</div><div><div class="customer-name">'+(c.name||'—')+'</div><div class="customer-email">'+(c.email||'')+'</div></div></div></td><td>'+cardBadge(c.card_brand,c.card_last4)+'</td><td><span style="color:'+color+';font-family:var(--mono);font-weight:600;">'+expMonth+'/'+expYear+'</span></td><td class="mono">'+fmtDate(c.next_billing_date)+'</td><td><button class="btn btn-sm" onclick="openPortal('+c.id+')">Update card ↗</button></td></tr>';}).join('');}catch(e){}}
 function formatPaymentCount(value){
   var count=Number(value||0);
   return count+' '+(count===1?'payment':'payments');

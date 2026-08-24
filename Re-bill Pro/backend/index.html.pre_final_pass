@@ -7761,14 +7761,7 @@ function customerEffectiveStatus(c){
   return 'active';
 }
 function customerTypeKey(c){
-  var matches=(allSubscriptions||[]).filter(function(s){return customerMatchesSubscription(c,s);});
-  var live=matches.some(function(s){return ['active','paused','canceling','trialing','past_due','unpaid','dunning'].includes(normalizeSubscriptionStatus(s.status));});
-  if(live)return 'subscription';
-  var raw=normalizeSubscriptionStatus(c.status||'active');
-  // Keep a fully canceled customer in Subscription history. If an old subscription ended and
-  // the customer later came back only for a one-time payment, classify their current state as One-time.
-  if(raw==='canceled' && matches.some(function(s){return normalizeSubscriptionStatus(s.status)==='canceled';}))return 'subscription';
-  return 'one-time';
+  return customerHasSubscription(c)?'subscription':'one-time';
 }
 function customerSuccessfulPaymentCount(c){
   var successful=(allPayments||[]).filter(function(p){
@@ -7998,7 +7991,6 @@ function bulkCharge(){
   var count=rows.length;var skipped=selectedSubs.size-count;
   openAppActionConfirm({title:'Charge '+count+' subscription'+(count===1?'':'s')+'?',message:'Subloop will attempt to charge the saved payment method for each active selected subscription now.'+(skipped?' '+skipped+' ineligible selection'+(skipped===1?' will':'s will')+' be skipped.':''),cancelText:'Go back',confirmText:'Charge now',danger:false},async function(){toast('Charging '+count+' subscription'+(count===1?'':'s')+'…');let ok=0,fail=0;for(const sub of rows){try{const r=await api('/api/subscriptions/'+sub.id+'/charge',{method:'POST'});if(r.success)ok++;else fail++;}catch(e){fail++;}}toast('✓ '+ok+' charged'+(fail?' — '+fail+' failed':'')+(skipped?' — '+skipped+' skipped':''));exitBulkMode();loadStats();loadSubscriptions();});
 }
-function pauseMinimumDate(){var d=new Date();d.setDate(d.getDate()+1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function bulkPause(){
   var rows=bulkEligibleRows('pause');
   if(!rows.length){toast('Select at least one active subscription','error');return;}
@@ -8012,7 +8004,7 @@ function bulkPause(){
   var submit=document.getElementById('pause-modal-submit');
   if(mode)mode.value='bulk';
   if(id)id.value='';
-  if(date){date.value='';date.min=pauseMinimumDate();}
+  if(date)date.value='';
   if(title)title.textContent='Pause '+count+' subscription'+(count===1?'':'s')+'?';
   if(message)message.textContent='Billing will be paused for all active selected subscriptions until they are resumed.';
   if(cancel)cancel.textContent='Keep active';
@@ -8593,7 +8585,7 @@ function openPauseModal(subId){
   var submit=document.getElementById('pause-modal-submit');
   if(mode)mode.value='single';
   if(id)id.value=subId;
-  if(date){date.value='';date.min=pauseMinimumDate();}
+  if(date)date.value='';
   if(title)title.textContent='Pause this subscription?';
   if(message)message.textContent='Billing will be paused until you resume it.';
   if(cancel)cancel.textContent='Keep active';
@@ -8603,7 +8595,6 @@ function openPauseModal(subId){
 async function confirmPause(){
   const mode=document.getElementById('pause-mode')?.value||'single';
   const resumeDate=document.getElementById('pause-resume-date')?.value||'';
-  if(resumeDate && resumeDate < pauseMinimumDate()){toast('Resume date must be in the future','error');return;}
   if(mode==='bulk'){
     const ids=bulkEligibleRows('pause').map(function(s){return s.id;});
     const count=ids.length;
@@ -8684,19 +8675,7 @@ async function setSubStatus(id,status){
 let currentCustomerDrawerId=null;
 function escapeCustomerHtml(v){return String(v==null?'':v).replace(/[&<>"']/g,function(m){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m];});}
 function customerValueClass(status){return status==='paused'?'value-blue':((status==='canceling'||status==='cancelling')?'value-amber':((status==='failed'||status==='canceled'||status==='cancelled')?'value-red':((status==='succeeded'||status==='active')?'value-green':'')));}
-function customerLiveSubscriptionCount(c){return Number(c.active_subs||0)+Number(c.paused_subs||0)+Number(c.canceling_subs||0)+Number(c.dunning_subs||0)+Number(c.past_due_subs||0)+Number(c.unpaid_subs||0)+Number(c.trialing_subs||0);}
-function customerPaymentType(c){
-  var live=customerLiveSubscriptionCount(c);
-  var raw=normalizeSubscriptionStatus(c.status||'active');
-  if(live>0)return 'Subscription';
-  // A fully canceled subscription remains historical subscription business. If the customer
-  // later makes a successful one-time payment and becomes Active again, show current billing
-  // semantics as One-time instead of pretending an old canceled schedule is still recurring.
-  if(Number(c.canceled_subs||0)>0 && raw==='canceled')return 'Subscription';
-  if((c.successful_payments||0)>0||(c.failed_payments||0)>0)return 'One-time';
-  if((c.total_subs||0)>0)return 'Subscription';
-  return '—';
-}
+function customerPaymentType(c){if((c.total_subs||0)>0)return 'Subscription'; if((c.successful_payments||0)>0||(c.failed_payments||0)>0)return 'One-time'; return '—';}
 function customerPauseStatus(c){var s=customerEffectiveStatus(c);return s==='paused'?'Paused':(s==='canceling'?'Canceling':(s==='canceled'?'Canceled':'Active'));}
 
 function customerStatusText(status){
@@ -8845,15 +8824,13 @@ function buildCustomerDrawer(data){
   const unpaidSubscriptions=Number(c.unpaid_subs||0);
   const trialingSubscriptions=Number(c.trialing_subs||0);
   const canceledSubscriptions=Number(c.canceled_subs||0);
-  const liveSubscriptionCount=activeSubscriptions+pausedSubscriptions+cancelingSubscriptions+dunningSubscriptions+pastDueSubscriptions+unpaidSubscriptions+trialingSubscriptions;
-  const isHistoricalSubscriptionNowOneTime=effectiveStatus==='active' && liveSubscriptionCount===0 && canceledSubscriptions>0 && (Number(c.successful_payments||0)>0 || Number(c.failed_payments||0)>0);
-  const isOneTimeOnly=totalSubscriptions===0 || isHistoricalSubscriptionNowOneTime;
+  const isOneTimeOnly=totalSubscriptions===0;
   const isFinalCanceled=!isOneTimeOnly && effectiveStatus==='canceled';
   const isCustomerLevelCanceling=!isFinalCanceled && effectiveStatus==='canceling';
   // If at least one subscription is still active, the customer still has a recurring card that can be charged.
   // A mixed state (one active + one canceling) must not make the whole customer look fully canceling.
   const isSavedPaymentOnly=isOneTimeOnly || isFinalCanceled || (activeSubscriptions===0 && cancelingSubscriptions>0);
-  const shouldShowWillCharge=!isSavedPaymentOnly && effectiveStatus!=='paused' && (activeSubscriptions+trialingSubscriptions)>0 && !!liveRebillPm?.id;
+  const shouldShowWillCharge=!isSavedPaymentOnly && effectiveStatus!=='paused' && activeSubscriptions>0 && !!liveRebillPm?.id;
   const primaryExpMonth=liveRebillPm?.exp_month||c.primary_card_exp_month||c.card_exp_month; const primaryExpYear=liveRebillPm?.exp_year||c.primary_card_exp_year||c.card_exp_year;
   const expiry=(primaryExpMonth&&primaryExpYear)?String(primaryExpMonth).padStart(2,'0')+' / '+String(primaryExpYear).slice(-2):'—';
   const customerMoneyCurrency = customerOriginalCurrency(c);

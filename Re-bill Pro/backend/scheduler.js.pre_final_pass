@@ -10,6 +10,7 @@ async function reconcileCustomerAfterSubscriptionChange(customerId) {
   const current = await customers.byId(customerId);
   if (!current) return;
   const currentStatus = String(current.status || 'active').toLowerCase();
+  if (currentStatus === 'pending') return;
 
   const counts = await pool.query(`
     SELECT
@@ -67,8 +68,8 @@ async function reconcileSubscriptionStates() {
     WHERE
       (LOWER(s.status)='paused' AND COALESCE(s.paused_by_customer,false)=false AND s.resume_date IS NOT NULL AND s.resume_date <= CURRENT_DATE)
       OR
-      (LOWER(s.status) IN ('canceling','cancelling') AND (s.stripe_subscription_id IS NOT NULL OR s.next_billing_date <= CURRENT_DATE))
-    ORDER BY CASE WHEN s.next_billing_date <= CURRENT_DATE THEN 0 ELSE 1 END, RANDOM()
+      (LOWER(s.status) IN ('canceling','cancelling') AND s.next_billing_date <= CURRENT_DATE)
+    ORDER BY s.id ASC
     LIMIT 250
   `);
 
@@ -117,15 +118,8 @@ async function reconcileSubscriptionStates() {
         } else if (!remote.cancel_at_period_end) {
           // Cancellation was undone outside Subloop. Mirror Stripe instead of leaving a stale Canceling state.
           const restored = remote.pause_collection ? 'paused' : (remote.status || 'active');
-          const remoteResumeDate = remote.pause_collection?.resumes_at ? new Date(Number(remote.pause_collection.resumes_at)*1000).toISOString().slice(0,10) : null;
-          await pool.query(`UPDATE subscriptions SET status=$2, status_before_cancel=NULL,
-            paused_by_customer=CASE WHEN $2='paused' THEN COALESCE(paused_by_customer,false) ELSE false END,
-            resume_date=CASE WHEN $2='paused' THEN $3::date ELSE NULL END WHERE id=$1`, [sub.id, restored, remoteResumeDate]);
+          await pool.query('UPDATE subscriptions SET status=$2, status_before_cancel=NULL WHERE id=$1', [sub.id, restored]);
           repaired++;
-        } else if (remote.current_period_end) {
-          // Keep the displayed end date aligned if Stripe changes the billing period while the
-          // cancellation is still scheduled.
-          await pool.query('UPDATE subscriptions SET next_billing_date=(TO_TIMESTAMP($2)::date) WHERE id=$1', [sub.id, remote.current_period_end]);
         }
         await reconcileCustomerAfterSubscriptionChange(sub.customer_id);
       }
@@ -142,21 +136,13 @@ let initialized = false;
 function initScheduler() {
   if (initialized) return;
   initialized = true;
-  cron.schedule('17 * * * *', async () => {
-    try {
-      await reconcileSubscriptionStates();
-      await reconcileAllCustomerLifecycles();
-    } catch (err) {
-      console.error('[scheduler] reconciliation job failed:', err.message);
-    }
+  cron.schedule('17 * * * *', () => {
+    reconcileSubscriptionStates().catch(err => console.error('[scheduler] reconciliation job failed:', err.message));
+    reconcileAllCustomerLifecycles().catch(err => console.error('[scheduler] customer lifecycle reconciliation failed:', err.message));
   });
-  setTimeout(async () => {
-    try {
-      await reconcileSubscriptionStates();
-      await reconcileAllCustomerLifecycles();
-    } catch (err) {
-      console.error('[scheduler] startup reconciliation failed:', err.message);
-    }
+  setTimeout(() => {
+    reconcileSubscriptionStates().catch(err => console.error('[scheduler] startup reconciliation failed:', err.message));
+    reconcileAllCustomerLifecycles().catch(err => console.error('[scheduler] startup customer lifecycle reconciliation failed:', err.message));
   }, 10000).unref?.();
   console.log('[scheduler] Subscription/customer state reconciliation initialized (hourly; no automatic charging)');
 }
