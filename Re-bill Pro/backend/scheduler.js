@@ -1,111 +1,164 @@
-// scheduler.js — runs daily to charge due subscriptions
+// scheduler.js — state reconciliation only.
+// Stripe Billing remains responsible for subscription renewals/retries.
+// This job only repairs local pause/cancel state if a webhook is delayed or missed.
 const cron = require('node-cron');
 const Stripe = require('stripe');
-const { subscriptions, payments, customers } = require('./db');
-const { sendFailedPaymentEmail, sendReceiptEmail } = require('./mailer');
+const { pool, customers } = require('./db');
 
-let stripe;
+async function reconcileCustomerAfterSubscriptionChange(customerId) {
+  if (!customerId) return;
+  const current = await customers.byId(customerId);
+  if (!current) return;
+  const currentStatus = String(current.status || 'active').toLowerCase();
 
-function initScheduler() {
-  stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+  const counts = await pool.query(`
+    SELECT
+      COUNT(*) FILTER (WHERE LOWER(status)='active')::int AS active,
+      COUNT(*) FILTER (WHERE LOWER(status)='paused')::int AS paused,
+      COUNT(*) FILTER (WHERE LOWER(status)='paused' AND COALESCE(paused_by_customer,false)=true)::int AS customer_paused,
+      COUNT(*) FILTER (WHERE LOWER(status) IN ('canceling','cancelling'))::int AS canceling,
+      COUNT(*) FILTER (WHERE LOWER(status) IN ('trialing','dunning','past_due','unpaid'))::int AS other_live,
+      COUNT(*) FILTER (WHERE LOWER(status) IN ('cancelled','canceled'))::int AS canceled,
+      COUNT(*) FILTER (WHERE LOWER(status) NOT IN ('incomplete','incomplete_expired','pending'))::int AS visible_total,
+      MAX(COALESCE(canceled_at,updated_at,created_at)) FILTER (WHERE LOWER(status) IN ('cancelled','canceled')) AS last_canceled_at
+    FROM subscriptions WHERE customer_id=$1
+  `, [customerId]);
+  const row = counts.rows[0] || {};
+  const active = Number(row.active || 0);
+  const paused = Number(row.paused || 0);
+  const customerPaused = Number(row.customer_paused || 0);
+  const canceling = Number(row.canceling || 0);
+  const otherLive = Number(row.other_live || 0);
+  const canceled = Number(row.canceled || 0);
+  const visibleTotal = Number(row.visible_total || 0);
+  if (visibleTotal === 0) return;
 
-  // Run every day at 9:00 AM UTC
-  cron.schedule('0 9 * * *', () => {
-    console.log('[scheduler] Running daily recurring charge job...');
-    processDueSubscriptions();
-  });
-
-  console.log('[scheduler] Daily recurring charge cron initialized (runs at 09:00 UTC)');
-}
-
-async function processDueSubscriptions() {
-  const due = subscriptions.due();
-  console.log(`[scheduler] Found ${due.length} subscription(s) due for billing`);
-
-  for (const sub of due) {
-    await chargeSubscription(sub);
+  let desired = currentStatus;
+  if (canceling > 0 && active === 0 && paused === 0 && otherLive === 0) desired = 'canceling';
+  else if (customerPaused > 0 && active === 0 && otherLive === 0 && canceling === 0) desired = 'paused';
+  else if (active > 0 || paused > 0 || otherLive > 0) desired = 'active';
+  else if (canceled > 0) {
+    const laterPayment = await pool.query(`SELECT 1 FROM payments WHERE customer_id=$1 AND LOWER(status)='succeeded' AND ($2::timestamptz IS NULL OR created_at>$2::timestamptz) LIMIT 1`, [customerId, row.last_canceled_at || null]).catch(()=>({rows:[]}));
+    desired = laterPayment.rows[0] ? 'active' : 'cancelled';
   }
+  if (desired !== currentStatus) await customers.updateStatus(customerId, desired);
 }
 
-async function chargeSubscription(sub) {
-  console.log(`[scheduler] Charging customer ${sub.email} — $${(sub.amount / 100).toFixed(2)}`);
+async function reconcileAllCustomerLifecycles() {
+  const r = await pool.query(`SELECT DISTINCT customer_id FROM subscriptions WHERE LOWER(status) NOT IN ('incomplete','incomplete_expired','pending') ORDER BY customer_id ASC LIMIT 5000`);
+  let changed = 0;
+  for (const row of r.rows) {
+    const before = await customers.byId(row.customer_id);
+    const beforeStatus = String(before?.status || '').toLowerCase();
+    await reconcileCustomerAfterSubscriptionChange(row.customer_id);
+    const after = await customers.byId(row.customer_id);
+    if (String(after?.status || '').toLowerCase() !== beforeStatus) changed++;
+  }
+  if (changed) console.log(`[scheduler] reconciled ${changed} customer lifecycle state(s)`);
+  return { checked: r.rows.length, changed };
+}
 
-  try {
-    const pi = await stripe.paymentIntents.create({
-      amount: sub.amount,
-      currency: sub.currency,
-      customer: sub.stripe_customer_id,
-      payment_method: sub.stripe_payment_method,
-      off_session: true,
-      confirm: true,
-      description: `Recurring payment for subscription #${sub.id}`,
-      metadata: {
-        subscription_id: String(sub.id),
-        customer_email: sub.email,
-      },
-    });
+async function reconcileSubscriptionStates() {
+  const r = await pool.query(`
+    SELECT s.*, c.stripe_account_id, sa.secret_key
+    FROM subscriptions s
+    JOIN customers c ON c.id=s.customer_id
+    LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id
+    WHERE
+      (LOWER(s.status)='paused' AND COALESCE(s.paused_by_customer,false)=false AND s.resume_date IS NOT NULL AND s.resume_date <= CURRENT_DATE)
+      OR
+      (LOWER(s.status) IN ('canceling','cancelling') AND (s.stripe_subscription_id IS NOT NULL OR s.next_billing_date <= CURRENT_DATE))
+    ORDER BY CASE WHEN s.next_billing_date <= CURRENT_DATE THEN 0 ELSE 1 END, RANDOM()
+    LIMIT 250
+  `);
 
-    // Record success
-    payments.insert({
-      customer_id: sub.customer_id,
-      subscription_id: sub.id,
-      stripe_payment_intent: pi.id,
-      amount: sub.amount,
-      currency: sub.currency,
-      status: 'succeeded',
-      failure_reason: null,
-    });
-
-    // Advance to next billing date
-    subscriptions.advanceBillingDate(sub.id, sub.interval_days);
-
-    // Send receipt
-    await sendReceiptEmail({
-      email: sub.email,
-      name: sub.name,
-      amount: sub.amount,
-      currency: sub.currency,
-      paymentIntentId: pi.id,
-    });
-
-    console.log(`[scheduler] ✓ Charged ${sub.email}: ${pi.id}`);
-    return { success: true, paymentIntentId: pi.id };
-
-  } catch (err) {
-    const failureReason = err.raw?.message || err.message || 'Unknown error';
-    console.error(`[scheduler] ✗ Failed to charge ${sub.email}: ${failureReason}`);
-
-    // Record failure
-    payments.insert({
-      customer_id: sub.customer_id,
-      subscription_id: sub.id,
-      stripe_payment_intent: null,
-      amount: sub.amount,
-      currency: sub.currency,
-      status: 'failed',
-      failure_reason: failureReason,
-    });
-
-    // Send failure email with card update link (Stripe Customer Portal)
+  let resumed = 0, canceled = 0, repaired = 0, failed = 0;
+  for (const sub of r.rows) {
     try {
-      const portalSession = await stripe.billingPortal.sessions.create({
-        customer: sub.stripe_customer_id,
-        return_url: process.env.BASE_URL || 'http://localhost:3001',
-      });
+      const status = String(sub.status || '').toLowerCase();
+      if (status === 'paused') {
+        if (sub.stripe_subscription_id) {
+          if (!sub.secret_key) throw new Error('Stripe account key unavailable');
+          const stripe = new Stripe(sub.secret_key);
+          const remote = await stripe.subscriptions.retrieve(sub.stripe_subscription_id);
+          if (remote.status === 'canceled') {
+            await pool.query("UPDATE subscriptions SET status='cancelled', canceled_at=COALESCE(canceled_at,NOW()), resume_date=NULL, paused_by_customer=false, status_before_cancel=NULL WHERE id=$1", [sub.id]);
+            canceled++;
+          } else {
+            if (remote.status === 'paused') {
+              await stripe.subscriptions.resume(sub.stripe_subscription_id, { billing_cycle_anchor: 'unchanged' });
+            } else if (remote.pause_collection) {
+              await stripe.subscriptions.update(sub.stripe_subscription_id, { pause_collection: '' });
+            }
+            await pool.query("UPDATE subscriptions SET status='active', resume_date=NULL, paused_by_customer=false WHERE id=$1", [sub.id]);
+            resumed++;
+          }
+        } else {
+          await pool.query("UPDATE subscriptions SET status='active', resume_date=NULL, paused_by_customer=false WHERE id=$1", [sub.id]);
+          resumed++;
+        }
+        await reconcileCustomerAfterSubscriptionChange(sub.customer_id);
+        continue;
+      }
 
-      await sendFailedPaymentEmail({
-        email: sub.email,
-        name: sub.name,
-        amount: sub.amount,
-        currency: sub.currency,
-        updateUrl: portalSession.url,
-      });
-    } catch (portalErr) {
-      console.error('[scheduler] Could not create portal session:', portalErr.message);
+      if (status === 'canceling' || status === 'cancelling') {
+        if (!sub.stripe_subscription_id) {
+          await pool.query("UPDATE subscriptions SET status='cancelled', canceled_at=COALESCE(canceled_at,NOW()), status_before_cancel=NULL, paused_by_customer=false, resume_date=NULL WHERE id=$1", [sub.id]);
+          canceled++;
+          await reconcileCustomerAfterSubscriptionChange(sub.customer_id);
+          continue;
+        }
+        if (!sub.secret_key) throw new Error('Stripe account key unavailable');
+        const stripe = new Stripe(sub.secret_key);
+        const remote = await stripe.subscriptions.retrieve(sub.stripe_subscription_id);
+        if (remote.status === 'canceled') {
+          await pool.query("UPDATE subscriptions SET status='cancelled', canceled_at=COALESCE(canceled_at,NOW()), status_before_cancel=NULL, paused_by_customer=false, resume_date=NULL WHERE id=$1", [sub.id]);
+          canceled++;
+        } else if (!remote.cancel_at_period_end) {
+          // Cancellation was undone outside Subloop. Mirror Stripe instead of leaving a stale Canceling state.
+          const restored = remote.pause_collection ? 'paused' : (remote.status || 'active');
+          const remoteResumeDate = remote.pause_collection?.resumes_at ? new Date(Number(remote.pause_collection.resumes_at)*1000).toISOString().slice(0,10) : null;
+          await pool.query(`UPDATE subscriptions SET status=$2, status_before_cancel=NULL,
+            paused_by_customer=CASE WHEN $2='paused' THEN COALESCE(paused_by_customer,false) ELSE false END,
+            resume_date=CASE WHEN $2='paused' THEN $3::date ELSE NULL END WHERE id=$1`, [sub.id, restored, remoteResumeDate]);
+          repaired++;
+        } else if (remote.current_period_end) {
+          // Keep the displayed end date aligned if Stripe changes the billing period while the
+          // cancellation is still scheduled.
+          await pool.query('UPDATE subscriptions SET next_billing_date=(TO_TIMESTAMP($2)::date) WHERE id=$1', [sub.id, remote.current_period_end]);
+        }
+        await reconcileCustomerAfterSubscriptionChange(sub.customer_id);
+      }
+    } catch (err) {
+      failed++;
+      console.error('[scheduler] state reconciliation failed for subscription', sub.id, err.message);
     }
-
-    return { success: false, error: failureReason };
   }
+  if (r.rows.length) console.log(`[scheduler] reconciled ${r.rows.length} subscription state(s): ${resumed} resumed, ${canceled} canceled, ${repaired} repaired, ${failed} failed`);
+  return { checked: r.rows.length, resumed, canceled, repaired, failed };
 }
 
-module.exports = { initScheduler, chargeSubscription, processDueSubscriptions };
+let initialized = false;
+function initScheduler() {
+  if (initialized) return;
+  initialized = true;
+  cron.schedule('17 * * * *', async () => {
+    try {
+      await reconcileSubscriptionStates();
+      await reconcileAllCustomerLifecycles();
+    } catch (err) {
+      console.error('[scheduler] reconciliation job failed:', err.message);
+    }
+  });
+  setTimeout(async () => {
+    try {
+      await reconcileSubscriptionStates();
+      await reconcileAllCustomerLifecycles();
+    } catch (err) {
+      console.error('[scheduler] startup reconciliation failed:', err.message);
+    }
+  }, 10000).unref?.();
+  console.log('[scheduler] Subscription/customer state reconciliation initialized (hourly; no automatic charging)');
+}
+
+module.exports = { initScheduler, reconcileSubscriptionStates, reconcileAllCustomerLifecycles };

@@ -6034,7 +6034,7 @@ body.view-only-access #verification-debug-modal .modal-content{
     <div class="stat-card"><div class="stat-label">Revenue</div><div class="stat-value" id="stat-revenue">—</div><div class="stat-sub" id="stat-revenue-sub">total collected</div></div>
     <div class="stat-card"><div class="stat-label">Churn rate</div><div class="stat-value" id="stat-churn">—</div><div class="stat-sub">last 30 days</div></div>
     <div class="stat-card"><div class="stat-label">Success rate</div><div class="stat-value" id="stat-success" style="color:var(--green)">—</div><div class="stat-sub">payment success</div></div>
-    <div class="stat-card"><div class="stat-label">Avg LTV</div><div class="stat-value" id="stat-ltv">—</div><div class="stat-sub">per customer</div></div>
+    <div class="stat-card"><div class="stat-label">Avg customer value</div><div class="stat-value" id="stat-ltv">—</div><div class="stat-sub">collected per customer</div></div>
   </div>
   <!-- Churn Alerts -->
   <div id="churn-alerts-section" style="display:none;margin-bottom:16px;">
@@ -6360,7 +6360,7 @@ body.view-only-access #verification-debug-modal .modal-content{
     <div style="padding:18px;">
       <div class="form-group"><label>Product name</label><input type="text" id="link-name" value="Monthly Subscription"></div>
       <div class="form-row">
-        <div class="form-group"><label>Amount ($)</label><input type="number" id="link-amount" value="29" min="0.50" step="0.01"></div>
+        <div class="form-group"><label>Amount</label><input type="number" id="link-amount" value="29" min="0.50" step="0.01"></div>
         <div class="form-group"><label>Currency</label><select id="link-currency"><option value="usd">USD</option><option value="eur">EUR</option><option value="gbp">GBP</option><option value="mad">MAD</option></select></div>
       </div>
       <div class="form-group"><label>Stripe account</label><select id="link-account"><option value="">Loading...</option></select></div>
@@ -6406,32 +6406,20 @@ body.view-only-access #verification-debug-modal .modal-content{
 <div id="page-settings" class="page">
   <div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>Settings</span></h2><p>Configure Subloop features</p></div></div>
   <div class="card" style="max-width:600px;">
-    <div class="card-header"><h3>Dunning Management</h3></div>
-    <div style="padding:4px 18px 18px;">
-      <p style="font-size:12px;color:var(--muted);font-family:var(--mono);margin:10px 0 16px;">When a recurring payment fails, automatically retry before canceling.</p>
-      <div class="setting-row">
-        <div class="setting-info"><div class="setting-label">Enable Dunning</div><div class="setting-desc">Auto-retry failed payments before canceling</div></div>
-        <label class="switch"><input type="checkbox" id="setting-dunning" onchange="setDunningScheduleState(this.checked);saveSetting('dunning_enabled',this.checked)"><span class="slider"></span></label>
-      </div>
-      <div class="setting-row" id="setting-dunning-days-row">
-        <div class="setting-info"><div class="setting-label">Retry Schedule (days)</div><div class="setting-desc">Comma-separated days after failure to retry</div></div>
-        <input type="text" id="setting-dunning-days" style="width:120px;" placeholder="3,7,14" onblur="saveSetting('dunning_days',this.value)">
-      </div>
+    <div class="card-header"><h3>Payment retry behavior</h3></div>
+    <div style="padding:12px 18px 18px;">
+      <p style="font-size:12px;color:var(--muted);font-family:var(--mono);margin:0;line-height:1.6;">Stripe Billing controls automatic retry schedules for Stripe-managed subscriptions. Subloop does not run a second automatic retry schedule, which avoids duplicate retry attempts. Failed payments can still be retried manually from Payments.</p>
     </div>
   </div>
   <div class="card" style="max-width:600px;">
     <div class="card-header"><h3>Subscription Features</h3></div>
     <div style="padding:4px 18px 18px;">
       <div class="setting-row">
-        <div class="setting-info"><div class="setting-label">Auto-Resume Paused Subscriptions</div><div class="setting-desc">Resume subscriptions automatically when resume date is reached</div></div>
-        <label class="switch"><input type="checkbox" id="setting-auto-resume" onchange="saveSetting('pause_auto_resume',this.checked)"><span class="slider"></span></label>
-      </div>
-      <div class="setting-row">
-        <div class="setting-info"><div class="setting-label">Proration</div><div class="setting-desc">Charge difference when upgrading mid-cycle</div></div>
+        <div class="setting-info"><div class="setting-label">Proration</div><div class="setting-desc">Apply Stripe proration when changing an active subscription amount</div></div>
         <label class="switch"><input type="checkbox" id="setting-proration" onchange="saveSetting('proration_enabled',this.checked)"><span class="slider"></span></label>
       </div>
       <div class="setting-row">
-        <div class="setting-info"><div class="setting-label">Webhook Logs</div><div class="setting-desc">Record all incoming webhook events</div></div>
+        <div class="setting-info"><div class="setting-label">Webhook Logs</div><div class="setting-desc">Record incoming Stripe webhook events</div></div>
         <label class="switch"><input type="checkbox" id="setting-webhook-logs" onchange="saveSetting('webhook_logs_enabled',this.checked)"><span class="slider"></span></label>
       </div>
     </div>
@@ -6578,10 +6566,11 @@ body.view-only-access #verification-debug-modal .modal-content{
   <div id="manual-invoice-card" class="card view-write-only" style="max-width:600px;">
     <div class="card-header"><h3>Manual Invoice</h3></div>
     <div style="padding:18px;">
-      <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Charge any customer a one-time amount outside their subscription.</p>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Charge an existing Stripe customer a one-time amount outside their subscription.</p>
       <div class="form-row">
         <div class="form-group"><label>Customer Stripe ID (cus_...)</label><input type="text" id="invoice-customer-id" placeholder="cus_xxx..."></div>
-        <div class="form-group"><label>Amount ($)</label><input type="number" id="invoice-amount" placeholder="29.00" step="0.01" min="0.50"></div>
+        <div class="form-group"><label>Amount</label><input type="number" id="invoice-amount" placeholder="29.00" step="0.01" min="0.50"></div>
+        <div class="form-group"><label>Currency</label><select id="invoice-currency"><option value="usd">USD</option><option value="eur">EUR</option><option value="gbp">GBP</option><option value="cad">CAD</option><option value="aud">AUD</option><option value="nzd">NZD</option><option value="chf">CHF</option><option value="mad">MAD</option></select></div>
       </div>
       <div class="form-group"><label>Description</label><input type="text" id="invoice-desc" placeholder="Manual invoice - November" value="Manual invoice"></div>
       <button class="btn btn-primary" onclick="sendManualInvoice()">Charge Customer</button>
@@ -6622,12 +6611,10 @@ body.view-only-access #verification-debug-modal .modal-content{
 <!-- Modals -->
 <div class="modal-bg" id="add-customer-modal">
   <div class="modal">
-    <h3>Add Customer Manually</h3><p>Link a Stripe customer to Subloop for recurring payments</p>
-    <div class="form-row"><div class="form-group"><label>Name</label><input type="text" id="mc-name" placeholder="John Doe"></div><div class="form-group"><label>Email</label><input type="email" id="mc-email" placeholder="john@example.com"></div></div>
+    <h3>Link Stripe customer</h3><p>Subloop will read the customer and saved payment method directly from Stripe.</p>
     <div class="form-group"><label>Stripe customer ID (cus_...)</label><input type="text" id="mc-stripe-id" placeholder="cus_xxx..."></div>
-    <div class="form-group"><label>Payment method ID (pm_...) — optional</label><input type="text" id="mc-pm-id" placeholder="pm_xxx..."></div>
-    <div class="form-row"><div class="form-group"><label>Card brand</label><input type="text" id="mc-brand" placeholder="visa"></div><div class="form-group"><label>Last 4 digits</label><input type="text" id="mc-last4" placeholder="4242" maxlength="4"></div></div>
-    <div class="form-row-3"><div class="form-group"><label>Exp month</label><input type="number" id="mc-exp-m" placeholder="12" min="1" max="12"></div><div class="form-group"><label>Exp year</label><input type="number" id="mc-exp-y" placeholder="2027"></div><div class="form-group"><label>Stripe account</label><select id="mc-account"><option value="">Default</option></select></div></div>
+    <div class="form-group"><label>Payment method ID (pm_...) — optional</label><input type="text" id="mc-pm-id" placeholder="Use Stripe default if blank"></div>
+    <div class="form-group"><label>Stripe account</label><select id="mc-account"><option value="">Default</option></select></div>
     <div class="form-group"><label>Note (optional)</label><textarea id="mc-note" placeholder="Internal note..."></textarea></div>
     <div class="modal-footer"><button class="btn" onclick="closeModal('add-customer-modal')">Cancel</button><button class="btn btn-primary" onclick="addCustomer()">Add Customer</button></div>
   </div>
@@ -6691,7 +6678,10 @@ body.view-only-access #verification-debug-modal .modal-content{
   <div class="modal">
     <h3>Manual Invoice</h3><p>Charge this customer a one-time amount</p>
     <input type="hidden" id="invoice-modal-customer-id">
-    <div class="form-group"><label>Amount ($)</label><input type="number" id="invoice-modal-amount" placeholder="29.00" step="0.01" min="0.50"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Amount</label><input type="number" id="invoice-modal-amount" placeholder="29.00" step="0.01" min="0.50"></div>
+      <div class="form-group"><label>Currency</label><select id="invoice-modal-currency"><option value="usd">USD</option><option value="eur">EUR</option><option value="gbp">GBP</option><option value="cad">CAD</option><option value="aud">AUD</option><option value="nzd">NZD</option><option value="chf">CHF</option><option value="mad">MAD</option></select></div>
+    </div>
     <div class="form-group"><label>Description</label><input type="text" id="invoice-modal-desc" value="Manual invoice"></div>
     <div id="invoice-modal-result" style="display:none;margin-top:10px;padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);"></div>
     <div class="modal-footer"><button class="btn" onclick="closeModal('invoice-modal')">Cancel</button><button class="btn btn-primary" onclick="sendInvoiceFromModal()">Charge</button></div>
@@ -7022,8 +7012,6 @@ function applyRoleBasedPageCopy(){
   }
 }
 function applyOperationalActionVisibility(){
-  var runBtn=document.getElementById('run-rebills-btn');
-  if(runBtn)runBtn.style.display=canManageOperationalSection('subscriptions')?'inline-flex':'none';
   var invoiceCard=document.getElementById('manual-invoice-card');
   if(invoiceCard)invoiceCard.style.display=canManageOperationalSection('customers')?'block':'none';
 }
@@ -7054,7 +7042,6 @@ function enforceReadonly(){
   var summaryCard=document.querySelector('#page-summary .card:last-of-type');
   if(summaryCard){var h3=summaryCard.querySelector('h3');if(h3&&h3.textContent.includes('Manual Invoice'))summaryCard.style.display='none';}
   document.querySelectorAll('[onclick*="openInvoiceModal"]').forEach(function(btn){btn.style.display='none';});
-  document.querySelectorAll('[onclick*="runRebills"]').forEach(function(btn){btn.style.display='none';});
   var selectBtn=document.getElementById('sub-default-btn');if(selectBtn)selectBtn.style.display='none';
   document.querySelectorAll('[onclick*="export"]').forEach(function(btn){btn.style.display='none';});
   var viewerNotice=document.getElementById('viewer-notice');
@@ -7173,6 +7160,9 @@ function badgeLabel(s){
   if (raw.includes('pending')) return 'Pending';
   if (raw.includes('paused')) return 'Paused';
   if (raw.includes('dunning')) return 'Dunning';
+  if (raw === 'trialing') return 'Trialing';
+  if (raw === 'past_due') return 'Past due';
+  if (raw === 'unpaid') return 'Unpaid';
   return raw ? raw.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Status';
 }
 
@@ -7182,13 +7172,16 @@ function badgeIcon(s){
 
 function badge(s){
   const raw = String(s || '').toLowerCase().trim();
-  const m={active:'green',succeeded:'green',success:'green',failed:'red',declined:'red',paused:'blue',canceling:'amber',cancelling:'amber',cancelled:'red',canceled:'red',pending:'blue',dunning:'blue',ok:'green'};
+  const m={active:'green',succeeded:'green',success:'green',failed:'red',declined:'red',paused:'blue',trialing:'blue',past_due:'amber',unpaid:'red',canceling:'amber',cancelling:'amber',cancelled:'red',canceled:'red',pending:'blue',dunning:'amber',ok:'green'};
   let cls = m[raw] || 'blue';
 
   if (raw.includes('success') || raw.includes('succeeded')) cls = 'green';
   if (raw.includes('fail') || raw.includes('declin') || (raw.includes('cancel') && raw !== 'canceling' && raw !== 'cancelling')) cls = 'red';
   if (raw === 'canceling' || raw === 'cancelling') cls = 'amber';
-  if (raw.includes('require') || raw.includes('payment') || raw.includes('method') || raw.includes('action') || raw.includes('pending') || raw.includes('processing')) cls = 'blue';
+  if (raw.includes('require') || raw.includes('method') || raw.includes('action') || raw.includes('pending') || raw.includes('processing')) cls = 'blue';
+  if (raw === 'past_due' || raw === 'dunning') cls = 'amber';
+  if (raw === 'unpaid') cls = 'red';
+  if (raw === 'trialing') cls = 'blue';
 
   const icon = badgeIcon(raw);
   return '<span class="badge badge-'+cls+(icon?' has-status-icon':'')+'"><span>'+badgeLabel(raw)+'</span>'+icon+'</span>';
@@ -7197,9 +7190,11 @@ async function api(path,opts){
   opts=opts||{};opts.headers=opts.headers||{};
   var token=localStorage.getItem('subloop_token');if(token)opts.headers['Authorization']='Bearer '+token;
   const r=await fetch(path,opts);
-  if(r.status===401){forceLogout();throw new Error('Authentication required');}
-  if(!r.ok)throw new Error('HTTP '+r.status);
-  return r.json();
+  var data=null;
+  try{data=await r.json();}catch(_e){}
+  if(r.status===401){forceLogout();throw new Error((data&&data.error)||'Authentication required');}
+  if(!r.ok)throw new Error((data&&data.error)||('HTTP '+r.status));
+  return data||{};
 }
 function toast(msg,type){const t=document.getElementById('toast');t.textContent=msg;t.className='show '+(type||'success');setTimeout(()=>t.className='',2800);}
 function openModal(id){var el=document.getElementById(id);if(!el)return;el.classList.add('open');if(id==='payment-detail-modal')document.body.classList.add('modal-lock');}
@@ -7470,17 +7465,21 @@ document.addEventListener('click',function(e){var menu=document.getElementById('
 async function loadStats(){
   try{
     const s=await api('/api/stats');
-    document.getElementById('stat-mrr').textContent=fmtCompactMoney(s.mrr||0);
+    var approx=s.uses_estimated_fx?'≈':'';
+    document.getElementById('stat-mrr').textContent=approx+fmtCompactMoney(s.mrr||0);
+    document.getElementById('stat-mrr').title=s.uses_estimated_fx?'Estimated USD equivalent for mixed/non-USD currencies':'';
     document.getElementById('stat-subs').textContent=s.active_subscriptions||0;
     document.getElementById('stat-customers').textContent=s.total_customers||0;
     document.getElementById('stat-new-customers').textContent='+'+(s.new_customers_30d||0)+' this month';
     document.getElementById('stat-cards').textContent=s.saved_cards||0;
     document.getElementById('stat-failed').textContent=s.failed_payments||0;
-    document.getElementById('stat-revenue').textContent=fmtCompactMoney(s.total_revenue||0);
-    document.getElementById('stat-revenue-sub').textContent=fmtCompactMoney(s.revenue_30d||0)+' this month';
+    document.getElementById('stat-revenue').textContent=approx+fmtCompactMoney(s.total_revenue||0);
+    document.getElementById('stat-revenue').title=s.uses_estimated_fx?'Estimated USD equivalent for mixed/non-USD currencies':'';
+    document.getElementById('stat-revenue-sub').textContent=approx+fmtCompactMoney(s.revenue_30d||0)+' this month';
     document.getElementById('stat-churn').textContent=(s.churn_rate||0)+'%';
     document.getElementById('stat-success').textContent=(s.payment_success_rate||100)+'%';
-    document.getElementById('stat-ltv').textContent=fmtCompactMoney(s.avg_ltv||0);
+    document.getElementById('stat-ltv').textContent=approx+fmtCompactMoney(s.avg_ltv||0);
+    document.getElementById('stat-ltv').title=s.uses_estimated_fx?'Estimated USD equivalent for mixed/non-USD currencies':'';
     updateNotifications(s);
     document.getElementById('server-status').textContent='● connected';
     document.getElementById('server-status').style.color='var(--green)';
@@ -7517,8 +7516,9 @@ async function loadUpcoming(){
   try{
     const subs=await api('/api/subscriptions');const tb=document.getElementById('upcoming-table');
     var canManageSubs=canManageOperationalSection('subscriptions');
-    if(!subs.length){tb.innerHTML='<tr><td colspan="'+(canManageSubs?5:4)+'" class="empty">No subscriptions yet.</td></tr>';return;}
-    tb.innerHTML=subs.slice(0,10).map(function(s){
+    var upcoming=subs.filter(function(s){return normalizeSubscriptionStatus(s.status)==='active';}).sort(function(a,b){return new Date(a.next_billing_date)-new Date(b.next_billing_date);});
+    if(!upcoming.length){tb.innerHTML='<tr><td colspan="'+(canManageSubs?5:4)+'" class="empty">No upcoming recurring payments.</td></tr>';return;}
+    tb.innerHTML=upcoming.slice(0,10).map(function(s){
       var row='<tr><td><div class="customer-cell"><div class="avatar">'+initials(s.name)+'</div><div><div class="customer-name">'+(s.name||'—')+'</div><div class="customer-email">'+(s.email||'')+'</div></div></div></td><td class="mono">'+fmt(s.amount,s.currency)+'</td><td class="mono">'+fmtDate(s.next_billing_date)+'</td><td>'+(String(s.status||'').toLowerCase()==='paused'?badge(s.status).replace('class="badge ','class="badge dashboard-upcoming-paused '):badge(s.status))+'</td>';
       if(canManageSubs)row+='<td><div class="actions">'+(s.status==='active'?'<button class="btn btn-sm" onclick="chargeNow('+s.id+')">Charge</button>':'')+(s.status==='active'?'<button class="btn btn-sm btn-danger" onclick="openPauseModal('+s.id+')">Pause</button>':'')+(String(s.status||'').toLowerCase()==='paused'?'<button class="btn btn-sm" onclick="setSubStatus('+s.id+',\'active\')">Resume</button>':'')+'</div></td>';
       return row+'</tr>';
@@ -7621,6 +7621,9 @@ function customerOriginalCurrency(c){
     return 'usd';
   }
 }
+function customerHasMixedSuccessfulCurrencies(c){
+  return Number(c&&c.successful_currency_count||0)>1;
+}
 
 function renderCustomers(list){
   const tb=document.getElementById('customers-table');
@@ -7631,13 +7634,25 @@ function renderCustomers(list){
     const dateTitle = c.last_payment_at ? 'Last successful payment date' : 'No successful payment yet';
     const noteValue = encodeURIComponent(c.note||'');
     const displayStatus = customerEffectiveStatus(c);
-    const statusAction = displayStatus==='paused'
-      ? `<button class="btn btn-sm" onclick="event.stopPropagation();setCustStatus(${c.id},'active')">Resume</button>`
-      : (displayStatus==='canceling'
-          ? `<button class="btn btn-sm" onclick="event.stopPropagation();reactivateCustomerSubscriptions(${c.id})">Reactivate</button>`
-          : (displayStatus==='canceled'
-              ? ''
-              : `<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();setCustStatus(${c.id},'paused')">Pause</button>`));
+    const customerSubs = customerSubscriptionsFor(c);
+    const activeSubCount = customerSubs.filter(function(s){return normalizeSubscriptionStatus(s.status)==='active';}).length;
+    const pausedSubCount = customerSubs.filter(function(s){return normalizeSubscriptionStatus(s.status)==='paused';}).length;
+    const cancelingSubCount = customerSubs.filter(function(s){var st=normalizeSubscriptionStatus(s.status);return st==='canceling'||st==='cancelling';}).length;
+    const isSubscriptionCustomer = customerSubs.length>0;
+    let statusAction='';
+    if(isSubscriptionCustomer){
+      if(displayStatus==='paused'){
+        statusAction=`<button class="btn btn-sm" onclick="event.stopPropagation();setCustStatus(${c.id},'active')">Resume customer</button>`;
+      }else if(displayStatus==='canceling'){
+        statusAction=`<button class="btn btn-sm" onclick="event.stopPropagation();reactivateCustomerSubscriptions(${c.id})">Reactivate</button>`;
+      }else if(displayStatus!=='canceled'&&cancelingSubCount>0&&activeSubCount===0){
+        statusAction=`<button class="btn btn-sm" onclick="event.stopPropagation();reactivateCancelingCustomerSubscriptions(${c.id})">Reactivate subscription${cancelingSubCount===1?'':'s'}</button>`;
+      }else if(displayStatus!=='canceled'&&activeSubCount>0){
+        statusAction=`<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();setCustStatus(${c.id},'paused')">Pause</button>`;
+      }else if(displayStatus==='active'&&pausedSubCount>0){
+        statusAction=`<button class="btn btn-sm" onclick="event.stopPropagation();resumePausedCustomerSubscriptions(${c.id})">Resume subscription${pausedSubCount===1?'':'s'}</button>`;
+      }
+    }
     return `<tr style="cursor:pointer;" onclick="openCustomerDrawer(${c.id})">
       <td>
         <div class="customer-cell">
@@ -7653,11 +7668,11 @@ function renderCustomers(list){
       <td>${badge(displayStatus)}</td>
       <td style="font-size:12px;color:var(--muted);font-family:var(--mono);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.note||'—'}</td>
       <td class="mono" style="font-size:12px;white-space:nowrap;" title="${dateTitle}">${dateLabel}</td>
-      <td class="mono">${fmt(c.total_paid||0, customerOriginalCurrency(c))}</td>
+      <td class="mono">${customerHasMixedSuccessfulCurrencies(c)?'Mixed currencies':fmt(c.total_paid||0, customerOriginalCurrency(c))}</td>
       ${isViewer?'':`<td>
         <div class="actions">
           <button class="btn btn-sm" onclick="event.stopPropagation();openNoteModal(${c.id},'${noteValue}')">Note</button>
-          <button class="btn btn-sm" onclick="event.stopPropagation();openPortal(${c.id})">Card ↗</button>
+          ${String(c.stripe_customer_id||'').startsWith('cus_')?`<button class="btn btn-sm" onclick="event.stopPropagation();openPortal(${c.id})">Card ↗</button>`:''}
           ${statusAction}
         </div>
       </td>`}
@@ -7703,6 +7718,9 @@ function customerMatchesSubscription(c,s){
          (c.stripe_customer_id && String(s.stripe_customer_id||'')===String(c.stripe_customer_id)) ||
          (c.email && s.email && String(s.email).toLowerCase()===String(c.email).toLowerCase());
 }
+function customerSubscriptionsFor(c){
+  return (allSubscriptions||[]).filter(function(s){return customerMatchesSubscription(c,s);});
+}
 function customerHasSubscription(c){
   return (allSubscriptions||[]).some(function(s){ return customerMatchesSubscription(c,s); });
 }
@@ -7732,18 +7750,25 @@ function customerAllSubscriptionsCanceled(c){
 }
 function customerEffectiveStatus(c){
   var raw=normalizeSubscriptionStatus(c.status||'active');
-  // Once every subscription is actually canceled, show Canceled even if the customer
-  // was previously in the customer-level Canceling state.
-  if(customerAllSubscriptionsCanceled(c)) return 'canceled';
-  // Customer status is a customer-level control. An individually paused/canceling subscription
-  // must not change the whole customer unless the customer-level action set that state.
+  // Explicit customer-level states take precedence.
   if(raw==='paused') return 'paused';
   if(raw==='canceling'||raw==='cancelling') return 'canceling';
   if(raw==='canceled') return 'canceled';
+  // Compatibility fallback for rows created before lifecycle reconciliation existed:
+  // if every remaining live subscription is scheduled to end, show the customer as Canceling.
+  var active=Number(c&&c.active_subs||0), paused=Number(c&&c.paused_subs||0), canceling=Number(c&&c.canceling_subs||0);
+  if(canceling>0 && active===0 && paused===0) return 'canceling';
   return 'active';
 }
 function customerTypeKey(c){
-  return customerHasSubscription(c)?'subscription':'one-time';
+  var matches=(allSubscriptions||[]).filter(function(s){return customerMatchesSubscription(c,s);});
+  var live=matches.some(function(s){return ['active','paused','canceling','trialing','past_due','unpaid','dunning'].includes(normalizeSubscriptionStatus(s.status));});
+  if(live)return 'subscription';
+  var raw=normalizeSubscriptionStatus(c.status||'active');
+  // Keep a fully canceled customer in Subscription history. If an old subscription ended and
+  // the customer later came back only for a one-time payment, classify their current state as One-time.
+  if(raw==='canceled' && matches.some(function(s){return normalizeSubscriptionStatus(s.status)==='canceled';}))return 'subscription';
+  return 'one-time';
 }
 function customerSuccessfulPaymentCount(c){
   var successful=(allPayments||[]).filter(function(p){
@@ -7791,6 +7816,7 @@ function filterCustomers(){
   var typeCountBase=allCustomers.filter(function(c){
     var hasMethod=customerHasPrimaryPaymentMethod(c);
     var paidCount=customerSuccessfulPaymentCount(c);
+    var mixedCurrencies=customerHasMixedSuccessfulCurrencies(c);
     var totalMajor=Number(c.total_paid||0)/100;
     var matchStatus=!statusFilter||String(customerEffectiveStatus(c)||'').toLowerCase()===statusFilter;
     var matchAccount=!account||(c.account_name||'')===account;
@@ -7801,7 +7827,8 @@ function filterCustomers(){
       String(c.stripe_customer_id||c.id||'').toLowerCase().includes(q);
     var matchMethod=!method||(method==='has'?hasMethod:!hasMethod);
     var matchActivity=!activity||(activity==='once'?paidCount===1:paidCount>=2);
-    var matchAmount=(isNaN(minTotal)||totalMajor>=minTotal)&&(isNaN(maxTotal)||totalMajor<=maxTotal);
+    var hasAmountFilter=!isNaN(minTotal)||!isNaN(maxTotal);
+    var matchAmount=mixedCurrencies?!hasAmountFilter:((isNaN(minTotal)||totalMajor>=minTotal)&&(isNaN(maxTotal)||totalMajor<=maxTotal));
     var matchDate=true;
     if(dateFilter){
       var time=customerDateValue(c,'last');
@@ -7833,8 +7860,12 @@ function filterCustomers(){
   });
 
   filtered.sort(function(a,b){
-    if(sort==='total_desc')return Number(b.total_paid||0)-Number(a.total_paid||0);
-    if(sort==='total_asc')return Number(a.total_paid||0)-Number(b.total_paid||0);
+    if(sort==='total_desc'||sort==='total_asc'){
+      var am=customerHasMixedSuccessfulCurrencies(a), bm=customerHasMixedSuccessfulCurrencies(b);
+      if(am!==bm)return am?1:-1;
+      if(am&&bm)return customerDateValue(b,'last')-customerDateValue(a,'last');
+      return sort==='total_desc'?Number(b.total_paid||0)-Number(a.total_paid||0):Number(a.total_paid||0)-Number(b.total_paid||0);
+    }
     if(sort==='last_asc')return customerDateValue(a,'last')-customerDateValue(b,'last');
     if(sort==='created_desc')return customerDateValue(b,'created')-customerDateValue(a,'created');
     if(sort==='created_asc')return customerDateValue(a,'created')-customerDateValue(b,'created');
@@ -7921,20 +7952,23 @@ function renderSubscriptions(list){
     var subStatus=String(s.status||'').toLowerCase();
     var isCanceled=subStatus==='cancelled'||subStatus==='canceled';
     var isCanceling=subStatus==='canceling'||subStatus==='cancelling';
-    var resumeBtn=subStatus==='paused'?'<button class="btn btn-sm" onclick="resumeSub('+s.id+')">Resume</button>':'';
+    var resumeBtn=subStatus==='paused'?(s.paused_by_customer?'<button class="btn btn-sm" onclick="resumeCustomerFromSubscription('+s.customer_id+')">Resume customer</button>':'<button class="btn btn-sm" onclick="resumeSub('+s.id+')">Resume</button>'):'';
     var reactivateBtn=isCanceling?'<button class="btn btn-sm btn-success" onclick="reactivateSub('+s.id+')">Reactivate</button>':'';
     var chargeBtn=subStatus==='active'?'<button class="btn btn-sm" onclick="chargeNow('+s.id+')">Charge</button>':'';
     var pauseBtn=subStatus==='active'?'<button class="btn btn-sm btn-danger" onclick="openPauseModal('+s.id+')">Pause</button>':'';
-    var retryBtn=subStatus==='dunning'?'<button class="btn btn-sm btn-success" onclick="chargeNow('+s.id+')">Retry now</button>':'';
+    var retryBtn=''; // Failed Stripe invoices are retried from Payments so the real invoice is paid.
     var cancelBtn=(!isCanceled&&!isCanceling)?'<button class="btn btn-sm btn-danger" onclick="cancelSub('+s.id+')">Cancel</button>':'';
     var cancelNowBtn=isCanceling?'<button class="btn btn-sm btn-danger" onclick="cancelSubNow('+s.id+')">Cancel now</button>':'';
-    var editSpan='<button class="btn btn-sm" onclick="showEditAmount('+s.id+','+s.amount+')">Edit $</button><span id="edit-'+s.id+'"></span>';
-    var dunningBadge=s.dunning_count>0?'<br><span style="font-size:10px;color:var(--amber);">Retry #'+s.dunning_count+'</span>':'';
+    var canEditAmount=['active','paused','trialing'].includes(subStatus);
+    var editSpan=canEditAmount?'<button class="btn btn-sm" onclick="showEditAmount('+s.id+','+s.amount+')">Edit $</button><span id="edit-'+s.id+'"></span>':'';
+    var dunningBadge=''; // Stripe Billing owns automatic retry attempts; avoid showing stale local retry counters.
     var resumeDate=s.resume_date?'<br><span style="font-size:10px;color:var(--blue);">Resumes '+fmtDate(s.resume_date)+'</span>':'';
-    var cancelEnd=isCanceling?'<br><span style="font-size:10px;color:var(--amber);">Ends '+fmtDate(s.next_billing_date)+'</span>':'';
+    var billingDateDisplay=isCanceling
+      ? '<span style="color:var(--amber);">Ends '+fmtDate(s.next_billing_date)+'</span>'
+      : (subStatus==='paused' ? '—'+resumeDate : fmtDate(s.next_billing_date));
     var row='<tr id="sub-row-'+s.id+'" style="'+bg+'">';
-    if(!isViewer)row+='<td style="width:36px;display:'+cbDisplay+';"><input type="checkbox" class="sub-checkbox" data-id="'+s.id+'" '+cbChecked+' onchange="toggleSubSelect('+s.id+')" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;"></td>';
-    row+='<td><div class="customer-cell"><div class="avatar">'+initials(s.name)+'</div><div><div class="customer-name">'+(s.name||'—')+'</div><div class="customer-email">'+(s.email||'')+'</div></div></div></td><td class="mono">'+fmt(s.amount,s.currency)+'</td><td class="mono">'+(s.interval_days||30)+' days</td><td class="mono">'+fmtDate(s.next_billing_date)+resumeDate+cancelEnd+'</td><td>'+badge(s.status)+dunningBadge+'</td>';
+    if(!isViewer)row+='<td style="width:36px;display:'+cbDisplay+';"><input type="checkbox" class="sub-checkbox" data-id="'+s.id+'" '+cbChecked+' '+((isCanceled||isCanceling)?'disabled':'')+' onchange="toggleSubSelect('+s.id+')" style="width:16px;height:16px;accent-color:var(--accent);cursor:'+(isCanceled||isCanceling?'not-allowed':'pointer')+';"></td>';
+    row+='<td><div class="customer-cell"><div class="avatar">'+initials(s.name)+'</div><div><div class="customer-name">'+(s.name||'—')+'</div><div class="customer-email">'+(s.email||'')+'</div></div></div></td><td class="mono">'+fmt(s.amount,s.currency)+'</td><td class="mono">'+(s.interval_days||30)+' days</td><td class="mono">'+billingDateDisplay+'</td><td>'+badge(s.status)+dunningBadge+'</td>';
     if(!isViewer)row+='<td><div class="actions">'+chargeBtn+editSpan+pauseBtn+resumeBtn+reactivateBtn+retryBtn+cancelBtn+cancelNowBtn+'</div></td>';
     rows.push(row+'</tr>');
   });
@@ -7944,13 +7978,31 @@ function filterSubscriptions(){const q=document.getElementById('sub-search').val
 function enterBulkMode(){bulkMode=true;selectedSubs.clear();document.getElementById('sub-default-btn').style.display='none';document.getElementById('sub-bulk-btns').style.display='flex';document.getElementById('bulk-cb-header').style.display='table-cell';renderSubscriptions(allSubscriptions);updateBulkBar();}
 function exitBulkMode(){bulkMode=false;selectedSubs.clear();document.getElementById('sub-default-btn').style.display='block';document.getElementById('sub-bulk-btns').style.display='none';document.getElementById('bulk-cb-header').style.display='none';var cb=document.getElementById('select-all-checkbox');if(cb)cb.checked=false;renderSubscriptions(allSubscriptions);}
 function toggleSubSelect(id){if(selectedSubs.has(id))selectedSubs.delete(id);else selectedSubs.add(id);var row=document.getElementById('sub-row-'+id);if(row)row.style.background=selectedSubs.has(id)?'var(--accent-glow)':'';updateBulkBar();}
-function toggleSelectAll(){var cbs=document.querySelectorAll('.sub-checkbox');var allChecked=selectedSubs.size===cbs.length&&cbs.length>0;selectedSubs.clear();if(!allChecked){cbs.forEach(function(cb){selectedSubs.add(parseInt(cb.dataset.id));});}cbs.forEach(function(cb){cb.checked=!allChecked;var row=document.getElementById('sub-row-'+cb.dataset.id);if(row)row.style.background=(!allChecked)?'var(--accent-glow)':'';});updateBulkBar();}
-function updateBulkBar(){var n=selectedSubs.size;var countEl=document.getElementById('bulk-count');if(countEl)countEl.textContent=n>0?n+' selected':'';['bulk-charge-btn','bulk-pause-btn','bulk-cancel-btn'].forEach(function(id){var el=document.getElementById(id);if(el){el.disabled=n===0;el.style.opacity=n===0?'0.4':'1';}});var cb=document.getElementById('select-all-checkbox');var total=document.querySelectorAll('.sub-checkbox').length;if(cb)cb.checked=n>0&&n===total;}
+function selectedSubscriptionRows(){
+  return Array.from(selectedSubs).map(function(id){return (allSubscriptions||[]).find(function(s){return Number(s.id)===Number(id);});}).filter(Boolean);
+}
+function bulkEligibleRows(action){
+  return selectedSubscriptionRows().filter(function(s){
+    var st=normalizeSubscriptionStatus(s.status);
+    if(action==='charge'||action==='pause') return st==='active';
+    if(action==='cancel') return !['canceled','canceling','cancelling','incomplete','incomplete_expired','pending'].includes(st);
+    return true;
+  });
+}
+function toggleSelectAll(){var cbs=document.querySelectorAll('.sub-checkbox:not(:disabled)');var allChecked=selectedSubs.size===cbs.length&&cbs.length>0;selectedSubs.clear();if(!allChecked){cbs.forEach(function(cb){selectedSubs.add(parseInt(cb.dataset.id));});}document.querySelectorAll('.sub-checkbox').forEach(function(cb){if(!cb.disabled)cb.checked=!allChecked;else cb.checked=false;var row=document.getElementById('sub-row-'+cb.dataset.id);if(row)row.style.background=(!cb.disabled&&!allChecked)?'var(--accent-glow)':'';});updateBulkBar();}
+function updateBulkBar(){var n=selectedSubs.size;var countEl=document.getElementById('bulk-count');if(countEl)countEl.textContent=n>0?n+' selected':'';var counts={charge:bulkEligibleRows('charge').length,pause:bulkEligibleRows('pause').length,cancel:bulkEligibleRows('cancel').length};[['bulk-charge-btn','charge'],['bulk-pause-btn','pause'],['bulk-cancel-btn','cancel']].forEach(function(pair){var el=document.getElementById(pair[0]);if(el){var disabled=counts[pair[1]]===0;el.disabled=disabled;el.style.opacity=disabled?'0.4':'1';}});var cb=document.getElementById('select-all-checkbox');var total=document.querySelectorAll('.sub-checkbox:not(:disabled)').length;if(cb)cb.checked=n>0&&n===total;}
 function clearSelection(){selectedSubs.clear();document.querySelectorAll('.sub-checkbox').forEach(function(cb){cb.checked=false;});document.querySelectorAll('[id^="sub-row-"]').forEach(function(row){row.style.background='';});var cb=document.getElementById('select-all-checkbox');if(cb)cb.checked=false;updateBulkBar();}
-function bulkCharge(){if(!selectedSubs.size)return;var count=selectedSubs.size;openAppActionConfirm({title:'Charge '+count+' subscriptions?',message:'Subloop will attempt to charge the saved payment method for each selected subscription now.',cancelText:'Go back',confirmText:'Charge now',danger:false},async function(){toast('Charging '+count+' subscriptions…');let ok=0,fail=0;for(const id of selectedSubs){try{const r=await api('/api/subscriptions/'+id+'/charge',{method:'POST'});if(r.success)ok++;else fail++;}catch(e){fail++;}}toast('✓ '+ok+' charged'+(fail?' — '+fail+' failed':''));exitBulkMode();loadStats();loadSubscriptions();});}
+function bulkCharge(){
+  var rows=bulkEligibleRows('charge');
+  if(!rows.length){toast('Select at least one active subscription','error');return;}
+  var count=rows.length;var skipped=selectedSubs.size-count;
+  openAppActionConfirm({title:'Charge '+count+' subscription'+(count===1?'':'s')+'?',message:'Subloop will attempt to charge the saved payment method for each active selected subscription now.'+(skipped?' '+skipped+' ineligible selection'+(skipped===1?' will':'s will')+' be skipped.':''),cancelText:'Go back',confirmText:'Charge now',danger:false},async function(){toast('Charging '+count+' subscription'+(count===1?'':'s')+'…');let ok=0,fail=0;for(const sub of rows){try{const r=await api('/api/subscriptions/'+sub.id+'/charge',{method:'POST'});if(r.success)ok++;else fail++;}catch(e){fail++;}}toast('✓ '+ok+' charged'+(fail?' — '+fail+' failed':'')+(skipped?' — '+skipped+' skipped':''));exitBulkMode();loadStats();loadSubscriptions();});
+}
+function pauseMinimumDate(){var d=new Date();d.setDate(d.getDate()+1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function bulkPause(){
-  if(!selectedSubs.size)return;
-  var count=selectedSubs.size;
+  var rows=bulkEligibleRows('pause');
+  if(!rows.length){toast('Select at least one active subscription','error');return;}
+  var count=rows.length;
   var mode=document.getElementById('pause-mode');
   var id=document.getElementById('pause-sub-id');
   var date=document.getElementById('pause-resume-date');
@@ -7960,14 +8012,19 @@ function bulkPause(){
   var submit=document.getElementById('pause-modal-submit');
   if(mode)mode.value='bulk';
   if(id)id.value='';
-  if(date)date.value='';
-  if(title)title.textContent='Pause '+count+' subscriptions?';
-  if(message)message.textContent='Billing will be paused for all selected subscriptions until they are resumed.';
+  if(date){date.value='';date.min=pauseMinimumDate();}
+  if(title)title.textContent='Pause '+count+' subscription'+(count===1?'':'s')+'?';
+  if(message)message.textContent='Billing will be paused for all active selected subscriptions until they are resumed.';
   if(cancel)cancel.textContent='Keep active';
-  if(submit){submit.textContent='Pause subscriptions';submit.className='btn btn-danger';}
+  if(submit){submit.textContent=count===1?'Pause subscription':'Pause subscriptions';submit.className='btn btn-danger';}
   openModal('pause-modal');
 }
-async function bulkCancel(){if(!selectedSubs.size)return;var count=selectedSubs.size;openAppActionConfirm({title:'Schedule '+count+' cancellations?',message:'These subscriptions will stay active until the end of their current paid periods and can be reactivated before they end.',cancelText:'Keep active',confirmText:'Cancel at period end'},async function(){for(const id of selectedSubs){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'canceling'})}).catch(()=>{});}toast('✓ '+count+' scheduled to cancel');exitBulkMode();loadSubscriptions();loadStats();});}
+async function bulkCancel(){
+  var rows=bulkEligibleRows('cancel');
+  if(!rows.length){toast('No selected subscriptions can be scheduled to cancel','error');return;}
+  var count=rows.length;var skipped=selectedSubs.size-count;
+  openAppActionConfirm({title:'Schedule '+count+' cancellation'+(count===1?'':'s')+'?',message:'These subscriptions will stay in their current state until the end of their paid periods and can be reactivated before they end.'+(skipped?' '+skipped+' already canceling/canceled selection'+(skipped===1?' will':'s will')+' be skipped.':''),cancelText:'Keep subscriptions',confirmText:'Cancel at period end'},async function(){let ok=0,fail=0;for(const sub of rows){try{await api('/api/subscriptions/'+sub.id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'canceling'})});ok++;}catch(e){fail++;}}toast('✓ '+ok+' scheduled to cancel'+(fail?' — '+fail+' failed':'')+(skipped?' — '+skipped+' skipped':''));exitBulkMode();loadSubscriptions();loadCustomers();loadStats();});
+}
 function showEditAmount(subId,currentAmount){const container=document.getElementById('edit-'+subId);if(!container)return;const dollars=(currentAmount/100).toFixed(2);container.innerHTML='<div style="display:inline-flex;align-items:center;gap:4px;"><input type="number" id="new-amount-'+subId+'" value="'+dollars+'" step="0.01" min="0.50" style="width:75px;padding:3px 6px;font-size:12px;"><button class="btn btn-sm btn-primary" onclick="saveAmount('+subId+')">Save</button><button class="btn btn-sm" onclick="loadSubscriptions()">✕</button></div>';document.getElementById('new-amount-'+subId).focus();}
 async function saveAmount(subId){const input=document.getElementById('new-amount-'+subId);if(!input)return;const newCents=Math.round(parseFloat(input.value)*100);if(isNaN(newCents)||newCents<50){toast('Minimum $0.50','error');return;}const r=await api('/api/subscriptions/'+subId+'/amount',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:newCents})});if(r.success){toast('✓ Amount updated');loadSubscriptions();}else toast('Error','error');}
 function compactPayAccountName(accountName){
@@ -8267,7 +8324,7 @@ function renderPayments(list){
     var reasonHtml=shortReason?'<div style="font-size:12px;color:var(--red);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+p.failure_reason+'">'+shortReason+'</div>':'<span style="color:var(--muted);font-size:12px;">—</span>';
     var refHtml=isViewer?buildRefReadOnlyCell(p.stripe_payment_intent):buildRefCell(p.stripe_payment_intent);
     var actions='<div style="display:flex;gap:4px;align-items:center;">';
-    if(!isViewer&&p.status==='failed'&&!isGhost)actions+='<button class="btn btn-sm btn-success" onclick="event.stopPropagation();retryPayment('+p.id+')">Retry</button>';
+    if(!isViewer&&p.status==='failed'&&!p.recovered_at&&!isGhost)actions+='<button class="btn btn-sm btn-success" onclick="event.stopPropagation();retryPayment('+p.id+')">Retry</button>';
     if(!isViewer)actions+='<button class="btn btn-sm payment-note-btn" onclick="event.stopPropagation();openPaymentNote('+p.id+')" title="'+(p.note||'Add note')+'">'+(p.note?'<svg class="payment-note-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/></svg><span>Note</span>':'Note')+'</button>';
     actions+='</div>';
     var rowBg=(p.status==='failed'||isGhost)?'background:rgba(248,113,113,0.04);':'';
@@ -8285,10 +8342,6 @@ function decodePaymentData(row){try{return JSON.parse(decodeURIComponent(row.get
 function copyPdValue(v){
   if(!v||v==='—')return;
   if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(v);toast('Copied!');}
-}
-function pdCopyButton(v){
-  var safe=escHtml(v||'');
-  return '<button class="pd-copy" title="Copy" onclick="copyPdValue(\''+String(safe).replace(/'/g,'&#39;')+'\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
 }
 function paymentTypeLabel(p){
   var origin=String(p.payment_origin||'').toLowerCase();
@@ -8341,6 +8394,7 @@ function renderPaymentDetailModal(p, syncing){
   var isViewer=localStorage.getItem('subloop_readonly')==='1';
   var fullReason=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'';
   var isFailed=p.status==='failed', isSucceeded=p.status==='succeeded', isPaymentNeeded=badgeLabel(p.status)==='Payment needed', isCanceled=badgeLabel(p.status)==='Canceled';
+  var isRecovered=isFailed&&!!p.recovered_at;
   var isRedState=isFailed||isCanceled;
   var isWalletPayment=!!p.wallet_type||['link','amazon_pay'].includes(normalizeStripeMethodKey(p.payment_method_type));
   var typeLabel=paymentTypeLabel(p)+(isWalletPayment?' wallet payment':' card payment');
@@ -8387,8 +8441,12 @@ function renderPaymentDetailModal(p, syncing){
 
   if(isFailed&&fullReason){
     h+='<div class="pd-fail-box">'+escHtml(fullReason)+'</div>';
-    var recovery=paymentRecoveryAdvice(p.failure_reason);
-    h+='<div class="pd-recovery-box '+recovery.tone+'"><div class="pd-recovery-label">Recommended action</div><div class="pd-recovery-title">'+escHtml(recovery.label)+'</div><div class="pd-recovery-detail">'+escHtml(recovery.detail)+'</div></div>';
+    if(isRecovered){
+      h+='<div class="pd-recovery-box green"><div class="pd-recovery-label">Recovery status</div><div class="pd-recovery-title">Payment recovered</div><div class="pd-recovery-detail">A later retry succeeded. No further retry is needed for this failed attempt.</div></div>';
+    }else{
+      var recovery=paymentRecoveryAdvice(p.failure_reason);
+      h+='<div class="pd-recovery-box '+recovery.tone+'"><div class="pd-recovery-label">Recommended action</div><div class="pd-recovery-title">'+escHtml(recovery.label)+'</div><div class="pd-recovery-detail">'+escHtml(recovery.detail)+'</div></div>';
+    }
   }
   if(syncing){h+='<div class="pd-sync-note">Fetching real Stripe fee/net…</div>';}
 
@@ -8435,7 +8493,7 @@ function renderPaymentDetailModal(p, syncing){
   h+='</div></section>';
 
   h+='</div>';
-  if(!isViewer&&isFailed&&!isGhost){h+='<div class="pd-fixed-actions"><button class="pd-retry-btn" onclick="closeModal(\'payment-detail-modal\');retryPayment('+p.id+')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg><span>Retry payment</span></button></div>';}
+  if(!isViewer&&isFailed&&!isRecovered&&!isGhost){h+='<div class="pd-fixed-actions"><button class="pd-retry-btn" onclick="closeModal(\'payment-detail-modal\');retryPayment('+p.id+')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg><span>Retry payment</span></button></div>';}
   h+='</div></div>';
   document.getElementById('payment-detail-body').innerHTML=h;
   bindDrawerScrollFades(document.querySelector('#payment-detail-modal .pd-drawer-scroll-body'));
@@ -8470,13 +8528,7 @@ function openPaymentModal(p){
 }
 async function retryPayment(id){if(blockViewOnlyAction())return;toast('Retrying…');try{const r=await api('/api/payments/'+id+'/retry',{method:'POST'});if(r.success){toast('✓ Succeeded — payment recovered');loadPayments();loadStats();loadRecovery();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
 async function loadWebhooks(){try{const list=await api('/api/webhook-logs');const tb=document.getElementById('webhook-table');if(!list.length){tb.innerHTML='<tr><td colspan="4" class="empty">No webhook events yet</td></tr>';return;}tb.innerHTML=list.map(w=>'<tr><td class="mono" style="font-size:12px;">'+w.event_type+'</td><td style="font-size:12px;color:var(--muted);">'+(w.account_name||'—')+'</td><td>'+badge(w.status||'ok').replace('Succeeded','Processed').replace('Success','Processed')+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+fmtTime(w.created_at)+'</td></tr>').join('');}catch(e){}}
-function setDunningScheduleState(enabled){
-  var field=document.getElementById('setting-dunning-days');
-  var row=document.getElementById('setting-dunning-days-row');
-  if(field)field.disabled=!enabled;
-  if(row)row.classList.toggle('setting-disabled',!enabled);
-}
-async function loadSettings(){try{appSettings=await api('/api/settings');var dunningEnabled=appSettings.dunning_enabled==='true';document.getElementById('setting-dunning').checked=dunningEnabled;document.getElementById('setting-dunning-days').value=appSettings.dunning_days||'3,7,14';setDunningScheduleState(dunningEnabled);document.getElementById('setting-auto-resume').checked=appSettings.pause_auto_resume==='true';document.getElementById('setting-proration').checked=appSettings.proration_enabled==='true';document.getElementById('setting-webhook-logs').checked=appSettings.webhook_logs_enabled==='true';}catch(e){}}
+async function loadSettings(){try{appSettings=await api('/api/settings');var pr=document.getElementById('setting-proration');if(pr)pr.checked=appSettings.proration_enabled==='true';var wl=document.getElementById('setting-webhook-logs');if(wl)wl.checked=appSettings.webhook_logs_enabled==='true';}catch(e){}}
 async function saveSetting(key,value){await api('/api/settings',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({key,value:String(value)})});appSettings[key]=String(value);toast('✓ Setting saved');}
 async function loadSecurity(){
   try{
@@ -8541,7 +8593,7 @@ function openPauseModal(subId){
   var submit=document.getElementById('pause-modal-submit');
   if(mode)mode.value='single';
   if(id)id.value=subId;
-  if(date)date.value='';
+  if(date){date.value='';date.min=pauseMinimumDate();}
   if(title)title.textContent='Pause this subscription?';
   if(message)message.textContent='Billing will be paused until you resume it.';
   if(cancel)cancel.textContent='Keep active';
@@ -8551,8 +8603,9 @@ function openPauseModal(subId){
 async function confirmPause(){
   const mode=document.getElementById('pause-mode')?.value||'single';
   const resumeDate=document.getElementById('pause-resume-date')?.value||'';
+  if(resumeDate && resumeDate < pauseMinimumDate()){toast('Resume date must be in the future','error');return;}
   if(mode==='bulk'){
-    const ids=Array.from(selectedSubs);
+    const ids=bulkEligibleRows('pause').map(function(s){return s.id;});
     const count=ids.length;
     if(!count){closeModal('pause-modal');return;}
     const submit=document.getElementById('pause-modal-submit');
@@ -8589,6 +8642,7 @@ async function confirmPause(){
   }catch(e){toast((e&&e.message)||'Could not pause subscription','error');}
 }
 function resumeSub(id){setSubStatus(id,'active');}
+async function resumeCustomerFromSubscription(customerId){if(blockViewOnlyAction())return;try{const r=await api('/api/customers/'+customerId+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'active'})});if(r.success){toast('✓ Customer resumed');loadSubscriptions();loadCustomers();loadUpcoming();loadStats();}}catch(e){toast((e&&e.message)||'Could not resume customer','error');}}
 function reactivateSub(id){setSubStatus(id,'active');}
 async function resumeSubscriptionFromCustomer(id){
   await setSubStatus(id,'active');
@@ -8616,8 +8670,9 @@ function cancelSubNow(id){
 async function setSubStatus(id,status){
   if(blockViewOnlyAction())return;
   try{
-    await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});
-    var statusLabel=status==='cancelled'?'canceled':(status==='canceling'?'scheduled to cancel':'active');
+    var result=await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});
+    var actual=normalizeSubscriptionStatus((result&&result.status)||status);
+    var statusLabel=actual==='canceled'?'canceled':(actual==='canceling'?'scheduled to cancel':(actual==='paused'?'paused':(actual==='trialing'?'trialing':(actual==='past_due'?'past due':(actual==='unpaid'?'unpaid':'active')))));
     toast('Subscription '+statusLabel);
     await loadSubscriptions();
     await loadCustomers();
@@ -8629,7 +8684,19 @@ async function setSubStatus(id,status){
 let currentCustomerDrawerId=null;
 function escapeCustomerHtml(v){return String(v==null?'':v).replace(/[&<>"']/g,function(m){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m];});}
 function customerValueClass(status){return status==='paused'?'value-blue':((status==='canceling'||status==='cancelling')?'value-amber':((status==='failed'||status==='canceled'||status==='cancelled')?'value-red':((status==='succeeded'||status==='active')?'value-green':'')));}
-function customerPaymentType(c){if((c.total_subs||0)>0)return 'Subscription'; if((c.successful_payments||0)>0||(c.failed_payments||0)>0)return 'One-time'; return '—';}
+function customerLiveSubscriptionCount(c){return Number(c.active_subs||0)+Number(c.paused_subs||0)+Number(c.canceling_subs||0)+Number(c.dunning_subs||0)+Number(c.past_due_subs||0)+Number(c.unpaid_subs||0)+Number(c.trialing_subs||0);}
+function customerPaymentType(c){
+  var live=customerLiveSubscriptionCount(c);
+  var raw=normalizeSubscriptionStatus(c.status||'active');
+  if(live>0)return 'Subscription';
+  // A fully canceled subscription remains historical subscription business. If the customer
+  // later makes a successful one-time payment and becomes Active again, show current billing
+  // semantics as One-time instead of pretending an old canceled schedule is still recurring.
+  if(Number(c.canceled_subs||0)>0 && raw==='canceled')return 'Subscription';
+  if((c.successful_payments||0)>0||(c.failed_payments||0)>0)return 'One-time';
+  if((c.total_subs||0)>0)return 'Subscription';
+  return '—';
+}
 function customerPauseStatus(c){var s=customerEffectiveStatus(c);return s==='paused'?'Paused':(s==='canceling'?'Canceling':(s==='canceled'?'Canceled':'Active'));}
 
 function customerStatusText(status){
@@ -8772,16 +8839,36 @@ function buildCustomerDrawer(data){
   const totalSubscriptions=Number(c.total_subs||0);
   const activeSubscriptions=Number(c.active_subs||0);
   const pausedSubscriptions=Number(c.paused_subs||0);
-  const isOneTimeOnly=totalSubscriptions===0;
+  const cancelingSubscriptions=Number(c.canceling_subs||0);
+  const dunningSubscriptions=Number(c.dunning_subs||0);
+  const pastDueSubscriptions=Number(c.past_due_subs||0);
+  const unpaidSubscriptions=Number(c.unpaid_subs||0);
+  const trialingSubscriptions=Number(c.trialing_subs||0);
+  const canceledSubscriptions=Number(c.canceled_subs||0);
+  const liveSubscriptionCount=activeSubscriptions+pausedSubscriptions+cancelingSubscriptions+dunningSubscriptions+pastDueSubscriptions+unpaidSubscriptions+trialingSubscriptions;
+  const isHistoricalSubscriptionNowOneTime=effectiveStatus==='active' && liveSubscriptionCount===0 && canceledSubscriptions>0 && (Number(c.successful_payments||0)>0 || Number(c.failed_payments||0)>0);
+  const isOneTimeOnly=totalSubscriptions===0 || isHistoricalSubscriptionNowOneTime;
   const isFinalCanceled=!isOneTimeOnly && effectiveStatus==='canceled';
-  const isSavedPaymentOnly=isOneTimeOnly || isFinalCanceled;
+  const isCustomerLevelCanceling=!isFinalCanceled && effectiveStatus==='canceling';
+  // If at least one subscription is still active, the customer still has a recurring card that can be charged.
+  // A mixed state (one active + one canceling) must not make the whole customer look fully canceling.
+  const isSavedPaymentOnly=isOneTimeOnly || isFinalCanceled || (activeSubscriptions===0 && cancelingSubscriptions>0);
+  const shouldShowWillCharge=!isSavedPaymentOnly && effectiveStatus!=='paused' && (activeSubscriptions+trialingSubscriptions)>0 && !!liveRebillPm?.id;
   const primaryExpMonth=liveRebillPm?.exp_month||c.primary_card_exp_month||c.card_exp_month; const primaryExpYear=liveRebillPm?.exp_year||c.primary_card_exp_year||c.card_exp_year;
   const expiry=(primaryExpMonth&&primaryExpYear)?String(primaryExpMonth).padStart(2,'0')+' / '+String(primaryExpYear).slice(-2):'—';
   const customerMoneyCurrency = customerOriginalCurrency(c);
-  const avgAmount=(c.avg_payment&&Number(c.avg_payment)>0)?fmt(Math.round(Number(c.avg_payment)), customerMoneyCurrency):'—';
-  const lastAmount=(c.last_payment_amount)?fmt(c.last_payment_amount, customerMoneyCurrency):'—';
-  const totalPaid=fmt(c.total_paid||0, customerMoneyCurrency);
-  const hasCard=customerRebillHasPaymentMethod(data,c);
+  const hasMixedSuccessfulCurrencies=Number(c.successful_currency_count||0)>1;
+  const avgAmount=hasMixedSuccessfulCurrencies?'Mixed currencies':((c.avg_payment&&Number(c.avg_payment)>0)?fmt(Math.round(Number(c.avg_payment)), customerMoneyCurrency):'—');
+  const lastAmount=(c.last_payment_amount)?fmt(c.last_payment_amount, c.last_payment_currency||customerMoneyCurrency):'—';
+  const totalPaid=hasMixedSuccessfulCurrencies?'Mixed currencies':fmt(c.total_paid||0, customerMoneyCurrency);
+  const hasReusableSavedMethod=!!liveRebillPm?.id;
+  const hasHistoricalPaymentMethod=customerHasPrimaryPaymentMethod(c||{});
+  // Active recurring billing must only present a card as chargeable when Stripe confirms
+  // an attached reusable PaymentMethod. One-time/final-canceled drawers may still show
+  // the historical payment method used on the transaction.
+  const hasCard=isSavedPaymentOnly?(hasReusableSavedMethod||hasHistoricalPaymentMethod):hasReusableSavedMethod;
+  const paymentMethodSectionTitle=isSavedPaymentOnly?(hasReusableSavedMethod?'Saved payment method':'Payment method'):'Recurring payment method';
+  const canOpenStripePortal=String(c.stripe_customer_id||'').startsWith('cus_');
   let h='';
   h+='<div class="customer-profile-hero">';
   h+='<div class="customer-profile-identity"><div class="customer-profile-name" title="'+name+'">'+name+'</div><div class="customer-profile-email" title="'+email+'">'+email+'</div></div>';
@@ -8798,9 +8885,9 @@ function buildCustomerDrawer(data){
   h+=customerDrawerRow('Created date',fmtDate(c.created_at));
   h+='</section>';
 
-  h+='<section class="customer-profile-section"><h3>'+(isSavedPaymentOnly?'Saved payment method':'Recurring payment method')+'</h3>';
+  h+='<section class="customer-profile-section"><h3>'+paymentMethodSectionTitle+'</h3>';
   if(hasCard){
-    h+='<div class="customer-rebill-card-head"><div class="customer-profile-card-line">'+customerRebillPaymentDisplay(data,c,true)+'</div>'+(isSavedPaymentOnly?'':'<span class="customer-rebill-will-charge">Will be charged</span>')+'</div>';
+    h+='<div class="customer-rebill-card-head"><div class="customer-profile-card-line">'+customerRebillPaymentDisplay(data,c,true)+'</div>'+(shouldShowWillCharge?'<span class="customer-rebill-will-charge">Will be charged</span>':'')+'</div>';
     if(!isSavedPaymentOnly){
       h+=customerDrawerRow('Selected by',escapeCustomerHtml(liveRebillPm?.source_label||'Saved payment method'));
     }
@@ -8826,13 +8913,26 @@ function buildCustomerDrawer(data){
   if(pausedSubscriptions>0){
     h+=customerDrawerRow('Paused subscriptions',String(pausedSubscriptions),'value-blue');
   }
+  if(cancelingSubscriptions>0){
+    h+=customerDrawerRow('Canceling subscriptions',String(cancelingSubscriptions),'value-amber');
+  }
   h+=customerDrawerRow('Next billing',fmtDate(c.next_billing_date));
+  if(cancelingSubscriptions>0 && c.cancel_at_date){
+    h+=customerDrawerRow('Ends on',fmtDate(c.cancel_at_date),'value-amber');
+  }
   if(!isOneTimeOnly){
-    var billingStatus=customerPauseStatus(c);
-    if(effectiveStatus==='active' && activeSubscriptions===0 && pausedSubscriptions>0){
-      billingStatus='Paused';
-    }
-    var billingStatusClass=billingStatus==='Paused'?'value-blue':(billingStatus==='Canceled'?'value-red':(billingStatus==='Canceling'?'value-amber':'value-green'));
+    var billingStatus='Active';
+    if(effectiveStatus==='paused') billingStatus='Paused';
+    else if(isCustomerLevelCanceling) billingStatus='Canceling';
+    else if(unpaidSubscriptions>0 && activeSubscriptions===0) billingStatus='Unpaid';
+    else if(pastDueSubscriptions>0 && activeSubscriptions===0) billingStatus='Past due';
+    else if(dunningSubscriptions>0 && activeSubscriptions===0) billingStatus='Dunning';
+    else if(activeSubscriptions>0) billingStatus='Active';
+    else if(cancelingSubscriptions>0) billingStatus='Canceling';
+    else if(trialingSubscriptions>0) billingStatus='Trialing';
+    else if(pausedSubscriptions>0) billingStatus='Paused';
+    else if(isFinalCanceled) billingStatus='Canceled';
+    var billingStatusClass=(billingStatus==='Paused'||billingStatus==='Trialing')?'value-blue':((billingStatus==='Canceled'||billingStatus==='Unpaid')?'value-red':((billingStatus==='Canceling'||billingStatus==='Dunning'||billingStatus==='Past due')?'value-amber':'value-green'));
     h+=customerDrawerRow('Billing status',escapeCustomerHtml(billingStatus),billingStatusClass);
   }
   h+=customerDrawerNoteRow(c);
@@ -8845,24 +8945,28 @@ function buildCustomerDrawer(data){
   h+='</div>';
 
   if(!isViewOnlyAccess()){
-    h+='<div class="customer-profile-actions">';
-    h+='<button class="btn '+((isOneTimeOnly || effectiveStatus==='canceled')?'customer-action-full':'')+'" onclick="openPortal('+c.id+')">View card</button>';
+    var actionButtons='';
+    if(canOpenStripePortal) actionButtons+='<button class="btn '+((isOneTimeOnly || effectiveStatus==='canceled')?'customer-action-full':'')+'" onclick="openPortal('+c.id+')">View card</button>';
     if(!isOneTimeOnly){
       if(effectiveStatus==='paused'){
-        h+='<button class="btn" onclick="setCustStatus('+c.id+',\'active\')">Resume customer</button>';
+        actionButtons+='<button class="btn" onclick="setCustStatus('+c.id+',\'active\')">Resume customer</button>';
       }else if(effectiveStatus==='canceling'){
-        h+='<button class="btn btn-success" onclick="reactivateCustomerSubscriptions('+c.id+')">Reactivate all</button>';
-        h+='<button class="btn btn-danger customer-action-full" onclick="cancelCustomerSubscriptionsNow('+c.id+')">Cancel all now</button>';
+        actionButtons+='<button class="btn btn-success" onclick="reactivateCustomerSubscriptions('+c.id+')">'+(cancelingSubscriptions===1?'Reactivate subscription':'Reactivate subscriptions')+'</button>';
+        actionButtons+='<button class="btn btn-danger customer-action-full" onclick="cancelCustomerSubscriptionsNow('+c.id+')">'+(cancelingSubscriptions===1?'Cancel now':'Cancel all now')+'</button>';
+      }else if(effectiveStatus==='active' && cancelingSubscriptions>0 && activeSubscriptions===0 && pausedSubscriptions===0){
+        actionButtons+='<button class="btn" onclick="reactivateCancelingCustomerSubscriptions('+c.id+')">'+(cancelingSubscriptions===1?'Reactivate subscription':'Reactivate subscriptions')+'</button>';
+        actionButtons+='<button class="btn btn-danger customer-action-full" onclick="cancelCustomerSubscriptionsNow('+c.id+')">Cancel all now</button>';
       }else if(effectiveStatus!=='canceled' && activeSubscriptions>0){
-        h+='<button class="btn btn-danger" onclick="setCustStatus('+c.id+',\'paused\')">Pause customer</button>';
+        actionButtons+='<button class="btn btn-danger" onclick="setCustStatus('+c.id+',\'paused\')">Pause customer</button>';
       }else if(effectiveStatus==='active' && pausedSubscriptions>0){
-        h+='<button class="btn" onclick="resumePausedCustomerSubscriptions('+c.id+')">'+(pausedSubscriptions===1?'Resume subscription':'Resume subscriptions')+'</button>';
+        actionButtons+='<button class="btn" onclick="resumePausedCustomerSubscriptions('+c.id+')">'+(pausedSubscriptions===1?'Resume subscription':'Resume subscriptions')+'</button>';
       }
-      if((totalSubscriptions>0 || customerHasSubscription(c)) && effectiveStatus!=='canceled' && effectiveStatus!=='canceling'){
-        h+='<button class="btn btn-danger customer-action-full" onclick="cancelCustomerSubscriptions('+c.id+')">Cancel all subscriptions</button>';
+      var schedulableSubscriptions=activeSubscriptions+pausedSubscriptions+dunningSubscriptions+pastDueSubscriptions+unpaidSubscriptions+trialingSubscriptions;
+      if(schedulableSubscriptions>0 && effectiveStatus!=='canceled' && effectiveStatus!=='canceling'){
+        actionButtons+='<button class="btn btn-danger customer-action-full" onclick="cancelCustomerSubscriptions('+c.id+')">Cancel all subscriptions</button>';
       }
     }
-    h+='</div>';
+    if(actionButtons) h+='<div class="customer-profile-actions">'+actionButtons+'</div>';
   }
 
   return h;
@@ -8918,11 +9022,24 @@ async function resumePausedCustomerSubscriptions(id){
     if(currentCustomerDrawerId===id){openCustomerDrawer(id);}
   }catch(e){toast((e&&e.message)||'Could not resume subscription','error');}
 }
+async function reactivateCancelingCustomerSubscriptions(id){
+  if(blockViewOnlyAction())return;
+  try{
+    var r=await api('/api/customers/'+id+'/subscriptions/reactivate-canceling',{method:'POST'});
+    var n=Number(r&&r.subscriptions_changed||0);
+    toast((n===1?'Subscription reactivated':(n+' subscriptions reactivated')));
+    await loadSubscriptions();
+    await loadCustomers();
+    loadUpcoming();
+    loadStats();
+    if(currentCustomerDrawerId===id){openCustomerDrawer(id);}
+  }catch(e){toast((e&&e.message)||'Could not reactivate subscription','error');}
+}
 async function cancelCustomerSubscriptions(id){
   if(blockViewOnlyAction())return;
   openAppActionConfirm({
     title:'Schedule all cancellations?',
-    message:'All active subscriptions for this customer will stay active until the end of their current paid periods. You can reactivate them before they end.',
+    message:'All eligible subscriptions for this customer will be scheduled to cancel at the end of their current billing periods. You can reactivate them before they end.',
     cancelText:'Keep active',
     confirmText:'Cancel at period end'
   },function(){return setCustStatus(id,'canceling');});
@@ -8946,18 +9063,25 @@ async function cancelCustomerSubscriptionsNow(id){
     confirmText:'Cancel all now'
   },function(){return setCustStatus(id,'cancelled');});
 }
-async function openPortal(customerId){if(blockViewOnlyAction())return;try{const r=await api('/api/customers/'+customerId+'/portal',{method:'POST'});if(r.url)window.open(r.url,'_blank');else toast('Could not open portal','error');}catch(e){toast('Error','error');}}
-async function runRebills(){toast('Running recurring charges…');try{const r=await api('/api/run-rebills',{method:'POST'});if(r.success){toast('✓ Done: '+r.succeeded+' charged, '+r.failed+' failed'+(r.resumed>0?', '+r.resumed+' resumed':''));loadStats();loadUpcoming();}}catch(e){toast('Error','error');}}
+async function openPortal(customerId){if(blockViewOnlyAction())return;try{const r=await api('/api/customers/'+customerId+'/portal',{method:'POST'});if(r.url)window.open(r.url,'_blank');else toast('Could not open card management','error');}catch(e){toast((e&&e.message)||'Could not open card management','error');}}
+function runRebills(){toast('Automatic renewals are handled by Stripe Billing.','error');}
 async function addCustomer(){
-  const body={name:document.getElementById('mc-name').value.trim(),email:document.getElementById('mc-email').value.trim(),stripe_customer_id:document.getElementById('mc-stripe-id').value.trim(),stripe_payment_method:document.getElementById('mc-pm-id').value.trim()||null,card_brand:document.getElementById('mc-brand').value.trim()||null,card_last4:document.getElementById('mc-last4').value.trim()||null,card_exp_month:document.getElementById('mc-exp-m').value||null,card_exp_year:document.getElementById('mc-exp-y').value||null,stripe_account_id:document.getElementById('mc-account').value||null,note:document.getElementById('mc-note').value.trim()||null};
-  if(!body.email||!body.stripe_customer_id){toast('Email and Stripe ID required','error');return;}
-  try{const r=await api('/api/customers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(r.success){toast('✓ Customer added');closeModal('add-customer-modal');loadCustomers();}else toast('Error: '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}
+  const body={stripe_customer_id:document.getElementById('mc-stripe-id').value.trim(),stripe_payment_method:document.getElementById('mc-pm-id').value.trim()||null,stripe_account_id:document.getElementById('mc-account').value||null,note:document.getElementById('mc-note').value.trim()||null};
+  if(!body.stripe_customer_id||!body.stripe_customer_id.startsWith('cus_')){toast('Enter a valid Stripe customer ID','error');return;}
+  try{const r=await api('/api/customers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(r.success){toast('✓ Stripe customer linked');closeModal('add-customer-modal');loadCustomers();}else toast('Error: '+(r.error||'Failed'),'error');}catch(e){toast((e&&e.message)||'Could not link customer','error');}
 }
 function openNoteModal(id,note){if(blockViewOnlyAction())return;document.getElementById('note-customer-id').value=id;document.getElementById('note-text').value=decodeURIComponent(note);openModal('note-modal');}
 async function saveNote(){const id=document.getElementById('note-customer-id').value,note=document.getElementById('note-text').value;await api('/api/customers/'+id+'/note',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({note})});toast('✓ Note saved');closeModal('note-modal');loadCustomers();}
 async function createPaymentLink(){
-  const btn=document.getElementById('create-link-btn');btn.textContent='Creating…';btn.disabled=true;
-  try{const r=await api('/api/payment-links',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:document.getElementById('link-name').value,amount:Math.round(parseFloat(document.getElementById('link-amount').value)*100),currency:document.getElementById('link-currency').value,interval_days:parseInt(document.getElementById('link-interval').value),stripe_account_id:document.getElementById('link-account').value||null})});if(r.url){currentLink=r.url;currentEmbedToken=r.embed_token||null;document.getElementById('link-url').textContent=r.url;document.getElementById('embed-token').textContent=currentEmbedToken||'Not generated';var status=document.getElementById('embed-status');if(status){status.textContent=r.embed_ready?'✓ Ready for Payment Element':'⚠ Add the matching pk_ publishable key in Stripe Accounts to enable embedded checkout';status.style.color=r.embed_ready?'var(--green)':'var(--amber)';}document.getElementById('link-result').classList.add('visible');toast('✓ Link + embed token created');}else toast('Error: '+(r.error||'Unknown'),'error');}catch(e){toast('Server error','error');}
+  const btn=document.getElementById('create-link-btn');
+  const name=document.getElementById('link-name').value.trim();
+  const amount=Math.round(parseFloat(document.getElementById('link-amount').value)*100);
+  const currency=document.getElementById('link-currency').value;
+  const interval=parseInt(document.getElementById('link-interval').value,10);
+  if(!name){toast('Enter a product name','error');return;}
+  if(!Number.isInteger(amount)||amount<50){toast('Minimum amount is 0.50','error');return;}
+  btn.textContent='Creating…';btn.disabled=true;
+  try{const r=await api('/api/payment-links',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,amount,currency,interval_days:interval,stripe_account_id:document.getElementById('link-account').value||null})});if(r.url){currentLink=r.url;currentEmbedToken=r.embed_token||null;document.getElementById('link-url').textContent=r.url;document.getElementById('embed-token').textContent=currentEmbedToken||'Not generated';var status=document.getElementById('embed-status');if(status){status.textContent=r.embed_ready?'✓ Ready for Payment Element':'⚠ Add the matching pk_ publishable key in Stripe Accounts to enable embedded checkout';status.style.color=r.embed_ready?'var(--green)':'var(--amber)';}document.getElementById('link-result').classList.add('visible');toast('✓ Link + embed token created');}else toast('Error: '+(r.error||'Unknown'),'error');}catch(e){toast((e&&e.message)||'Could not create payment link','error');}
   btn.textContent='Generate Payment Link';btn.disabled=false;
 }
 function copyLink(){if(!currentLink)return;navigator.clipboard.writeText(currentLink);toast('Copied!');}
@@ -9089,7 +9213,7 @@ async function loadAccounts(){
             var defaultAction=a.is_default?'<button class="btn btn-sm" onclick="clearDefaultAccount()">Remove default</button>':'<button class="btn btn-sm" onclick="setDefaultAccount('+a.id+')">Set Default</button>';
             manageActions=defaultAction+'<button class="btn btn-sm" onclick="debugStripeAccount('+a.id+')" title="Check verification details">Check</button><button class="btn btn-sm" onclick="openEditAcc('+a.id+')">Edit</button><button class="btn btn-sm btn-danger" onclick="deleteAccount('+a.id+')">Delete</button>';
           }else{
-            manageActions='<button class="btn btn-sm" onclick="debugStripeAccount('+a.id+')" title="View verification details">View details</button>';
+            manageActions='<span style="font-size:11px;color:var(--muted);font-family:var(--mono);">view only</span>';
           }
           var actionClass=canManageStripeAccounts()?'actions':'actions readonly-allowed-actions';
           var embedBadge=a.has_publishable_key?'<span class="badge badge-green">Ready</span>':'<span class="badge badge-amber">Add pk_ key</span>';return '<tr style="'+rowBg+'"><td><strong style="font-size:13px;">'+a.name+'</strong></td><td class="mono" style="font-size:12px;color:var(--muted);">'+(a.key_preview||'—')+'</td><td>'+embedBadge+'</td><td>'+statusBadge+defaultBadge+'</td><td>'+verificationHtml+'</td><td><div class="'+actionClass+'">'+manageActions+'</div></td></tr>';
@@ -9129,16 +9253,15 @@ function deleteAccount(id){
     loadAccounts();
   });
 }
-async function loadForecast(){try{const d=await api('/api/forecast');document.getElementById('forecast-30').textContent=fmt(d.forecast30||0);document.getElementById('forecast-60').textContent=fmt(d.forecast60||0);document.getElementById('forecast-90').textContent=fmt(d.forecast90||0);}catch(e){}}
-async function loadExpiry(){try{var days=document.getElementById('expiry-days')?document.getElementById('expiry-days').value:30;var list=await api('/api/expiring-cards?days='+days);var tb=document.getElementById('expiry-table');if(!list.length){tb.innerHTML='<tr><td colspan="5" class="empty">No expiring cards in this period</td></tr>';return;}var now=new Date();tb.innerHTML=list.map(function(c){var expMonth=String(c.card_exp_month||'?').padStart(2,'0');var expYear=String(c.card_exp_year||'?');var yr=parseInt(c.card_exp_year)||9999;var mo=parseInt(c.card_exp_month)||12;var isExpired=yr<now.getFullYear()||(yr===now.getFullYear()&&mo<=now.getMonth()+1);var color=isExpired?'var(--red)':'var(--amber)';return '<tr><td><div class="customer-cell"><div class="avatar">'+initials(c.name)+'</div><div><div class="customer-name">'+(c.name||'—')+'</div><div class="customer-email">'+(c.email||'')+'</div></div></div></td><td>'+cardBadge(c.card_brand,c.card_last4)+'</td><td><span style="color:'+color+';font-family:var(--mono);font-weight:600;">'+expMonth+'/'+expYear+'</span></td><td class="mono">'+fmtDate(c.next_billing_date)+'</td><td><button class="btn btn-sm" onclick="openPortal('+c.id+')">Update card ↗</button></td></tr>';}).join('');}catch(e){}}
+async function loadForecast(){try{const d=await api('/api/forecast');var approx=d.uses_estimated_fx?'≈':'';['forecast-30','forecast-60','forecast-90'].forEach(function(id){var el=document.getElementById(id);if(el)el.title=d.uses_estimated_fx?'Estimated USD equivalent for mixed/non-USD subscriptions':'';});document.getElementById('forecast-30').textContent=approx+fmt(d.forecast30||0);document.getElementById('forecast-60').textContent=approx+fmt(d.forecast60||0);document.getElementById('forecast-90').textContent=approx+fmt(d.forecast90||0);}catch(e){}}
 function formatPaymentCount(value){
   var count=Number(value||0);
   return count+' '+(count===1?'payment':'payments');
 }
 async function loadSummary(){try{const d=await api('/api/daily-summary');document.getElementById('sum-rev-today').textContent=fmt(parseInt(d.revenue_today)||0);document.getElementById('sum-pay-today').textContent=formatPaymentCount(d.payments_today);document.getElementById('sum-fail-today').textContent=d.failed_today||0;document.getElementById('sum-rev-7d').textContent=fmt(parseInt(d.revenue_7d)||0);document.getElementById('sum-pay-7d').textContent=formatPaymentCount(d.payments_7d);document.getElementById('sum-rev-month').textContent=fmt(parseInt(d.revenue_month)||0);document.getElementById('sum-pay-month').textContent=formatPaymentCount(d.payments_month);document.getElementById('sum-active').textContent=d.active_total||0;document.getElementById('sum-new-7d').textContent='+'+(d.new_7d||0)+' this week';document.getElementById('sum-cust-today').textContent=d.new_today||0;}catch(e){}}
-async function sendManualInvoice(){if(blockViewOnlyAction())return;const custId=document.getElementById('invoice-customer-id').value.trim();const amount=Math.round(parseFloat(document.getElementById('invoice-amount').value)*100);const desc=document.getElementById('invoice-desc').value;const result=document.getElementById('invoice-result');if(!custId||!amount){toast('Fill in all fields','error');return;}try{const r=await api('/api/customers/'+custId+'/charge-once',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount,description:desc})});result.style.display='block';if(r.success){result.style.background='var(--green-bg)';result.style.color='var(--green)';result.style.border='1px solid var(--green)';result.textContent='✓ Payment succeeded!';}else{result.style.background='var(--red-bg)';result.style.color='var(--red)';result.style.border='1px solid var(--red)';result.textContent='✗ '+(r.error||'Failed');}}catch(e){toast('Error','error');}}
+async function sendManualInvoice(){if(blockViewOnlyAction())return;const custId=document.getElementById('invoice-customer-id').value.trim();const amount=Math.round(parseFloat(document.getElementById('invoice-amount').value)*100);const currency=document.getElementById('invoice-currency')?.value||'usd';const desc=document.getElementById('invoice-desc').value;const result=document.getElementById('invoice-result');if(!custId||!amount){toast('Fill in all fields','error');return;}try{const r=await api('/api/customers/'+encodeURIComponent(custId)+'/charge-once',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount,currency,description:desc})});result.style.display='block';if(r.success){result.style.background='var(--green-bg)';result.style.color='var(--green)';result.style.border='1px solid var(--green)';result.textContent='✓ Payment succeeded!';}else{result.style.background='var(--red-bg)';result.style.color='var(--red)';result.style.border='1px solid var(--red)';result.textContent='✗ '+(r.error||'Failed');}}catch(e){toast((e&&e.message)||'Could not charge customer','error');}}
 function openInvoiceModal(customerId){document.getElementById('invoice-modal-customer-id').value=customerId;document.getElementById('invoice-modal-amount').value='';document.getElementById('invoice-modal-desc').value='Manual invoice';document.getElementById('invoice-modal-result').style.display='none';openModal('invoice-modal');}
-async function sendInvoiceFromModal(){const customerId=document.getElementById('invoice-modal-customer-id').value;const amount=Math.round(parseFloat(document.getElementById('invoice-modal-amount').value)*100);const desc=document.getElementById('invoice-modal-desc').value;const result=document.getElementById('invoice-modal-result');if(!amount||amount<50){toast('Minimum $0.50','error');return;}try{const r=await api('/api/customers/'+customerId+'/charge-once',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount,description:desc})});result.style.display='block';if(r.success){result.style.cssText='background:var(--green-bg);color:var(--green);border:1px solid var(--green);padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);';result.textContent='✓ Charged successfully!';toast('✓ Invoice sent');}else{result.style.cssText='background:var(--red-bg);color:var(--red);border:1px solid var(--red);padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);';result.textContent='✗ '+(r.error||'Failed');toast('Failed','error');}}catch(e){toast('Error','error');}}
+async function sendInvoiceFromModal(){const customerId=document.getElementById('invoice-modal-customer-id').value;const amount=Math.round(parseFloat(document.getElementById('invoice-modal-amount').value)*100);const currency=document.getElementById('invoice-modal-currency')?.value||'usd';const desc=document.getElementById('invoice-modal-desc').value;const result=document.getElementById('invoice-modal-result');if(!amount||amount<50){toast('Minimum amount is 0.50','error');return;}try{const r=await api('/api/customers/'+customerId+'/charge-once',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount,currency,description:desc})});result.style.display='block';if(r.success){result.style.cssText='background:var(--green-bg);color:var(--green);border:1px solid var(--green);padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);';result.textContent='✓ Charged successfully!';toast('✓ Invoice sent');}else{result.style.cssText='background:var(--red-bg);color:var(--red);border:1px solid var(--red);padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);';result.textContent='✗ '+(r.error||'Failed');toast('Failed','error');}}catch(e){toast('Error','error');}}
 async function loadAdmins(){
   var tb=document.getElementById('admins-table');if(!tb)return;
   tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:28px;color:var(--muted);font-size:13px;font-family:var(--mono);">Loading...</td></tr>';
@@ -9524,10 +9647,10 @@ function globalSearch(q){
 }
 document.addEventListener('click',function(e){if(!e.target.closest('#global-search-wrap')){closeGlobalSearch();}});
 window.addEventListener('blur',closeGlobalSearch);
-async function loadChurnAlerts(){try{var d=await api('/api/churn-alerts');var section=document.getElementById('churn-alerts-section');var list=document.getElementById('churn-alerts-list');var count=document.getElementById('churn-count');var all=[...d.cancelled,...d.failing];if(!all.length){section.style.display='none';return;}section.style.display='block';count.textContent=all.length;var html='';d.cancelled.forEach(function(c){html+='<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(248,113,113,0.15);"><div class="avatar">'+initials(c.name)+'</div><div style="flex:1;"><div style="font-size:13px;font-weight:500;">'+(c.name||'—')+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+(c.email||'')+'</div></div><span class="badge badge-red">Canceled</span></div>';});d.failing.forEach(function(c){html+='<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(248,113,113,0.15);"><div class="avatar">'+initials(c.name)+'</div><div style="flex:1;"><div style="font-size:13px;font-weight:500;">'+(c.name||'—')+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+(c.email||'')+'</div></div><span class="badge badge-amber">'+c.dunning_count+' failures</span></div>';});list.innerHTML=html;}catch(e){}}
+async function loadChurnAlerts(){try{var d=await api('/api/churn-alerts');var section=document.getElementById('churn-alerts-section');var list=document.getElementById('churn-alerts-list');var count=document.getElementById('churn-count');var all=[...d.cancelled,...d.failing];if(!all.length){section.style.display='none';return;}section.style.display='block';count.textContent=all.length;var html='';d.cancelled.forEach(function(c){html+='<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(248,113,113,0.15);"><div class="avatar">'+initials(c.name)+'</div><div style="flex:1;"><div style="font-size:13px;font-weight:500;">'+(c.name||'—')+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+(c.email||'')+'</div></div><span class="badge badge-red">Canceled</span></div>';});d.failing.forEach(function(c){html+='<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(248,113,113,0.15);"><div class="avatar">'+initials(c.name)+'</div><div style="flex:1;"><div style="font-size:13px;font-weight:500;">'+(c.name||'—')+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+(c.email||'')+'</div></div><span class="badge badge-amber">'+escHtml(c.risk_label||((c.failure_count||0)+' failures'))+'</span></div>';});list.innerHTML=html;}catch(e){}}
 async function loadTemplates(){try{var list=await api('/api/plan-templates');var el=document.getElementById('templates-list');var count=document.getElementById('template-count');if(!el)return;if(count)count.textContent='('+list.length+')';el.innerHTML='';if(!list.length){var empty=document.createElement('span');empty.style.cssText='font-size:12px;color:var(--muted);font-family:var(--mono);';empty.textContent='No templates yet — save one below';el.appendChild(empty);return;}list.forEach(function(t){var chip=document.createElement('div');chip.style.cssText='display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:5px 10px;cursor:pointer;';chip.addEventListener('click',function(){applyTemplate(t.amount,t.currency,t.interval_days,t.name);});var name=document.createElement('span');name.style.cssText='font-size:12px;font-weight:500;';name.textContent=t.name;var price=document.createElement('span');price.style.cssText='font-size:11px;color:var(--muted);font-family:var(--mono);';price.textContent=fmt(t.amount,t.currency)+'/'+t.interval_days+'d';var canManageTemplates=getCurrentRole()==='owner'||getCurrentRole()==='admin';chip.appendChild(name);chip.appendChild(price);if(canManageTemplates){var del=document.createElement('button');del.style.cssText='background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:0 2px;line-height:1;';del.textContent='✕';del.addEventListener('click',function(e){e.stopPropagation();deleteTemplate(t.id);});chip.appendChild(del);}el.appendChild(chip);});}catch(e){}}
 function applyTemplate(amount,currency,interval,name){document.getElementById('link-name').value=name;document.getElementById('link-amount').value=(amount/100).toFixed(2);document.getElementById('link-currency').value=currency;document.getElementById('link-interval').value=String(interval);toast('✓ Template applied');}
-async function saveTemplate(){var name=document.getElementById('tmpl-name').value.trim();var amount=Math.round(parseFloat(document.getElementById('tmpl-amount').value)*100);var interval=document.getElementById('tmpl-interval').value;if(!name||!amount){toast('Fill in name and amount','error');return;}await api('/api/plan-templates',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,amount,currency:'usd',interval_days:parseInt(interval)})});toast('✓ Template saved');document.getElementById('tmpl-name').value='';document.getElementById('tmpl-amount').value='';loadTemplates();}
+async function saveTemplate(){var name=document.getElementById('tmpl-name').value.trim();var amount=Math.round(parseFloat(document.getElementById('tmpl-amount').value)*100);var interval=document.getElementById('tmpl-interval').value;if(!name){toast('Enter a template name','error');return;}if(!Number.isInteger(amount)||amount<50){toast('Minimum amount is 0.50','error');return;}await api('/api/plan-templates',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,amount,currency:'usd',interval_days:parseInt(interval)})});toast('✓ Template saved');document.getElementById('tmpl-name').value='';document.getElementById('tmpl-amount').value='';loadTemplates();}
 async function deleteTemplate(id){await api('/api/plan-templates/'+id,{method:'DELETE'});toast('Template deleted');loadTemplates();}
 async function loadMrr(){
   try{
@@ -10807,6 +10930,11 @@ html.light #settings-toggle.nav-section-toggle svg{
   border-color:rgba(96,165,250,.22);
   background:rgba(59,130,246,.07);
 }
+#payment-detail-modal .pd-recovery-box.green{
+  border-color:rgba(34,197,94,.24)!important;
+  background:rgba(34,197,94,.07)!important;
+}
+
 #payment-detail-modal .pd-recovery-label{
   margin-bottom:4px;
   color:var(--muted);
@@ -10826,6 +10954,7 @@ html.light #settings-toggle.nav-section-toggle svg{
 #payment-detail-modal .pd-recovery-box.amber .pd-recovery-title{color:#f59e0b;}
 #payment-detail-modal .pd-recovery-box.red .pd-recovery-title{color:var(--red);}
 #payment-detail-modal .pd-recovery-box.blue .pd-recovery-title{color:#60a5fa;}
+#payment-detail-modal .pd-recovery-box.green .pd-recovery-title{color:var(--green);}
 #payment-detail-modal .pd-recovery-detail{
   margin-top:3px;
   color:var(--muted);

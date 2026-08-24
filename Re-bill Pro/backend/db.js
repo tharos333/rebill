@@ -50,9 +50,12 @@ async function init() {
       status TEXT DEFAULT 'active',
       resume_date DATE,
       paused_by_customer BOOLEAN DEFAULT false,
+      status_before_cancel TEXT,
+      canceled_at TIMESTAMPTZ,
       dunning_count INT DEFAULT 0,
       last_failed_at TIMESTAMPTZ,
-      created_at TIMESTAMPTZ DEFAULT NOW()
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS payments (
       id SERIAL PRIMARY KEY,
@@ -87,6 +90,14 @@ async function init() {
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL,
       updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS plan_templates (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      amount INT NOT NULL,
+      currency TEXT DEFAULT 'usd',
+      interval_days INT NOT NULL DEFAULT 30,
+      created_at TIMESTAMPTZ DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS activity_log (
       id SERIAL PRIMARY KEY,
@@ -148,8 +159,11 @@ async function init() {
     'ALTER TABLE customers ADD COLUMN IF NOT EXISTS note TEXT',
     'ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS resume_date DATE',
     'ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS paused_by_customer BOOLEAN DEFAULT false',
+    'ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS status_before_cancel TEXT',
+    'ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS canceled_at TIMESTAMPTZ',
     'ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS dunning_count INT DEFAULT 0',
     'ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS last_failed_at TIMESTAMPTZ',
+    'ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ',
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_brand TEXT',
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_last4 TEXT',
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_exp_month INT',
@@ -165,13 +179,41 @@ async function init() {
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS was_failed BOOLEAN DEFAULT false',
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS recovered_at TIMESTAMPTZ',
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_origin TEXT',
+    'ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_method_type TEXT',
+    'ALTER TABLE payments ADD COLUMN IF NOT EXISTS wallet_type TEXT',
+    'ALTER TABLE payments ADD COLUMN IF NOT EXISTS wallet_checked BOOLEAN DEFAULT FALSE',
+    'ALTER TABLE payments ADD COLUMN IF NOT EXISTS note TEXT',
+    'ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT',
+    'ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_price_id TEXT',
+    'ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_invoice_id TEXT',
   ];
   for (const m of migrations) await pool.query(m).catch(() => {});
+  await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS subscriptions_stripe_subscription_uidx ON subscriptions(stripe_subscription_id) WHERE stripe_subscription_id IS NOT NULL').catch(()=>{});
+  await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS payments_stripe_payment_intent_uidx ON payments(stripe_payment_intent) WHERE stripe_payment_intent IS NOT NULL').catch(()=>{});
+  await pool.query('UPDATE subscriptions SET updated_at=created_at WHERE updated_at IS NULL').catch(()=>{});
+  await pool.query("UPDATE subscriptions SET canceled_at=COALESCE(canceled_at,updated_at,created_at) WHERE LOWER(COALESCE(status,'')) IN ('cancelled','canceled') AND canceled_at IS NULL").catch(()=>{});
+  await pool.query('ALTER TABLE subscriptions ALTER COLUMN updated_at SET DEFAULT NOW()').catch(()=>{});
+  await pool.query(`
+    CREATE OR REPLACE FUNCTION subloop_touch_subscription_updated_at() RETURNS trigger AS $$
+    BEGIN
+      NEW.updated_at = NOW();
+      RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+    DROP TRIGGER IF EXISTS subloop_subscriptions_touch_updated_at ON subscriptions;
+    CREATE TRIGGER subloop_subscriptions_touch_updated_at
+      BEFORE UPDATE ON subscriptions
+      FOR EACH ROW EXECUTE FUNCTION subloop_touch_subscription_updated_at();
+  `).catch(()=>{});
   const adminCount = await pool.query('SELECT COUNT(*) FROM admin_users');
   if (parseInt(adminCount.rows[0].count) === 0) {
-    const crypto = require('crypto');
-    const hash = crypto.createHash('sha256').update('IssoMoussa544@###').digest('hex');
-    await pool.query("INSERT INTO admin_users (username, password_hash, role) VALUES ($1, $2, 'owner')", ['Tharos333', hash]).catch(()=>{});
+    const username = String(process.env.SUBLOOP_OWNER_USERNAME || '').trim();
+    const password = String(process.env.SUBLOOP_OWNER_PASSWORD || '');
+    if (!username || password.length < 8) {
+      throw new Error('No Subloop owner exists. Set SUBLOOP_OWNER_USERNAME and SUBLOOP_OWNER_PASSWORD (8+ characters) once to bootstrap the first owner.');
+    }
+    const hash = hashAdminPassword(password);
+    await pool.query("INSERT INTO admin_users (username, password_hash, role) VALUES ($1, $2, 'owner')", [username, hash]);
   }
   const defaults = {
     dunning_enabled: 'false', two_fa_enabled: 'false', two_fa_secret: '',
@@ -211,8 +253,29 @@ async function init() {
     SET status='incomplete'
     WHERE s.amount > 0
       AND LOWER(COALESCE(s.status,''))='active'
-      AND EXISTS (SELECT 1 FROM payments p WHERE p.customer_id=s.customer_id)
-      AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.customer_id=s.customer_id AND LOWER(p.status)='succeeded')
+      AND EXISTS (
+        SELECT 1 FROM payments p
+        WHERE p.customer_id=s.customer_id
+          AND (p.subscription_id=s.id OR (s.stripe_invoice_id IS NOT NULL AND p.stripe_invoice_id=s.stripe_invoice_id))
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM payments p
+        WHERE LOWER(p.status)='succeeded'
+          AND (p.subscription_id=s.id OR (s.stripe_invoice_id IS NOT NULL AND p.stripe_invoice_id=s.stripe_invoice_id))
+      )
+  `).catch(()=>{});
+  // Legacy safety net: if the customer has never had any successful payment, a paid
+  // subscription cannot legitimately be Active even when old payment rows were not linked
+  // to the subscription/invoice correctly.
+  await pool.query(`
+    UPDATE subscriptions s
+    SET status='incomplete'
+    WHERE s.amount > 0
+      AND LOWER(COALESCE(s.status,''))='active'
+      AND NOT EXISTS (
+        SELECT 1 FROM payments p
+        WHERE p.customer_id=s.customer_id AND LOWER(p.status)='succeeded'
+      )
   `).catch(()=>{});
 
   const existing = await pool.query('SELECT COUNT(*) FROM stripe_accounts');
@@ -238,7 +301,11 @@ const stripeAccounts = {
 const customers = {
   all: async () => { const r = await pool.query(`
     WITH sub_stats AS (
-      SELECT customer_id, COUNT(*) FILTER (WHERE status IN ('active','canceling')) as active_subs
+      SELECT customer_id,
+        COUNT(*) FILTER (WHERE LOWER(status)='active') as active_subs,
+        COUNT(*) FILTER (WHERE LOWER(status)='paused') as paused_subs,
+        COUNT(*) FILTER (WHERE LOWER(status) IN ('canceling','cancelling')) as canceling_subs,
+        COUNT(*) FILTER (WHERE LOWER(status) NOT IN ('incomplete','incomplete_expired','pending')) as total_subs
       FROM subscriptions
       GROUP BY customer_id
     ),
@@ -246,6 +313,8 @@ const customers = {
       SELECT
         customer_id,
         COALESCE(SUM(CASE WHEN status='succeeded' THEN amount ELSE 0 END), 0) as total_paid,
+        COUNT(DISTINCT LOWER(COALESCE(currency,''))) FILTER (WHERE status='succeeded') as successful_currency_count,
+        (ARRAY_AGG(currency ORDER BY created_at DESC) FILTER (WHERE status='succeeded'))[1] as last_payment_currency,
         MAX(CASE WHEN status='succeeded' THEN created_at END) as last_payment_at,
         MAX(created_at) as last_any_payment_at
       FROM payments
@@ -255,7 +324,12 @@ const customers = {
       c.*,
       sa.name as account_name,
       COALESCE(s.active_subs, 0) as active_subs,
+      COALESCE(s.paused_subs, 0) as paused_subs,
+      COALESCE(s.canceling_subs, 0) as canceling_subs,
+      COALESCE(s.total_subs, 0) as total_subs,
       COALESCE(p.total_paid, 0) as total_paid,
+      COALESCE(p.successful_currency_count,0) as successful_currency_count,
+      p.last_payment_currency,
       p.last_payment_at,
       p.last_any_payment_at,
       COALESCE(p.last_payment_at, c.created_at) as sort_date,
@@ -280,14 +354,8 @@ const customers = {
       LIMIT 1
     ) pm ON true
     WHERE LOWER(COALESCE(c.status,'')) <> 'pending'
-      AND NOT (
-        COALESCE(p.total_paid, 0) = 0
-        AND (
-          COALESCE(c.email, '') ILIKE '%@stripe.local'
-          OR COALESCE(c.stripe_customer_id, '') LIKE 'external_%'
-          OR COALESCE(c.name, '') LIKE 'pi_%'
-        )
-      )
+      AND COALESCE(c.email, '') NOT ILIKE '%@stripe.local'
+      AND COALESCE(c.name, '') NOT LIKE 'pi_%'
     ORDER BY
       CASE WHEN p.last_payment_at IS NOT NULL THEN 0 ELSE 1 END ASC,
       p.last_payment_at DESC NULLS LAST,
@@ -303,10 +371,17 @@ const customers = {
     const customerRes = await pool.query(`
       WITH sub_stats AS (
         SELECT customer_id,
-          COUNT(*) FILTER (WHERE status IN ('active','canceling')) as active_subs,
-          COUNT(*) FILTER (WHERE status='paused') as paused_subs,
-          COUNT(*) as total_subs,
-          MIN(next_billing_date) FILTER (WHERE status IN ('active','canceling')) as next_billing_date
+          COUNT(*) FILTER (WHERE LOWER(status)='active') as active_subs,
+          COUNT(*) FILTER (WHERE LOWER(status)='paused') as paused_subs,
+          COUNT(*) FILTER (WHERE LOWER(status) IN ('canceling','cancelling')) as canceling_subs,
+          COUNT(*) FILTER (WHERE LOWER(status)='dunning') as dunning_subs,
+          COUNT(*) FILTER (WHERE LOWER(status)='past_due') as past_due_subs,
+          COUNT(*) FILTER (WHERE LOWER(status)='unpaid') as unpaid_subs,
+          COUNT(*) FILTER (WHERE LOWER(status)='trialing') as trialing_subs,
+          COUNT(*) FILTER (WHERE LOWER(status) IN ('cancelled','canceled')) as canceled_subs,
+          COUNT(*) FILTER (WHERE LOWER(status) NOT IN ('incomplete','incomplete_expired','pending')) as total_subs,
+          MIN(next_billing_date) FILTER (WHERE LOWER(status) IN ('active','trialing','past_due','unpaid','dunning')) as next_billing_date,
+          MIN(next_billing_date) FILTER (WHERE LOWER(status) IN ('canceling','cancelling')) as cancel_at_date
         FROM subscriptions
         WHERE customer_id=$1
         GROUP BY customer_id
@@ -316,6 +391,7 @@ const customers = {
           COALESCE(SUM(CASE WHEN status='succeeded' THEN amount ELSE 0 END),0) as total_paid,
           COUNT(*) FILTER (WHERE status='succeeded') as successful_payments,
           COUNT(*) FILTER (WHERE status='failed') as failed_payments,
+          COUNT(DISTINCT LOWER(COALESCE(currency,''))) FILTER (WHERE status='succeeded') as successful_currency_count,
           AVG(amount) FILTER (WHERE status='succeeded') as avg_payment
         FROM payments
         WHERE customer_id=$1
@@ -324,11 +400,19 @@ const customers = {
       SELECT c.*, sa.name as account_name,
         COALESCE(ss.active_subs,0) as active_subs,
         COALESCE(ss.paused_subs,0) as paused_subs,
+        COALESCE(ss.canceling_subs,0) as canceling_subs,
+        COALESCE(ss.dunning_subs,0) as dunning_subs,
+        COALESCE(ss.past_due_subs,0) as past_due_subs,
+        COALESCE(ss.unpaid_subs,0) as unpaid_subs,
+        COALESCE(ss.trialing_subs,0) as trialing_subs,
+        COALESCE(ss.canceled_subs,0) as canceled_subs,
         COALESCE(ss.total_subs,0) as total_subs,
         ss.next_billing_date,
+        ss.cancel_at_date,
         COALESCE(ps.total_paid,0) as total_paid,
         COALESCE(ps.successful_payments,0) as successful_payments,
         COALESCE(ps.failed_payments,0) as failed_payments,
+        COALESCE(ps.successful_currency_count,0) as successful_currency_count,
         COALESCE(ps.avg_payment,0) as avg_payment,
         lp.amount as last_payment_amount,
         lp.currency as last_payment_currency,
@@ -378,7 +462,7 @@ const customers = {
 
     return { customer: customerRes.rows[0] || null, recent_payments: recentRes.rows };
   },
-  stats: async () => { const r = await pool.query(`SELECT COUNT(*) as total, COUNT(CASE WHEN status='active' THEN 1 END) as active, COUNT(CASE WHEN created_at >= NOW() - INTERVAL '30 days' THEN 1 END) as new_30d, COUNT(CASE WHEN status='cancelled' AND created_at >= NOW() - INTERVAL '30 days' THEN 1 END) as churned_30d FROM customers`); return r.rows[0]; },
+  stats: async () => { const r = await pool.query(`SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE LOWER(status)='active') as active, COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '30 days') as new_30d, COUNT(*) FILTER (WHERE LOWER(status) IN ('cancelled','canceled') AND created_at >= NOW() - INTERVAL '30 days') as churned_30d FROM customers`); return r.rows[0]; },
 };
 const subscriptions = {
   all: async () => { const r = await pool.query(`
@@ -432,7 +516,7 @@ const subscriptions = {
   resumeDue: async () => { const r = await pool.query(`SELECT * FROM subscriptions WHERE status='paused' AND resume_date IS NOT NULL AND resume_date <= CURRENT_DATE`); return r.rows; },
   create: async (data) => { await pool.query('INSERT INTO subscriptions (customer_id,amount,currency,interval_days,next_billing_date) VALUES ($1,$2,$3,$4,$5)', [data.customer_id, data.amount, data.currency, data.interval_days, data.next_billing_date]); },
   advanceBillingDate: async (id, days) => { await pool.query("UPDATE subscriptions SET next_billing_date=next_billing_date+$1*INTERVAL '1 day', dunning_count=0, last_failed_at=NULL WHERE id=$2", [days, id]); },
-  updateStatus: async (id, status) => { await pool.query('UPDATE subscriptions SET status=$1 WHERE id=$2', [status, id]); },
+  updateStatus: async (id, status) => { await pool.query("UPDATE subscriptions SET status=$1, canceled_at=CASE WHEN LOWER($1) IN ('cancelled','canceled') THEN COALESCE(canceled_at,NOW()) ELSE canceled_at END WHERE id=$2", [status, id]); },
   updateAmount: async (id, amount) => { await pool.query('UPDATE subscriptions SET amount=$1 WHERE id=$2', [amount, id]); },
   setResumeDate: async (id, date) => { await pool.query('UPDATE subscriptions SET resume_date=$1 WHERE id=$2', [date, id]); },
   setPausedByCustomer: async (id, value) => { await pool.query('UPDATE subscriptions SET paused_by_customer=$1 WHERE id=$2', [!!value, id]); },
@@ -476,6 +560,31 @@ const security = {
     return r.rows;
   },
 };
+function hashAdminPassword(password) {
+  const crypto = require('crypto');
+  const salt = crypto.randomBytes(16).toString('hex');
+  const derived = crypto.scryptSync(String(password), salt, 64).toString('hex');
+  return `scrypt$${salt}$${derived}`;
+}
+function verifyAdminPassword(password, storedHash) {
+  const crypto = require('crypto');
+  const stored = String(storedHash || '');
+  if (stored.startsWith('scrypt$')) {
+    const parts = stored.split('$');
+    if (parts.length !== 3) return false;
+    const actual = crypto.scryptSync(String(password), parts[1], 64);
+    const expected = Buffer.from(parts[2], 'hex');
+    return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
+  }
+  // Legacy SHA-256 hashes are accepted once, then transparently upgraded after login.
+  if (/^[a-f0-9]{64}$/i.test(stored)) {
+    const legacy = crypto.createHash('sha256').update(String(password)).digest('hex');
+    const a = Buffer.from(legacy, 'hex');
+    const b = Buffer.from(stored, 'hex');
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  }
+  return false;
+}
 const adminUsers = {
   all: async () => {
     const r = await pool.query("SELECT id, username, role, COALESCE(permissions, '[]') as permissions, COALESCE(account_scope,'all') AS account_scope, COALESCE(allowed_account_ids,'[]') AS allowed_account_ids, COALESCE(two_fa_enabled,false) AS two_fa_enabled, created_at, last_login FROM admin_users ORDER BY created_at ASC");
@@ -484,13 +593,12 @@ const adminUsers = {
   byId: async (id) => { const r = await pool.query("SELECT id, username, role, COALESCE(permissions,'[]') AS permissions, COALESCE(account_scope,'all') AS account_scope, COALESCE(allowed_account_ids,'[]') AS allowed_account_ids, COALESCE(two_fa_enabled,false) AS two_fa_enabled, created_at, last_login FROM admin_users WHERE id=$1", [id]); return r.rows[0]; },
   byUsername: async (username) => { const r = await pool.query('SELECT * FROM admin_users WHERE LOWER(username)=LOWER($1)', [username]); return r.rows[0]; },
   create: async (username, password, role='admin', permissions=[], accountScope='all', allowedAccountIds=[]) => {
-    const crypto = require('crypto');
-    const hash = crypto.createHash('sha256').update(password).digest('hex');
+    const hash = hashAdminPassword(password);
     await pool.query('INSERT INTO admin_users (username, password_hash, role, permissions, account_scope, allowed_account_ids) VALUES ($1,$2,$3,$4,$5,$6)', [username, hash, role, JSON.stringify(permissions), accountScope, JSON.stringify(allowedAccountIds)]);
   },
   delete: async (id) => { await pool.query('DELETE FROM admin_users WHERE id=$1', [id]); },
   updateLastLogin: async (id) => { await pool.query('UPDATE admin_users SET last_login=NOW() WHERE id=$1', [id]); },
-  changePassword: async (id, newPassword) => { const crypto = require('crypto'); const hash = crypto.createHash('sha256').update(newPassword).digest('hex'); await pool.query('UPDATE admin_users SET password_hash=$1 WHERE id=$2', [hash, id]); },
+  changePassword: async (id, newPassword) => { const hash = hashAdminPassword(newPassword); await pool.query('UPDATE admin_users SET password_hash=$1 WHERE id=$2', [hash, id]); },
   updateAccess: async (id, role, permissions, accountScope, allowedAccountIds) => {
     await pool.query('UPDATE admin_users SET role=$1, permissions=$2, account_scope=$3, allowed_account_ids=$4 WHERE id=$5', [role, JSON.stringify(permissions || []), accountScope || 'all', JSON.stringify(allowedAccountIds || []), id]);
   },
@@ -502,6 +610,14 @@ const adminUsers = {
   setPending2FA: async (id, secret) => { await pool.query('UPDATE admin_users SET two_fa_secret_pending=$1 WHERE id=$2', [secret, id]); },
   enable2FA: async (id, secret) => { await pool.query('UPDATE admin_users SET two_fa_enabled=true, two_fa_secret=$1, two_fa_secret_pending=NULL WHERE id=$2', [secret, id]); },
   disable2FA: async (id) => { await pool.query('UPDATE admin_users SET two_fa_enabled=false, two_fa_secret=NULL, two_fa_secret_pending=NULL WHERE id=$1', [id]); },
-  verify: async (username, password) => { const crypto = require('crypto'); const hash = crypto.createHash('sha256').update(password).digest('hex'); const r = await pool.query('SELECT * FROM admin_users WHERE LOWER(username)=LOWER($1) AND password_hash=$2', [username, hash]); return r.rows[0] || null; },
+  verify: async (username, password) => {
+    const r = await pool.query('SELECT * FROM admin_users WHERE LOWER(username)=LOWER($1) LIMIT 1', [username]);
+    const user = r.rows[0] || null;
+    if (!user || !verifyAdminPassword(password, user.password_hash)) return null;
+    if (!String(user.password_hash || '').startsWith('scrypt$')) {
+      await pool.query('UPDATE admin_users SET password_hash=$1 WHERE id=$2', [hashAdminPassword(password), user.id]).catch(()=>{});
+    }
+    return user;
+  },
 };
 module.exports = { init, pool, settingsDb, stripeAccounts, customers, subscriptions, payments, activityLog, webhookLogs, security, adminUsers };
