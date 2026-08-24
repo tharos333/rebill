@@ -184,7 +184,7 @@ html.light .toggle-thumb{background:#fff;left:18px}
 .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),transparent);opacity:0.5}
 .stat-label{font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:0.5px;text-transform:uppercase}
 .stat-value{font-size:22px;font-weight:700;margin-top:4px;letter-spacing:-0.5px}
-.stat-sub{font-size:12px;color:var(--muted);margin-top:3px;font-family:var(--mono)}
+.stat-sub{font-size:12px;color:var(--muted);margin-top:3px;font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:11px;overflow:hidden;margin-bottom:18px}
 .card-header{padding:13px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
 .card-header h3{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:0.5px;text-transform:uppercase;font-family:var(--mono)}
@@ -6026,15 +6026,15 @@ body.view-only-access #verification-debug-modal .modal-content{
     </div>
   </div>
   <div class="stats-grid">
-    <div class="stat-card"><div class="stat-label">MRR</div><div class="stat-value" id="stat-mrr">—</div><div class="stat-sub">estimated USD · normalized monthly</div></div>
-    <div class="stat-card"><div class="stat-label">Active subs</div><div class="stat-value" id="stat-subs">—</div><div class="stat-sub">subscriptions</div></div>
+    <div class="stat-card"><div class="stat-label">MRR</div><div class="stat-value" id="stat-mrr">—</div><div class="stat-sub" title="Estimated USD · normalized monthly">Est. normalized MRR</div></div>
+    <div class="stat-card"><div class="stat-label">Active subs</div><div class="stat-value" id="stat-subs">—</div><div class="stat-sub">Subscriptions</div></div>
     <div class="stat-card"><div class="stat-label">Customers</div><div class="stat-value" id="stat-customers">—</div><div class="stat-sub" id="stat-new-customers">total</div></div>
-    <div class="stat-card"><div class="stat-label">Payment Methods</div><div class="stat-value" id="stat-cards">—</div><div class="stat-sub">saved for reuse</div></div>
-    <div class="stat-card"><div class="stat-label">Failed Payments</div><div class="stat-value" id="stat-failed" style="color:var(--red)">—</div><div class="stat-sub">failed payments</div></div>
-    <div class="stat-card"><div class="stat-label">Revenue (est. USD)</div><div class="stat-value" id="stat-revenue">—</div><div class="stat-sub" id="stat-revenue-sub">estimated converted total</div></div>
-    <div class="stat-card"><div class="stat-label">Churn rate</div><div class="stat-value" id="stat-churn">—</div><div class="stat-sub">last 30 days</div></div>
-    <div class="stat-card"><div class="stat-label">Success rate</div><div class="stat-value" id="stat-success" style="color:var(--green)">—</div><div class="stat-sub">payment success</div></div>
-    <div class="stat-card"><div class="stat-label">Avg LTV</div><div class="stat-value" id="stat-ltv">—</div><div class="stat-sub">estimated USD · per customer</div></div>
+    <div class="stat-card"><div class="stat-label">Payment Methods</div><div class="stat-value" id="stat-cards">—</div><div class="stat-sub" title="Saved for reuse">Saved cards</div></div>
+    <div class="stat-card"><div class="stat-label">Failed Payments</div><div class="stat-value" id="stat-failed" style="color:var(--red)">—</div><div class="stat-sub">Failed</div></div>
+    <div class="stat-card"><div class="stat-label">Revenue (est. USD)</div><div class="stat-value" id="stat-revenue">—</div><div class="stat-sub" id="stat-revenue-sub" title="Estimated USD revenue this month">Est. USD this month</div></div>
+    <div class="stat-card"><div class="stat-label">Churn rate</div><div class="stat-value" id="stat-churn">—</div><div class="stat-sub">Last 30 days</div></div>
+    <div class="stat-card"><div class="stat-label">Success rate</div><div class="stat-value" id="stat-success" style="color:var(--green)">—</div><div class="stat-sub">Payment success</div></div>
+    <div class="stat-card"><div class="stat-label">Avg LTV</div><div class="stat-value" id="stat-ltv">—</div><div class="stat-sub" title="Estimated USD per customer">Est. USD / customer</div></div>
   </div>
   <!-- Churn Alerts -->
   <div id="churn-alerts-section" style="display:none;margin-bottom:16px;">
@@ -7452,7 +7452,8 @@ async function loadStats(){
     document.getElementById('stat-cards').textContent=s.saved_cards||0;
     document.getElementById('stat-failed').textContent=s.failed_payments||0;
     document.getElementById('stat-revenue').textContent=fmtCompactMoney(s.total_revenue||0);
-    document.getElementById('stat-revenue-sub').textContent='Est. USD · '+fmtCompactMoney(s.revenue_30d||0)+' this month';
+    document.getElementById('stat-revenue-sub').textContent='Est. USD this month';
+    document.getElementById('stat-revenue-sub').title='Estimated USD · '+fmtCompactMoney(s.revenue_30d||0)+' this month';
     document.getElementById('stat-churn').textContent=(s.churn_rate||0)+'%';
     document.getElementById('stat-success').textContent=(s.payment_success_rate||100)+'%';
     document.getElementById('stat-ltv').textContent=fmtCompactMoney(s.avg_ltv||0);
