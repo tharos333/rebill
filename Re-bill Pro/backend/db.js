@@ -1,4 +1,47 @@
 const { Pool } = require('pg');
+const crypto = require('crypto');
+
+// Passwords are stored as salted scrypt hashes. Legacy SHA-256 hashes from older
+// Subloop builds remain valid and are upgraded automatically after a successful login.
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const derived = crypto.scryptSync(String(password), salt, 64).toString('hex');
+  return `scrypt$${salt}$${derived}`;
+}
+function verifyPassword(password, storedHash) {
+  const stored = String(storedHash || '');
+  if (stored.startsWith('scrypt$')) {
+    const parts = stored.split('$');
+    if (parts.length !== 3 || !parts[1] || !parts[2]) return false;
+    try {
+      const actual = crypto.scryptSync(String(password), parts[1], 64);
+      const expected = Buffer.from(parts[2], 'hex');
+      return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
+    } catch (_err) { return false; }
+  }
+  // Legacy compatibility only. A successful login is immediately re-hashed with scrypt.
+  if (/^[a-f0-9]{64}$/i.test(stored)) {
+    const legacy = crypto.createHash('sha256').update(String(password)).digest('hex');
+    try { return crypto.timingSafeEqual(Buffer.from(legacy, 'hex'), Buffer.from(stored, 'hex')); }
+    catch (_err) { return false; }
+  }
+  return false;
+}
+
+function ownerBootstrapConfig() {
+  return {
+    username: String(process.env.SUBLOOP_OWNER_USERNAME || '').trim(),
+    password: String(process.env.SUBLOOP_OWNER_PASSWORD || ''),
+    forceReset: /^(1|true|yes|on)$/i.test(String(process.env.SUBLOOP_OWNER_FORCE_RESET || 'false').trim()),
+  };
+}
+function validateBootstrapCredentials(username, password) {
+  if (!username || !password) {
+    throw new Error('No Owner account exists. Set SUBLOOP_OWNER_USERNAME and SUBLOOP_OWNER_PASSWORD in Railway, then redeploy.');
+  }
+  if (username.length < 3 || username.length > 80) throw new Error('SUBLOOP_OWNER_USERNAME must be 3-80 characters.');
+  if (password.length < 8) throw new Error('SUBLOOP_OWNER_PASSWORD must be at least 8 characters.');
+}
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('railway.internal') ? false : { rejectUnauthorized: false }
@@ -188,20 +231,33 @@ async function init() {
   await pool.query(`UPDATE subscriptions
     SET ended_at=COALESCE(ended_at,updated_at,created_at)
     WHERE LOWER(COALESCE(status,'')) IN ('canceled','cancelled','incomplete_expired') AND ended_at IS NULL`).catch(()=>{});
-  // Default owner credentials. These values can be overridden in Railway with
-  // SUBLOOP_OWNER_USERNAME / SUBLOOP_OWNER_PASSWORD.
-  const crypto = require('crypto');
-  const defaultOwnerUsername = process.env.SUBLOOP_OWNER_USERNAME || 'Tharos333';
-  const defaultOwnerPassword = process.env.SUBLOOP_OWNER_PASSWORD || 'IssoMoussa544@###';
-  const defaultOwnerHash = crypto.createHash('sha256').update(defaultOwnerPassword).digest('hex');
+  // Owner bootstrap / recovery credentials live in Railway only. They are NOT a
+  // source of truth after the Owner has been created: normal password/user/role
+  // changes are made in Subloop and persist in PostgreSQL across redeploys.
+  const ownerBootstrap = ownerBootstrapConfig();
+  let ownerRow = (await pool.query("SELECT id, username FROM admin_users WHERE role='owner' ORDER BY id ASC LIMIT 1")).rows[0];
 
-  const adminCount = await pool.query('SELECT COUNT(*) FROM admin_users');
-  if (parseInt(adminCount.rows[0].count) === 0) {
-    await pool.query(
-      "INSERT INTO admin_users (username, password_hash, role) VALUES ($1, $2, 'owner')",
-      [defaultOwnerUsername, defaultOwnerHash]
+  if (!ownerRow) {
+    validateBootstrapCredentials(ownerBootstrap.username, ownerBootstrap.password);
+    const collision = await pool.query(
+      'SELECT id FROM admin_users WHERE LOWER(username)=LOWER($1) LIMIT 1',
+      [ownerBootstrap.username]
     );
+    if (collision.rows[0]) {
+      throw new Error('SUBLOOP_OWNER_USERNAME is already used by a non-Owner access user. Choose another username or change that user in Subloop.');
+    }
+    const inserted = await pool.query(
+      "INSERT INTO admin_users (username, password_hash, role) VALUES ($1, $2, 'owner') RETURNING id, username",
+      [ownerBootstrap.username, hashPassword(ownerBootstrap.password)]
+    );
+    ownerRow = inserted.rows[0];
+    // Fresh/bootstrap owners enroll their own 2FA inside Subloop; never inherit a
+    // legacy shared authenticator secret from older builds.
+    await pool.query("UPDATE settings SET value='false', updated_at=NOW() WHERE key='two_fa_enabled'").catch(()=>{});
+    await pool.query("UPDATE settings SET value='', updated_at=NOW() WHERE key='two_fa_secret'").catch(()=>{});
+    console.log(`[db] Initial Owner created from Railway bootstrap credentials: ${ownerRow.username}`);
   }
+
   const defaults = {
     dunning_enabled: 'false', two_fa_enabled: 'false', two_fa_secret: '',
     session_timeout: '480',
@@ -213,42 +269,45 @@ async function init() {
     await pool.query('INSERT INTO settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO NOTHING', [key, value]);
   }
 
-  // One-time recovery for databases that already existed before the default owner
-  // was added. The previous code only created Tharos333 when admin_users was empty,
-  // so an older database could permanently miss this login or keep an older hash.
-  // The marker makes this reset happen once only, so later password changes persist.
-  const ownerRecoveryKey = 'owner_credentials_recovery_2026_08_24';
-  const ownerRecovery = await pool.query('SELECT value FROM settings WHERE key=$1', [ownerRecoveryKey]);
-  if (!ownerRecovery.rows[0]) {
-    const existingOwner = await pool.query(
-      'SELECT id FROM admin_users WHERE LOWER(username)=LOWER($1) ORDER BY id ASC LIMIT 1',
-      [defaultOwnerUsername]
-    );
-    if (existingOwner.rows[0]) {
+  // Optional emergency Owner recovery. This is deliberately inert unless the
+  // Railway switch is explicitly enabled. A fingerprint marker means leaving the
+  // switch enabled cannot overwrite a password changed later inside Subloop on
+  // every deploy. To perform another recovery, change the Railway bootstrap
+  // password (or username) and redeploy with FORCE_RESET enabled.
+  if (ownerBootstrap.forceReset) {
+    validateBootstrapCredentials(ownerBootstrap.username, ownerBootstrap.password);
+    const fingerprint = crypto.createHash('sha256')
+      .update(`${ownerBootstrap.username}\0${ownerBootstrap.password}`)
+      .digest('hex');
+    const resetMarkerKey = 'owner_force_reset_fingerprint_v1';
+    const marker = (await pool.query('SELECT value FROM settings WHERE key=$1', [resetMarkerKey])).rows[0]?.value || '';
+    if (marker !== fingerprint) {
+      const collision = await pool.query(
+        'SELECT id FROM admin_users WHERE LOWER(username)=LOWER($1) AND id<>$2 LIMIT 1',
+        [ownerBootstrap.username, ownerRow.id]
+      );
+      if (collision.rows[0]) throw new Error('Cannot recover Owner: SUBLOOP_OWNER_USERNAME is already used by another access user.');
       await pool.query(`
         UPDATE admin_users
-        SET password_hash=$1,
+        SET username=$1,
+            password_hash=$2,
             role='owner',
             two_fa_enabled=false,
             two_fa_secret=NULL,
             two_fa_secret_pending=NULL
-        WHERE id=$2
-      `, [defaultOwnerHash, existingOwner.rows[0].id]);
-    } else {
+        WHERE id=$3
+      `, [ownerBootstrap.username, hashPassword(ownerBootstrap.password), ownerRow.id]);
+      // Recovery must also remove stale 2FA, otherwise an older global 2FA
+      // migration could immediately lock the recovered Owner out again.
+      await pool.query("UPDATE settings SET value='false', updated_at=NOW() WHERE key='two_fa_enabled'").catch(()=>{});
+      await pool.query("UPDATE settings SET value='', updated_at=NOW() WHERE key='two_fa_secret'").catch(()=>{});
       await pool.query(
-        "INSERT INTO admin_users (username, password_hash, role) VALUES ($1, $2, 'owner')",
-        [defaultOwnerUsername, defaultOwnerHash]
+        'INSERT INTO settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()',
+        [resetMarkerKey, fingerprint]
       );
+      ownerRow.username = ownerBootstrap.username;
+      console.log(`[db] Owner credentials recovered once from Railway for ${ownerBootstrap.username}`);
     }
-    // Clear any legacy global 2FA state as part of this one-time owner recovery.
-    // Otherwise the migration below could immediately re-enable an old authenticator secret.
-    await pool.query("UPDATE settings SET value='false', updated_at=NOW() WHERE key='two_fa_enabled'");
-    await pool.query("UPDATE settings SET value='', updated_at=NOW() WHERE key='two_fa_secret'");
-    await pool.query(
-      'INSERT INTO settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()',
-      [ownerRecoveryKey, 'done']
-    );
-    console.log(`[db] Owner login repaired for ${defaultOwnerUsername}`);
   }
   // One-time migration: preserve any previously shared active 2FA secret on the Owner account only.
   // Other access users must enroll their own authenticator after this migration.
@@ -612,13 +671,12 @@ const adminUsers = {
   byId: async (id) => { const r = await pool.query("SELECT id, username, role, COALESCE(permissions,'[]') AS permissions, COALESCE(account_scope,'all') AS account_scope, COALESCE(allowed_account_ids,'[]') AS allowed_account_ids, COALESCE(two_fa_enabled,false) AS two_fa_enabled, created_at, last_login FROM admin_users WHERE id=$1", [id]); return r.rows[0]; },
   byUsername: async (username) => { const r = await pool.query('SELECT * FROM admin_users WHERE LOWER(username)=LOWER($1)', [username]); return r.rows[0]; },
   create: async (username, password, role='admin', permissions=[], accountScope='all', allowedAccountIds=[]) => {
-    const crypto = require('crypto');
-    const hash = crypto.createHash('sha256').update(password).digest('hex');
+    const hash = hashPassword(password);
     await pool.query('INSERT INTO admin_users (username, password_hash, role, permissions, account_scope, allowed_account_ids) VALUES ($1,$2,$3,$4,$5,$6)', [username, hash, role, JSON.stringify(permissions), accountScope, JSON.stringify(allowedAccountIds)]);
   },
   delete: async (id) => { await pool.query('DELETE FROM admin_users WHERE id=$1', [id]); },
   updateLastLogin: async (id) => { await pool.query('UPDATE admin_users SET last_login=NOW() WHERE id=$1', [id]); },
-  changePassword: async (id, newPassword) => { const crypto = require('crypto'); const hash = crypto.createHash('sha256').update(newPassword).digest('hex'); await pool.query('UPDATE admin_users SET password_hash=$1 WHERE id=$2', [hash, id]); },
+  changePassword: async (id, newPassword) => { const hash = hashPassword(newPassword); await pool.query('UPDATE admin_users SET password_hash=$1 WHERE id=$2', [hash, id]); },
   updateAccess: async (id, role, permissions, accountScope, allowedAccountIds) => {
     await pool.query('UPDATE admin_users SET role=$1, permissions=$2, account_scope=$3, allowed_account_ids=$4 WHERE id=$5', [role, JSON.stringify(permissions || []), accountScope || 'all', JSON.stringify(allowedAccountIds || []), id]);
   },
@@ -630,6 +688,16 @@ const adminUsers = {
   setPending2FA: async (id, secret) => { await pool.query('UPDATE admin_users SET two_fa_secret_pending=$1 WHERE id=$2', [secret, id]); },
   enable2FA: async (id, secret) => { await pool.query('UPDATE admin_users SET two_fa_enabled=true, two_fa_secret=$1, two_fa_secret_pending=NULL WHERE id=$2', [secret, id]); },
   disable2FA: async (id) => { await pool.query('UPDATE admin_users SET two_fa_enabled=false, two_fa_secret=NULL, two_fa_secret_pending=NULL WHERE id=$1', [id]); },
-  verify: async (username, password) => { const crypto = require('crypto'); const hash = crypto.createHash('sha256').update(password).digest('hex'); const r = await pool.query('SELECT * FROM admin_users WHERE LOWER(username)=LOWER($1) AND password_hash=$2', [username, hash]); return r.rows[0] || null; },
+  verify: async (username, password) => {
+    const r = await pool.query('SELECT * FROM admin_users WHERE LOWER(username)=LOWER($1) LIMIT 1', [username]);
+    const user = r.rows[0] || null;
+    if (!user || !verifyPassword(password, user.password_hash)) return null;
+    if (!String(user.password_hash || '').startsWith('scrypt$')) {
+      const upgradedHash = hashPassword(password);
+      await pool.query('UPDATE admin_users SET password_hash=$1 WHERE id=$2', [upgradedHash, user.id]);
+      user.password_hash = upgradedHash;
+    }
+    return user;
+  },
 };
 module.exports = { init, pool, settingsDb, stripeAccounts, customers, subscriptions, payments, activityLog, webhookLogs, security, adminUsers };
