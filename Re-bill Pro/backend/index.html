@@ -32,7 +32,7 @@ html.light .nav-item:hover{background:rgba(0,0,0,0.04)}
 html.light .nav-item.active{background:rgba(108,99,255,0.08)}
 html.light tr:hover td{background:rgba(0,0,0,0.02)}
 body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;display:flex}
-body.modal-lock{overflow:hidden}
+body.modal-lock{overflow:hidden!important;overscroll-behavior:none}
 /* Login */
 .login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000}
 .login-screen.hidden{display:none}
@@ -7201,12 +7201,28 @@ async function api(path,opts){
   return payload||{};
 }
 function toast(msg,type){const t=document.getElementById('toast');t.textContent=msg;t.className='show '+(type||'success');setTimeout(()=>t.className='',2800);}
-function openModal(id){var el=document.getElementById(id);if(!el)return;el.classList.add('open');if(id==='payment-detail-modal')document.body.classList.add('modal-lock');}
+function hasOpenBlockingOverlay(){
+  return !!document.querySelector('.modal-bg.open, #customer-detail-modal.open');
+}
+function syncOverlayScrollLock(){
+  document.body.classList.toggle('modal-lock',hasOpenBlockingOverlay());
+}
+function openModal(id){
+  var el=document.getElementById(id);
+  if(!el)return;
+  el.classList.add('open');
+  syncOverlayScrollLock();
+}
 function closeModal(id){
   if(id==='payment-detail-modal'){
     var pdModal=document.getElementById('payment-detail-modal');
     if(pdModal){pdModal.classList.remove('payment-anim-prep','payment-anim-in');}
-  }var el=document.getElementById(id);if(!el)return;el.classList.remove('open');if(id==='payment-detail-modal'||!document.querySelector('.modal-bg.open'))document.body.classList.remove('modal-lock');}
+  }
+  var el=document.getElementById(id);
+  if(!el)return;
+  el.classList.remove('open');
+  syncOverlayScrollLock();
+}
 function paymentDrawerCardBadge(brand,last4){
   if(!brand&&!last4)return '<span class="no-card">—</span>';
   var raw=(brand||'').toLowerCase().trim();
@@ -7390,6 +7406,9 @@ function initApp(){
   }
 }
 function forceLogout(){
+  document.querySelectorAll('.modal-bg.open').forEach(function(m){m.classList.remove('open');});
+  var forcedDrawer=document.getElementById('customer-detail-modal');if(forcedDrawer)forcedDrawer.classList.remove('open');
+  document.body.classList.remove('modal-lock','drawer-open');
   localStorage.removeItem('subloop_auth');localStorage.removeItem('subloop_role');localStorage.removeItem('subloop_permissions');localStorage.removeItem('subloop_username');localStorage.removeItem('subloop_readonly');localStorage.removeItem('subloop_token');localStorage.removeItem('subloop_login_challenge');localStorage.removeItem('subloop_account_scope');localStorage.removeItem('subloop_allowed_account_ids');
   document.getElementById('app-screen').classList.add('hidden');
   document.getElementById('login-screen').classList.remove('hidden');
@@ -7399,6 +7418,9 @@ function forceLogout(){
   toast('Your access has been revoked. Please log in again.','error');
 }
 function disconnectApp(){
+  document.querySelectorAll('.modal-bg.open').forEach(function(m){m.classList.remove('open');});
+  var disconnectDrawer=document.getElementById('customer-detail-modal');if(disconnectDrawer)disconnectDrawer.classList.remove('open');
+  document.body.classList.remove('modal-lock','drawer-open');
   localStorage.removeItem('subloop_auth');
   localStorage.removeItem('subloop_role');
   localStorage.removeItem('subloop_permissions');
@@ -8938,6 +8960,7 @@ async function openCustomerDrawer(id){
   customerModal.classList.remove('customer-anim-prep','customer-anim-in','customer-drawer-anim-prep','customer-drawer-anim-in');
   customerModal.classList.add('open','customer-drawer-anim-prep');
   document.body.classList.add('drawer-open');
+  syncOverlayScrollLock();
   requestAnimationFrame(function(){
     requestAnimationFrame(function(){
       customerModal.classList.remove('customer-drawer-anim-prep');
@@ -8953,7 +8976,7 @@ async function openCustomerDrawer(id){
     closeCustomerDrawer();
   }
 }
-function closeCustomerDrawer(){var customerModal=document.getElementById('customer-detail-modal');customerModal.classList.remove('open','customer-anim-prep','customer-anim-in','customer-drawer-anim-prep','customer-drawer-anim-in');document.body.classList.remove('drawer-open');currentCustomerDrawerId=null;}
+function closeCustomerDrawer(){var customerModal=document.getElementById('customer-detail-modal');customerModal.classList.remove('open','customer-anim-prep','customer-anim-in','customer-drawer-anim-prep','customer-drawer-anim-in');document.body.classList.remove('drawer-open');syncOverlayScrollLock();currentCustomerDrawerId=null;}
 async function setCustStatus(id,status){
   if(blockViewOnlyAction())return;
   try{
@@ -9774,7 +9797,7 @@ async function saveEditAccess(){
   if(accountScope==='selected'&&!accountIds.length){errEl.textContent='Select at least one Stripe account';errEl.style.display='block';return;}
   try{var r=await api('/api/admin-users/'+id+'/permissions',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:role,permissions:permissions,account_scope:accountScope,allowed_account_ids:accountIds})});if(r.success){toast('✓ Access updated');closeModal('edit-access-modal');loadAdmins();}else{errEl.textContent=r.error||'Failed to update';errEl.style.display='block';}}catch(e){errEl.textContent='Server error';errEl.style.display='block';}
 }
-document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m&&m.id!=='payment-detail-modal')closeModal(m.id);}));
+document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m&&m.id!=='payment-detail-modal'&&m.id!=='verification-debug-modal')closeModal(m.id);}));
 </script>
 
 <script>
