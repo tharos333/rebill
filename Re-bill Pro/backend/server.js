@@ -13,6 +13,13 @@ const { initScheduler } = require('./scheduler');
 // Admin access tokens and Stripe-account scoping.
 // Set SUBLOOP_AUTH_SECRET in Railway for tokens that remain valid after a deploy/restart.
 const SUBLOOP_AUTH_SECRET = process.env.SUBLOOP_AUTH_SECRET || crypto.randomBytes(48).toString('hex');
+const SUBLOOP_LOGIN_ORIGIN = String(process.env.SUBLOOP_LOGIN_ORIGIN || 'https://subloop.space').replace(/\/$/, '');
+const SUBLOOP_APP_ORIGIN = String(process.env.SUBLOOP_APP_ORIGIN || 'https://app.subloop.space').replace(/\/$/, '');
+const SUBLOOP_LOGIN_HOST = new URL(SUBLOOP_LOGIN_ORIGIN).hostname.toLowerCase();
+const SUBLOOP_APP_HOST = new URL(SUBLOOP_APP_ORIGIN).hostname.toLowerCase();
+const SUBLOOP_COOKIE_DOMAIN = process.env.SUBLOOP_COOKIE_DOMAIN || '.subloop.space';
+const SUBLOOP_SESSION_COOKIE = 'subloop_session';
+const SUBLOOP_SESSION_MINUTES = 480;
 const ANALYST_DEFAULT_SECTIONS = ['dashboard','customers','payments','forecast','summary','mrr','recovery'];
 // View-only users may be assigned any non-administrative operating/reporting page, but cannot write.
 const ANALYST_ASSIGNABLE_SECTIONS = ['dashboard','activity','customers','subscriptions','payments','links','accounts','forecast','summary','mrr','recovery','webhooks'];
@@ -39,6 +46,49 @@ function parseAdminToken(token, purpose='access') {
 function bearerToken(req) {
   const header = String(req.headers.authorization || '');
   return header.startsWith('Bearer ') ? header.slice(7) : '';
+}
+function requestHostname(req) {
+  const raw = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim().toLowerCase();
+  return raw.replace(/:\d+$/, '');
+}
+function isSubloopDomainHost(host) {
+  host = String(host || '').toLowerCase();
+  return host === SUBLOOP_LOGIN_HOST || host === SUBLOOP_APP_HOST || host === 'subloop.space' || host.endsWith('.subloop.space');
+}
+function cookieToken(req) {
+  const raw = String(req.headers.cookie || '');
+  for (const part of raw.split(';')) {
+    const idx = part.indexOf('=');
+    if (idx < 0) continue;
+    const key = part.slice(0, idx).trim();
+    if (key !== SUBLOOP_SESSION_COOKIE) continue;
+    try { return decodeURIComponent(part.slice(idx + 1).trim()); } catch (_err) { return part.slice(idx + 1).trim(); }
+  }
+  return '';
+}
+function requestAccessToken(req) { return cookieToken(req) || bearerToken(req); }
+function sessionCookieOptions(req, clearing=false) {
+  const host = requestHostname(req);
+  const options = {
+    httpOnly: true,
+    secure: !(host === 'localhost' || host === '127.0.0.1'),
+    sameSite: 'lax',
+    path: '/'
+  };
+  if (isSubloopDomainHost(host)) options.domain = SUBLOOP_COOKIE_DOMAIN;
+  if (!clearing) options.maxAge = SUBLOOP_SESSION_MINUTES * 60 * 1000;
+  return options;
+}
+function setAdminSessionCookie(req, res, token) {
+  res.cookie(SUBLOOP_SESSION_COOKIE, token, sessionCookieOptions(req));
+}
+function clearAdminSessionCookie(req, res) {
+  res.clearCookie(SUBLOOP_SESSION_COOKIE, sessionCookieOptions(req, true));
+}
+function authTokenForJson(req, token) {
+  // On subloop.space/app.subloop.space, authentication is intentionally HttpOnly-cookie based.
+  // Keep the legacy token response only for non-Subloop hosts (for example the Railway fallback URL).
+  return isSubloopDomainHost(requestHostname(req)) ? {} : { token };
 }
 function normalizeAllowedAccountIds(user) {
   const list = Array.isArray(user?.allowed_account_ids) ? user.allowed_account_ids : [];
@@ -1167,7 +1217,6 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 
 app.use(express.json());
 app.use('/icons', express.static(path.join(__dirname, 'public', 'icons')));
-app.use(express.static(path.join(__dirname)));
 
 
 
@@ -1311,10 +1360,10 @@ app.post('/checkout/create-subscription', async (req, res) => {
 
 // Require a verified session token for the application API and enforce page/read-only permissions.
 app.use('/api', async (req, res, next) => {
-  const openPaths = ['/auth/verify', '/auth/check', '/security/2fa/validate'];
+  const openPaths = ['/auth/verify', '/auth/check', '/auth/logout', '/security/2fa/validate'];
   if (openPaths.includes(req.path)) return next();
   try {
-    const data = parseAdminToken(bearerToken(req), 'access');
+    const data = parseAdminToken(requestAccessToken(req), 'access');
     if (!data) return res.status(401).json({ error: 'Authentication required' });
     const user = await adminUsers.byId(data.id);
     if (!user) return res.status(401).json({ error: 'Access has been revoked' });
@@ -1939,7 +1988,7 @@ app.post('/api/customers/:id/portal', async (req, res) => {
     const acc = await stripeAccounts.byId(c.stripe_account_id);
     if (!acc?.secret_key) return res.status(400).json({ error: 'Stripe account secret key not found' });
     const stripe = require('stripe')(acc.secret_key);
-    const session = await stripe.billingPortal.sessions.create({ customer: c.stripe_customer_id, return_url: process.env.BASE_URL || 'https://rebill-production.up.railway.app' });
+    const session = await stripe.billingPortal.sessions.create({ customer: c.stripe_customer_id, return_url: SUBLOOP_APP_ORIGIN });
     res.json({ url: session.url });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
@@ -2487,12 +2536,18 @@ app.post('/api/security/2fa/validate', async (req, res) => {
     const user = await adminUsers.byId(challenge.id);
     if (!user) return res.status(401).json({ valid: false, error: 'Access has been revoked.' });
     const state = await adminUsers.twoFAState(user.id);
-    if (!state.enabled) return res.json({ valid: true, token: issueAdminToken(user), ...accessResponse(user) });
+    if (!state.enabled) {
+      const accessToken = issueAdminToken(user, 'access', SUBLOOP_SESSION_MINUTES);
+      setAdminSessionCookie(req, res, accessToken);
+      return res.json({ valid: true, ...authTokenForJson(req, accessToken), ...accessResponse(user) });
+    }
     if (!speakeasy) return res.status(503).json({ valid: false, error: 'Authenticator verification is unavailable' });
     if (!state.two_fa_secret) return res.status(503).json({ valid: false, error: 'Authenticator configuration is missing' });
     const valid = speakeasy.totp.verify({ secret: state.two_fa_secret, encoding: 'base32', token: req.body.token, window: 2 });
     if (!valid) return res.json({ valid: false });
-    res.json({ valid: true, token: issueAdminToken(user), ...accessResponse(user) });
+    const accessToken = issueAdminToken(user, 'access', SUBLOOP_SESSION_MINUTES);
+    setAdminSessionCookie(req, res, accessToken);
+    res.json({ valid: true, ...authTokenForJson(req, accessToken), ...accessResponse(user) });
   } catch(err) { res.status(500).json({ valid: false, error: 'Could not verify authenticator code' }); }
 });
 app.post('/api/security/2fa/disable', async (req, res) => {
@@ -2633,7 +2688,9 @@ app.post('/api/auth/verify', async (req, res) => {
       await security.logAttempt(ip, true, user.id, user.username);
       const twoFaState = await adminUsers.twoFAState(user.id);
       if (twoFaState.enabled) return res.json({ success: true, requires_2fa: true, login_challenge: issueAdminToken(user, '2fa', 5), ...accessResponse(user) });
-      return res.json({ success: true, token: issueAdminToken(user), ...accessResponse(user) });
+      const accessToken = issueAdminToken(user, 'access', SUBLOOP_SESSION_MINUTES);
+      setAdminSessionCookie(req, res, accessToken);
+      return res.json({ success: true, ...authTokenForJson(req, accessToken), ...accessResponse(user) });
     }
 
     const attemptedUser = username ? await adminUsers.byUsername(username) : null;
@@ -2643,12 +2700,16 @@ app.post('/api/auth/verify', async (req, res) => {
 });
 app.post('/api/auth/check', async (req, res) => {
   try {
-    const token = parseAdminToken(bearerToken(req), 'access');
+    const token = parseAdminToken(requestAccessToken(req), 'access');
     if (!token) return res.json({ valid: false });
     const user = await adminUsers.byId(token.id);
     if (!user) return res.json({ valid: false });
     res.json({ valid: true, ...accessResponse(user) });
   } catch(err) { res.json({ valid: false }); }
+});
+app.post('/api/auth/logout', (req, res) => {
+  clearAdminSessionCookie(req, res);
+  res.json({ success: true });
 });
 
 // Manual repair path for missed Stripe webhooks. This is intentionally Owner/Admin only.
@@ -3031,7 +3092,24 @@ app.get('/api/debug/admins', async (req, res) => {
 });
 
 // ── Webhook ───────────────────────────────────────────────────────────────────
-app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+app.get('*', async (req, res) => {
+  try {
+    const host = requestHostname(req);
+    const parsed = parseAdminToken(cookieToken(req), 'access');
+    let validCookieSession = false;
+    if (parsed) validCookieSession = !!(await adminUsers.byId(parsed.id));
+
+    if (host === SUBLOOP_LOGIN_HOST && validCookieSession) {
+      return res.redirect(302, SUBLOOP_APP_ORIGIN + '/');
+    }
+    if (host === SUBLOOP_APP_HOST && !validCookieSession) {
+      return res.redirect(302, SUBLOOP_LOGIN_ORIGIN + '/');
+    }
+    return res.sendFile(path.join(__dirname, 'index.html'));
+  } catch (_err) {
+    return res.sendFile(path.join(__dirname, 'index.html'));
+  }
+});
 
 const PORT = process.env.PORT || 8080;
 // Database migrations, including admin access columns, finish once before accepting requests.

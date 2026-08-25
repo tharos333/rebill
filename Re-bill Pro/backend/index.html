@@ -5911,6 +5911,8 @@ body.view-only-access #verification-debug-modal .modal-content{
 #global-search-results .badge span{font-weight:600!important;}
 
 </style>
+<script>(function(){if(location.hostname.toLowerCase()==='app.subloop.space')document.documentElement.classList.add('subloop-app-host');})();</script>
+<style>html.subloop-app-host #login-screen{display:none!important;}</style>
 </head>
 <body>
 
@@ -6888,6 +6890,44 @@ body.view-only-access #verification-debug-modal .modal-content{
 <div id="toast"></div>
 <script>
 let currentLink=null,currentEmbedToken=null,allCustomers=[],allSubscriptions=[],allPayments=[],allStripeAccounts=[],allAdminUsers=[],appSettings={},selectedSubs=new Set(),currentRevPeriod='all',bulkMode=false;
+const SUBLOOP_LOGIN_ORIGIN='https://subloop.space';
+const SUBLOOP_APP_ORIGIN='https://app.subloop.space';
+function isSubloopLoginHost(){return window.location.hostname.toLowerCase()==='subloop.space';}
+function isSubloopAppHost(){return window.location.hostname.toLowerCase()==='app.subloop.space';}
+function clearLocalAccessState(){
+  ['subloop_auth','subloop_role','subloop_permissions','subloop_username','subloop_readonly','subloop_token','subloop_login_challenge','subloop_account_scope','subloop_allowed_account_ids'].forEach(function(k){localStorage.removeItem(k);});
+}
+function showAuthenticatedApp(r){
+  if(r)storeAccessSession(r);
+  localStorage.setItem('subloop_auth','1');
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('app-screen').classList.remove('hidden');
+  applyAccessControl();
+  initApp();
+}
+function redirectToSubloopLogin(){window.location.replace(SUBLOOP_LOGIN_ORIGIN+'/');}
+function redirectToSubloopApp(){window.location.replace(SUBLOOP_APP_ORIGIN+'/');}
+async function bootstrapDomainSession(){
+  if(isSubloopAppHost()){
+    try{
+      const response=await fetch('/api/auth/check',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:'{}'});
+      const r=await response.json();
+      if(!r.valid){clearLocalAccessState();redirectToSubloopLogin();return;}
+      showAuthenticatedApp(r);
+    }catch(_err){clearLocalAccessState();redirectToSubloopLogin();}
+    return;
+  }
+  if(isSubloopLoginHost()){
+    // The server redirects an existing valid cookie session to app.subloop.space.
+    // If this page is served, present the login only and ignore stale localStorage from this origin.
+    clearLocalAccessState();
+    document.getElementById('app-screen').classList.add('hidden');
+    document.getElementById('login-screen').classList.remove('hidden');
+    return;
+  }
+  // Railway/custom fallback hosts keep the legacy localStorage flow.
+  if(localStorage.getItem('subloop_auth')==='1')showAuthenticatedApp();
+}
 function toggleTheme(){const isLight=document.documentElement.classList.toggle('light');localStorage.setItem('subloop_theme',isLight?'light':'dark');document.getElementById('theme-label').textContent=isLight?'Light mode':'Dark mode';updateLogos(isLight);}
 function updateLogos(isLight){const src=isLight?'https://i.ibb.co/6cD50Q6H/2.png':'https://i.ibb.co/xq0HVT9G/1.png';['sidebar-logo','login-logo'].forEach(id=>{const el=document.getElementById(id);if(el)el.src=src;});}
 function initTheme(){const isLight=localStorage.getItem('subloop_theme')==='light';if(isLight){document.documentElement.classList.add('light');const l=document.getElementById('theme-label');if(l)l.textContent='Light mode';}updateLogos(isLight);}
@@ -6907,7 +6947,7 @@ function clearPendingLoginIdentity(){
   localStorage.removeItem('subloop_login_challenge');
 }
 function storeAccessSession(r){
-  if(r.token)localStorage.setItem('subloop_token',r.token);
+  if(r.token)localStorage.setItem('subloop_token',r.token);else if(isSubloopAppHost()||isSubloopLoginHost())localStorage.removeItem('subloop_token');
   if(r.username)localStorage.setItem('subloop_username',r.username);
   localStorage.setItem('subloop_role',r.role||'admin');
   localStorage.setItem('subloop_permissions',JSON.stringify(r.permissions||[]));
@@ -6933,7 +6973,7 @@ function doLogin(){
   var err=document.getElementById('login-error');
   err.textContent='Incorrect username or password';
   err.classList.remove('visible');
-  fetch('/api/auth/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:user,password:pass})})
+  fetch('/api/auth/verify',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({username:user,password:pass})})
   .then(function(response){
     return response.json().catch(function(){return {};}).then(function(body){return {status:response.status,ok:response.ok,body:body};});
   })
@@ -6964,11 +7004,8 @@ function doLogin(){
 window.doLogin=doLogin;
 
 function completeLogin(){
-  localStorage.setItem('subloop_auth','1');
-  document.getElementById('login-screen').classList.add('hidden');
-  document.getElementById('app-screen').classList.remove('hidden');
-  applyAccessControl();
-  initApp();
+  if(isSubloopLoginHost()){redirectToSubloopApp();return;}
+  showAuthenticatedApp();
 }
 var ALL_SECTIONS=['dashboard','activity','customers','subscriptions','payments','links','accounts','forecast','expiry','summary','admins','settings','security','webhooks'];
 function getCurrentRole(){ return localStorage.getItem('subloop_role')||'owner'; }
@@ -7051,11 +7088,7 @@ function enforceReadonly(){
   if(viewerNotice) viewerNotice.remove();
   var main=document.querySelector('.main');if(main)main.style.paddingTop='';
 }
-if(localStorage.getItem('subloop_auth')==='1'){
-  document.getElementById('login-screen').classList.add('hidden');
-  document.getElementById('app-screen').classList.remove('hidden');
-  initApp();
-}
+bootstrapDomainSession();
 function otpInput(el,idx){el.value=el.value.replace(/\D/g,'').slice(0,1);if(el.value&&idx<5)document.getElementById('otp-'+(idx+1)).focus();if(getOtpCode().length===6)verify2FA();}
 function otpKey(e,idx){if(e.key==='Backspace'&&!e.target.value&&idx>0)document.getElementById('otp-'+(idx-1)).focus();if(e.key==='Enter')verify2FA();}
 function getOtpCode(){return[0,1,2,3,4,5].map(i=>document.getElementById('otp-'+i).value).join('');}
@@ -7064,9 +7097,9 @@ async function verify2FA(){
   const otp=getOtpCode();if(otp.length!==6)return;
   const challenge=localStorage.getItem('subloop_login_challenge')||'';
   try{
-    const response=await fetch('/api/security/2fa/validate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:otp,login_challenge:challenge})});
+    const response=await fetch('/api/security/2fa/validate',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({token:otp,login_challenge:challenge})});
     const r=await response.json();
-    if(r.valid&&r.token){storeAccessSession(r);localStorage.removeItem('subloop_login_challenge');completeLogin();}
+    if(r.valid){storeAccessSession(r);localStorage.removeItem('subloop_login_challenge');completeLogin();}
     else{document.getElementById('twofa-error').style.display='block';clearOtp();}
   }catch(e){toast('Error verifying code','error');}
 }
@@ -7194,6 +7227,7 @@ function badge(s){
 async function api(path,opts){
   opts=opts||{};opts.headers=opts.headers||{};
   var token=localStorage.getItem('subloop_token');if(token)opts.headers['Authorization']='Bearer '+token;
+  opts.credentials=opts.credentials||'include';
   const r=await fetch(path,opts);
   var payload=null;try{payload=await r.json();}catch(e){}
   if(r.status===401){forceLogout();throw new Error((payload&&payload.error)||'Authentication required');}
@@ -7409,7 +7443,11 @@ function forceLogout(){
   document.querySelectorAll('.modal-bg.open').forEach(function(m){m.classList.remove('open');});
   var forcedDrawer=document.getElementById('customer-detail-modal');if(forcedDrawer)forcedDrawer.classList.remove('open');
   document.body.classList.remove('modal-lock','drawer-open');
-  localStorage.removeItem('subloop_auth');localStorage.removeItem('subloop_role');localStorage.removeItem('subloop_permissions');localStorage.removeItem('subloop_username');localStorage.removeItem('subloop_readonly');localStorage.removeItem('subloop_token');localStorage.removeItem('subloop_login_challenge');localStorage.removeItem('subloop_account_scope');localStorage.removeItem('subloop_allowed_account_ids');
+  clearLocalAccessState();
+  if(isSubloopAppHost()){
+    fetch('/api/auth/logout',{method:'POST',credentials:'include'}).catch(function(){}).finally(redirectToSubloopLogin);
+    return;
+  }
   document.getElementById('app-screen').classList.add('hidden');
   document.getElementById('login-screen').classList.remove('hidden');
   document.getElementById('login-step-1').style.display='block';
@@ -7421,28 +7459,19 @@ function disconnectApp(){
   document.querySelectorAll('.modal-bg.open').forEach(function(m){m.classList.remove('open');});
   var disconnectDrawer=document.getElementById('customer-detail-modal');if(disconnectDrawer)disconnectDrawer.classList.remove('open');
   document.body.classList.remove('modal-lock','drawer-open');
-  localStorage.removeItem('subloop_auth');
-  localStorage.removeItem('subloop_role');
-  localStorage.removeItem('subloop_permissions');
-  localStorage.removeItem('subloop_username');
-  localStorage.removeItem('subloop_readonly');
-  localStorage.removeItem('subloop_token');
-  localStorage.removeItem('subloop_login_challenge');
-  localStorage.removeItem('subloop_account_scope');
-  localStorage.removeItem('subloop_allowed_account_ids');
-  var app=document.getElementById('app-screen');
-  var login=document.getElementById('login-screen');
-  if(app)app.classList.add('hidden');
-  if(login)login.classList.remove('hidden');
-  var step1=document.getElementById('login-step-1');
-  var step2=document.getElementById('login-step-2');
-  if(step1)step1.style.display='block';
-  if(step2)step2.style.display='none';
+  clearLocalAccessState();
   var pass=document.getElementById('login-pass');
   var passToggle=document.getElementById('login-password-toggle');
   if(pass){pass.value='';pass.type='password';}
   if(passToggle){passToggle.classList.remove('is-visible');passToggle.setAttribute('aria-label','Show password');passToggle.setAttribute('title','Show password');}
-  setTimeout(function(){var user=document.getElementById('login-user');if(user)user.focus();},80);
+  fetch('/api/auth/logout',{method:'POST',credentials:'include'}).catch(function(){}).finally(function(){
+    if(isSubloopAppHost()||isSubloopLoginHost()){redirectToSubloopLogin();return;}
+    var app=document.getElementById('app-screen');var login=document.getElementById('login-screen');
+    if(app)app.classList.add('hidden');if(login)login.classList.remove('hidden');
+    var step1=document.getElementById('login-step-1');var step2=document.getElementById('login-step-2');
+    if(step1)step1.style.display='block';if(step2)step2.style.display='none';
+    setTimeout(function(){var user=document.getElementById('login-user');if(user)user.focus();},80);
+  });
 }
 function toggleNotifications(e){
   if(e)e.stopPropagation();
