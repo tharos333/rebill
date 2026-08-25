@@ -6031,8 +6031,8 @@ body.view-only-access #verification-debug-modal .modal-content{
     <div class="stat-card"><div class="stat-label">Active subs</div><div class="stat-value" id="stat-subs">—</div><div class="stat-sub">Subscriptions</div></div>
     <div class="stat-card"><div class="stat-label">Customers</div><div class="stat-value" id="stat-customers">—</div><div class="stat-sub" id="stat-new-customers">total</div></div>
     <div class="stat-card"><div class="stat-label">Avg LTV</div><div class="stat-value" id="stat-ltv">—</div><div class="stat-sub" title="Estimated USD per customer">Est. USD / customer</div></div>
-    <div class="stat-card"><div class="stat-label">Success rate</div><div class="stat-value" id="stat-success" style="color:var(--green)">—</div><div class="stat-sub">Payment success</div></div>
-    <div class="stat-card"><div class="stat-label">Failed Payments</div><div class="stat-value" id="stat-failed" style="color:var(--red)">—</div><div class="stat-sub">Failed</div></div>
+    <div class="stat-card"><div class="stat-label">Success rate</div><div class="stat-value" id="stat-success" style="color:var(--green)">—</div><div class="stat-sub">Last 30 days</div></div>
+    <div class="stat-card"><div class="stat-label">Failed Payments</div><div class="stat-value" id="stat-failed" style="color:var(--red)">—</div><div class="stat-sub">Last 30 days</div></div>
     <div class="stat-card"><div class="stat-label">Churn rate</div><div class="stat-value" id="stat-churn">—</div><div class="stat-sub">Last 30 days</div></div>
     <div class="stat-card"><div class="stat-label">Payment Methods</div><div class="stat-value" id="stat-cards">—</div><div class="stat-sub" title="Saved for reuse">Saved cards</div></div>
   </div>
@@ -7451,11 +7451,12 @@ async function loadStats(){
     document.getElementById('stat-new-customers').textContent='+'+(s.new_customers_30d||0)+' this month';
     document.getElementById('stat-cards').textContent=s.saved_cards||0;
     document.getElementById('stat-failed').textContent=s.failed_payments||0;
-    document.getElementById('stat-revenue').textContent=fmtCompactMoney(s.total_revenue||0);
+    const monthRevenue=(s.revenue_month ?? s.revenue_30d ?? 0);
+    document.getElementById('stat-revenue').textContent=fmtCompactMoney(monthRevenue);
     document.getElementById('stat-revenue-sub').textContent='Est. USD this month';
-    document.getElementById('stat-revenue-sub').title='Estimated USD · '+fmtCompactMoney(s.revenue_30d||0)+' this month';
-    document.getElementById('stat-churn').textContent=(s.churn_rate||0)+'%';
-    document.getElementById('stat-success').textContent=(s.payment_success_rate||100)+'%';
+    document.getElementById('stat-revenue-sub').title='Estimated USD · '+fmtCompactMoney(monthRevenue)+' this month';
+    document.getElementById('stat-churn').textContent=(s.churn_rate ?? 0)+'%';
+    document.getElementById('stat-success').textContent=s.payment_success_rate==null?'—':(s.payment_success_rate+'%');
     document.getElementById('stat-ltv').textContent=fmtCompactMoney(s.avg_ltv||0);
     updateNotifications(s);
     document.getElementById('server-status').textContent='● connected';

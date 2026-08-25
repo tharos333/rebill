@@ -2714,7 +2714,12 @@ app.get('/api/stats', async (req, res) => {
         )
         SELECT
           COUNT(*)::int AS total_customers,
-          COUNT(*) FILTER (WHERE card_last4 IS NOT NULL)::int AS saved_cards,
+          -- Count only locally-known reusable Stripe payment methods. Card details from a
+          -- one-off/failed PaymentIntent are not enough to call a card "saved for reuse".
+          COUNT(*) FILTER (
+            WHERE COALESCE(stripe_customer_id,'') LIKE 'cus_%'
+              AND COALESCE(stripe_payment_method,'') LIKE 'pm_%'
+          )::int AS saved_cards,
           COUNT(*) FILTER (WHERE created_at >= DATE_TRUNC('month',NOW()))::int AS new_customers_30d
         FROM eligible`, [ids]),
       pool.query(`SELECT
@@ -2739,26 +2744,38 @@ app.get('/api/stats', async (req, res) => {
         FROM payments p JOIN customers c ON c.id=p.customer_id
         WHERE ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[]))`, [ids]),
       pool.query(`SELECT
-        COUNT(*) FILTER (WHERE LOWER(COALESCE(s.status,'')) IN ('canceled','cancelled') AND COALESCE(s.ended_at,s.updated_at,s.created_at) >= NOW()-INTERVAL '30 days')::int AS churned_30d,
-        COUNT(*) FILTER (WHERE LOWER(COALESCE(s.status,'')) IN ('active','paused','canceling','trialing','past_due','unpaid','canceled','cancelled'))::int AS subscription_population
+        COUNT(*) FILTER (
+          WHERE LOWER(COALESCE(s.status,'')) IN ('canceled','cancelled')
+            AND COALESCE(s.ended_at,s.updated_at,s.created_at) >= NOW()-INTERVAL '30 days'
+        )::int AS churned_30d,
+        COUNT(*) FILTER (
+          WHERE LOWER(COALESCE(s.status,'')) IN ('active','paused','canceling','trialing','past_due','unpaid')
+        )::int AS live_subscriptions
         FROM subscriptions s JOIN customers c ON c.id=s.customer_id
         WHERE ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[]))`, [ids]),
-      pool.query(`WITH eligible AS (
-          SELECT c.id
+      pool.query(`WITH pay_stats AS (
+          SELECT p.customer_id,
+            COALESCE(SUM(CASE WHEN LOWER(p.status)='succeeded' THEN p.amount ELSE 0 END),0)::bigint AS total_paid_original,
+            COALESCE(SUM(CASE WHEN LOWER(p.status)='succeeded' THEN ${usdAmountSql('p')} ELSE 0 END),0)::bigint AS total_paid_usd
+          FROM payments p
+          GROUP BY p.customer_id
+        ), eligible AS (
+          SELECT c.id, COALESCE(p.total_paid_usd,0)::bigint AS total_paid_usd
           FROM customers c
+          LEFT JOIN pay_stats p ON p.customer_id=c.id
           WHERE ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[]))
             AND LOWER(COALESCE(c.status,'')) <> 'pending'
-            AND COALESCE(c.email,'') NOT ILIKE '%@stripe.local'
-            AND COALESCE(c.stripe_customer_id,'') NOT LIKE 'external_%'
-            AND COALESCE(c.name,'') NOT LIKE 'pi_%'
-        ), paid AS (
-          SELECT p.customer_id, SUM(${usdAmountSql('p')})::bigint AS total
-          FROM payments p JOIN eligible e ON e.id=p.customer_id
-          WHERE LOWER(p.status)='succeeded'
-          GROUP BY p.customer_id
+            AND NOT (
+              COALESCE(p.total_paid_original,0)=0
+              AND (
+                COALESCE(c.email,'') ILIKE '%@stripe.local'
+                OR COALESCE(c.stripe_customer_id,'') LIKE 'external_%'
+                OR COALESCE(c.name,'') LIKE 'pi_%'
+              )
+            )
         )
-        SELECT COUNT(e.id)::int AS customers, COALESCE(SUM(p.total),0)::bigint AS total_paid
-        FROM eligible e LEFT JOIN paid p ON p.customer_id=e.id`, [ids])
+        SELECT COUNT(*)::int AS customers, COALESCE(SUM(total_paid_usd),0)::bigint AS total_paid
+        FROM eligible`, [ids])
     ]);
     const c = customerAgg.rows[0] || {};
     const sub = subscriptionAgg.rows[0] || {};
@@ -2766,12 +2783,16 @@ app.get('/api/stats', async (req, res) => {
     const churn = churnAgg.rows[0] || {};
     const ltv = ltvAgg.rows[0] || {};
     const attempts = Number(pay.succeeded_30d||0) + Number(pay.failed_payments||0);
-    const population = Number(churn.subscription_population||0);
-    const churnRate = population > 0 ? ((Number(churn.churned_30d||0)/population)*100).toFixed(1) : '0.0';
+    // 30-day churn is terminal cancellations in the window divided by the
+    // subscriptions still live plus those that churned in that same window. Old
+    // historical cancellations do not dilute today's churn rate.
+    const churned30d = Number(churn.churned_30d||0);
+    const churnPopulation = Number(churn.live_subscriptions||0) + churned30d;
+    const churnRate = churnPopulation > 0 ? ((churned30d/churnPopulation)*100).toFixed(1) : '0.0';
     const avgLtv = Number(ltv.customers||0) > 0 ? Math.round(Number(ltv.total_paid||0)/Number(ltv.customers)) : 0;
     res.json({
       ...c, ...sub, ...pay,
-      payment_success_rate: attempts > 0 ? Math.round((Number(pay.succeeded_30d||0)/attempts)*100) : 100,
+      payment_success_rate: attempts > 0 ? Math.round((Number(pay.succeeded_30d||0)/attempts)*100) : null,
       churn_rate: churnRate,
       avg_ltv: avgLtv,
       revenue_30d: pay.revenue_month,
