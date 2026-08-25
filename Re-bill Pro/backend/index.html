@@ -6533,8 +6533,8 @@ body.view-only-access #verification-debug-modal .modal-content{
 <div id="page-recovery" class="page">
   <div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 2v6h6"/><path d="M21.5 22v-6h-6"/><path d="M22 11.5A10 10 0 0 0 3.2 7.2"/><path d="M2 12.5a10 10 0 0 0 18.8 4.2"/></svg><span>Payment Recovery</span></h2><p>Failed payments later completed successfully</p></div></div>
   <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);">
-    <div class="stat-card"><div class="stat-label">Failed (30 days)</div><div class="stat-value" id="rec-failed" style="color:var(--red)">—</div><div class="stat-sub">total failures</div></div>
-    <div class="stat-card"><div class="stat-label">Recovered (30 days)</div><div class="stat-value" id="rec-recovered" style="color:var(--green)">—</div><div class="stat-sub">failed payments later paid</div></div>
+    <div class="stat-card"><div class="stat-label">Failed (30 days)</div><div class="stat-value" id="rec-failed" style="color:var(--red)">—</div><div class="stat-sub">failure attempts</div></div>
+    <div class="stat-card"><div class="stat-label">Recovered (30 days)</div><div class="stat-value" id="rec-recovered" style="color:var(--green)">—</div><div class="stat-sub">failed attempts later paid</div></div>
     <div class="stat-card"><div class="stat-label">Recovery Rate</div><div class="stat-value" id="rec-rate">—</div><div class="stat-sub">last 30 days</div></div>
   </div>
 </div>
@@ -9634,12 +9634,27 @@ async function loadMrr(){
     if(le)le.textContent=fmt(lastMonthRevenue);
     var ge=document.getElementById('mrr-growth');
     var gs=document.getElementById('mrr-growth-sub');
+    var twoMonthsAgo=new Date(now.getFullYear(),now.getMonth()-2,1);
+    var priorMonthRevenue=monthlyRevenue(monthKey(twoMonthsAgo));
     if(ge){
-      ge.textContent='Month in progress';
-      ge.style.color='var(--muted)';
-      ge.style.fontSize='20px';
+      ge.style.fontSize='';
+      if(priorMonthRevenue>0){
+        var growth=((lastMonthRevenue-priorMonthRevenue)/priorMonthRevenue)*100;
+        ge.textContent=(growth>0?'+':'')+growth.toFixed(1)+'%';
+        ge.style.color=growth>0?'var(--green)':(growth<0?'var(--red)':'var(--muted)');
+      }else if(lastMonthRevenue===0){
+        ge.textContent='0.0%';
+        ge.style.color='var(--muted)';
+      }else{
+        ge.textContent='—';
+        ge.style.color='var(--muted)';
+      }
     }
-    if(gs)gs.textContent='available after month closes';
+    if(gs){
+      gs.textContent=priorMonthRevenue>0
+        ? monthLabel(previousMonth)+' vs '+monthLabel(twoMonthsAgo)
+        : (lastMonthRevenue>0?'No prior-month baseline':'Last closed month');
+    }
     drawMrrChart(points);
   }catch(e){}
 }
@@ -9671,7 +9686,7 @@ function drawMrrChart(points){
   canvas.onmousemove=function(e){var bRect=canvas.getBoundingClientRect();var mx=(e.clientX-bRect.left)*(canvas.width/bRect.width);var idx=Math.round((mx-PAD.left)/cW*(points.length-1));if(idx<0||idx>=points.length){tooltip.style.display='none';return;}var p=points[idx];var x=PAD.left+(idx/(points.length-1||1))*cW;var y=PAD.top+cH-(cH*(p.value/niceMax));drawMrrChart(points);ctx.beginPath();ctx.setLineDash([4,4]);ctx.strokeStyle='rgba(108,99,255,0.4)';ctx.lineWidth=1;ctx.moveTo(x,PAD.top);ctx.lineTo(x,PAD.top+cH);ctx.stroke();ctx.setLineDash([]);tooltip.style.display='block';tooltip.innerHTML='<div style="color:var(--muted);margin-bottom:2px;">'+p.date+'</div><div style="font-weight:600;color:var(--accent);">'+fmt(p.value)+'</div>';var tipX=x>W/2?x-150:x+10;tooltip.style.left=tipX+'px';tooltip.style.top=(y-40)+'px';};
   canvas.onmouseleave=function(){tooltip.style.display='none';drawMrrChart(points);};
 }
-async function loadRecovery(){try{var d=await api('/api/recovery-rate');var rf=document.getElementById('rec-failed');if(rf)rf.textContent=d.total_failed||0;var rr=document.getElementById('rec-recovered');if(rr)rr.textContent=d.recovered||0;var rt=document.getElementById('rec-rate');if(rt){rt.textContent=(d.rate||0)+'%';rt.style.color=(d.rate||0)>=50?'var(--green)':'var(--red)';}}catch(e){}}
+async function loadRecovery(){try{var d=await api('/api/recovery-rate');var rf=document.getElementById('rec-failed');if(rf)rf.textContent=d.total_failed||0;var rr=document.getElementById('rec-recovered');if(rr)rr.textContent=d.recovered||0;var rt=document.getElementById('rec-rate');if(rt){if(d.rate==null){rt.textContent='—';rt.style.color='var(--muted)';}else{rt.textContent=d.rate+'%';rt.style.color=d.rate>=50?'var(--green)':'var(--red)';}}}catch(e){}}
 async function openPaymentNote(id){if(blockViewOnlyAction())return;document.getElementById('payment-note-id').value=id;document.getElementById('payment-note-text').value='Loading...';openModal('payment-note-modal');try{var list=await api('/api/payments');var p=list.find(function(x){return x.id===id;});document.getElementById('payment-note-text').value=p&&p.note?p.note:'';}catch(e){document.getElementById('payment-note-text').value='';}}
 async function savePaymentNote(){var id=document.getElementById('payment-note-id').value;var note=document.getElementById('payment-note-text').value;await api('/api/payments/'+id+'/note',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({note})});toast('✓ Note saved');closeModal('payment-note-modal');loadPayments();}
 var _refStore={};var _refIdx=0;

@@ -2737,7 +2737,10 @@ app.get('/api/stats', async (req, res) => {
         JOIN customers c ON c.id=s.customer_id
         WHERE ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[]))`, [ids]),
       pool.query(`SELECT
-        COUNT(*) FILTER (WHERE LOWER(p.status)='failed' AND p.created_at >= NOW()-INTERVAL '30 days')::int AS failed_payments,
+        COUNT(*) FILTER (
+          WHERE (LOWER(p.status)='failed' OR COALESCE(p.was_failed,false)=true)
+            AND p.created_at >= NOW()-INTERVAL '30 days'
+        )::int AS failed_payments,
         COUNT(*) FILTER (WHERE LOWER(p.status)='succeeded' AND p.created_at >= NOW()-INTERVAL '30 days')::int AS succeeded_30d,
         COALESCE(SUM(CASE WHEN LOWER(p.status)='succeeded' AND p.created_at >= DATE_TRUNC('month',NOW()) THEN ${usdAmountSql('p')} ELSE 0 END),0)::bigint AS revenue_month,
         COALESCE(SUM(CASE WHEN LOWER(p.status)='succeeded' THEN ${usdAmountSql('p')} ELSE 0 END),0)::bigint AS total_revenue
@@ -2813,8 +2816,49 @@ app.get('/api/revenue-chart', async (req, res) => {
 app.get('/api/daily-summary', async (req, res) => {
   try {
     const ids = scopedAccountIds(req);
-    const r = await pool.query(`SELECT COALESCE(SUM(CASE WHEN p.status='succeeded' AND p.created_at >= CURRENT_DATE THEN ${usdAmountSql('p')} ELSE 0 END),0) as revenue_today, COALESCE(COUNT(CASE WHEN p.status='succeeded' AND p.created_at >= CURRENT_DATE THEN 1 END),0) as payments_today, COALESCE(COUNT(CASE WHEN p.status='failed' AND p.created_at >= CURRENT_DATE THEN 1 END),0) as failed_today, COALESCE(SUM(CASE WHEN p.status='succeeded' AND p.created_at >= CURRENT_DATE - INTERVAL '7 days' THEN ${usdAmountSql('p')} ELSE 0 END),0) as revenue_7d, COALESCE(COUNT(CASE WHEN p.status='succeeded' AND p.created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END),0) as payments_7d, COALESCE(SUM(CASE WHEN p.status='succeeded' AND p.created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN ${usdAmountSql('p')} ELSE 0 END),0) as revenue_month, COALESCE(COUNT(CASE WHEN p.status='succeeded' AND p.created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN 1 END),0) as payments_month FROM payments p JOIN customers c ON c.id=p.customer_id WHERE ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[]))`, [ids]);
-    const c = await pool.query(`SELECT COUNT(*) as active_total, COUNT(CASE WHEN created_at >= CURRENT_DATE THEN 1 END) as new_today, COUNT(CASE WHEN created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as new_7d FROM customers WHERE status='active' AND ($1::int[] IS NULL OR stripe_account_id=ANY($1::int[]))`, [ids]);
+    const r = await pool.query(`
+      SELECT
+        COALESCE(SUM(CASE WHEN LOWER(p.status)='succeeded' AND p.created_at >= CURRENT_DATE THEN ${usdAmountSql('p')} ELSE 0 END),0)::bigint AS revenue_today,
+        COUNT(*) FILTER (WHERE LOWER(p.status)='succeeded' AND p.created_at >= CURRENT_DATE)::int AS payments_today,
+        COUNT(*) FILTER (
+          WHERE (LOWER(p.status)='failed' OR COALESCE(p.was_failed,false)=true)
+            AND p.created_at >= CURRENT_DATE
+        )::int AS failed_today,
+        COALESCE(SUM(CASE WHEN LOWER(p.status)='succeeded' AND p.created_at >= DATE_TRUNC('week', CURRENT_DATE) THEN ${usdAmountSql('p')} ELSE 0 END),0)::bigint AS revenue_7d,
+        COUNT(*) FILTER (WHERE LOWER(p.status)='succeeded' AND p.created_at >= DATE_TRUNC('week', CURRENT_DATE))::int AS payments_7d,
+        COALESCE(SUM(CASE WHEN LOWER(p.status)='succeeded' AND p.created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN ${usdAmountSql('p')} ELSE 0 END),0)::bigint AS revenue_month,
+        COUNT(*) FILTER (WHERE LOWER(p.status)='succeeded' AND p.created_at >= DATE_TRUNC('month', CURRENT_DATE))::int AS payments_month
+      FROM payments p
+      JOIN customers c ON c.id=p.customer_id
+      WHERE ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[]))
+    `, [ids]);
+    const c = await pool.query(`
+      WITH pay_stats AS (
+        SELECT customer_id,
+          COALESCE(SUM(CASE WHEN LOWER(status)='succeeded' THEN amount ELSE 0 END),0)::bigint AS total_paid
+        FROM payments
+        GROUP BY customer_id
+      ), eligible AS (
+        SELECT c.*
+        FROM customers c
+        LEFT JOIN pay_stats p ON p.customer_id=c.id
+        WHERE ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[]))
+          AND LOWER(COALESCE(c.status,'')) <> 'pending'
+          AND NOT (
+            COALESCE(p.total_paid,0)=0
+            AND (
+              COALESCE(c.email,'') ILIKE '%@stripe.local'
+              OR COALESCE(c.stripe_customer_id,'') LIKE 'external_%'
+              OR COALESCE(c.name,'') LIKE 'pi_%'
+            )
+          )
+      )
+      SELECT
+        COUNT(*) FILTER (WHERE LOWER(COALESCE(status,''))='active')::int AS active_total,
+        COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE)::int AS new_today,
+        COUNT(*) FILTER (WHERE created_at >= DATE_TRUNC('week', CURRENT_DATE))::int AS new_7d
+      FROM eligible
+    `, [ids]);
     res.json({ ...r.rows[0], ...c.rows[0] });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
@@ -2827,15 +2871,24 @@ app.get('/api/forecast', async (req, res) => {
     const occurrencesWithin = (nextDate, intervalDays, horizonDays) => {
       const interval = Number(intervalDays || 0);
       if (!Number.isFinite(interval) || interval <= 0 || !nextDate || Number.isNaN(nextDate.getTime())) return 0;
-      const diff = Math.max(0, (nextDate - now) / (1000*60*60*24));
-      if (diff > horizonDays) return 0;
-      // Count the next Stripe renewal once, then only additional full intervals that fit
-      // inside the requested horizon. This avoids double-counting a monthly subscription
-      // whose next charge is, for example, 20 days away in a 30-day forecast.
-      return 1 + Math.floor(Math.max(0, horizonDays - diff) / interval);
+      const dayMs = 1000*60*60*24;
+      const intervalMs = interval * dayMs;
+      let nextMs = nextDate.getTime();
+      const nowMs = now.getTime();
+
+      // A stale local next_billing_date must not make an already-missed charge count as
+      // upcoming (or create an extra occurrence). Roll it to the first future cycle.
+      if (nextMs < nowMs) {
+        const missedCycles = Math.ceil((nowMs - nextMs) / intervalMs);
+        nextMs += missedCycles * intervalMs;
+      }
+
+      const horizonMs = nowMs + (horizonDays * dayMs);
+      if (nextMs > horizonMs) return 0;
+      return 1 + Math.floor((horizonMs - nextMs) / intervalMs);
     };
     activeSubs.forEach(s => {
-      const next = new Date(s.next_billing_date);
+      const next = s.next_billing_date ? new Date(s.next_billing_date) : null;
       const usdAmount = toUsdCents(s.amount, s.currency);
       forecast30 += usdAmount * occurrencesWithin(next, s.interval_days, 30);
       forecast60 += usdAmount * occurrencesWithin(next, s.interval_days, 60);
@@ -2884,7 +2937,7 @@ app.get('/api/recovery-rate', async (req, res) => {
       ),
       recovered_successes AS (
         /* 1) A retry started through Subloop and linked to a failed payment. */
-        SELECT DISTINCT s.id AS recovery_id
+        SELECT DISTINCT f.id AS recovery_id
         FROM payments s
         JOIN failed f ON f.id=s.retry_of_payment_id
         WHERE s.status='succeeded'
@@ -2899,7 +2952,7 @@ app.get('/api/recovery-rate', async (req, res) => {
         UNION
 
         /* 3) Stripe payment/invoice/subscription retry: later successful attempt for the same bill. */
-        SELECT DISTINCT s.id AS recovery_id
+        SELECT DISTINCT f.id AS recovery_id
         FROM payments s
         JOIN failed f
           ON s.customer_id=f.customer_id
@@ -2916,7 +2969,7 @@ app.get('/api/recovery-rate', async (req, res) => {
         UNION
 
         /* 4) Customer self-retry for one-time checkout: same customer/amount/currency shortly after failure. */
-        SELECT DISTINCT s.id AS recovery_id
+        SELECT DISTINCT f.id AS recovery_id
         FROM payments s
         JOIN failed f
           ON s.customer_id=f.customer_id
@@ -2938,7 +2991,7 @@ app.get('/api/recovery-rate', async (req, res) => {
     const row = r.rows[0] || {};
     const tf = parseInt(row.total_failed) || 0;
     const recovered = parseInt(row.recovered) || 0;
-    const rate = tf > 0 ? Math.round((recovered / tf) * 100) : 0;
+    const rate = tf > 0 ? Math.round((recovered / tf) * 100) : null;
     res.json({ total_failed: tf, recovered, rate });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
