@@ -569,12 +569,14 @@ const customers = {
       LIMIT 1
     `,[id]);
 
+    // Customer drawer activity must not hide older orders behind a small recent-payment cap.
+    // Return the complete payment history for this customer, newest first. The drawer itself
+    // is already scrollable, so every successful order and failed attempt remains inspectable.
     const recentRes = await pool.query(`
       SELECT id, amount, currency, status, failure_reason, created_at
       FROM payments
       WHERE customer_id=$1
-      ORDER BY created_at DESC
-      LIMIT 5
+      ORDER BY created_at DESC, id DESC
     `,[id]);
 
     return { customer: customerRes.rows[0] || null, recent_payments: recentRes.rows };

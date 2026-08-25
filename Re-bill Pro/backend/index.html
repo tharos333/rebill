@@ -6005,12 +6005,7 @@ body.view-only-access #verification-debug-modal .modal-content{
   </div>
 
   </div><!-- end scrollable nav -->
-  <div style="flex-shrink:0;background:var(--surface);padding:18px 24px 16px;">
-    <button class="theme-toggle" onclick="toggleTheme()">
-      <div class="toggle-track"><div class="toggle-thumb"></div></div>
-      <span id="theme-label">Dark mode</span>
-    </button>
-    <div style="height:1px;background:var(--border);margin:14px -24px;"></div>
+  <div style="flex-shrink:0;background:var(--surface);padding:16px 24px;">
     <div style="display:flex;align-items:center;font-size:11px;color:var(--muted);font-family:var(--mono);">
       <span id="server-status">● loading...</span>
     </div>
@@ -8765,8 +8760,8 @@ function customerDrawerNoteRow(c){
   return '<div class="customer-profile-row customer-profile-note-row" data-k="'+key+'" onclick="closeCustomerDrawer();openNoteModal('+c.id+',_customerNoteStore[this.dataset.k])"><div class="customer-profile-label">Note</div><div class="customer-profile-value customer-profile-note-value"><span>'+safeNote+'</span><span class="customer-profile-note-edit">Edit</span></div></div>';
 }
 function customerActivityRows(rows){
-  if(!rows||!rows.length)return '<div class="customer-profile-empty">No recent activity yet</div>';
-  return '<div class="customer-profile-activity-list">'+rows.slice(0,8).map(function(r){
+  if(!rows||!rows.length)return '<div class="customer-profile-empty">No activity yet</div>';
+  return '<div class="customer-profile-activity-list">'+rows.map(function(r){
     var raw=(r.status||'').toLowerCase();
     var good=raw==='succeeded'||raw==='success'||raw==='paid';
     var bad=raw==='failed'||raw==='canceled'||raw==='cancelled';
