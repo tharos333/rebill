@@ -43,11 +43,11 @@ body.modal-lock{overflow:hidden}
 .login-field input{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;color:var(--text);padding:12px 14px;font-size:14px;font-family:var(--sans);outline:none;transition:border-color 0.2s}
 .login-field input:focus{border-color:var(--accent)}
 .login-password-wrap{position:relative}
-.login-password-wrap input{padding-right:46px}
-.login-password-toggle{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:32px;height:32px;border:0;background:transparent;color:var(--muted);display:flex;align-items:center;justify-content:center;border-radius:7px;cursor:pointer;padding:0;transition:color .15s,background .15s}
-.login-password-toggle:hover{color:var(--text);background:rgba(255,255,255,.05)}
-.login-password-toggle:focus-visible{outline:1px solid var(--accent);outline-offset:1px}
-.login-password-toggle svg{width:18px;height:18px;display:block}
+.login-password-wrap input{padding-right:42px}
+.login-password-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);width:22px;height:22px;border:0;background:none;color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;transition:color .15s,opacity .15s,filter .15s;opacity:.9}
+.login-password-toggle:hover{color:var(--text);opacity:1;filter:drop-shadow(0 0 6px rgba(126,102,255,.28))}
+.login-password-toggle:focus-visible{outline:none;color:var(--text);opacity:1;filter:drop-shadow(0 0 0 rgba(0,0,0,0)) drop-shadow(0 0 6px rgba(126,102,255,.38))}
+.login-password-toggle svg{width:20px;height:20px;display:block}
 .login-password-toggle .eye-off{display:none}
 .login-password-toggle.is-visible .eye-on{display:none}
 .login-password-toggle.is-visible .eye-off{display:block}
@@ -9138,17 +9138,20 @@ async function loadAccounts(){
           var defaultBadge=a.is_default?'<span class="badge badge-blue" style="margin-left:6px;">default</span>':'';
           var verificationHtml='';
           if(st==='active'&&!details.length){
-            verificationHtml='<span style="color:var(--green);font-size:12px;font-family:var(--mono);">Clear</span>';
+            verificationHtml='<span class="badge badge-green verification-badge">Clear</span>';
           } else if(details.length){
-            verificationHtml='<div style="font-size:12px;line-height:1.45;max-width:100%;">'
+            verificationHtml='<div class="verification-badge-stack">'
               + details.slice(0,3).map(function(d){
                 var safe=String(d).replace(/"/g,'&quot;');
-                return '<div title="'+safe+'" style="max-width:100%;color:var(--amber);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+d+'</div>';
+                return '<span class="badge badge-amber verification-badge" title="'+safe+'">'+d+'</span>';
               }).join('')
-              + (details.length>3?'<div style="color:var(--muted);font-size:11px;font-family:var(--mono);">+'+(details.length-3)+' more</div>':'')
+              + (details.length>3?'<span class="verification-more">+'+(details.length-3)+' more</span>':'')
               + '</div>';
+          } else if(reason){
+            var verificationColor=(st==='restricted'||st==='verification')?'amber':(st==='active'?'green':'red');
+            verificationHtml='<span class="badge badge-'+verificationColor+' verification-badge" title="'+reason+'">'+reason+'</span>';
           } else {
-            verificationHtml='<span style="color:var(--muted);font-size:12px;font-family:var(--mono);">'+(reason||'—')+'</span>';
+            verificationHtml='<span class="verification-empty">—</span>';
           }
           var manageActions='';
           if(canManageStripeAccounts()){
@@ -11026,6 +11029,11 @@ html.light #action-confirm-modal .modal-footer .btn-danger:hover {
 #page-accounts .stripe-accounts-table .accounts-col-name{width:22%;}
 #page-accounts .stripe-accounts-table .accounts-col-status{width:13%;}
 #page-accounts .stripe-accounts-table .accounts-col-verification{width:24%;}
+#page-accounts .verification-badge-stack{display:flex;flex-direction:column;align-items:flex-start;gap:4px;max-width:100%;}
+#page-accounts .verification-badge{max-width:100%;font-weight:600!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;justify-content:flex-start!important;}
+#page-accounts .verification-badge > span{font-weight:600!important;}
+#page-accounts .verification-more{font-size:11px;color:var(--muted);font-weight:600;}
+#page-accounts .verification-empty{color:var(--muted);font-size:12px;font-weight:600;}
 #page-accounts .stripe-accounts-table .accounts-col-embedded{width:12%;}
 #page-accounts .stripe-accounts-table .accounts-col-key{width:11%;}
 #page-accounts .stripe-accounts-table .accounts-col-actions{width:18%;}
