@@ -9161,7 +9161,7 @@ async function loadAccounts(){
             manageActions='<button class="btn btn-sm" onclick="debugStripeAccount('+a.id+')" title="View verification details">View details</button>';
           }
           var actionClass=canManageStripeAccounts()?'actions accounts-actions':'actions accounts-actions readonly-allowed-actions';
-          var embedBadge=a.has_publishable_key?'<span class="badge badge-green">Ready</span>':'<span class="badge badge-amber">Add pk_ key</span>';return '<tr style="'+rowBg+'"><td><strong style="font-size:13px;">'+a.name+'</strong></td><td>'+statusBadge+defaultBadge+'</td><td>'+verificationHtml+'</td><td>'+embedBadge+'</td><td class="mono accounts-key-cell" style="font-size:12px;color:var(--muted);">'+(a.key_preview||'—')+'</td><td><div class="'+actionClass+'">'+manageActions+'</div></td></tr>';
+          var embedBadge=a.has_publishable_key?'<span class="badge badge-green">Ready</span>':'<span class="badge badge-amber">Add pk_ key</span>';var safeAccountName=escHtml(a.name||'—');return '<tr style="'+rowBg+'"><td class="accounts-name-cell"><strong class="accounts-name-text" title="'+safeAccountName+'">'+safeAccountName+'</strong></td><td>'+statusBadge+defaultBadge+'</td><td>'+verificationHtml+'</td><td>'+embedBadge+'</td><td class="mono accounts-key-cell" style="font-size:12px;color:var(--muted);">'+(a.key_preview||'—')+'</td><td><div class="'+actionClass+'">'+manageActions+'</div></td></tr>';
         }).join('');
       }
     }
@@ -11027,6 +11027,8 @@ html.light #action-confirm-modal .modal-footer .btn-danger:hover {
   min-width:1240px;
 }
 #page-accounts .stripe-accounts-table .accounts-col-name{width:22%;}
+#page-accounts .stripe-accounts-table .accounts-name-cell{overflow:hidden;}
+#page-accounts .stripe-accounts-table .accounts-name-text{display:block;max-width:30ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600;}
 #page-accounts .stripe-accounts-table .accounts-col-status{width:13%;}
 #page-accounts .stripe-accounts-table .accounts-col-verification{width:24%;}
 #page-accounts .verification-badge-stack{display:flex;flex-direction:column;align-items:flex-start;gap:4px;max-width:100%;}
