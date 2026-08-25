@@ -2692,13 +2692,31 @@ app.get('/api/stats', async (req, res) => {
     // Keep customer, subscription and payment aggregates independent. Joining all three tables
     // multiplies rows (N subscriptions x M payments) and inflates MRR/revenue/counts.
     const [customerAgg, subscriptionAgg, paymentAgg, churnAgg, ltvAgg] = await Promise.all([
-      pool.query(`SELECT
-        COUNT(*)::int AS total_customers,
-        COUNT(*) FILTER (WHERE card_last4 IS NOT NULL)::int AS saved_cards,
-        COUNT(*) FILTER (WHERE created_at >= NOW()-INTERVAL '30 days')::int AS new_customers_30d
-        FROM customers c
-        WHERE ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[]))
-          AND NOT (COALESCE(c.email,'') ILIKE '%@stripe.local' OR COALESCE(c.stripe_customer_id,'') LIKE 'external_%' OR COALESCE(c.name,'') LIKE 'pi_%')`, [ids]),
+      pool.query(`WITH pay_stats AS (
+          SELECT customer_id,
+            COALESCE(SUM(CASE WHEN LOWER(status)='succeeded' THEN amount ELSE 0 END),0)::bigint AS total_paid
+          FROM payments
+          GROUP BY customer_id
+        ), eligible AS (
+          SELECT c.*
+          FROM customers c
+          LEFT JOIN pay_stats p ON p.customer_id=c.id
+          WHERE ($1::int[] IS NULL OR c.stripe_account_id=ANY($1::int[]))
+            AND LOWER(COALESCE(c.status,'')) <> 'pending'
+            AND NOT (
+              COALESCE(p.total_paid,0)=0
+              AND (
+                COALESCE(c.email,'') ILIKE '%@stripe.local'
+                OR COALESCE(c.stripe_customer_id,'') LIKE 'external_%'
+                OR COALESCE(c.name,'') LIKE 'pi_%'
+              )
+            )
+        )
+        SELECT
+          COUNT(*)::int AS total_customers,
+          COUNT(*) FILTER (WHERE card_last4 IS NOT NULL)::int AS saved_cards,
+          COUNT(*) FILTER (WHERE created_at >= DATE_TRUNC('month',NOW()))::int AS new_customers_30d
+        FROM eligible`, [ids]),
       pool.query(`SELECT
         COUNT(*) FILTER (WHERE LOWER(COALESCE(s.status,''))='active')::int AS active_subscriptions,
         COALESCE(SUM(CASE WHEN LOWER(COALESCE(s.status,''))='active' THEN
