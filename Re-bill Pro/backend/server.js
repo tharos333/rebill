@@ -95,6 +95,7 @@ function normalizeAllowedAccountIds(user) {
   return list.map(Number).filter(Number.isInteger);
 }
 function isOwnerOrAdmin(user) { return !!user && (user.role === 'owner' || user.role === 'admin'); }
+function isSuperAdmin(user) { return !!user && user.role === 'owner' && user.is_super_admin === true; }
 function isReadOnlyUser(user) { return !!user && (user.role === 'analyst' || user.role === 'viewer'); }
 function sanitizeSections(role, permissions) {
   const list = Array.isArray(permissions) ? [...new Set(permissions.map(String))] : [];
@@ -121,7 +122,7 @@ function rowWithinScope(req, row) {
   return ids === null || ids.includes(Number(row?.stripe_account_id));
 }
 function accessResponse(user) {
-  return { role: user.role, username: user.username, permissions: user.permissions || [], account_scope: user.account_scope || 'all', allowed_account_ids: normalizeAllowedAccountIds(user) };
+  return { role: user.role, username: user.username, permissions: user.permissions || [], account_scope: user.account_scope || 'all', allowed_account_ids: normalizeAllowedAccountIds(user), workspace_id: user.workspace_id || null, is_super_admin: !!user.is_super_admin };
 }
 function sectionForApiPath(req) {
   const path = req.path;
@@ -140,6 +141,7 @@ function sectionForApiPath(req) {
   if (path.startsWith('/security')) return 'security';
   if (path.startsWith('/webhook-logs')) return 'webhooks';
   if (path.startsWith('/admin-users')) return 'admins';
+  if (path.startsWith('/licenses')) return 'licenses';
   return null;
 }
 function requireOwnerOrAdmin(req, res) {
@@ -1369,7 +1371,7 @@ app.use('/api', async (req, res, next) => {
     if (!user) return res.status(401).json({ error: 'Access has been revoked' });
     req.currentUser = user;
     const selfSecurityPath = req.path === '/security/login-history' || req.path.startsWith('/security/2fa/');
-    const sensitive = ['/admin-users', '/settings', '/debug'];
+    const sensitive = ['/admin-users', '/settings', '/debug', '/licenses'];
     if (sensitive.some(prefix => req.path.startsWith(prefix)) && !isOwnerOrAdmin(user)) {
       return res.status(403).json({ error: 'Owner or admin access required' });
     }
@@ -2669,6 +2671,153 @@ app.post('/api/admin-users/:id/security/reset-2fa', async (req, res) => {
     await adminUsers.disable2FA(target.id);
     res.json({ success: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+
+// ── SaaS Licenses / Workspaces (Super Admin only) ────────────────────────────
+function requireSuperAdmin(req, res) {
+  if (!isSuperAdmin(req.currentUser)) { res.status(403).json({ error: 'Subloop Super Admin access required' }); return false; }
+  return true;
+}
+function normalizeLicensePlan(value) {
+  const v = String(value || '').toLowerCase().trim().replace(/[-\s]/g, '_');
+  if (['3_month','3_months','quarterly'].includes(v)) return '3_months';
+  if (['12_month','12_months','year','yearly','annual'].includes(v)) return '12_months';
+  if (['lifetime','life'].includes(v)) return 'lifetime';
+  return null;
+}
+function addCalendarMonths(date, months) {
+  const d = new Date(date);
+  const day = d.getUTCDate();
+  d.setUTCDate(1);
+  d.setUTCMonth(d.getUTCMonth() + months);
+  const last = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+  d.setUTCDate(Math.min(day, last));
+  return d;
+}
+function licenseExpiryForPlan(plan, start = new Date()) {
+  if (plan === 'lifetime') return null;
+  return addCalendarMonths(start, plan === '3_months' ? 3 : 12);
+}
+function slugBaseForWorkspace(name, email) {
+  const base = String(name || email || 'workspace').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40) || 'workspace';
+  return base;
+}
+async function uniqueWorkspaceSlug(name, email) {
+  const base = slugBaseForWorkspace(name, email);
+  for (let i=0;i<20;i++) {
+    const suffix = i === 0 ? '' : '-' + crypto.randomBytes(2).toString('hex');
+    const slug = (base + suffix).slice(0,48);
+    const exists = await pool.query('SELECT 1 FROM workspaces WHERE slug=$1 LIMIT 1',[slug]);
+    if (!exists.rows[0]) return slug;
+  }
+  return base.slice(0,35) + '-' + crypto.randomBytes(6).toString('hex');
+}
+async function expireLicenses() {
+  await pool.query(`UPDATE licenses SET status='expired', updated_at=NOW()
+    WHERE status='active' AND expires_at IS NOT NULL AND expires_at <= NOW()`);
+  await pool.query(`UPDATE workspaces w SET status='expired', updated_at=NOW()
+    FROM licenses l WHERE l.workspace_id=w.id AND l.status='expired' AND w.is_main=false AND w.status<>'expired'`);
+}
+app.get('/api/licenses', async (req,res) => {
+  try {
+    if (!requireSuperAdmin(req,res)) return;
+    await expireLicenses();
+    const r = await pool.query(`SELECT l.*, w.name AS workspace_name, w.slug AS workspace_slug, w.status AS workspace_status,
+      (SELECT COUNT(*)::int FROM stripe_accounts sa WHERE sa.workspace_id=w.id) AS stripe_accounts,
+      (SELECT COUNT(*)::int FROM admin_users au WHERE au.workspace_id=w.id) AS users
+      FROM licenses l JOIN workspaces w ON w.id=l.workspace_id
+      ORDER BY CASE WHEN l.status='active' THEN 0 WHEN l.status='suspended' THEN 1 ELSE 2 END,
+        COALESCE(l.expires_at,'9999-12-31'::timestamptz) ASC, l.created_at DESC`);
+    res.json(r.rows);
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+app.post('/api/licenses', async (req,res) => {
+  const client = await pool.connect();
+  try {
+    if (!requireSuperAdmin(req,res)) return;
+    const customerName = String(req.body.customer_name || '').trim();
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const plan = normalizeLicensePlan(req.body.plan);
+    const notes = String(req.body.notes || '').trim().slice(0,2000);
+    if (!customerName) return res.status(400).json({ error:'Customer name is required' });
+    if (!/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ error:'Enter a valid email address' });
+    if (!plan) return res.status(400).json({ error:'Select 3 months, 12 months, or lifetime' });
+    const slug = await uniqueWorkspaceSlug(customerName,email);
+    const startsAt = new Date();
+    const expiresAt = licenseExpiryForPlan(plan,startsAt);
+    await client.query('BEGIN');
+    const w = await client.query(`INSERT INTO workspaces (name,slug,is_main,status) VALUES ($1,$2,false,'licensed') RETURNING id,name,slug`,[customerName,slug]);
+    const l = await client.query(`INSERT INTO licenses (workspace_id,customer_name,email,plan,starts_at,expires_at,status,notes)
+      VALUES ($1,$2,$3,$4,$5,$6,'active',$7) RETURNING *`,[w.rows[0].id,customerName,email,plan,startsAt,expiresAt,notes||null]);
+    await client.query('COMMIT');
+    res.json({ success:true, license:l.rows[0], workspace:w.rows[0] });
+  } catch(err) {
+    await client.query('ROLLBACK').catch(()=>{});
+    res.status(500).json({ error:err.message });
+  } finally { client.release(); }
+});
+app.post('/api/licenses/:id/extend', async (req,res) => {
+  try {
+    if (!requireSuperAdmin(req,res)) return;
+    const months = Number(req.body.months);
+    if (![3,12].includes(months)) return res.status(400).json({ error:'Extension must be 3 or 12 months' });
+    const current = (await pool.query('SELECT * FROM licenses WHERE id=$1',[req.params.id])).rows[0];
+    if (!current) return res.status(404).json({ error:'License not found' });
+    const base = current.expires_at && new Date(current.expires_at) > new Date() ? new Date(current.expires_at) : new Date();
+    const expires = addCalendarMonths(base,months);
+    await pool.query(`UPDATE licenses SET plan=$1, expires_at=$2, status='active', updated_at=NOW() WHERE id=$3`,[months===3?'3_months':'12_months',expires,current.id]);
+    await pool.query(`UPDATE workspaces SET status='licensed',updated_at=NOW() WHERE id=$1`,[current.workspace_id]);
+    res.json({ success:true, expires_at:expires });
+  } catch(err) { res.status(500).json({ error:err.message }); }
+});
+app.post('/api/licenses/:id/lifetime', async (req,res) => {
+  try {
+    if (!requireSuperAdmin(req,res)) return;
+    const r=await pool.query(`UPDATE licenses SET plan='lifetime', expires_at=NULL, status='active', updated_at=NOW() WHERE id=$1 RETURNING workspace_id`,[req.params.id]);
+    if(!r.rows[0]) return res.status(404).json({error:'License not found'});
+    await pool.query(`UPDATE workspaces SET status='licensed',updated_at=NOW() WHERE id=$1`,[r.rows[0].workspace_id]);
+    res.json({success:true});
+  } catch(err){res.status(500).json({error:err.message});}
+});
+app.post('/api/licenses/:id/suspend', async (req,res) => {
+  try {
+    if (!requireSuperAdmin(req,res)) return;
+    const r=await pool.query(`UPDATE licenses SET status='suspended',updated_at=NOW() WHERE id=$1 RETURNING workspace_id`,[req.params.id]);
+    if(!r.rows[0]) return res.status(404).json({error:'License not found'});
+    await pool.query(`UPDATE workspaces SET status='suspended',updated_at=NOW() WHERE id=$1`,[r.rows[0].workspace_id]);
+    res.json({success:true});
+  } catch(err){res.status(500).json({error:err.message});}
+});
+app.post('/api/licenses/:id/reactivate', async (req,res) => {
+  try {
+    if (!requireSuperAdmin(req,res)) return;
+    const current=(await pool.query('SELECT * FROM licenses WHERE id=$1',[req.params.id])).rows[0];
+    if(!current) return res.status(404).json({error:'License not found'});
+    if(current.expires_at && new Date(current.expires_at)<=new Date()) return res.status(400).json({error:'This license is expired. Extend it or make it lifetime first.'});
+    await pool.query(`UPDATE licenses SET status='active',updated_at=NOW() WHERE id=$1`,[current.id]);
+    await pool.query(`UPDATE workspaces SET status='licensed',updated_at=NOW() WHERE id=$1`,[current.workspace_id]);
+    res.json({success:true});
+  } catch(err){res.status(500).json({error:err.message});}
+});
+app.delete('/api/licenses/:id', async (req,res) => {
+  const client=await pool.connect();
+  try {
+    if (!requireSuperAdmin(req,res)) return;
+    const current=(await client.query(`SELECT l.*,w.is_main FROM licenses l JOIN workspaces w ON w.id=l.workspace_id WHERE l.id=$1`,[req.params.id])).rows[0];
+    if(!current) return res.status(404).json({error:'License not found'});
+    if(current.is_main) return res.status(400).json({error:'Main workspace cannot be deleted'});
+    const deps=await client.query(`SELECT
+      (SELECT COUNT(*) FROM stripe_accounts WHERE workspace_id=$1)::int AS accounts,
+      (SELECT COUNT(*) FROM admin_users WHERE workspace_id=$1)::int AS users`,[current.workspace_id]);
+    if(Number(deps.rows[0].accounts)>0 || Number(deps.rows[0].users)>0) return res.status(409).json({error:'This workspace already has users or Stripe accounts. Suspend it instead of deleting it.'});
+    await client.query('BEGIN');
+    await client.query('DELETE FROM licenses WHERE id=$1',[current.id]);
+    await client.query('DELETE FROM workspaces WHERE id=$1',[current.workspace_id]);
+    await client.query('COMMIT');
+    res.json({success:true});
+  } catch(err){await client.query('ROLLBACK').catch(()=>{});res.status(500).json({error:err.message});}
+  finally{client.release();}
 });
 
 // ── Auth ──────────────────────────────────────────────────────────────────────

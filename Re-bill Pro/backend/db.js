@@ -48,6 +48,31 @@ const pool = new Pool({
 });
 async function init() {
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS workspaces (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      slug TEXT UNIQUE NOT NULL,
+      is_main BOOLEAN DEFAULT false,
+      status TEXT DEFAULT 'active',
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS workspaces_single_main_idx ON workspaces(is_main) WHERE is_main=true;
+    CREATE TABLE IF NOT EXISTS licenses (
+      id SERIAL PRIMARY KEY,
+      workspace_id INT UNIQUE NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+      customer_name TEXT NOT NULL,
+      email TEXT NOT NULL,
+      plan TEXT NOT NULL,
+      starts_at TIMESTAMPTZ DEFAULT NOW(),
+      expires_at TIMESTAMPTZ,
+      status TEXT DEFAULT 'active',
+      notes TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS licenses_status_idx ON licenses(status);
+    CREATE INDEX IF NOT EXISTS licenses_expires_idx ON licenses(expires_at);
     CREATE TABLE IF NOT EXISTS stripe_accounts (
       id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
@@ -180,6 +205,8 @@ async function init() {
     ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS two_fa_enabled BOOLEAN DEFAULT false;
     ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS two_fa_secret TEXT;
     ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS two_fa_secret_pending TEXT;
+    ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS workspace_id INT;
+    ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS is_super_admin BOOLEAN DEFAULT false;
     CREATE TABLE IF NOT EXISTS login_attempts (
       id SERIAL PRIMARY KEY,
       admin_user_id INT REFERENCES admin_users(id) ON DELETE SET NULL,
@@ -192,6 +219,13 @@ async function init() {
     ALTER TABLE login_attempts ADD COLUMN IF NOT EXISTS username TEXT;
   `);
   const migrations = [
+    'ALTER TABLE stripe_accounts ADD COLUMN IF NOT EXISTS workspace_id INT',
+    'ALTER TABLE customers ADD COLUMN IF NOT EXISTS workspace_id INT',
+    'ALTER TABLE embedded_checkout_sessions ADD COLUMN IF NOT EXISTS workspace_id INT',
+    'ALTER TABLE activity_log ADD COLUMN IF NOT EXISTS workspace_id INT',
+    'ALTER TABLE webhook_logs ADD COLUMN IF NOT EXISTS workspace_id INT',
+    'ALTER TABLE settings ADD COLUMN IF NOT EXISTS workspace_id INT',
+    'ALTER TABLE security ADD COLUMN IF NOT EXISTS workspace_id INT',
     'ALTER TABLE stripe_accounts ADD COLUMN IF NOT EXISTS publishable_key TEXT',
     'ALTER TABLE customers ADD COLUMN IF NOT EXISTS stripe_account_id INT',
     'ALTER TABLE customers ADD COLUMN IF NOT EXISTS note TEXT',
@@ -226,6 +260,30 @@ async function init() {
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_origin TEXT',
   ];
   for (const m of migrations) await pool.query(m).catch(() => {});
+
+  // SaaS workspace foundation. Every record that existed before licensing belongs to
+  // Main. This migration is additive and never deletes/recreates existing business data.
+  await pool.query(`INSERT INTO workspaces (name,slug,is_main,status)
+    VALUES ('Main','main',true,'active') ON CONFLICT (slug) DO NOTHING`);
+  const mainWorkspace = (await pool.query("SELECT id FROM workspaces WHERE is_main=true OR slug='main' ORDER BY is_main DESC,id ASC LIMIT 1")).rows[0];
+  if (!mainWorkspace) throw new Error('Could not initialize Main workspace');
+  const mainWorkspaceId = mainWorkspace.id;
+  const workspaceBackfills = [
+    ['stripe_accounts','workspace_id'], ['customers','workspace_id'], ['embedded_checkout_sessions','workspace_id'],
+    ['activity_log','workspace_id'], ['webhook_logs','workspace_id'], ['settings','workspace_id'], ['security','workspace_id'],
+    ['admin_users','workspace_id']
+  ];
+  for (const [table,column] of workspaceBackfills) {
+    await pool.query(`UPDATE ${table} SET ${column}=$1 WHERE ${column} IS NULL`, [mainWorkspaceId]).catch(()=>{});
+    // Preserve today's single-workspace behavior for any legacy insert path that has
+    // not yet been tenant-aware. Future customer-workspace inserts explicitly override it.
+    await pool.query(`ALTER TABLE ${table} ALTER COLUMN ${column} SET DEFAULT ${Number(mainWorkspaceId)}`).catch(()=>{});
+  }
+  // The original Main Owner becomes the installation-level Super Admin. Future
+  // customer workspace owners will not receive this flag.
+  await pool.query(`UPDATE admin_users SET is_super_admin=true
+    WHERE workspace_id=$1 AND role='owner' AND id=(SELECT id FROM admin_users WHERE workspace_id=$1 AND role='owner' ORDER BY id ASC LIMIT 1)`, [mainWorkspaceId]).catch(()=>{});
+
   // Freeze the terminal lifecycle timestamp once. Reconciliation may update updated_at,
   // but must not make an old canceled subscription appear newer than a later one-time payment.
   await pool.query(`UPDATE subscriptions
@@ -247,8 +305,8 @@ async function init() {
       throw new Error('SUBLOOP_OWNER_USERNAME is already used by a non-Owner access user. Choose another username or change that user in Subloop.');
     }
     const inserted = await pool.query(
-      "INSERT INTO admin_users (username, password_hash, role) VALUES ($1, $2, 'owner') RETURNING id, username",
-      [ownerBootstrap.username, hashPassword(ownerBootstrap.password)]
+      "INSERT INTO admin_users (username, password_hash, role, workspace_id, is_super_admin) VALUES ($1, $2, 'owner', $3, true) RETURNING id, username",
+      [ownerBootstrap.username, hashPassword(ownerBootstrap.password), mainWorkspaceId]
     );
     ownerRow = inserted.rows[0];
     // Fresh/bootstrap owners enroll their own 2FA inside Subloop; never inherit a
@@ -257,6 +315,7 @@ async function init() {
     await pool.query("UPDATE settings SET value='', updated_at=NOW() WHERE key='two_fa_secret'").catch(()=>{});
     console.log(`[db] Initial Owner created from Railway bootstrap credentials: ${ownerRow.username}`);
   }
+  await pool.query("UPDATE admin_users SET workspace_id=$1, is_super_admin=true WHERE id=$2", [mainWorkspaceId, ownerRow.id]).catch(()=>{});
 
   const defaults = {
     dunning_enabled: 'false', two_fa_enabled: 'false', two_fa_secret: '',
@@ -667,10 +726,10 @@ const security = {
 };
 const adminUsers = {
   all: async () => {
-    const r = await pool.query("SELECT id, username, role, COALESCE(permissions, '[]') as permissions, COALESCE(account_scope,'all') AS account_scope, COALESCE(allowed_account_ids,'[]') AS allowed_account_ids, COALESCE(two_fa_enabled,false) AS two_fa_enabled, created_at, last_login FROM admin_users ORDER BY created_at ASC");
+    const r = await pool.query("SELECT id, username, role, COALESCE(permissions, '[]') as permissions, COALESCE(account_scope,'all') AS account_scope, COALESCE(allowed_account_ids,'[]') AS allowed_account_ids, COALESCE(two_fa_enabled,false) AS two_fa_enabled, workspace_id, COALESCE(is_super_admin,false) AS is_super_admin, created_at, last_login FROM admin_users ORDER BY created_at ASC");
     return r.rows;
   },
-  byId: async (id) => { const r = await pool.query("SELECT id, username, role, COALESCE(permissions,'[]') AS permissions, COALESCE(account_scope,'all') AS account_scope, COALESCE(allowed_account_ids,'[]') AS allowed_account_ids, COALESCE(two_fa_enabled,false) AS two_fa_enabled, created_at, last_login FROM admin_users WHERE id=$1", [id]); return r.rows[0]; },
+  byId: async (id) => { const r = await pool.query("SELECT id, username, role, COALESCE(permissions,'[]') AS permissions, COALESCE(account_scope,'all') AS account_scope, COALESCE(allowed_account_ids,'[]') AS allowed_account_ids, COALESCE(two_fa_enabled,false) AS two_fa_enabled, workspace_id, COALESCE(is_super_admin,false) AS is_super_admin, created_at, last_login FROM admin_users WHERE id=$1", [id]); return r.rows[0]; },
   byUsername: async (username) => { const r = await pool.query('SELECT * FROM admin_users WHERE LOWER(username)=LOWER($1)', [username]); return r.rows[0]; },
   create: async (username, password, role='admin', permissions=[], accountScope='all', allowedAccountIds=[]) => {
     const hash = hashPassword(password);
