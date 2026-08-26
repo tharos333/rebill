@@ -61,7 +61,7 @@ body.modal-lock{overflow:hidden!important;overscroll-behavior:none}
 .sidebar{width:220px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:0;position:fixed;height:100vh;z-index:10;overflow:hidden}
 .logo{padding:0}
 .sidebar-header{height:52px!important;min-height:52px!important;max-height:52px!important;padding:0 0 0 24px!important;display:flex!important;align-items:center!important;justify-content:flex-start!important;box-sizing:border-box!important;border-bottom:1px solid rgba(255,255,255,0.08);}
-.sidebar-logo-img{width:150px!important;height:auto!important;display:block!important;object-fit:contain!important;margin:0!important;}
+.sidebar-logo-img{width:128px!important;height:auto!important;display:block!important;object-fit:contain!important;margin:0!important;}
 html.light .sidebar-header{border-bottom:1px solid rgba(0,0,0,0.08);}
 .nav-section{font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:1px;text-transform:uppercase;padding:12px 24px 4px}
 .nav-item{display:flex;align-items:center;gap:10px;padding:9px 24px;font-size:13px;color:var(--muted);cursor:pointer;transition:all 0.15s;border-left:2px solid transparent;border:none;background:none;width:100%;text-align:left}
@@ -5920,7 +5920,7 @@ body.view-only-access #verification-debug-modal .modal-content{
 <div class="login-screen" id="login-screen">
   <div class="login-box">
     <div class="login-logo">
-      <img id="login-logo" src="https://i.ibb.co/xq0HVT9G/1.png" alt="Subloop" style="width:170px;height:auto;display:block;margin:0 auto 10px;">
+      <img id="login-logo" src="/icons/platform-admin-logo.png" alt="Subloop" style="width:145px;height:auto;display:block;margin:0 auto 10px;">
     </div>
     <!-- Step 1 -->
     <div id="login-step-1">
@@ -5957,7 +5957,7 @@ body.view-only-access #verification-debug-modal .modal-content{
 <div class="app-screen hidden" id="app-screen">
 <nav class="sidebar">
   <div class="logo sidebar-header">
-    <img id="sidebar-logo" src="https://i.ibb.co/xq0HVT9G/1.png" alt="Subloop" class="sidebar-logo-img">
+    <img id="sidebar-logo" src="/icons/platform-admin-logo.png" alt="Subloop" class="sidebar-logo-img">
   </div>
   <div style="flex:1;overflow-y:auto;overflow-x:hidden;">
   <div class="nav-section">Main</div>
@@ -6969,7 +6969,7 @@ async function bootstrapDomainSession(){
   if(localStorage.getItem('subloop_auth')==='1')showAuthenticatedApp();
 }
 function toggleTheme(){const isLight=document.documentElement.classList.toggle('light');localStorage.setItem('subloop_theme',isLight?'light':'dark');document.getElementById('theme-label').textContent=isLight?'Light mode':'Dark mode';updateLogos(isLight);}
-function updateLogos(isLight){const src=isLight?'https://i.ibb.co/6cD50Q6H/2.png':'https://i.ibb.co/xq0HVT9G/1.png';['sidebar-logo','login-logo'].forEach(id=>{const el=document.getElementById(id);if(el)el.src=src;});}
+function updateLogos(isLight){const src='/icons/platform-admin-logo.png';['sidebar-logo','login-logo'].forEach(id=>{const el=document.getElementById(id);if(el)el.src=src;});}
 function initTheme(){const isLight=localStorage.getItem('subloop_theme')==='light';if(isLight){document.documentElement.classList.add('light');const l=document.getElementById('theme-label');if(l)l.textContent='Light mode';}updateLogos(isLight);}
 initTheme();
 function showLoginError(message){
