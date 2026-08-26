@@ -2864,11 +2864,16 @@ app.post('/admin/api/licenses', async (req,res) => {
     if (!req.platformAdmin) return res.status(401).json({ error:'Platform admin authentication required' });
     const customerName = String(req.body.customer_name || '').trim();
     const email = String(req.body.email || '').trim().toLowerCase();
+    const username = String(req.body.username || '').trim();
+    const password = String(req.body.password || '');
     const plan = normalizeLicensePlan(req.body.plan);
     const notes = String(req.body.notes || '').trim().slice(0,2000);
     if (!customerName) return res.status(400).json({ error:'Customer name is required' });
     if (!/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ error:'Enter a valid email address' });
+    if (username.length < 3 || username.length > 80) return res.status(400).json({ error:'Username must be 3-80 characters' });
+    if (password.length < 8) return res.status(400).json({ error:'Password must be at least 8 characters' });
     if (!plan) return res.status(400).json({ error:'Select 3 months, 12 months, or lifetime' });
+    if (await adminUsers.byUsername(username)) return res.status(409).json({ error:'Username already exists' });
     const slug = await uniqueWorkspaceSlug(customerName,email);
     const startsAt = new Date();
     const expiresAt = licenseExpiryForPlan(plan,startsAt);
@@ -2876,8 +2881,13 @@ app.post('/admin/api/licenses', async (req,res) => {
     const w = await client.query(`INSERT INTO workspaces (name,slug,is_main,status) VALUES ($1,$2,false,'licensed') RETURNING id,name,slug`,[customerName,slug]);
     const l = await client.query(`INSERT INTO licenses (workspace_id,customer_name,email,plan,starts_at,expires_at,status,notes)
       VALUES ($1,$2,$3,$4,$5,$6,'active',$7) RETURNING *`,[w.rows[0].id,customerName,email,plan,startsAt,expiresAt,notes||null]);
+    const salt = crypto.randomBytes(16).toString('hex');
+    const derived = crypto.scryptSync(String(password), salt, 64).toString('hex');
+    const passwordHash = `scrypt$${salt}$${derived}`;
+    await client.query(`INSERT INTO admin_users (username,password_hash,role,permissions,account_scope,allowed_account_ids,workspace_id,is_super_admin)
+      VALUES ($1,$2,'owner','[]'::jsonb,'all','[]'::jsonb,$3,false)`,[username,passwordHash,w.rows[0].id]);
     await client.query('COMMIT');
-    res.json({ success:true, license:l.rows[0], workspace:w.rows[0] });
+    res.json({ success:true, license:l.rows[0], workspace:w.rows[0], username });
   } catch(err) {
     await client.query('ROLLBACK').catch(()=>{});
     res.status(500).json({ error:err.message });
