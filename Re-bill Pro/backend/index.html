@@ -5996,8 +5996,6 @@ body.view-only-access #verification-debug-modal .modal-content{
     <svg id="settings-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform 0.2s;flex-shrink:0;"><polyline points="6 9 12 15 18 9"/></svg>
   </button>
   <div id="settings-subnav" style="display:none;overflow:hidden;">
-    <button class="nav-item" id="licenses-nav" style="display:none;" onclick="showPage('licenses',this)">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h10M7 13h6"/></svg>Licenses</button>
     <button class="nav-item" onclick="showPage('admins',this)">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>Admin Users</button>
     <button class="nav-item" onclick="showPage('settings',this)">
@@ -6586,28 +6584,6 @@ body.view-only-access #verification-debug-modal .modal-content{
 </div>
 
 
-<!-- Subloop Licenses — visible only to the installation Super Admin -->
-<div id="page-licenses" class="page">
-  <div class="page-header">
-    <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h10M7 13h6"/></svg><span>Licenses</span></h2><p>Manage Subloop customer access and workspaces</p></div>
-    <button class="btn btn-primary" onclick="openCreateLicenseModal()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Create License</button>
-  </div>
-  <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px;">
-    <div class="stat-card"><div class="stat-label">ACTIVE LICENSES</div><div class="stat-value" id="license-stat-active">0</div><div class="stat-sub">Current access</div></div>
-    <div class="stat-card"><div class="stat-label">EXPIRING SOON</div><div class="stat-value" id="license-stat-expiring">0</div><div class="stat-sub">Next 30 days</div></div>
-    <div class="stat-card"><div class="stat-label">LIFETIME</div><div class="stat-value" id="license-stat-lifetime">0</div><div class="stat-sub">No expiration</div></div>
-    <div class="stat-card"><div class="stat-label">SUSPENDED / EXPIRED</div><div class="stat-value" id="license-stat-inactive">0</div><div class="stat-sub">No current access</div></div>
-  </div>
-  <div class="card">
-    <div class="scrollable"><table>
-      <thead><tr><th>Customer</th><th>Plan</th><th>Started</th><th>Expires</th><th>Status</th><th>Workspace</th><th>Actions</th></tr></thead>
-      <tbody id="licenses-table"><tr><td colspan="7" class="empty">Loading...</td></tr></tbody>
-    </table></div>
-  </div>
-  <div style="margin-top:12px;font-size:11px;color:var(--muted);font-family:var(--mono);line-height:1.55;">Customer login provisioning is intentionally separate from license creation. This keeps new workspaces isolated until their login is provisioned.</div>
-</div>
-
-<!-- Admin Users -->
 <div id="page-admins" class="page">
   <div class="page-header">
     <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg><span>Admin Users</span></h2><p>Manage who can access Subloop</p></div>
@@ -6636,17 +6612,6 @@ body.view-only-access #verification-debug-modal .modal-content{
 </div>
 
 <!-- Modals -->
-<div class="modal-bg" id="create-license-modal">
-  <div class="modal">
-    <h3>Create Subloop License</h3><p>Create an isolated customer workspace and set its access period.</p>
-    <div class="form-group"><label>Customer name</label><input type="text" id="license-customer-name" placeholder="Customer or business name"></div>
-    <div class="form-group"><label>Email</label><input type="email" id="license-email" placeholder="customer@example.com"></div>
-    <div class="form-group"><label>Plan</label><select id="license-plan"><option value="3_months">3 Months</option><option value="12_months">12 Months</option><option value="lifetime">Lifetime</option></select></div>
-    <div class="form-group"><label>Note (optional)</label><textarea id="license-notes" placeholder="Internal note..."></textarea></div>
-    <div id="license-create-error" style="display:none;color:var(--red);font-size:12px;font-family:var(--mono);margin-top:8px;"></div>
-    <div class="modal-footer"><button class="btn" onclick="closeModal('create-license-modal')">Cancel</button><button class="btn btn-primary" onclick="createLicense()">Create License</button></div>
-  </div>
-</div>
 <div class="modal-bg" id="add-customer-modal">
   <div class="modal">
     <h3>Add Stripe Customer</h3><p>Enter the real Stripe customer ID. Subloop will retrieve the customer and reusable saved payment method directly from Stripe.</p>
@@ -7043,7 +7008,7 @@ function completeLogin(){
   if(isSubloopLoginHost()){redirectToSubloopApp();return;}
   showAuthenticatedApp();
 }
-var ALL_SECTIONS=['dashboard','activity','customers','subscriptions','payments','links','accounts','forecast','expiry','summary','licenses','admins','settings','security','webhooks'];
+var ALL_SECTIONS=['dashboard','activity','customers','subscriptions','payments','links','accounts','forecast','expiry','summary','admins','settings','security','webhooks'];
 function getCurrentRole(){ return localStorage.getItem('subloop_role')||'owner'; }
 function getCurrentPermissions(){ try{ return JSON.parse(localStorage.getItem('subloop_permissions')||'[]'); }catch(e){ return []; } }
 function isViewOnlyAccess(){
@@ -7057,7 +7022,7 @@ function blockViewOnlyAction(){
 }
 function canAccess(section){
   var role=getCurrentRole();
-  if(section==='licenses') return localStorage.getItem('subloop_super_admin')==='1';
+  
   if(section==='security') return true;
   if(!role||role==='owner'||role==='admin') return true;
   if(role==='viewer'||role==='analyst'){ var analystPerms=getCurrentPermissions(); return analystPerms.length?analystPerms.includes(section):['dashboard','customers','payments','forecast','summary','mrr','recovery'].includes(section); }
@@ -7100,7 +7065,6 @@ function applyAccessControl(){
   else localStorage.removeItem('subloop_readonly');
   applyRoleBasedPageCopy();
   applyOperationalActionVisibility();
-  var licensesNav=document.getElementById('licenses-nav');if(licensesNav)licensesNav.style.display=localStorage.getItem('subloop_super_admin')==='1'?'flex':'none';
   if(!role||role==='owner'||role==='admin') return;
   document.querySelectorAll('.nav-item').forEach(function(btn){
     var onclick=btn.getAttribute('onclick')||'';
@@ -7172,7 +7136,7 @@ function showPage(name,el){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   el.classList.add('active');
-  const loaders={dashboard:()=>{loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();},activity:loadActivity,customers:loadCustomers,subscriptions:loadSubscriptions,payments:loadPayments,settings:loadSettings,accounts:loadAccounts,security:loadSecurity,webhooks:loadWebhooks,forecast:loadForecast,summary:loadSummary,licenses:loadLicenses,admins:loadAdmins,mrr:()=>{var period=document.getElementById('mrr-period');if(period)period.value='year';loadMrr();},recovery:loadRecovery,links:()=>{loadPaymentLinkAccounts();loadTemplates();configurePaymentLinksAccessUI();}};
+  const loaders={dashboard:()=>{loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();},activity:loadActivity,customers:loadCustomers,subscriptions:loadSubscriptions,payments:loadPayments,settings:loadSettings,accounts:loadAccounts,security:loadSecurity,webhooks:loadWebhooks,forecast:loadForecast,summary:loadSummary,admins:loadAdmins,mrr:()=>{var period=document.getElementById('mrr-period');if(period)period.value='year';loadMrr();},recovery:loadRecovery,links:()=>{loadPaymentLinkAccounts();loadTemplates();configurePaymentLinksAccessUI();}};
   expandSettingsIfNeeded(name);
   if(!canAccess(name)){
     document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
@@ -9298,60 +9262,6 @@ async function loadSummary(){try{const d=await api('/api/daily-summary');documen
 async function sendManualInvoice(){if(blockViewOnlyAction())return;const custId=document.getElementById('invoice-customer-id').value.trim();const amount=Math.round(parseFloat(document.getElementById('invoice-amount').value)*100);const currency=document.getElementById('invoice-currency').value;const desc=document.getElementById('invoice-desc').value;const result=document.getElementById('invoice-result');if(!custId||!amount||!currency){toast('Fill in customer, amount, and currency','error');return;}try{const r=await api('/api/customers/'+encodeURIComponent(custId)+'/charge-once',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount,currency,description:desc})});result.style.display='block';if(r.success){result.style.background='var(--green-bg)';result.style.color='var(--green)';result.style.border='1px solid var(--green)';result.textContent='✓ Payment succeeded in '+currency.toUpperCase()+'!';}else{result.style.background='var(--red-bg)';result.style.color='var(--red)';result.style.border='1px solid var(--red)';result.textContent='✗ '+(r.error||'Failed');}}catch(e){toast((e&&e.message)||'Charge failed','error');}}
 function openInvoiceModal(customerId,currency){document.getElementById('invoice-modal-customer-id').value=customerId;document.getElementById('invoice-modal-amount').value='';document.getElementById('invoice-modal-desc').value='Manual invoice';var cur=document.getElementById('invoice-modal-currency');if(cur)cur.value=/^[a-z]{3}$/i.test(String(currency||''))?String(currency).toLowerCase():'usd';document.getElementById('invoice-modal-result').style.display='none';openModal('invoice-modal');}
 async function sendInvoiceFromModal(){const customerId=document.getElementById('invoice-modal-customer-id').value;const amount=Math.round(parseFloat(document.getElementById('invoice-modal-amount').value)*100);const currency=document.getElementById('invoice-modal-currency').value;const desc=document.getElementById('invoice-modal-desc').value;const result=document.getElementById('invoice-modal-result');if(!amount||amount<50){toast('Minimum amount is 0.50 '+currency.toUpperCase(),'error');return;}try{const r=await api('/api/customers/'+encodeURIComponent(customerId)+'/charge-once',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount,currency,description:desc})});result.style.display='block';if(r.success){result.style.cssText='background:var(--green-bg);color:var(--green);border:1px solid var(--green);padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);';result.textContent='✓ Charged successfully in '+currency.toUpperCase()+'!';toast('✓ One-time payment succeeded');}else{result.style.cssText='background:var(--red-bg);color:var(--red);border:1px solid var(--red);padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);';result.textContent='✗ '+(r.error||'Failed');toast('Failed','error');}}catch(e){toast((e&&e.message)||'Charge failed','error');}}
-function licensePlanLabel(plan){return plan==='3_months'?'3 Months':plan==='12_months'?'12 Months':plan==='lifetime'?'Lifetime':String(plan||'—');}
-function licenseStatusBadge(status){
-  status=String(status||'').toLowerCase();
-  var cls=status==='active'?'badge-green':status==='suspended'?'badge-blue':status==='expired'?'badge-red':'badge-gray';
-  var label=status?status.charAt(0).toUpperCase()+status.slice(1):'Unknown';
-  return '<span class="badge '+cls+'">'+escHtml(label)+'</span>';
-}
-function licenseDaysRemaining(value){if(!value)return null;var ms=new Date(value).getTime()-Date.now();return Math.ceil(ms/86400000);}
-async function loadLicenses(){
-  var tb=document.getElementById('licenses-table');if(!tb)return;
-  if(localStorage.getItem('subloop_super_admin')!=='1'){tb.innerHTML='<tr><td colspan="7" class="empty">Super Admin access required</td></tr>';return;}
-  tb.innerHTML='<tr><td colspan="7" class="empty">Loading...</td></tr>';
-  try{
-    var list=await api('/api/licenses');allLicenses=Array.isArray(list)?list:[];
-    var active=allLicenses.filter(function(x){return x.status==='active';}).length;
-    var lifetime=allLicenses.filter(function(x){return x.status==='active'&&x.plan==='lifetime';}).length;
-    var expiring=allLicenses.filter(function(x){var d=licenseDaysRemaining(x.expires_at);return x.status==='active'&&d!=null&&d>=0&&d<=30;}).length;
-    var inactive=allLicenses.filter(function(x){return x.status==='suspended'||x.status==='expired';}).length;
-    document.getElementById('license-stat-active').textContent=active;
-    document.getElementById('license-stat-expiring').textContent=expiring;
-    document.getElementById('license-stat-lifetime').textContent=lifetime;
-    document.getElementById('license-stat-inactive').textContent=inactive;
-    if(!allLicenses.length){tb.innerHTML='<tr><td colspan="7" class="empty">No customer licenses yet</td></tr>';return;}
-    tb.innerHTML=allLicenses.map(function(l){
-      var days=licenseDaysRemaining(l.expires_at);
-      var expiry=l.plan==='lifetime'?'—':(l.expires_at?fmtDate(l.expires_at):'—');
-      if(days!=null&&l.status==='active')expiry+='<div style="font-size:10px;color:'+(days<=30?'var(--amber)':'var(--muted)')+';font-family:var(--mono);margin-top:3px;">'+Math.max(0,days)+' days left</div>';
-      var actionState=l.status==='suspended'?'<button class="btn btn-sm" onclick="licenseReactivate('+l.id+')">Reactivate</button>':'<button class="btn btn-sm" onclick="licenseSuspend('+l.id+')">Suspend</button>';
-      if(l.status==='expired')actionState='';
-      return '<tr><td><strong style="font-size:13px;">'+escHtml(l.customer_name)+'</strong><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:3px;">'+escHtml(l.email)+'</div></td>'+
-        '<td><span class="badge badge-gray">'+licensePlanLabel(l.plan)+'</span></td>'+
-        '<td class="mono" style="font-size:12px;color:var(--muted);">'+fmtDate(l.starts_at)+'</td>'+
-        '<td class="mono" style="font-size:12px;color:var(--muted);">'+expiry+'</td>'+
-        '<td>'+licenseStatusBadge(l.status)+'</td>'+
-        '<td><strong style="font-size:12px;">'+escHtml(l.workspace_name||'Workspace')+'</strong><div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:3px;">'+escHtml(l.workspace_slug||'')+' · '+Number(l.users||0)+' users · '+Number(l.stripe_accounts||0)+' Stripe</div></td>'+
-        '<td><div class="actions" style="flex-wrap:wrap;">'+actionState+'<button class="btn btn-sm" onclick="licenseExtend('+l.id+',3)">+3 mo</button><button class="btn btn-sm" onclick="licenseExtend('+l.id+',12)">+12 mo</button>'+(l.plan!=='lifetime'?'<button class="btn btn-sm" onclick="licenseLifetime('+l.id+')">Lifetime</button>':'')+'<button class="btn btn-sm btn-danger" onclick="deleteLicense('+l.id+')">Delete</button></div></td></tr>';
-    }).join('');
-  }catch(e){tb.innerHTML='<tr><td colspan="7" class="empty" style="color:var(--red);">Failed to load licenses</td></tr>';}
-}
-function openCreateLicenseModal(){
-  document.getElementById('license-customer-name').value='';document.getElementById('license-email').value='';document.getElementById('license-plan').value='3_months';document.getElementById('license-notes').value='';
-  var err=document.getElementById('license-create-error');err.style.display='none';err.textContent='';openModal('create-license-modal');
-}
-async function createLicense(){
-  var name=document.getElementById('license-customer-name').value.trim();var email=document.getElementById('license-email').value.trim();var plan=document.getElementById('license-plan').value;var notes=document.getElementById('license-notes').value.trim();var err=document.getElementById('license-create-error');err.style.display='none';
-  if(!name||!email){err.textContent='Customer name and email are required';err.style.display='block';return;}
-  try{var r=await api('/api/licenses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customer_name:name,email:email,plan:plan,notes:notes})});if(r.success){closeModal('create-license-modal');toast('✓ License created');loadLicenses();}else{err.textContent=r.error||'Failed to create license';err.style.display='block';}}catch(e){err.textContent='Failed to create license';err.style.display='block';}
-}
-function licenseExtend(id,months){openAppActionConfirm({title:'Extend license by '+months+' months?',message:'The access period will be extended from its current expiry date, or from today if it has already expired.',cancelText:'Go back',confirmText:'Extend',danger:false},async function(){var r=await api('/api/licenses/'+id+'/extend',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({months:months})});if(r.success){toast('✓ License extended');loadLicenses();}else toast(r.error||'Could not extend license','error');});}
-function licenseLifetime(id){openAppActionConfirm({title:'Make this license lifetime?',message:'This removes the expiration date and keeps access active unless you suspend it.',cancelText:'Go back',confirmText:'Make lifetime',danger:false},async function(){var r=await api('/api/licenses/'+id+'/lifetime',{method:'POST'});if(r.success){toast('✓ Lifetime access enabled');loadLicenses();}else toast(r.error||'Could not update license','error');});}
-function licenseSuspend(id){openAppActionConfirm({title:'Suspend this license?',message:'The workspace will be marked suspended. When customer login provisioning is enabled, this state will block dashboard access.',cancelText:'Keep active',confirmText:'Suspend'},async function(){var r=await api('/api/licenses/'+id+'/suspend',{method:'POST'});if(r.success){toast('✓ License suspended');loadLicenses();}else toast(r.error||'Could not suspend license','error');});}
-async function licenseReactivate(id){try{var r=await api('/api/licenses/'+id+'/reactivate',{method:'POST'});if(r.success){toast('✓ License reactivated');loadLicenses();}else toast(r.error||'Could not reactivate license','error');}catch(e){toast('Could not reactivate license','error');}}
-function deleteLicense(id){openAppActionConfirm({title:'Delete this empty license workspace?',message:'Deletion is allowed only before the workspace has users or Stripe accounts. Otherwise suspend it to preserve history.',cancelText:'Keep license',confirmText:'Delete'},async function(){var r=await api('/api/licenses/'+id,{method:'DELETE'});if(r.success){toast('✓ License deleted');loadLicenses();}else toast(r.error||'Could not delete license','error');});}
-
 async function loadAdmins(){
   var tb=document.getElementById('admins-table');if(!tb)return;
   tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:28px;color:var(--muted);font-size:13px;font-family:var(--mono);">Loading...</td></tr>';
@@ -9893,7 +9803,7 @@ async function saveEditAccount(){
   try{var r=await api('/api/stripe-accounts/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,secret_key:key||null,publishable_key:publishable||null,webhook_secret:webhook||null})});if(r.success){toast('✓ Account updated');closeModal('edit-account-modal');loadAccounts();}else{errEl.textContent=r.error||'Update failed';errEl.style.display='block';}}catch(e){errEl.textContent='Server error';errEl.style.display='block';}
 }
 function toggleSettingsNav(){var sub=document.getElementById('settings-subnav');var chev=document.getElementById('settings-chevron');var open=sub.style.display==='none';sub.style.display=open?'block':'none';if(chev)chev.style.transform=open?'rotate(180deg)':'rotate(0deg)';}
-function expandSettingsIfNeeded(name){var settingsPages=['licenses','admins','settings','security','webhooks'];if(settingsPages.includes(name)){var sub=document.getElementById('settings-subnav');var chev=document.getElementById('settings-chevron');if(sub&&sub.style.display==='none'){sub.style.display='block';if(chev)chev.style.transform='rotate(180deg)';}}}
+function expandSettingsIfNeeded(name){var settingsPages=['admins','settings','security','webhooks'];if(settingsPages.includes(name)){var sub=document.getElementById('settings-subnav');var chev=document.getElementById('settings-chevron');if(sub&&sub.style.display==='none'){sub.style.display='block';if(chev)chev.style.transform='rotate(180deg)';}}}
 function showRestrictedPage(name){var existing=document.getElementById('page-restricted');if(!existing){var div=document.createElement('div');div.id='page-restricted';div.className='page';document.querySelector('.main').appendChild(div);}var pg=document.getElementById('page-restricted');var username=localStorage.getItem('subloop_username')||'User';var role=getCurrentRole()||'viewer';var roleLabels={owner:'Owner',admin:'Admin',custom:'Custom',viewer:'Analyst — View only',analyst:'Analyst — View only'};var roleColors={owner:'var(--green)',admin:'#9b8dff',custom:'var(--amber)',viewer:'var(--blue)',analyst:'var(--blue)'};var roleLabel=roleLabels[role]||role;var roleColor=roleColors[role]||'var(--accent)';pg.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;padding:40px 20px;"><div style="width:72px;height:72px;border-radius:18px;background:var(--surface2);border:1.5px solid var(--border2);display:flex;align-items:center;justify-content:center;margin-bottom:24px;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:8px;letter-spacing:-0.3px;">Access Restricted</div><div style="font-size:13px;color:var(--muted);font-family:var(--mono);max-width:320px;line-height:1.6;margin-bottom:24px;">You do not have permission to view this page. Contact your administrator to request access.</div><div style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:12px 20px;font-size:12px;color:var(--muted);font-family:var(--mono);">Logged in as: <strong style="color:var(--text);">'+escHtml(username)+'</strong> &nbsp;·&nbsp; Role: <strong style="color:'+roleColor+';">'+escHtml(roleLabel)+'</strong></div></div>';pg.classList.add('active');}
 function buildEditPermsList(forAnalyst){var container=document.getElementById('edit-perms-list');if(!container)return;container.innerHTML='';var allowed=forAnalyst?ANALYST_ASSIGNABLE_PERMS:CUSTOM_ASSIGNABLE_PERMS;var items=PERM_LIST.filter(function(p){return allowed.includes(p.value);});items.forEach(function(p){container.appendChild(createPermissionCard(permissionForRole(p,forAnalyst),false));});}
 function toggleEditCustomPerms(){var role=document.getElementById('edit-access-role').value;var isAnalyst=role==='analyst'||role==='viewer';var scoped=isAnalyst||role==='custom';document.getElementById('edit-account-access').style.display=scoped?'block':'none';document.getElementById('edit-custom-perms').style.display=scoped?'block':'none';document.getElementById('edit-analyst-note').style.display=isAnalyst?'block':'none';setAccessEditorCopy('edit',isAnalyst);if(scoped){buildEditPermsList(isAnalyst);toggleEditAccountChoices();}}

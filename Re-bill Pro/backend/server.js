@@ -1,7 +1,7 @@
 const express = require('express');
 const app = express();
 const path = require('path');
-const { init, pool, settingsDb, stripeAccounts, customers, subscriptions, payments, activityLog, webhookLogs, security, adminUsers } = require('./db');
+const { init, pool, settingsDb, stripeAccounts, customers, subscriptions, payments, activityLog, webhookLogs, security, adminUsers, platformAdmins } = require('./db');
 let speakeasy, QRCode;
 try { speakeasy = require('speakeasy'); QRCode = require('qrcode'); } catch(e) {}
 
@@ -19,7 +19,9 @@ const SUBLOOP_LOGIN_HOST = new URL(SUBLOOP_LOGIN_ORIGIN).hostname.toLowerCase();
 const SUBLOOP_APP_HOST = new URL(SUBLOOP_APP_ORIGIN).hostname.toLowerCase();
 const SUBLOOP_COOKIE_DOMAIN = process.env.SUBLOOP_COOKIE_DOMAIN || '.subloop.space';
 const SUBLOOP_SESSION_COOKIE = 'subloop_session';
+const SUBLOOP_PLATFORM_ADMIN_COOKIE = 'subloop_platform_admin';
 const SUBLOOP_SESSION_MINUTES = 480;
+const SUBLOOP_PLATFORM_ADMIN_SESSION_MINUTES = 480;
 const ANALYST_DEFAULT_SECTIONS = ['dashboard','customers','payments','forecast','summary','mrr','recovery'];
 // View-only users may be assigned any non-administrative operating/reporting page, but cannot write.
 const ANALYST_ASSIGNABLE_SECTIONS = ['dashboard','activity','customers','subscriptions','payments','links','accounts','forecast','summary','mrr','recovery','webhooks'];
@@ -55,17 +57,19 @@ function isSubloopDomainHost(host) {
   host = String(host || '').toLowerCase();
   return host === SUBLOOP_LOGIN_HOST || host === SUBLOOP_APP_HOST || host === 'subloop.space' || host.endsWith('.subloop.space');
 }
-function cookieToken(req) {
+function namedCookie(req, name) {
   const raw = String(req.headers.cookie || '');
   for (const part of raw.split(';')) {
     const idx = part.indexOf('=');
     if (idx < 0) continue;
     const key = part.slice(0, idx).trim();
-    if (key !== SUBLOOP_SESSION_COOKIE) continue;
+    if (key !== name) continue;
     try { return decodeURIComponent(part.slice(idx + 1).trim()); } catch (_err) { return part.slice(idx + 1).trim(); }
   }
   return '';
 }
+function cookieToken(req) { return namedCookie(req, SUBLOOP_SESSION_COOKIE); }
+function platformAdminCookieToken(req) { return namedCookie(req, SUBLOOP_PLATFORM_ADMIN_COOKIE); }
 function requestAccessToken(req) { return cookieToken(req) || bearerToken(req); }
 function sessionCookieOptions(req, clearing=false) {
   const host = requestHostname(req);
@@ -84,6 +88,23 @@ function setAdminSessionCookie(req, res, token) {
 }
 function clearAdminSessionCookie(req, res) {
   res.clearCookie(SUBLOOP_SESSION_COOKIE, sessionCookieOptions(req, true));
+}
+function platformAdminCookieOptions(req, clearing=false) {
+  const host = requestHostname(req);
+  const options = {
+    httpOnly: true,
+    secure: !(host === 'localhost' || host === '127.0.0.1'),
+    sameSite: 'strict',
+    path: '/admin'
+  };
+  if (!clearing) options.maxAge = SUBLOOP_PLATFORM_ADMIN_SESSION_MINUTES * 60 * 1000;
+  return options;
+}
+function setPlatformAdminSessionCookie(req,res,token) {
+  res.cookie(SUBLOOP_PLATFORM_ADMIN_COOKIE,token,platformAdminCookieOptions(req));
+}
+function clearPlatformAdminSessionCookie(req,res) {
+  res.clearCookie(SUBLOOP_PLATFORM_ADMIN_COOKIE,platformAdminCookieOptions(req,true));
 }
 function authTokenForJson(req, token) {
   // On subloop.space/app.subloop.space, authentication is intentionally HttpOnly-cookie based.
@@ -2674,6 +2695,49 @@ app.post('/api/admin-users/:id/security/reset-2fa', async (req, res) => {
 });
 
 
+// ── Platform Admin (/admin) ─────────────────────────────────────────────────
+function platformAdminToken(req) { return parseAdminToken(platformAdminCookieToken(req), 'platform-admin'); }
+function platformAdminHostAllowed(req) { const h=requestHostname(req); return h===SUBLOOP_APP_HOST || h==='localhost' || h==='127.0.0.1'; }
+app.post('/admin/api/auth/verify', async (req,res) => {
+  try {
+    if (!platformAdminHostAllowed(req)) return res.status(404).json({ error:'Not found' });
+    const configured = await platformAdmins.configured();
+    if (!configured) return res.status(503).json({ success:false, error:'Platform admin is not configured. Add SUBLOOP_PLATFORM_ADMIN_USERNAME and SUBLOOP_PLATFORM_ADMIN_PASSWORD in Railway, then redeploy.' });
+    const user = await platformAdmins.verify(req.body?.username, req.body?.password);
+    if (!user) return res.status(401).json({ success:false, error:'Incorrect username or password' });
+    const token = issueAdminToken(user,'platform-admin',SUBLOOP_PLATFORM_ADMIN_SESSION_MINUTES);
+    setPlatformAdminSessionCookie(req,res,token);
+    res.json({ success:true, username:user.username });
+  } catch(err) { res.status(500).json({ success:false, error:'Could not sign in' }); }
+});
+app.post('/admin/api/auth/check', async (req,res) => {
+  try {
+    if (!platformAdminHostAllowed(req)) return res.json({ valid:false });
+    const token = platformAdminToken(req);
+    if (!token) return res.json({ valid:false });
+    const user = await platformAdmins.byId(token.id);
+    if (!user) return res.json({ valid:false });
+    res.json({ valid:true, username:user.username });
+  } catch(_err) { res.json({ valid:false }); }
+});
+app.post('/admin/api/auth/logout', (req,res) => {
+  if (!platformAdminHostAllowed(req)) return res.status(404).json({ error:'Not found' });
+  clearPlatformAdminSessionCookie(req,res);
+  res.json({ success:true });
+});
+app.use('/admin/api', async (req,res,next) => {
+  if (!platformAdminHostAllowed(req)) return res.status(404).json({ error:'Not found' });
+  if (req.path.startsWith('/auth/')) return next();
+  try {
+    const token = platformAdminToken(req);
+    if (!token) return res.status(401).json({ error:'Platform admin authentication required' });
+    const user = await platformAdmins.byId(token.id);
+    if (!user) return res.status(401).json({ error:'Platform admin access revoked' });
+    req.platformAdmin = user;
+    next();
+  } catch(_err) { res.status(401).json({ error:'Platform admin authentication required' }); }
+});
+
 // ── SaaS Licenses / Workspaces (Super Admin only) ────────────────────────────
 function requireSuperAdmin(req, res) {
   if (!isSuperAdmin(req.currentUser)) { res.status(403).json({ error: 'Subloop Super Admin access required' }); return false; }
@@ -2719,9 +2783,9 @@ async function expireLicenses() {
   await pool.query(`UPDATE workspaces w SET status='expired', updated_at=NOW()
     FROM licenses l WHERE l.workspace_id=w.id AND l.status='expired' AND w.is_main=false AND w.status<>'expired'`);
 }
-app.get('/api/licenses', async (req,res) => {
+app.get('/admin/api/licenses', async (req,res) => {
   try {
-    if (!requireSuperAdmin(req,res)) return;
+    if (!req.platformAdmin) return res.status(401).json({ error:'Platform admin authentication required' });
     await expireLicenses();
     const r = await pool.query(`SELECT l.*, w.name AS workspace_name, w.slug AS workspace_slug, w.status AS workspace_status,
       (SELECT COUNT(*)::int FROM stripe_accounts sa WHERE sa.workspace_id=w.id) AS stripe_accounts,
@@ -2732,10 +2796,10 @@ app.get('/api/licenses', async (req,res) => {
     res.json(r.rows);
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
-app.post('/api/licenses', async (req,res) => {
+app.post('/admin/api/licenses', async (req,res) => {
   const client = await pool.connect();
   try {
-    if (!requireSuperAdmin(req,res)) return;
+    if (!req.platformAdmin) return res.status(401).json({ error:'Platform admin authentication required' });
     const customerName = String(req.body.customer_name || '').trim();
     const email = String(req.body.email || '').trim().toLowerCase();
     const plan = normalizeLicensePlan(req.body.plan);
@@ -2757,9 +2821,9 @@ app.post('/api/licenses', async (req,res) => {
     res.status(500).json({ error:err.message });
   } finally { client.release(); }
 });
-app.post('/api/licenses/:id/extend', async (req,res) => {
+app.post('/admin/api/licenses/:id/extend', async (req,res) => {
   try {
-    if (!requireSuperAdmin(req,res)) return;
+    if (!req.platformAdmin) return res.status(401).json({ error:'Platform admin authentication required' });
     const months = Number(req.body.months);
     if (![3,12].includes(months)) return res.status(400).json({ error:'Extension must be 3 or 12 months' });
     const current = (await pool.query('SELECT * FROM licenses WHERE id=$1',[req.params.id])).rows[0];
@@ -2771,27 +2835,27 @@ app.post('/api/licenses/:id/extend', async (req,res) => {
     res.json({ success:true, expires_at:expires });
   } catch(err) { res.status(500).json({ error:err.message }); }
 });
-app.post('/api/licenses/:id/lifetime', async (req,res) => {
+app.post('/admin/api/licenses/:id/lifetime', async (req,res) => {
   try {
-    if (!requireSuperAdmin(req,res)) return;
+    if (!req.platformAdmin) return res.status(401).json({ error:'Platform admin authentication required' });
     const r=await pool.query(`UPDATE licenses SET plan='lifetime', expires_at=NULL, status='active', updated_at=NOW() WHERE id=$1 RETURNING workspace_id`,[req.params.id]);
     if(!r.rows[0]) return res.status(404).json({error:'License not found'});
     await pool.query(`UPDATE workspaces SET status='licensed',updated_at=NOW() WHERE id=$1`,[r.rows[0].workspace_id]);
     res.json({success:true});
   } catch(err){res.status(500).json({error:err.message});}
 });
-app.post('/api/licenses/:id/suspend', async (req,res) => {
+app.post('/admin/api/licenses/:id/suspend', async (req,res) => {
   try {
-    if (!requireSuperAdmin(req,res)) return;
+    if (!req.platformAdmin) return res.status(401).json({ error:'Platform admin authentication required' });
     const r=await pool.query(`UPDATE licenses SET status='suspended',updated_at=NOW() WHERE id=$1 RETURNING workspace_id`,[req.params.id]);
     if(!r.rows[0]) return res.status(404).json({error:'License not found'});
     await pool.query(`UPDATE workspaces SET status='suspended',updated_at=NOW() WHERE id=$1`,[r.rows[0].workspace_id]);
     res.json({success:true});
   } catch(err){res.status(500).json({error:err.message});}
 });
-app.post('/api/licenses/:id/reactivate', async (req,res) => {
+app.post('/admin/api/licenses/:id/reactivate', async (req,res) => {
   try {
-    if (!requireSuperAdmin(req,res)) return;
+    if (!req.platformAdmin) return res.status(401).json({ error:'Platform admin authentication required' });
     const current=(await pool.query('SELECT * FROM licenses WHERE id=$1',[req.params.id])).rows[0];
     if(!current) return res.status(404).json({error:'License not found'});
     if(current.expires_at && new Date(current.expires_at)<=new Date()) return res.status(400).json({error:'This license is expired. Extend it or make it lifetime first.'});
@@ -2800,10 +2864,10 @@ app.post('/api/licenses/:id/reactivate', async (req,res) => {
     res.json({success:true});
   } catch(err){res.status(500).json({error:err.message});}
 });
-app.delete('/api/licenses/:id', async (req,res) => {
+app.delete('/admin/api/licenses/:id', async (req,res) => {
   const client=await pool.connect();
   try {
-    if (!requireSuperAdmin(req,res)) return;
+    if (!req.platformAdmin) return res.status(401).json({ error:'Platform admin authentication required' });
     const current=(await client.query(`SELECT l.*,w.is_main FROM licenses l JOIN workspaces w ON w.id=l.workspace_id WHERE l.id=$1`,[req.params.id])).rows[0];
     if(!current) return res.status(404).json({error:'License not found'});
     if(current.is_main) return res.status(400).json({error:'Main workspace cannot be deleted'});
@@ -3244,6 +3308,10 @@ app.get('/api/debug/admins', async (req, res) => {
 app.get('*', async (req, res) => {
   try {
     const host = requestHostname(req);
+    if (req.path === '/admin' || req.path.startsWith('/admin/')) {
+      if (host !== SUBLOOP_APP_HOST && host !== 'localhost' && host !== '127.0.0.1') return res.redirect(302, SUBLOOP_APP_ORIGIN + '/admin');
+      return res.sendFile(path.join(__dirname, 'admin.html'));
+    }
     const parsed = parseAdminToken(cookieToken(req), 'access');
     let validCookieSession = false;
     if (parsed) validCookieSession = !!(await adminUsers.byId(parsed.id));

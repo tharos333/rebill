@@ -42,6 +42,19 @@ function validateBootstrapCredentials(username, password) {
   if (username.length < 3 || username.length > 80) throw new Error('SUBLOOP_OWNER_USERNAME must be 3-80 characters.');
   if (password.length < 8) throw new Error('SUBLOOP_OWNER_PASSWORD must be at least 8 characters.');
 }
+function platformAdminBootstrapConfig() {
+  return {
+    username: String(process.env.SUBLOOP_PLATFORM_ADMIN_USERNAME || '').trim(),
+    password: String(process.env.SUBLOOP_PLATFORM_ADMIN_PASSWORD || ''),
+    forceReset: /^(1|true|yes|on)$/i.test(String(process.env.SUBLOOP_PLATFORM_ADMIN_FORCE_RESET || 'false').trim()),
+  };
+}
+function validatePlatformAdminCredentials(username, password) {
+  if (!username || !password) return false;
+  if (username.length < 3 || username.length > 80) throw new Error('SUBLOOP_PLATFORM_ADMIN_USERNAME must be 3-80 characters.');
+  if (password.length < 8) throw new Error('SUBLOOP_PLATFORM_ADMIN_PASSWORD must be at least 8 characters.');
+  return true;
+}
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('railway.internal') ? false : { rejectUnauthorized: false }
@@ -73,6 +86,14 @@ async function init() {
     );
     CREATE INDEX IF NOT EXISTS licenses_status_idx ON licenses(status);
     CREATE INDEX IF NOT EXISTS licenses_expires_idx ON licenses(expires_at);
+    CREATE TABLE IF NOT EXISTS platform_admins (
+      id SERIAL PRIMARY KEY,
+      username TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      last_login TIMESTAMPTZ
+    );
     CREATE TABLE IF NOT EXISTS stripe_accounts (
       id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
@@ -407,6 +428,18 @@ async function init() {
           AND (p.subscription_id=s.id OR (s.stripe_invoice_id IS NOT NULL AND p.stripe_invoice_id=s.stripe_invoice_id))
       )
   `).catch(()=>{});
+
+  // Separate platform-admin account for /admin. This account is not a workspace user.
+  // Railway variables bootstrap it once and do not overwrite it unless force reset is enabled.
+  const platformBootstrap = platformAdminBootstrapConfig();
+  const existingPlatform = (await pool.query('SELECT id, username FROM platform_admins ORDER BY id ASC LIMIT 1')).rows[0];
+  if (!existingPlatform && validatePlatformAdminCredentials(platformBootstrap.username, platformBootstrap.password)) {
+    await pool.query('INSERT INTO platform_admins (username,password_hash) VALUES ($1,$2)', [platformBootstrap.username, hashPassword(platformBootstrap.password)]);
+    console.log(`[db] Platform admin created for ${platformBootstrap.username}`);
+  } else if (existingPlatform && platformBootstrap.forceReset && validatePlatformAdminCredentials(platformBootstrap.username, platformBootstrap.password)) {
+    await pool.query('UPDATE platform_admins SET username=$1,password_hash=$2,updated_at=NOW() WHERE id=$3', [platformBootstrap.username, hashPassword(platformBootstrap.password), existingPlatform.id]);
+    console.log(`[db] Platform admin credentials force-reset for ${platformBootstrap.username}`);
+  }
 
   const existing = await pool.query('SELECT COUNT(*) FROM stripe_accounts');
   if (parseInt(existing.rows[0].count) === 0 && process.env.STRIPE_SECRET_KEY) {
@@ -761,4 +794,19 @@ const adminUsers = {
     return user;
   },
 };
-module.exports = { init, pool, settingsDb, stripeAccounts, customers, subscriptions, payments, activityLog, webhookLogs, security, adminUsers };
+const platformAdmins = {
+  configured: async () => { const r = await pool.query('SELECT COUNT(*)::int AS count FROM platform_admins'); return Number(r.rows[0]?.count || 0) > 0; },
+  byId: async (id) => { const r = await pool.query('SELECT id,username,created_at,last_login FROM platform_admins WHERE id=$1', [id]); return r.rows[0] || null; },
+  verify: async (username,password) => {
+    const r = await pool.query('SELECT * FROM platform_admins WHERE LOWER(username)=LOWER($1) LIMIT 1', [username]);
+    const user = r.rows[0] || null;
+    if (!user || !verifyPassword(password, user.password_hash)) return null;
+    if (!String(user.password_hash || '').startsWith('scrypt$')) {
+      const upgraded = hashPassword(password);
+      await pool.query('UPDATE platform_admins SET password_hash=$1,updated_at=NOW() WHERE id=$2', [upgraded,user.id]);
+    }
+    await pool.query('UPDATE platform_admins SET last_login=NOW() WHERE id=$1', [user.id]);
+    return { id:user.id, username:user.username };
+  },
+};
+module.exports = { init, pool, settingsDb, stripeAccounts, customers, subscriptions, payments, activityLog, webhookLogs, security, adminUsers, platformAdmins };
