@@ -35,9 +35,9 @@ button,input,select,textarea{font:inherit}.hidden{display:none!important}
 .field input,.field select,.field textarea{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;color:var(--text);padding:12px 14px;font-size:14px;font-family:var(--sans);outline:none;transition:border-color .2s}
 .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent)}
 .field select option{background:var(--surface2)}.field textarea{min-height:70px;resize:vertical}
-.password-wrap{position:relative}.password-wrap input{padding-right:42px}
-.password-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);width:22px;height:22px;border:0;background:none;color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;transition:color .15s,opacity .15s,filter .15s;opacity:.9}
-.password-toggle:hover{color:var(--text);opacity:1;filter:drop-shadow(0 0 6px rgba(126,102,255,.28))}.password-toggle:focus-visible{outline:none;color:var(--text)}.password-toggle svg{width:20px;height:20px;display:block}
+.password-wrap{position:relative}.password-wrap input{padding-right:52px}
+.password-toggle{position:absolute;right:14px;top:50%;transform:translateY(-50%);width:24px;height:24px;min-width:24px;min-height:24px;border:0;background:none;color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;transition:color .15s,opacity .15s,filter .15s;opacity:.9;overflow:visible;flex-shrink:0}
+.password-toggle:hover{color:var(--text);opacity:1;filter:drop-shadow(0 0 6px rgba(126,102,255,.28))}.password-toggle:focus-visible{outline:none;color:var(--text)}.password-toggle svg{width:22px;height:22px;display:block;overflow:visible;pointer-events:none}
 .login-error{display:none;background:var(--red-bg);border:1px solid var(--red);color:var(--red);border-radius:8px;padding:10px 14px;font-size:13px;font-family:var(--mono);margin-top:14px;text-align:center}
 .login-error:not(:empty){display:block}
 
@@ -274,11 +274,11 @@ html.light .drawer-bg{background:rgba(17,17,24,.28)}html.light .license-drawer{b
 #login-screen .login-field input{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;color:var(--text);padding:12px 14px;font-size:14px;font-family:var(--sans)!important;outline:none;transition:border-color .2s}
 #login-screen .login-field input:focus{border-color:var(--accent)}
 #login-screen .login-password-wrap{position:relative}
-#login-screen .login-password-wrap input{padding-right:42px}
-#login-screen .login-password-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);width:22px;height:22px;border:0;background:none;color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;transition:color .15s,opacity .15s,filter .15s;opacity:.9}
+#login-screen .login-password-wrap input{padding-right:52px}
+#login-screen .login-password-toggle{position:absolute;right:14px;top:50%;transform:translateY(-50%);width:24px;height:24px;min-width:24px;min-height:24px;border:0;background:none;color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;transition:color .15s,opacity .15s,filter .15s;opacity:.9;overflow:visible;flex-shrink:0}
 #login-screen .login-password-toggle:hover{color:var(--text);opacity:1;filter:drop-shadow(0 0 6px rgba(126,102,255,.28))}
 #login-screen .login-password-toggle:focus-visible{outline:none;color:var(--text);opacity:1;filter:drop-shadow(0 0 0 rgba(0,0,0,0)) drop-shadow(0 0 6px rgba(126,102,255,.38))}
-#login-screen .login-password-toggle svg{width:20px;height:20px;display:block}
+#login-screen .login-password-toggle svg{width:22px;height:22px;display:block;overflow:visible;pointer-events:none}
 #login-screen .login-password-toggle .eye-off{display:none}
 #login-screen .login-password-toggle.is-visible .eye-on{display:none}
 #login-screen .login-password-toggle.is-visible .eye-off{display:block}
