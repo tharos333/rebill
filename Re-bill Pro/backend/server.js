@@ -3451,11 +3451,17 @@ app.get('*', async (req, res) => {
     }
 
     if (host === SUBLOOP_LOGIN_HOST && validCookieSession) {
-      return res.redirect(302, SUBLOOP_APP_ORIGIN + '/');
+      const requestedNext = typeof req.query.next === 'string' ? req.query.next : '';
+      const safeNext = /^\/(dashboard|activity|customers|subscriptions|payments|payment-links|stripe-accounts|forecast|daily-summary|revenue-growth|payment-recovery|admin-users|settings|security|webhook-logs)$/.test(requestedNext) ? requestedNext : '/dashboard';
+      return res.redirect(302, SUBLOOP_APP_ORIGIN + safeNext);
     }
     if (host === SUBLOOP_APP_HOST && !validCookieSession) {
       if(deniedLicenseStatus) clearAdminSessionCookie(req,res);
-      const suffix=deniedLicenseStatus ? ('?access='+encodeURIComponent(deniedLicenseStatus)) : '';
+      const params = new URLSearchParams();
+      if(deniedLicenseStatus) params.set('access', deniedLicenseStatus);
+      const requestedPath = String(req.path || '/');
+      if(/^\/(dashboard|activity|customers|subscriptions|payments|payment-links|stripe-accounts|forecast|daily-summary|revenue-growth|payment-recovery|admin-users|settings|security|webhook-logs)$/.test(requestedPath)) params.set('next', requestedPath);
+      const suffix=params.toString()?('?'+params.toString()):'';
       return res.redirect(302, SUBLOOP_LOGIN_ORIGIN + '/' + suffix);
     }
     return res.sendFile(path.join(__dirname, 'index.html'));

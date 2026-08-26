@@ -6891,6 +6891,37 @@ body.view-only-access #verification-debug-modal .modal-content{
 let currentLink=null,currentEmbedToken=null,allCustomers=[],allSubscriptions=[],allPayments=[],allStripeAccounts=[],allAdminUsers=[],allLicenses=[],appSettings={},selectedSubs=new Set(),currentRevPeriod='all',bulkMode=false;
 const SUBLOOP_LOGIN_ORIGIN='https://subloop.space';
 const SUBLOOP_APP_ORIGIN='https://app.subloop.space';
+const PAGE_ROUTES={
+  dashboard:'/dashboard',
+  activity:'/activity',
+  customers:'/customers',
+  subscriptions:'/subscriptions',
+  payments:'/payments',
+  links:'/payment-links',
+  accounts:'/stripe-accounts',
+  forecast:'/forecast',
+  summary:'/daily-summary',
+  mrr:'/revenue-growth',
+  recovery:'/payment-recovery',
+  admins:'/admin-users',
+  settings:'/settings',
+  security:'/security',
+  webhooks:'/webhook-logs'
+};
+const ROUTE_PAGES=Object.keys(PAGE_ROUTES).reduce(function(out,key){out[PAGE_ROUTES[key]]=key;return out;},{});
+function normalizeAppPath(pathname){
+  var path=String(pathname||'/').split('?')[0].split('#')[0];
+  if(path.length>1&&path.endsWith('/'))path=path.slice(0,-1);
+  return path||'/';
+}
+function pageForPath(pathname){return ROUTE_PAGES[normalizeAppPath(pathname)]||null;}
+function pathForPage(name){return PAGE_ROUTES[name]||PAGE_ROUTES.dashboard;}
+function navForPage(name){return [].slice.call(document.querySelectorAll('.nav-item')).find(function(btn){var onclick=btn.getAttribute('onclick')||'';return onclick.indexOf("showPage('"+name+"'")!==-1;})||null;}
+function safeNextAppPath(){
+  var next=new URLSearchParams(window.location.search).get('next')||'';
+  next=normalizeAppPath(next);
+  return pageForPath(next)?next:PAGE_ROUTES.dashboard;
+}
 function isSubloopLoginHost(){return window.location.hostname.toLowerCase()==='subloop.space';}
 function isSubloopAppHost(){return window.location.hostname.toLowerCase()==='app.subloop.space';}
 function clearLocalAccessState(){
@@ -6904,16 +6935,23 @@ function showAuthenticatedApp(r){
   applyAccessControl();
   initApp();
 }
-function redirectToSubloopLogin(){window.location.replace(SUBLOOP_LOGIN_ORIGIN+'/');}
-function redirectToSubloopApp(){window.location.replace(SUBLOOP_APP_ORIGIN+'/');}
+function redirectToSubloopLogin(nextPath){
+  var target=SUBLOOP_LOGIN_ORIGIN+'/';
+  if(nextPath&&pageForPath(nextPath))target+='?next='+encodeURIComponent(normalizeAppPath(nextPath));
+  window.location.replace(target);
+}
+function redirectToSubloopApp(){
+  var next=isSubloopLoginHost()?safeNextAppPath():PAGE_ROUTES.dashboard;
+  window.location.replace(SUBLOOP_APP_ORIGIN+next);
+}
 async function bootstrapDomainSession(){
   if(isSubloopAppHost()){
     try{
       const response=await fetch('/api/auth/check',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:'{}'});
       const r=await response.json();
-      if(!r.valid){clearLocalAccessState();redirectToSubloopLogin();return;}
+      if(!r.valid){clearLocalAccessState();redirectToSubloopLogin(normalizeAppPath(window.location.pathname));return;}
       showAuthenticatedApp(r);
-    }catch(_err){clearLocalAccessState();redirectToSubloopLogin();}
+    }catch(_err){clearLocalAccessState();redirectToSubloopLogin(normalizeAppPath(window.location.pathname));}
     return;
   }
   if(isSubloopLoginHost()){
@@ -7150,17 +7188,39 @@ function refreshRestrictedAccessAndOpen(name,el,loaders){
     }
   }).catch(function(){});
 }
-function showPage(name,el){
+function syncPageUrl(name,mode){
+  if(!isSubloopAppHost()&&window.location.hostname!=='localhost'&&window.location.hostname!=='127.0.0.1')return;
+  var target=pathForPage(name);
+  if(normalizeAppPath(window.location.pathname)===target)return;
+  var state={subloopPage:name};
+  if(mode==='replace')history.replaceState(state,'',target);
+  else if(mode!=='none')history.pushState(state,'',target);
+}
+function openPageFromUrl(options){
+  options=options||{};
+  var current=normalizeAppPath(window.location.pathname);
+  var name=pageForPath(current);
+  if(!name){
+    name='dashboard';
+    syncPageUrl(name,'replace');
+  }
+  showPage(name,navForPage(name),{history:'none'});
+}
+function showPage(name,el,options){
+  options=options||{};
+  if(!document.getElementById('page-'+name))name='dashboard';
+  if(!el)el=navForPage(name);
+  syncPageUrl(name,options.history||'push');
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
-  el.classList.add('active');
+  if(el)el.classList.add('active');
   const loaders={dashboard:()=>{loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();},activity:loadActivity,customers:loadCustomers,subscriptions:loadSubscriptions,payments:loadPayments,settings:loadSettings,accounts:loadAccounts,security:loadSecurity,webhooks:loadWebhooks,forecast:loadForecast,summary:loadSummary,admins:loadAdmins,mrr:()=>{var period=document.getElementById('mrr-period');if(period)period.value='year';loadMrr();},recovery:loadRecovery,links:()=>{loadPaymentLinkAccounts();loadTemplates();configurePaymentLinksAccessUI();}};
   expandSettingsIfNeeded(name);
   if(!canAccess(name)){
     document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
     document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});
-    el.classList.add('active');
+    if(el)el.classList.add('active');
     showRestrictedPage(name);
     /* Only restricted-page attempts need a fresh access check, allowing recently granted access without slowing normal navigation. */
     refreshRestrictedAccessAndOpen(name,el,loaders);
@@ -7169,6 +7229,11 @@ function showPage(name,el){
   if(loaders[name])loaders[name]();
   setTimeout(enforceReadonly,200);
 }
+window.addEventListener('popstate',function(){
+  var app=document.getElementById('app-screen');
+  if(app&&!app.classList.contains('hidden'))openPageFromUrl({history:'none'});
+});
+
 function fmtExact(c,cur){return new Intl.NumberFormat('en-US',{style:'currency',currency:(cur||'usd').toUpperCase()}).format((c||0)/100);}
 function moneySymbol(cur){
   const currency=(cur||'usd').toUpperCase();
@@ -7455,16 +7520,16 @@ function initApp(){
       if(!r.valid){forceLogout();return;}
       storeAccessSession(r);
       applyAccessControl();
-      loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();
+      openPageFromUrl();
       api('/api/settings').then(s=>{appSettings=s;}).catch(()=>{});
     }).catch(function(){
       applyAccessControl();
-      loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();
+      openPageFromUrl();
       api('/api/settings').then(s=>{appSettings=s;}).catch(()=>{});
     });
   } else {
     applyAccessControl();
-    loadStats();loadUpcoming();loadRecentPayments();loadChart();loadChurnAlerts();
+    openPageFromUrl();
     api('/api/settings').then(s=>{appSettings=s;}).catch(()=>{});
   }
 }
@@ -7474,7 +7539,8 @@ function forceLogout(){
   document.body.classList.remove('modal-lock','drawer-open');
   clearLocalAccessState();
   if(isSubloopAppHost()){
-    fetch('/api/auth/logout',{method:'POST',credentials:'include'}).catch(function(){}).finally(redirectToSubloopLogin);
+    var returnPath=normalizeAppPath(window.location.pathname);
+    fetch('/api/auth/logout',{method:'POST',credentials:'include'}).catch(function(){}).finally(function(){redirectToSubloopLogin(returnPath);});
     return;
   }
   document.getElementById('app-screen').classList.add('hidden');
