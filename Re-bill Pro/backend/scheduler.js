@@ -20,14 +20,14 @@ async function processAutoResumes(reconcileCustomerLifecycle = null) {
   let canceled = 0;
   let failed = 0;
   try {
-    const enabled = String(await settingsDb.get('pause_auto_resume') || 'true').toLowerCase();
-    if (!['true','1','yes','on'].includes(enabled)) return { skipped: true, reason: 'disabled' };
-
     const due = await pool.query(`
-      SELECT s.*, c.stripe_account_id, sa.secret_key
+      SELECT s.*, c.stripe_account_id, c.workspace_id, sa.secret_key,
+        w.is_main, l.status AS license_status, l.expires_at
       FROM subscriptions s
       JOIN customers c ON c.id=s.customer_id
       LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id
+      LEFT JOIN workspaces w ON w.id=c.workspace_id
+      LEFT JOIN licenses l ON l.workspace_id=c.workspace_id
       WHERE LOWER(COALESCE(s.status,''))='paused'
         AND s.resume_date IS NOT NULL
         AND s.resume_date <= CURRENT_DATE
@@ -36,6 +36,14 @@ async function processAutoResumes(reconcileCustomerLifecycle = null) {
 
     for (const sub of due.rows) {
       try {
+        // Main always remains operational. Licensed customer workspaces only run
+        // maintenance while their Subloop access is active.
+        if (!sub.is_main) {
+          const expired = sub.expires_at && new Date(sub.expires_at).getTime() <= Date.now();
+          if (String(sub.license_status||'').toLowerCase() !== 'active' || expired) continue;
+        }
+        const enabled = String(await settingsDb.getForWorkspace(sub.workspace_id,'pause_auto_resume') || 'true').toLowerCase();
+        if (!['true','1','yes','on'].includes(enabled)) continue;
         let nextStatus = 'active';
         if (sub.stripe_subscription_id) {
           if (!sub.secret_key) throw new Error('Stripe account secret key not found');

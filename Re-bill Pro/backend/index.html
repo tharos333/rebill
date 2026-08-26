@@ -6922,6 +6922,9 @@ async function bootstrapDomainSession(){
     clearLocalAccessState();
     document.getElementById('app-screen').classList.add('hidden');
     document.getElementById('login-screen').classList.remove('hidden');
+    var access=new URLSearchParams(window.location.search).get('access');
+    if(access==='expired')showLoginError('Your Subloop access has expired. Renew your license to continue.');
+    else if(access==='suspended')showLoginError('Your Subloop access is suspended.');
     return;
   }
   // Railway/custom fallback hosts keep the legacy localStorage flow.
@@ -6997,8 +7000,8 @@ function doLogin(){
       document.getElementById('login-pass').value='';
       document.getElementById('login-pass').focus();
     }
-  }).catch(function(){
-    showLoginError('Unable to sign in right now. Please try again.');
+  }).catch(function(loginErr){
+    showLoginError((loginErr&&loginErr.message)||'Unable to sign in right now. Please try again.');
     document.getElementById('login-pass').value='';
   });
 }
@@ -7102,7 +7105,7 @@ async function verify2FA(){
     const response=await fetch('/api/security/2fa/validate',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({token:otp,login_challenge:challenge})});
     const r=await response.json();
     if(r.valid){storeAccessSession(r);localStorage.removeItem('subloop_login_challenge');completeLogin();}
-    else{document.getElementById('twofa-error').style.display='block';clearOtp();}
+    else{const e=document.getElementById('twofa-error');if(r.error)e.textContent=r.error;e.style.display='block';clearOtp();}
   }catch(e){toast('Error verifying code','error');}
 }
 function backToLogin(){document.getElementById('login-step-2').style.display='none';document.getElementById('login-step-1').style.display='block';clearOtp();document.getElementById('twofa-error').style.display='none';}
@@ -7233,6 +7236,14 @@ async function api(path,opts){
   const r=await fetch(path,opts);
   var payload=null;try{payload=await r.json();}catch(e){}
   if(r.status===401){forceLogout();throw new Error((payload&&payload.error)||'Authentication required');}
+  if(r.status===403&&payload&&payload.license_status){
+    clearLocalAccessState();
+    const status=String(payload.license_status||'inactive');
+    fetch('/api/auth/logout',{method:'POST',credentials:'include'}).catch(function(){}).finally(function(){
+      if(isSubloopAppHost()||isSubloopLoginHost())window.location.replace(SUBLOOP_LOGIN_ORIGIN+'/?access='+encodeURIComponent(status));
+    });
+    throw new Error(payload.error||'Subloop access is not active');
+  }
   if(!r.ok)throw new Error((payload&&payload.error)||('HTTP '+r.status));
   return payload||{};
 }

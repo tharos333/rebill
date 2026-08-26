@@ -135,12 +135,42 @@ function canUseSection(user, section) {
   return sections === null || sections.includes(section);
 }
 function scopedAccountIds(req) {
-  if (!req.currentUser || isOwnerOrAdmin(req.currentUser) || req.currentUser.account_scope !== 'selected') return null;
-  return normalizeAllowedAccountIds(req.currentUser);
+  if (!req.currentUser) return [];
+  const workspaceIds = Array.isArray(req.workspaceAccountIds) ? req.workspaceAccountIds.map(Number).filter(Number.isInteger) : [];
+  if (isOwnerOrAdmin(req.currentUser) || req.currentUser.account_scope !== 'selected') return workspaceIds;
+  const selected = new Set(normalizeAllowedAccountIds(req.currentUser));
+  return workspaceIds.filter(id => selected.has(id));
 }
 function rowWithinScope(req, row) {
-  const ids = scopedAccountIds(req);
-  return ids === null || ids.includes(Number(row?.stripe_account_id));
+  if (!req.currentUser || !row) return false;
+  if (row.workspace_id != null && Number(row.workspace_id) !== Number(req.currentUser.workspace_id)) return false;
+  if (row.stripe_account_id == null) return row.workspace_id != null && Number(row.workspace_id) === Number(req.currentUser.workspace_id);
+  return scopedAccountIds(req).includes(Number(row.stripe_account_id));
+}
+async function workspaceLicenseState(user) {
+  const workspaceId = Number(user?.workspace_id);
+  if (!Number.isInteger(workspaceId)) return { allowed:false, status:'invalid', error:'This account is not assigned to a workspace.' };
+  const r = await pool.query(`SELECT w.id,w.name,w.slug,w.is_main,w.status AS workspace_status,
+      l.id AS license_id,l.plan,l.status AS license_status,l.starts_at,l.expires_at
+    FROM workspaces w LEFT JOIN licenses l ON l.workspace_id=w.id WHERE w.id=$1 LIMIT 1`, [workspaceId]);
+  const row = r.rows[0];
+  if (!row) return { allowed:false, status:'invalid', error:'Workspace not found.' };
+  if (row.is_main) return { allowed:true, status:'active', workspace:row };
+  if (!row.license_id) return { allowed:false, status:'unlicensed', error:'No active Subloop license is assigned to this workspace.', workspace:row };
+  const expiredByDate = row.expires_at && new Date(row.expires_at).getTime() <= Date.now();
+  const workspaceStatus=String(row.workspace_status||'').toLowerCase();
+  let status = String(row.license_status || row.workspace_status || '').toLowerCase();
+  if(workspaceStatus==='suspended') status='suspended';
+  if(workspaceStatus==='expired') status='expired';
+  if (expiredByDate && status !== 'expired') {
+    await pool.query("UPDATE licenses SET status='expired',updated_at=NOW() WHERE id=$1",[row.license_id]).catch(()=>{});
+    await pool.query("UPDATE workspaces SET status='expired',updated_at=NOW() WHERE id=$1",[workspaceId]).catch(()=>{});
+    status='expired';
+  }
+  if (status === 'suspended') return { allowed:false, status, error:'Your Subloop access is suspended.', workspace:row };
+  if (status === 'expired') return { allowed:false, status, error:'Your Subloop access has expired. Renew your license to continue.', workspace:row };
+  if (status !== 'active') return { allowed:false, status:status||'inactive', error:'Your Subloop license is not active.', workspace:row };
+  return { allowed:true, status:'active', workspace:row };
 }
 function accessResponse(user) {
   return { role: user.role, username: user.username, permissions: user.permissions || [], account_scope: user.account_scope || 'all', allowed_account_ids: normalizeAllowedAccountIds(user), workspace_id: user.workspace_id || null, is_super_admin: !!user.is_super_admin };
@@ -495,39 +525,39 @@ async function upsertExternalCustomer(usedAccount, fallback = {}, cardDetails = 
 
   // If an external Stripe dashboard payment link gives the same email again, keep one customer row per Stripe account.
   const existingByEmail = await pool.query(
-    `SELECT id, stripe_customer_id FROM customers WHERE LOWER(email)=LOWER($1) AND (stripe_account_id=$2 OR stripe_account_id IS NULL) ORDER BY created_at ASC LIMIT 1`,
-    [email, usedAccount?.id || null]
+    `SELECT id, stripe_customer_id FROM customers WHERE LOWER(email)=LOWER($1) AND (stripe_account_id=$2 OR stripe_account_id IS NULL) AND workspace_id=$3 ORDER BY created_at ASC LIMIT 1`,
+    [email, usedAccount?.id || null, usedAccount?.workspace_id || null]
   );
 
   if (existingByEmail.rows[0]) {
     await pool.query(
       `UPDATE customers SET name=COALESCE($1,name), stripe_account_id=COALESCE($2,stripe_account_id),
         stripe_payment_method=COALESCE($3,stripe_payment_method), card_brand=COALESCE($4,card_brand), card_last4=COALESCE($5,card_last4),
-        card_exp_month=COALESCE($6,card_exp_month), card_exp_year=COALESCE($7,card_exp_year)
-       WHERE id=$8`,
-      [name, usedAccount?.id || null, fallback.paymentMethodId || null, cardDetails.brand || null, cardDetails.last4 || null, cardDetails.exp_month || null, cardDetails.exp_year || null, existingByEmail.rows[0].id]
+        card_exp_month=COALESCE($6,card_exp_month), card_exp_year=COALESCE($7,card_exp_year), workspace_id=COALESCE($8,workspace_id)
+       WHERE id=$9`,
+      [name, usedAccount?.id || null, fallback.paymentMethodId || null, cardDetails.brand || null, cardDetails.last4 || null, cardDetails.exp_month || null, cardDetails.exp_year || null, usedAccount?.workspace_id || null, existingByEmail.rows[0].id]
     );
     console.log('[external-import] updated external customer:', email, 'local id:', existingByEmail.rows[0].id);
     return { id: existingByEmail.rows[0].id, email, name };
   }
 
-  const existingBySynthetic = await pool.query('SELECT id FROM customers WHERE stripe_customer_id=$1', [syntheticStripeId]);
+  const existingBySynthetic = await pool.query('SELECT id FROM customers WHERE stripe_customer_id=$1 AND stripe_account_id=$2', [syntheticStripeId, usedAccount?.id || null]);
   if (existingBySynthetic.rows[0]) {
     await pool.query(
       `UPDATE customers SET email=COALESCE($1,email), name=COALESCE($2,name), stripe_account_id=COALESCE($3,stripe_account_id),
         stripe_payment_method=COALESCE($4,stripe_payment_method), card_brand=COALESCE($5,card_brand), card_last4=COALESCE($6,card_last4),
-        card_exp_month=COALESCE($7,card_exp_month), card_exp_year=COALESCE($8,card_exp_year)
-       WHERE id=$9`,
-      [email, name, usedAccount?.id || null, fallback.paymentMethodId || null, cardDetails.brand || null, cardDetails.last4 || null, cardDetails.exp_month || null, cardDetails.exp_year || null, existingBySynthetic.rows[0].id]
+        card_exp_month=COALESCE($7,card_exp_month), card_exp_year=COALESCE($8,card_exp_year), workspace_id=COALESCE($9,workspace_id)
+       WHERE id=$10`,
+      [email, name, usedAccount?.id || null, fallback.paymentMethodId || null, cardDetails.brand || null, cardDetails.last4 || null, cardDetails.exp_month || null, cardDetails.exp_year || null, usedAccount?.workspace_id || null, existingBySynthetic.rows[0].id]
     );
     console.log('[external-import] updated synthetic customer:', email, 'local id:', existingBySynthetic.rows[0].id);
     return { id: existingBySynthetic.rows[0].id, email, name };
   }
 
   const ins = await pool.query(
-    `INSERT INTO customers (email,name,stripe_customer_id,stripe_payment_method,stripe_account_id,card_brand,card_last4,card_exp_month,card_exp_year,status)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'active') RETURNING id`,
-    [email, name, syntheticStripeId, fallback.paymentMethodId || null, usedAccount?.id || null, cardDetails.brand || null, cardDetails.last4 || null, cardDetails.exp_month || null, cardDetails.exp_year || null]
+    `INSERT INTO customers (email,name,stripe_customer_id,stripe_payment_method,stripe_account_id,card_brand,card_last4,card_exp_month,card_exp_year,status,workspace_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'active',$10) RETURNING id`,
+    [email, name, syntheticStripeId, fallback.paymentMethodId || null, usedAccount?.id || null, cardDetails.brand || null, cardDetails.last4 || null, cardDetails.exp_month || null, cardDetails.exp_year || null, usedAccount?.workspace_id || null]
   );
   console.log('[external-import] saved external customer:', email, 'local id:', ins.rows[0].id, 'synthetic id:', syntheticStripeId);
   return { id: ins.rows[0].id, email, name };
@@ -554,12 +584,12 @@ async function upsertStripeCustomer(stripe, usedAccount, stripeCustomerId, prefe
   const name = customer.name || customer.email || stripeCustomerId;
   const email = customer.email || `${stripeCustomerId}@stripe.local`;
 
-  const existing = await pool.query('SELECT id FROM customers WHERE stripe_customer_id=$1', [stripeCustomerId]);
+  const existing = await pool.query('SELECT id FROM customers WHERE stripe_customer_id=$1 AND stripe_account_id=$2', [stripeCustomerId, usedAccount?.id || null]);
   if (!existing.rows[0]) {
     const ins = await pool.query(
-      `INSERT INTO customers (email,name,stripe_customer_id,stripe_payment_method,stripe_account_id,card_brand,card_last4,card_exp_month,card_exp_year,status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'active') RETURNING id`,
-      [email, name, stripeCustomerId, pm?.id || null, usedAccount?.id || null, pm?.card?.brand || null, pm?.card?.last4 || null, pm?.card?.exp_month || null, pm?.card?.exp_year || null]
+      `INSERT INTO customers (email,name,stripe_customer_id,stripe_payment_method,stripe_account_id,card_brand,card_last4,card_exp_month,card_exp_year,status,workspace_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'active',$10) RETURNING id`,
+      [email, name, stripeCustomerId, pm?.id || null, usedAccount?.id || null, pm?.card?.brand || null, pm?.card?.last4 || null, pm?.card?.exp_month || null, pm?.card?.exp_year || null, usedAccount?.workspace_id || null]
     );
     console.log('[customer] saved:', email, 'local id:', ins.rows[0].id);
     return { id: ins.rows[0].id, email, name };
@@ -568,9 +598,9 @@ async function upsertStripeCustomer(stripe, usedAccount, stripeCustomerId, prefe
   await pool.query(
     `UPDATE customers SET email=COALESCE($1,email), name=COALESCE($2,name), stripe_account_id=COALESCE($3,stripe_account_id),
       stripe_payment_method=COALESCE($4,stripe_payment_method), card_brand=COALESCE($5,card_brand), card_last4=COALESCE($6,card_last4),
-      card_exp_month=COALESCE($7,card_exp_month), card_exp_year=COALESCE($8,card_exp_year)
-     WHERE stripe_customer_id=$9`,
-    [email, name, usedAccount?.id || null, pm?.id || null, pm?.card?.brand || null, pm?.card?.last4 || null, pm?.card?.exp_month || null, pm?.card?.exp_year || null, stripeCustomerId]
+      card_exp_month=COALESCE($7,card_exp_month), card_exp_year=COALESCE($8,card_exp_year), workspace_id=COALESCE($9,workspace_id)
+     WHERE stripe_customer_id=$10 AND stripe_account_id=$3`,
+    [email, name, usedAccount?.id || null, pm?.id || null, pm?.card?.brand || null, pm?.card?.last4 || null, pm?.card?.exp_month || null, pm?.card?.exp_year || null, usedAccount?.workspace_id || null, stripeCustomerId]
   );
   console.log('[customer] updated:', email, 'local id:', existing.rows[0].id);
   return { id: existing.rows[0].id, email, name };
@@ -1147,7 +1177,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
       return res.status(400).json({ error: 'Invalid webhook signature' });
     }
 
-    await webhookLogs.add({ event_type: event.type, account_name: usedAccount?.name });
+    await webhookLogs.add({ event_type: event.type, account_name: usedAccount?.name, workspace_id: usedAccount?.workspace_id || null });
     const stripe = Stripe(usedAccount.secret_key);
     console.log('[webhook] received:', event.type, 'account:', usedAccount.name);
 
@@ -1228,7 +1258,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
       return res.json({ received: true });
     } catch(handlerErr) {
       console.error('[webhook] handler error:', handlerErr.message, handlerErr.stack);
-      await webhookLogs.add({ event_type: event.type, account_name: usedAccount?.name, status: 'failed', error: handlerErr.message }).catch(()=>{});
+      await webhookLogs.add({ event_type: event.type, account_name: usedAccount?.name, workspace_id: usedAccount?.workspace_id || null, status: 'failed', error: handlerErr.message }).catch(()=>{});
       return res.status(500).json({ error: handlerErr.message });
     }
   } catch(err) {
@@ -1249,6 +1279,8 @@ app.use('/checkout', checkoutCors, checkoutRateLimit);
 app.get('/checkout/config', async (req, res) => {
   try {
     const { account, price } = await resolveEmbeddedPlan(req.query.token);
+    const access=await workspaceLicenseState({workspace_id:account.workspace_id});
+    if(!access.allowed) return res.status(403).json({error:'This Subloop checkout is currently unavailable.'});
     const product = price.product && typeof price.product !== 'string' ? price.product : null;
     res.setHeader('Cache-Control', 'no-store');
     res.json({
@@ -1291,6 +1323,8 @@ app.post('/checkout/create-subscription', async (req, res) => {
     if (!email || !email.includes('@')) return res.status(400).json({ error: 'A valid customer email is required' });
 
     const { account, stripe, price } = await resolveEmbeddedPlan(token);
+    const access=await workspaceLicenseState({workspace_id:account.workspace_id});
+    if(!access.allowed) return res.status(403).json({error:'This Subloop checkout is currently unavailable.'});
     const planHash = checkoutTokenHash(token);
 
     // Return the existing Stripe Subscription for retries/double-clicks using the same checkout reference.
@@ -1353,11 +1387,11 @@ app.post('/checkout/create-subscription', async (req, res) => {
     }, { idempotencyKey });
 
     await pool.query(
-      `INSERT INTO embedded_checkout_sessions (plan_token_hash,checkout_reference,stripe_account_id,stripe_customer_id,stripe_subscription_id,updated_at)
-       VALUES ($1,$2,$3,$4,$5,NOW())
+      `INSERT INTO embedded_checkout_sessions (plan_token_hash,checkout_reference,stripe_account_id,stripe_customer_id,stripe_subscription_id,workspace_id,updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,NOW())
        ON CONFLICT (plan_token_hash,checkout_reference)
-       DO UPDATE SET stripe_account_id=EXCLUDED.stripe_account_id,stripe_customer_id=EXCLUDED.stripe_customer_id,stripe_subscription_id=EXCLUDED.stripe_subscription_id,updated_at=NOW()`,
-      [planHash, checkoutReference, account.id, customer.id, subscription.id]
+       DO UPDATE SET stripe_account_id=EXCLUDED.stripe_account_id,stripe_customer_id=EXCLUDED.stripe_customer_id,stripe_subscription_id=EXCLUDED.stripe_subscription_id,workspace_id=EXCLUDED.workspace_id,updated_at=NOW()`,
+      [planHash, checkoutReference, account.id, customer.id, subscription.id, account.workspace_id || null]
     );
 
     // Save immediately as incomplete; normal Stripe webhooks update it to active/paid after confirmation.
@@ -1390,7 +1424,12 @@ app.use('/api', async (req, res, next) => {
     if (!data) return res.status(401).json({ error: 'Authentication required' });
     const user = await adminUsers.byId(data.id);
     if (!user) return res.status(401).json({ error: 'Access has been revoked' });
+    const licenseState = await workspaceLicenseState(user);
+    if (!licenseState.allowed) return res.status(403).json({ error: licenseState.error, license_status: licenseState.status });
     req.currentUser = user;
+    req.workspace = licenseState.workspace;
+    const workspaceAccounts = await pool.query('SELECT id FROM stripe_accounts WHERE workspace_id=$1 ORDER BY id',[user.workspace_id]);
+    req.workspaceAccountIds = workspaceAccounts.rows.map(row=>Number(row.id));
     const selfSecurityPath = req.path === '/security/login-history' || req.path.startsWith('/security/2fa/');
     const sensitive = ['/admin-users', '/settings', '/debug', '/licenses'];
     if (sensitive.some(prefix => req.path.startsWith(prefix)) && !isOwnerOrAdmin(user)) {
@@ -1568,27 +1607,30 @@ async function getStripeAccountDisplayStatus(accountRow) {
 // Minimal account list for Payment Links. Custom users receive only assigned Stripe accounts.
 app.get('/api/payment-link-accounts', async (req, res) => {
   try {
-    const r = await pool.query('SELECT id, name, is_default FROM stripe_accounts ORDER BY created_at DESC, id DESC');
     const ids = scopedAccountIds(req);
-    res.json(ids === null ? r.rows : r.rows.filter(account => ids.includes(Number(account.id))));
+    const r = await pool.query('SELECT id, name, is_default FROM stripe_accounts WHERE id=ANY($1::int[]) ORDER BY created_at DESC, id DESC',[ids]);
+    res.json(r.rows);
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
 app.get('/api/stripe-accounts', async (req, res) => {
   try {
+    const ids = scopedAccountIds(req);
     const r = await pool.query(`
       SELECT
         id,
         name,
         is_default,
         created_at,
+        workspace_id,
         secret_key,
         CASE WHEN COALESCE(publishable_key,'')<>'' THEN LEFT(publishable_key,12)||'...' ELSE NULL END as publishable_key_preview,
         COALESCE(publishable_key,'')<>'' AS has_publishable_key,
         LEFT(secret_key,12)||'...' as key_preview
       FROM stripe_accounts
+      WHERE id=ANY($1::int[])
       ORDER BY created_at DESC, id DESC
-    `);
+    `,[ids]);
 
     const accounts = await Promise.all(r.rows.map(async (account) => {
       const health = await getStripeAccountDisplayStatus(account);
@@ -1596,8 +1638,7 @@ app.get('/api/stripe-accounts', async (req, res) => {
       return { ...safeAccount, ...health };
     }));
 
-    const ids = scopedAccountIds(req);
-    res.json(ids === null ? accounts : accounts.filter(account => ids.includes(Number(account.id))));
+    res.json(accounts);
   } catch(err) {
     res.status(500).json({ error: err.message });
   }
@@ -1687,12 +1728,15 @@ app.post('/api/stripe-accounts', async (req, res) => {
     const { name, secret_key, publishable_key, webhook_secret } = req.body;
     if (!name || !secret_key) return res.status(400).json({ error: 'Name and secret key required' });
     if (publishable_key && !String(publishable_key).startsWith('pk_')) return res.status(400).json({ error: 'Publishable key must start with pk_' });
-    await stripeAccounts.create({ name, secret_key, publishable_key, webhook_secret });
+    await stripeAccounts.create({ name, secret_key, publishable_key, webhook_secret, workspace_id:req.currentUser.workspace_id });
     res.json({ success: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.patch('/api/stripe-accounts/:id', async (req, res) => {
   try {
+    const account = await stripeAccounts.byId(req.params.id);
+    if (!account) return res.status(404).json({ error:'Stripe account not found' });
+    if (!ensureRowScope(req,res,{ stripe_account_id:account.id, workspace_id:account.workspace_id })) return;
     const { name, secret_key, publishable_key, webhook_secret } = req.body;
     if (!name) return res.status(400).json({ error: 'Name is required' });
     if (publishable_key && !String(publishable_key).startsWith('pk_')) return res.status(400).json({ error: 'Publishable key must start with pk_' });
@@ -1702,20 +1746,23 @@ app.patch('/api/stripe-accounts/:id', async (req, res) => {
     if (publishable_key && publishable_key.trim()) { values.push(publishable_key.trim()); updates.push(`publishable_key=$${values.length}`); }
     if (webhook_secret && webhook_secret.trim()) { values.push(webhook_secret.trim()); updates.push(`webhook_secret=$${values.length}`); }
     values.push(req.params.id);
-    await pool.query(`UPDATE stripe_accounts SET ${updates.join(', ')} WHERE id=$${values.length}`, values);
+    values.push(req.currentUser.workspace_id);
+    await pool.query(`UPDATE stripe_accounts SET ${updates.join(', ')} WHERE id=$${values.length-1} AND workspace_id=$${values.length}`, values);
     res.json({ success: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.patch('/api/stripe-accounts/:id/default', async (req, res) => {
   try {
-    await pool.query('UPDATE stripe_accounts SET is_default=false');
-    await pool.query('UPDATE stripe_accounts SET is_default=true WHERE id=$1', [req.params.id]);
+    const account=await stripeAccounts.byId(req.params.id);
+    if(!account) return res.status(404).json({error:'Stripe account not found'});
+    if(!ensureRowScope(req,res,{stripe_account_id:account.id,workspace_id:account.workspace_id})) return;
+    await stripeAccounts.setDefault(account.id,req.currentUser.workspace_id);
     res.json({ success: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.patch('/api/stripe-accounts/default/clear', async (req, res) => {
   try {
-    await pool.query('UPDATE stripe_accounts SET is_default=false');
+    await pool.query('UPDATE stripe_accounts SET is_default=false WHERE workspace_id=$1',[req.currentUser.workspace_id]);
     res.json({ success: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
@@ -1724,6 +1771,7 @@ app.delete('/api/stripe-accounts/:id', async (req, res) => {
     if (!requireOwnerOrAdmin(req, res)) return;
     const account = await stripeAccounts.byId(req.params.id);
     if (!account) return res.status(404).json({ error: 'Stripe account not found' });
+    if (!ensureRowScope(req,res,{stripe_account_id:account.id,workspace_id:account.workspace_id})) return;
     const deps = await pool.query(`
       SELECT
         COUNT(DISTINCT c.id)::int AS customers,
@@ -1744,15 +1792,15 @@ app.delete('/api/stripe-accounts/:id', async (req, res) => {
 });
 
 // ── Customers ─────────────────────────────────────────────────────────────────
-app.get('/api/customers', async (req, res) => { try { const list=await customers.all(); res.json(list.filter(c => rowWithinScope(req,c))); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.get('/api/customers', async (req, res) => { try { const list=await customers.all(req.currentUser.workspace_id); res.json(list.filter(c => rowWithinScope(req,c))); } catch(err) { res.status(500).json({ error: err.message }); } });
 app.get('/api/customers/:id/details', async (req, res) => {
   try {
-    // Repair any stale customer status before rendering the drawer. This covers
-    // older records that were canceled before lifecycle reconciliation existed.
+    const initialCustomer=await customers.byId(req.params.id);
+    if(!initialCustomer || !ensureRowScope(req,res,initialCustomer)) return;
+    // Repair stale state only after tenant authorization.
     await reconcileCustomerLifecycle(req.params.id).catch(()=>{});
     const data = await customers.detail(req.params.id);
     if (!data.customer) return res.status(404).json({ error: 'Customer not found' });
-    if (!ensureRowScope(req, res, data.customer)) return;
 
     // Live recurring-payment preview: show the exact saved card Subloop would choose right now.
     // This is read-only and does not modify any Stripe object or old transaction.
@@ -1813,7 +1861,7 @@ app.post('/api/customers', async (req, res) => {
   try {
     const { stripe_customer_id, stripe_account_id, note } = req.body;
     if (!stripe_customer_id || !String(stripe_customer_id).startsWith('cus_')) return res.status(400).json({ error: 'A valid Stripe customer ID (cus_...) is required' });
-    const account = stripe_account_id ? await stripeAccounts.byId(stripe_account_id) : await stripeAccounts.default();
+    const account = stripe_account_id ? await stripeAccounts.byId(stripe_account_id) : await stripeAccounts.default(req.currentUser.workspace_id);
     if (!account) return res.status(400).json({ error: 'Select a Stripe account first' });
     if (!ensureRowScope(req, res, { stripe_account_id: account.id })) return;
     if (!account.secret_key) return res.status(400).json({ error: 'Stripe account secret key is missing' });
@@ -2022,7 +2070,7 @@ app.post('/api/customers/:id/charge-once', async (req, res) => {
     if (!currency || !/^[a-zA-Z]{3}$/.test(String(currency))) return res.status(400).json({ error: 'Currency is required for a one-time charge' });
     const chargeCurrency = String(currency).toLowerCase();
     const identifier = String(req.params.id || '').trim();
-    const c = identifier.startsWith('cus_') ? await customers.byStripeId(identifier) : await customers.byId(identifier);
+    const c = identifier.startsWith('cus_') ? await customers.byStripeId(identifier,scopedAccountIds(req)) : await customers.byId(identifier);
     if (!c) return res.status(404).json({ error: 'Customer not found' });
     if (!ensureRowScope(req, res, c)) return;
     if (!String(c.stripe_customer_id || '').startsWith('cus_')) return res.status(400).json({ error: 'A real Stripe customer is required for a one-time charge' });
@@ -2053,7 +2101,7 @@ app.post('/api/customers/:id/charge-once', async (req, res) => {
 app.get('/api/customers/export', async (req, res) => {
   try {
     if (isReadOnlyUser(req.currentUser)) return res.status(403).json({ error: 'View-only access cannot export customer data' });
-    const list = (await customers.all()).filter(c => rowWithinScope(req,c));
+    const list = (await customers.all(req.currentUser.workspace_id)).filter(c => rowWithinScope(req,c));
     const csvCell = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
     const groupedPaid = (customer) => {
       let totals = customer.currency_totals || {};
@@ -2081,7 +2129,7 @@ async function scopedSubscription(req, res, id) {
   if (!ensureRowScope(req, res, sub)) return null;
   return sub;
 }
-app.get('/api/subscriptions', async (req, res) => { try { const list=await subscriptions.all(); res.json(list.filter(sub => rowWithinScope(req,sub))); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.get('/api/subscriptions', async (req, res) => { try { const list=await subscriptions.all(req.currentUser.workspace_id); res.json(list.filter(sub => rowWithinScope(req,sub))); } catch(err) { res.status(500).json({ error: err.message }); } });
 app.post('/api/subscriptions', async (req, res) => { try { const c=await customers.byId(req.body.customer_id); if(!c) return res.status(404).json({ error:'Customer not found' }); if(!ensureRowScope(req,res,c)) return; await subscriptions.create(req.body); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
 app.patch('/api/subscriptions/:id', async (req, res) => {
   try {
@@ -2174,7 +2222,7 @@ app.patch('/api/subscriptions/:id/amount', async (req, res) => {
       recurring: { interval: oldPrice.recurring.interval, interval_count: oldPrice.recurring.interval_count || 1 },
       metadata: { subloop_replacement_for: oldPrice.id || '', subloop_subscription_id: String(sub.id) }
     });
-    const prorationSetting = String(await settingsDb.get('proration_enabled') || 'false').toLowerCase();
+    const prorationSetting = String(await settingsDb.getForWorkspace(req.currentUser.workspace_id,'proration_enabled') || 'false').toLowerCase();
     const proration_behavior = ['true','1','yes','on'].includes(prorationSetting) ? 'create_prorations' : 'none';
     await stripe.subscriptions.update(sub.stripe_subscription_id, {
       items: [{ id:item.id, price:newPrice.id }],
@@ -2239,7 +2287,7 @@ app.delete('/api/subscriptions/:id', async (req, res) => {
 });
 
 // ── Payments ──────────────────────────────────────────────────────────────────
-app.get('/api/payments', async (req, res) => { try { const list=await payments.recent(1000); res.json(list.filter(p => rowWithinScope(req,p))); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.get('/api/payments', async (req, res) => { try { const list=await payments.recent(1000,req.currentUser.workspace_id); res.json(list.filter(p => rowWithinScope(req,p))); } catch(err) { res.status(500).json({ error: err.message }); } });
 app.get('/api/payments/:id/financials', async (req, res) => {
   try {
     await ensureWebhookColumns();
@@ -2397,7 +2445,7 @@ app.patch('/api/payments/:id/note', async (req, res) => {
 app.get('/api/payments/export', async (req, res) => {
   try {
     if (isReadOnlyUser(req.currentUser)) return res.status(403).json({ error: 'View-only access cannot export payment data' });
-    const list = (await payments.recent(10000)).filter(p => rowWithinScope(req,p));
+    const list = (await payments.recent(10000,req.currentUser.workspace_id)).filter(p => rowWithinScope(req,p));
     const csvCell = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
     const rows = list.map(p => [p.name||'', p.email||'', ((p.amount||0)/100).toFixed(2), String(p.currency||'usd').toUpperCase(), p.status, p.created_at].map(csvCell).join(','));
     const csv = ['Customer,Email,Amount,Currency,Status,Date'].concat(rows).join('\n');
@@ -2409,7 +2457,7 @@ app.get('/api/payments/export', async (req, res) => {
 app.post('/api/embedded-checkout-token', async (req, res) => {
   try {
     const { stripe_account_id, price_id } = req.body || {};
-    const acc = stripe_account_id ? await stripeAccounts.byId(stripe_account_id) : await stripeAccounts.default();
+    const acc = stripe_account_id ? await stripeAccounts.byId(stripe_account_id) : await stripeAccounts.default(req.currentUser.workspace_id);
     if (!acc) return res.status(400).json({ error: 'No Stripe account found' });
     if (!ensureRowScope(req, res, { stripe_account_id: acc.id })) return;
     if (!price_id || !String(price_id).startsWith('price_')) return res.status(400).json({ error: 'A recurring Stripe price_id is required' });
@@ -2425,7 +2473,7 @@ app.post('/api/embedded-checkout-token', async (req, res) => {
 app.post('/api/payment-links', async (req, res) => {
   try {
     const { name, amount, currency, interval_days, stripe_account_id } = req.body;
-    const acc = stripe_account_id ? await stripeAccounts.byId(stripe_account_id) : await stripeAccounts.default();
+    const acc = stripe_account_id ? await stripeAccounts.byId(stripe_account_id) : await stripeAccounts.default(req.currentUser.workspace_id);
     if (!acc) return res.status(400).json({ error: 'No Stripe account found' });
     if (!ensureRowScope(req, res, { stripe_account_id: acc.id })) return;
     const stripe = require('stripe')(acc.secret_key);
@@ -2468,15 +2516,22 @@ app.post('/api/payment-links', async (req, res) => {
 });
 
 // ── Plan Templates ────────────────────────────────────────────────────────────
+async function ensurePlanTemplateWorkspaceColumn(){
+  await pool.query(`CREATE TABLE IF NOT EXISTS plan_templates (id SERIAL PRIMARY KEY, name TEXT, amount INT, currency TEXT DEFAULT 'usd', interval_days INT, workspace_id INT, created_at TIMESTAMPTZ DEFAULT NOW())`);
+  await pool.query('ALTER TABLE plan_templates ADD COLUMN IF NOT EXISTS workspace_id INT').catch(()=>{});
+  const main=await pool.query("SELECT id FROM workspaces WHERE is_main=true LIMIT 1");
+  if(main.rows[0]) await pool.query('UPDATE plan_templates SET workspace_id=$1 WHERE workspace_id IS NULL',[main.rows[0].id]).catch(()=>{});
+  await pool.query('CREATE INDEX IF NOT EXISTS plan_templates_workspace_idx ON plan_templates(workspace_id)').catch(()=>{});
+}
 app.get('/api/plan-templates', async (req, res) => {
   try {
-    await pool.query(`CREATE TABLE IF NOT EXISTS plan_templates (id SERIAL PRIMARY KEY, name TEXT, amount INT, currency TEXT DEFAULT 'usd', interval_days INT, created_at TIMESTAMPTZ DEFAULT NOW())`);
-    const r = await pool.query('SELECT * FROM plan_templates ORDER BY created_at ASC');
+    await ensurePlanTemplateWorkspaceColumn();
+    const r = await pool.query('SELECT * FROM plan_templates WHERE workspace_id=$1 ORDER BY created_at ASC',[req.currentUser.workspace_id]);
     res.json(r.rows);
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
-app.post('/api/plan-templates', async (req, res) => { try { if (!isOwnerOrAdmin(req.currentUser)) return res.status(403).json({ error: 'Only an administrator can manage shared templates' }); const { name, amount, currency, interval_days } = req.body; await pool.query('INSERT INTO plan_templates (name,amount,currency,interval_days) VALUES ($1,$2,$3,$4)', [name, amount, currency||'usd', interval_days||30]); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
-app.delete('/api/plan-templates/:id', async (req, res) => { try { if (!isOwnerOrAdmin(req.currentUser)) return res.status(403).json({ error: 'Only an administrator can manage shared templates' }); await pool.query('DELETE FROM plan_templates WHERE id=$1', [req.params.id]); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.post('/api/plan-templates', async (req, res) => { try { if (!isOwnerOrAdmin(req.currentUser)) return res.status(403).json({ error: 'Only an administrator can manage shared templates' }); await ensurePlanTemplateWorkspaceColumn(); const { name, amount, currency, interval_days } = req.body; await pool.query('INSERT INTO plan_templates (name,amount,currency,interval_days,workspace_id) VALUES ($1,$2,$3,$4,$5)', [name, amount, currency||'usd', interval_days||30,req.currentUser.workspace_id]); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.delete('/api/plan-templates/:id', async (req, res) => { try { if (!isOwnerOrAdmin(req.currentUser)) return res.status(403).json({ error: 'Only an administrator can manage shared templates' }); await ensurePlanTemplateWorkspaceColumn(); await pool.query('DELETE FROM plan_templates WHERE id=$1 AND workspace_id=$2', [req.params.id,req.currentUser.workspace_id]); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); } });
 
 // ── Legacy recurring engine disabled ───────────────────────────────────────────
 // Stripe Billing is the only automatic renewal engine. Keeping this endpoint non-operational
@@ -2489,10 +2544,10 @@ app.post('/api/run-rebills', async (_req, res) => {
 app.get('/api/activity', async (req, res) => {
   try {
     const username = req.currentUser ? req.currentUser.username : req.headers['x-username'];
-    let list = (await activityLog.recent(100)).filter(row => rowWithinScope(req,row));
+    let list = (await activityLog.recent(100,req.currentUser.workspace_id)).filter(row => rowWithinScope(req,row));
     if (username) {
       try {
-        const userRow = await pool.query('SELECT role FROM admin_users WHERE LOWER(username)=LOWER($1)', [username]);
+        const userRow = await pool.query('SELECT role FROM admin_users WHERE LOWER(username)=LOWER($1) AND workspace_id=$2', [username,req.currentUser.workspace_id]);
         if (userRow.rows[0] && userRow.rows[0].role === 'viewer') {
           list = list.filter(a => ['payment','failed','retry','charge','dunning','proration','resume'].includes(a.type));
         }
@@ -2505,22 +2560,24 @@ app.get('/api/activity', async (req, res) => {
 // ── Settings ──────────────────────────────────────────────────────────────────
 app.get('/api/settings', async (req, res) => {
   try {
-    const settings = await settingsDb.getAll();
+    const defaults={dunning_enabled:'false',session_timeout:'480',dunning_days:'3,7,14',pause_auto_resume:'true',proration_enabled:'false',churn_alert_enabled:'false',bulk_actions_enabled:'true',scheduled_billing_enabled:'false',webhook_logs_enabled:'true'};
+    const settings = { ...defaults, ...(await settingsDb.getAllForWorkspace(req.currentUser.workspace_id)) };
     delete settings.two_fa_secret;
     delete settings.two_fa_secret_pending;
     delete settings.two_fa_enabled;
+    delete settings.checkout_signing_secret;
     res.json(settings);
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.post('/api/settings', async (req, res) => {
-  try { await settingsDb.set(req.body.key, req.body.value); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); }
+  try { await settingsDb.setForWorkspace(req.currentUser.workspace_id,req.body.key,req.body.value); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.patch('/api/settings', async (req, res) => {
-  try { await settingsDb.set(req.body.key, req.body.value); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); }
+  try { await settingsDb.setForWorkspace(req.currentUser.workspace_id,req.body.key,req.body.value); res.json({ success: true }); } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
 // ── Webhook Logs ──────────────────────────────────────────────────────────────
-app.get('/api/webhook-logs', async (req, res) => { try { const list=await webhookLogs.recent(50); const ids=scopedAccountIds(req); if(ids===null) return res.json(list); const visible=await pool.query('SELECT name FROM stripe_accounts WHERE id=ANY($1::int[])',[ids]); const names=new Set(visible.rows.map(r=>r.name)); res.json(list.filter(w=>names.has(w.account_name))); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.get('/api/webhook-logs', async (req, res) => { try { const list=await webhookLogs.recent(50,req.currentUser.workspace_id); const ids=scopedAccountIds(req); const visible=await pool.query('SELECT name FROM stripe_accounts WHERE id=ANY($1::int[])',[ids]); const names=new Set(visible.rows.map(r=>r.name)); res.json(list.filter(w=>!w.account_name||names.has(w.account_name))); } catch(err) { res.status(500).json({ error: err.message }); } });
 
 // ── Security ──────────────────────────────────────────────────────────────────
 // Security is personal: each signed-in user sees their own logins and controls their own authenticator.
@@ -2558,6 +2615,8 @@ app.post('/api/security/2fa/validate', async (req, res) => {
     if (!challenge) return res.status(401).json({ valid: false, error: 'Login session expired. Please sign in again.' });
     const user = await adminUsers.byId(challenge.id);
     if (!user) return res.status(401).json({ valid: false, error: 'Access has been revoked.' });
+    const licenseState=await workspaceLicenseState(user);
+    if(!licenseState.allowed) return res.status(403).json({valid:false,error:licenseState.error,license_status:licenseState.status});
     const state = await adminUsers.twoFAState(user.id);
     if (!state.enabled) {
       const accessToken = issueAdminToken(user, 'access', SUBLOOP_SESSION_MINUTES);
@@ -2585,10 +2644,10 @@ function cleanAccountAccessInput(role, accountScope, allowedAccountIds) {
   const ids = Array.isArray(allowedAccountIds) ? [...new Set(allowedAccountIds.map(Number).filter(Number.isInteger))] : [];
   return { accountScope: scope, allowedAccountIds: scope === 'selected' ? ids : [] };
 }
-async function validateSelectedAccounts(scope, ids) {
+async function validateSelectedAccounts(scope, ids, workspaceId) {
   if (scope !== 'selected') return true;
-  if (!ids.length) return false;
-  const r = await pool.query('SELECT COUNT(*) AS n FROM stripe_accounts WHERE id=ANY($1::int[])', [ids]);
+  if (!ids.length || !Number.isInteger(Number(workspaceId))) return false;
+  const r = await pool.query('SELECT COUNT(*) AS n FROM stripe_accounts WHERE id=ANY($1::int[]) AND workspace_id=$2', [ids,workspaceId]);
   return Number(r.rows[0]?.n) === ids.length;
 }
 function actorCanCreateManagedUser(actor, role) {
@@ -2599,13 +2658,14 @@ function actorCanCreateManagedUser(actor, role) {
 }
 function actorCanManageUser(actor, target) {
   if (!actor || !target) return false;
+  if (Number(actor.workspace_id) !== Number(target.workspace_id)) return false;
   if (actor.role === 'owner') return target.role !== 'owner';
   if (actor.role === 'admin') return ['analyst','viewer','custom'].includes(target.role);
   return false;
 }
 app.get('/api/admin-users', async (req, res) => {
   try {
-    const list = await adminUsers.all();
+    const list = await adminUsers.all(req.currentUser.workspace_id);
     if (req.currentUser.role === 'owner') return res.json(list);
     res.json(list.map(({ two_fa_enabled, ...user }) => user));
   } catch(err) { res.status(500).json({ error: err.message }); }
@@ -2621,9 +2681,9 @@ app.post('/api/admin-users', async (req, res) => {
       return res.status(403).json({ error: req.currentUser.role === 'admin' ? 'Only the Owner can grant Admin access' : 'Not allowed to create this access level' });
     }
     const access = cleanAccountAccessInput(safeRole, account_scope, allowed_account_ids);
-    if (!(await validateSelectedAccounts(access.accountScope, access.allowedAccountIds))) return res.status(400).json({ error: 'Select at least one valid Stripe account' });
-    await adminUsers.create(username, password, safeRole, sanitizeSections(safeRole, permissions), access.accountScope, access.allowedAccountIds);
-    await activityLog.add('security', `New access user created: ${username}`);
+    if (!(await validateSelectedAccounts(access.accountScope, access.allowedAccountIds, req.currentUser.workspace_id))) return res.status(400).json({ error: 'Select at least one valid Stripe account' });
+    await adminUsers.create(username, password, safeRole, sanitizeSections(safeRole, permissions), access.accountScope, access.allowedAccountIds, req.currentUser.workspace_id, false);
+    await activityLog.add('security', `New access user created: ${username}`, null, null, req.currentUser.workspace_id);
     res.json({ success: true });
   } catch(err) {
     if (err.message.includes('unique')) return res.status(400).json({ error: 'Username already exists' });
@@ -2654,7 +2714,7 @@ app.patch('/api/admin-users/:id/permissions', async (req, res) => {
       return res.status(403).json({ error: req.currentUser.role === 'admin' ? 'Only the Owner can grant Admin access' : 'Not allowed to grant this access level' });
     }
     const access = cleanAccountAccessInput(safeRole, account_scope, allowed_account_ids);
-    if (!(await validateSelectedAccounts(access.accountScope, access.allowedAccountIds))) return res.status(400).json({ error: 'Select at least one valid Stripe account' });
+    if (!(await validateSelectedAccounts(access.accountScope, access.allowedAccountIds, req.currentUser.workspace_id))) return res.status(400).json({ error: 'Select at least one valid Stripe account' });
     await adminUsers.updateAccess(req.params.id, safeRole, sanitizeSections(safeRole, permissions), access.accountScope, access.allowedAccountIds);
     res.json({ success: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
@@ -2663,6 +2723,7 @@ app.post('/api/admin-users/:id/change-password', async (req, res) => {
   try {
     const target = await adminUsers.byId(req.params.id);
     if (!target) return res.status(404).json({ error: 'User not found' });
+    if (Number(target.workspace_id)!==Number(req.currentUser.workspace_id)) return res.status(404).json({ error:'User not found' });
     const isSelf = Number(target.id) === Number(req.currentUser.id);
     const ownerReset = req.currentUser.role === 'owner' && target.role !== 'owner';
     if (!isSelf && !ownerReset) return res.status(403).json({ error: 'You cannot reset this user password' });
@@ -2678,7 +2739,7 @@ app.get('/api/admin-users/:id/security', async (req, res) => {
   try {
     if (req.currentUser.role !== 'owner') return res.status(403).json({ error: 'Owner access required' });
     const target = await adminUsers.byId(req.params.id);
-    if (!target) return res.status(404).json({ error: 'User not found' });
+    if (!target || Number(target.workspace_id)!==Number(req.currentUser.workspace_id)) return res.status(404).json({ error: 'User not found' });
     const history = await security.recentLoginsForUser(target.id, 20);
     res.json({ username: target.username, two_fa_enabled: !!target.two_fa_enabled, login_history: history });
   } catch(err) { res.status(500).json({ error: err.message }); }
@@ -2687,7 +2748,7 @@ app.post('/api/admin-users/:id/security/reset-2fa', async (req, res) => {
   try {
     if (req.currentUser.role !== 'owner') return res.status(403).json({ error: 'Owner access required' });
     const target = await adminUsers.byId(req.params.id);
-    if (!target) return res.status(404).json({ error: 'User not found' });
+    if (!target || Number(target.workspace_id)!==Number(req.currentUser.workspace_id)) return res.status(404).json({ error: 'User not found' });
     if (Number(target.id) === Number(req.currentUser.id)) return res.status(400).json({ error: 'Disable your own 2FA from the Security page' });
     await adminUsers.disable2FA(target.id);
     res.json({ success: true });
@@ -2789,7 +2850,8 @@ app.get('/admin/api/licenses', async (req,res) => {
     await expireLicenses();
     const r = await pool.query(`SELECT l.*, w.name AS workspace_name, w.slug AS workspace_slug, w.status AS workspace_status,
       (SELECT COUNT(*)::int FROM stripe_accounts sa WHERE sa.workspace_id=w.id) AS stripe_accounts,
-      (SELECT COUNT(*)::int FROM admin_users au WHERE au.workspace_id=w.id) AS users
+      (SELECT COUNT(*)::int FROM admin_users au WHERE au.workspace_id=w.id) AS users,
+      (SELECT au.username FROM admin_users au WHERE au.workspace_id=w.id AND au.role='owner' ORDER BY au.id ASC LIMIT 1) AS owner_username
       FROM licenses l JOIN workspaces w ON w.id=l.workspace_id
       ORDER BY CASE WHEN l.status='active' THEN 0 WHEN l.status='suspended' THEN 1 ELSE 2 END,
         COALESCE(l.expires_at,'9999-12-31'::timestamptz) ASC, l.created_at DESC`);
@@ -2821,6 +2883,39 @@ app.post('/admin/api/licenses', async (req,res) => {
     res.status(500).json({ error:err.message });
   } finally { client.release(); }
 });
+app.post('/admin/api/licenses/:id/access', async (req,res) => {
+  try {
+    if (!req.platformAdmin) return res.status(401).json({ error:'Platform admin authentication required' });
+    const username=String(req.body?.username||'').trim();
+    const password=String(req.body?.password||'');
+    if(username.length<3 || username.length>80) return res.status(400).json({error:'Username must be 3-80 characters'});
+    if(password.length<8) return res.status(400).json({error:'Password must be at least 8 characters'});
+    const lic=(await pool.query(`SELECT l.*,w.is_main FROM licenses l JOIN workspaces w ON w.id=l.workspace_id WHERE l.id=$1`,[req.params.id])).rows[0];
+    if(!lic) return res.status(404).json({error:'License not found'});
+    if(lic.is_main) return res.status(400).json({error:'Main workspace access is managed inside Subloop'});
+    const existing=(await pool.query("SELECT id,username FROM admin_users WHERE workspace_id=$1 AND role='owner' ORDER BY id ASC LIMIT 1",[lic.workspace_id])).rows[0];
+    if(existing) return res.status(409).json({error:'Workspace access already exists',username:existing.username});
+    const collision=await adminUsers.byUsername(username);
+    if(collision) return res.status(409).json({error:'Username already exists'});
+    await adminUsers.create(username,password,'owner',[],'all',[],lic.workspace_id,false);
+    res.json({success:true,username});
+  } catch(err){ res.status(500).json({error:err.message}); }
+});
+app.post('/admin/api/licenses/:id/access/reset-password', async (req,res) => {
+  try {
+    if (!req.platformAdmin) return res.status(401).json({ error:'Platform admin authentication required' });
+    const password=String(req.body?.password||'');
+    if(password.length<8) return res.status(400).json({error:'Password must be at least 8 characters'});
+    const lic=(await pool.query('SELECT workspace_id FROM licenses WHERE id=$1',[req.params.id])).rows[0];
+    if(!lic) return res.status(404).json({error:'License not found'});
+    const owner=(await pool.query("SELECT id,username FROM admin_users WHERE workspace_id=$1 AND role='owner' ORDER BY id ASC LIMIT 1",[lic.workspace_id])).rows[0];
+    if(!owner) return res.status(404).json({error:'Create workspace access first'});
+    await adminUsers.changePassword(owner.id,password);
+    await adminUsers.disable2FA(owner.id).catch(()=>{});
+    res.json({success:true,username:owner.username});
+  } catch(err){ res.status(500).json({error:err.message}); }
+});
+
 app.post('/admin/api/licenses/:id/extend', async (req,res) => {
   try {
     if (!req.platformAdmin) return res.status(401).json({ error:'Platform admin authentication required' });
@@ -2897,6 +2992,11 @@ app.post('/api/auth/verify', async (req, res) => {
     // No failed-login lockout: always verify the supplied credentials immediately.
     const user = await adminUsers.verify(username, password);
     if (user) {
+      const licenseState=await workspaceLicenseState(user);
+      if(!licenseState.allowed){
+        await security.logAttempt(ip,false,user.id,user.username);
+        return res.status(403).json({success:false,error:licenseState.error,license_status:licenseState.status});
+      }
       await adminUsers.updateLastLogin(user.id);
       await security.logAttempt(ip, true, user.id, user.username);
       const twoFaState = await adminUsers.twoFAState(user.id);
@@ -2917,6 +3017,8 @@ app.post('/api/auth/check', async (req, res) => {
     if (!token) return res.json({ valid: false });
     const user = await adminUsers.byId(token.id);
     if (!user) return res.json({ valid: false });
+    const licenseState=await workspaceLicenseState(user);
+    if(!licenseState.allowed) return res.json({valid:false,error:licenseState.error,license_status:licenseState.status});
     res.json({ valid: true, ...accessResponse(user) });
   } catch(err) { res.json({ valid: false }); }
 });
@@ -3138,7 +3240,7 @@ app.get('/api/daily-summary', async (req, res) => {
 });
 app.get('/api/forecast', async (req, res) => {
   try {
-    const allSubs = (await subscriptions.all()).filter(sub => rowWithinScope(req, sub));
+    const allSubs = (await subscriptions.all(req.currentUser.workspace_id)).filter(sub => rowWithinScope(req, sub));
     const activeSubs = allSubs.filter(s => s.status === 'active');
     const now = new Date();
     let forecast30=0, forecast60=0, forecast90=0;
@@ -3292,7 +3394,7 @@ app.get('/api/ip-geo', async (req, res) => {
   } catch(err) { res.json({ country: null, code: null }); }
 });
 app.get('/api/debug/webhook', async (req, res) => {
-  const r = await pool.query('SELECT id, name, LEFT(webhook_secret,10) as ws_preview, webhook_secret IS NOT NULL as has_secret FROM stripe_accounts');
+  const r = await pool.query('SELECT id, name, LEFT(webhook_secret,10) as ws_preview, webhook_secret IS NOT NULL as has_secret FROM stripe_accounts WHERE workspace_id=$1',[req.currentUser.workspace_id]);
   res.json(r.rows);
 });
 
@@ -3300,7 +3402,7 @@ app.get('/api/debug/admins', async (req, res) => {
   const results = {};
   try { const t1 = await pool.query('SELECT NOW() as time'); results.db_connected=true; results.db_time=t1.rows[0].time; } catch(e) { results.db_connected=false; }
   try { const t2 = await pool.query("SELECT column_name FROM information_schema.columns WHERE table_name='admin_users'"); results.columns=t2.rows.map(r=>r.column_name); } catch(e) {}
-  try { const t3 = await pool.query('SELECT COUNT(*) FROM admin_users'); results.row_count=t3.rows[0].count; } catch(e) {}
+  try { const t3 = await pool.query('SELECT COUNT(*) FROM admin_users WHERE workspace_id=$1',[req.currentUser.workspace_id]); results.row_count=t3.rows[0].count; } catch(e) {}
   res.json(results);
 });
 
@@ -3314,13 +3416,23 @@ app.get('*', async (req, res) => {
     }
     const parsed = parseAdminToken(cookieToken(req), 'access');
     let validCookieSession = false;
-    if (parsed) validCookieSession = !!(await adminUsers.byId(parsed.id));
+    let deniedLicenseStatus = null;
+    if (parsed) {
+      const sessionUser=await adminUsers.byId(parsed.id);
+      if(sessionUser){
+        const state=await workspaceLicenseState(sessionUser);
+        validCookieSession=state.allowed;
+        if(!state.allowed) deniedLicenseStatus=state.status;
+      }
+    }
 
     if (host === SUBLOOP_LOGIN_HOST && validCookieSession) {
       return res.redirect(302, SUBLOOP_APP_ORIGIN + '/');
     }
     if (host === SUBLOOP_APP_HOST && !validCookieSession) {
-      return res.redirect(302, SUBLOOP_LOGIN_ORIGIN + '/');
+      if(deniedLicenseStatus) clearAdminSessionCookie(req,res);
+      const suffix=deniedLicenseStatus ? ('?access='+encodeURIComponent(deniedLicenseStatus)) : '';
+      return res.redirect(302, SUBLOOP_LOGIN_ORIGIN + '/' + suffix);
     }
     return res.sendFile(path.join(__dirname, 'index.html'));
   } catch (_err) {

@@ -94,6 +94,13 @@ async function init() {
       updated_at TIMESTAMPTZ DEFAULT NOW(),
       last_login TIMESTAMPTZ
     );
+    CREATE TABLE IF NOT EXISTS workspace_settings (
+      workspace_id INT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+      key TEXT NOT NULL,
+      value TEXT NOT NULL,
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (workspace_id, key)
+    );
     CREATE TABLE IF NOT EXISTS stripe_accounts (
       id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
@@ -281,6 +288,15 @@ async function init() {
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_origin TEXT',
   ];
   for (const m of migrations) await pool.query(m).catch(() => {});
+  await pool.query('CREATE INDEX IF NOT EXISTS stripe_accounts_workspace_idx ON stripe_accounts(workspace_id)').catch(()=>{});
+  await pool.query('CREATE INDEX IF NOT EXISTS customers_workspace_idx ON customers(workspace_id)').catch(()=>{});
+  await pool.query('CREATE INDEX IF NOT EXISTS admin_users_workspace_idx ON admin_users(workspace_id)').catch(()=>{});
+  await pool.query('CREATE INDEX IF NOT EXISTS activity_log_workspace_idx ON activity_log(workspace_id)').catch(()=>{});
+  await pool.query('CREATE INDEX IF NOT EXISTS webhook_logs_workspace_idx ON webhook_logs(workspace_id)').catch(()=>{});
+  // Stripe object IDs are only meaningful inside their Stripe account. Multi-workspace
+  // installations must allow the same cus_ identifier to exist under different accounts.
+  await pool.query('ALTER TABLE customers DROP CONSTRAINT IF EXISTS customers_stripe_customer_id_key').catch(()=>{});
+  await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS customers_account_stripe_customer_uidx ON customers(stripe_account_id,stripe_customer_id)').catch(()=>{});
 
   // SaaS workspace foundation. Every record that existed before licensing belongs to
   // Main. This migration is additive and never deletes/recreates existing business data.
@@ -296,10 +312,13 @@ async function init() {
   ];
   for (const [table,column] of workspaceBackfills) {
     await pool.query(`UPDATE ${table} SET ${column}=$1 WHERE ${column} IS NULL`, [mainWorkspaceId]).catch(()=>{});
-    // Preserve today's single-workspace behavior for any legacy insert path that has
-    // not yet been tenant-aware. Future customer-workspace inserts explicitly override it.
-    await pool.query(`ALTER TABLE ${table} ALTER COLUMN ${column} SET DEFAULT ${Number(mainWorkspaceId)}`).catch(()=>{});
+    // Existing records are assigned to Main once; new writes must name their workspace
+    // explicitly so a missed tenant-aware insert can never silently land in Main.
+    await pool.query(`ALTER TABLE ${table} ALTER COLUMN ${column} DROP DEFAULT`).catch(()=>{});
   }
+  await pool.query(`INSERT INTO workspace_settings (workspace_id,key,value,updated_at)
+    SELECT $1,key,value,updated_at FROM settings
+    ON CONFLICT (workspace_id,key) DO NOTHING`, [mainWorkspaceId]).catch(()=>{});
   // The original Main Owner becomes the installation-level Super Admin. Future
   // customer workspace owners will not receive this flag.
   await pool.query(`UPDATE admin_users SET is_super_admin=true
@@ -314,7 +333,7 @@ async function init() {
   // source of truth after the Owner has been created: normal password/user/role
   // changes are made in Subloop and persist in PostgreSQL across redeploys.
   const ownerBootstrap = ownerBootstrapConfig();
-  let ownerRow = (await pool.query("SELECT id, username FROM admin_users WHERE role='owner' ORDER BY id ASC LIMIT 1")).rows[0];
+  let ownerRow = (await pool.query("SELECT id, username FROM admin_users WHERE workspace_id=$1 AND role='owner' ORDER BY id ASC LIMIT 1", [mainWorkspaceId])).rows[0];
 
   if (!ownerRow) {
     validateBootstrapCredentials(ownerBootstrap.username, ownerBootstrap.password);
@@ -396,12 +415,13 @@ async function init() {
     SET two_fa_enabled=true,
         two_fa_secret=(SELECT value FROM settings WHERE key='two_fa_secret'),
         two_fa_secret_pending=NULL
-    WHERE role='owner'
+    WHERE workspace_id=$1
+      AND role='owner'
       AND COALESCE(two_fa_enabled,false)=false
       AND COALESCE(two_fa_secret,'')=''
       AND COALESCE((SELECT value FROM settings WHERE key='two_fa_enabled'),'false')='true'
       AND COALESCE((SELECT value FROM settings WHERE key='two_fa_secret'),'')<>''
-  `).catch(()=>{});
+  `, [mainWorkspaceId]).catch(()=>{});
   // A Stripe Customer/Subscription can exist even when the very first payment failed.
   // Keep those records internally for the Payments history, but do not treat them as
   // paying customers or active subscriptions until money has actually succeeded.
@@ -443,8 +463,8 @@ async function init() {
 
   const existing = await pool.query('SELECT COUNT(*) FROM stripe_accounts');
   if (parseInt(existing.rows[0].count) === 0 && process.env.STRIPE_SECRET_KEY) {
-    await pool.query('INSERT INTO stripe_accounts (name,secret_key,publishable_key,webhook_secret,is_default) VALUES ($1,$2,$3,$4,true)',
-      ['Default Account', process.env.STRIPE_SECRET_KEY, process.env.STRIPE_PUBLISHABLE_KEY || '', process.env.STRIPE_WEBHOOK_SECRET || '']);
+    await pool.query('INSERT INTO stripe_accounts (name,secret_key,publishable_key,webhook_secret,is_default,workspace_id) VALUES ($1,$2,$3,$4,true,$5)',
+      ['Default Account', process.env.STRIPE_SECRET_KEY, process.env.STRIPE_PUBLISHABLE_KEY || '', process.env.STRIPE_WEBHOOK_SECRET || '', mainWorkspaceId]);
   }
   console.log('[db] PostgreSQL ready');
 }
@@ -452,17 +472,55 @@ const settingsDb = {
   get: async (key) => { const r = await pool.query('SELECT value FROM settings WHERE key=$1', [key]); return r.rows[0]?.value; },
   getAll: async () => { const r = await pool.query('SELECT key, value FROM settings ORDER BY key'); return Object.fromEntries(r.rows.map(r => [r.key, r.value])); },
   set: async (key, value) => { await pool.query('INSERT INTO settings (key,value,updated_at) VALUES ($1,$2,NOW()) ON CONFLICT (key) DO UPDATE SET value=$2, updated_at=NOW()', [key, value]); },
+  getForWorkspace: async (workspaceId, key) => {
+    const r = await pool.query('SELECT value FROM workspace_settings WHERE workspace_id=$1 AND key=$2', [workspaceId, key]);
+    if (r.rows[0]) return r.rows[0].value;
+    const main = await pool.query('SELECT is_main FROM workspaces WHERE id=$1',[workspaceId]);
+    if (main.rows[0]?.is_main) return settingsDb.get(key);
+    return undefined;
+  },
+  getAllForWorkspace: async (workspaceId) => {
+    const r = await pool.query('SELECT key,value FROM workspace_settings WHERE workspace_id=$1 ORDER BY key', [workspaceId]);
+    const own = Object.fromEntries(r.rows.map(row => [row.key, row.value]));
+    const main = await pool.query('SELECT is_main FROM workspaces WHERE id=$1',[workspaceId]);
+    if (main.rows[0]?.is_main) return { ...(await settingsDb.getAll()), ...own };
+    return own;
+  },
+  setForWorkspace: async (workspaceId, key, value) => {
+    await pool.query(`INSERT INTO workspace_settings (workspace_id,key,value,updated_at) VALUES ($1,$2,$3,NOW())
+      ON CONFLICT (workspace_id,key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()`, [workspaceId,key,value]);
+    const main = await pool.query('SELECT is_main FROM workspaces WHERE id=$1',[workspaceId]);
+    if (main.rows[0]?.is_main) await settingsDb.set(key,value);
+  }
 };
 const stripeAccounts = {
-  all: async () => { const r = await pool.query("SELECT id, name, is_default, created_at, LEFT(secret_key,12)||'...' as key_preview, CASE WHEN COALESCE(publishable_key,'')<>'' THEN LEFT(publishable_key,12)||'...' ELSE NULL END as publishable_key_preview, COALESCE(publishable_key,'')<>'' AS has_publishable_key FROM stripe_accounts ORDER BY created_at DESC, id DESC"); return r.rows; },
+  all: async (workspaceId=null) => {
+    const r = await pool.query("SELECT id, name, is_default, created_at, workspace_id, LEFT(secret_key,12)||'...' as key_preview, CASE WHEN COALESCE(publishable_key,'')<>'' THEN LEFT(publishable_key,12)||'...' ELSE NULL END as publishable_key_preview, COALESCE(publishable_key,'')<>'' AS has_publishable_key FROM stripe_accounts WHERE ($1::int IS NULL OR workspace_id=$1) ORDER BY created_at DESC, id DESC", [workspaceId]);
+    return r.rows;
+  },
   byId: async (id) => { const r = await pool.query('SELECT * FROM stripe_accounts WHERE id=$1', [id]); return r.rows[0]; },
-  default: async () => { const r = await pool.query('SELECT * FROM stripe_accounts WHERE is_default=true LIMIT 1'); if (r.rows[0]) return r.rows[0]; const r2 = await pool.query('SELECT * FROM stripe_accounts ORDER BY created_at ASC LIMIT 1'); return r2.rows[0]; },
-  create: async (data) => { const count = await pool.query('SELECT COUNT(*) FROM stripe_accounts'); const isDefault = parseInt(count.rows[0].count) === 0; const r = await pool.query('INSERT INTO stripe_accounts (name,secret_key,publishable_key,webhook_secret,is_default) VALUES ($1,$2,$3,$4,$5) RETURNING id', [data.name, data.secret_key, data.publishable_key || '', data.webhook_secret || '', isDefault]); return r.rows[0]; },
-  setDefault: async (id) => { await pool.query('UPDATE stripe_accounts SET is_default=false'); await pool.query('UPDATE stripe_accounts SET is_default=true WHERE id=$1', [id]); },
+  default: async (workspaceId=null) => {
+    const r = await pool.query('SELECT * FROM stripe_accounts WHERE is_default=true AND ($1::int IS NULL OR workspace_id=$1) ORDER BY id ASC LIMIT 1', [workspaceId]);
+    if (r.rows[0]) return r.rows[0];
+    const r2 = await pool.query('SELECT * FROM stripe_accounts WHERE ($1::int IS NULL OR workspace_id=$1) ORDER BY created_at ASC,id ASC LIMIT 1', [workspaceId]);
+    return r2.rows[0];
+  },
+  create: async (data) => {
+    const workspaceId = Number(data.workspace_id);
+    if (!Number.isInteger(workspaceId)) throw new Error('Workspace is required');
+    const count = await pool.query('SELECT COUNT(*) FROM stripe_accounts WHERE workspace_id=$1', [workspaceId]);
+    const isDefault = parseInt(count.rows[0].count) === 0;
+    const r = await pool.query('INSERT INTO stripe_accounts (name,secret_key,publishable_key,webhook_secret,is_default,workspace_id) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id', [data.name, data.secret_key, data.publishable_key || '', data.webhook_secret || '', isDefault, workspaceId]);
+    return r.rows[0];
+  },
+  setDefault: async (id, workspaceId) => {
+    await pool.query('UPDATE stripe_accounts SET is_default=false WHERE workspace_id=$1', [workspaceId]);
+    await pool.query('UPDATE stripe_accounts SET is_default=true WHERE id=$1 AND workspace_id=$2', [id,workspaceId]);
+  },
   delete: async (id) => { await pool.query('DELETE FROM stripe_accounts WHERE id=$1', [id]); },
 };
 const customers = {
-  all: async () => { const r = await pool.query(`
+  all: async (workspaceId=null) => { const r = await pool.query(`
     WITH sub_stats AS (
       SELECT customer_id,
         COUNT(*) FILTER (WHERE LOWER(status) IN ('active','trialing','past_due','unpaid','canceling','paused')) as current_subs,
@@ -541,7 +599,8 @@ const customers = {
       ORDER BY CASE WHEN status='succeeded' THEN 0 ELSE 1 END, created_at DESC
       LIMIT 1
     ) pm ON true
-    WHERE LOWER(COALESCE(c.status,'')) <> 'pending'
+    WHERE ($1::int IS NULL OR c.workspace_id=$1)
+      AND LOWER(COALESCE(c.status,'')) <> 'pending'
       AND NOT (
         COALESCE(p.total_paid, 0) = 0
         AND (
@@ -555,10 +614,10 @@ const customers = {
       p.last_payment_at DESC NULLS LAST,
       COALESCE(p.total_paid, 0) DESC,
       c.created_at DESC
-  `); return r.rows; },
+  `,[workspaceId]); return r.rows; },
   byId: async (id) => { const r = await pool.query('SELECT * FROM customers WHERE id=$1', [id]); return r.rows[0]; },
-  byStripeId: async (sid) => { const r = await pool.query('SELECT * FROM customers WHERE stripe_customer_id=$1', [sid]); return r.rows[0]; },
-  upsert: async (data) => { await pool.query(`INSERT INTO customers (email,name,stripe_customer_id,stripe_payment_method,stripe_account_id,card_brand,card_last4,card_exp_month,card_exp_year) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (stripe_customer_id) DO UPDATE SET stripe_payment_method=EXCLUDED.stripe_payment_method, stripe_account_id=EXCLUDED.stripe_account_id, card_brand=EXCLUDED.card_brand, card_last4=EXCLUDED.card_last4, card_exp_month=EXCLUDED.card_exp_month, card_exp_year=EXCLUDED.card_exp_year`, [data.email, data.name, data.stripe_customer_id, data.stripe_payment_method, data.stripe_account_id||null, data.card_brand, data.card_last4, data.card_exp_month, data.card_exp_year]); },
+  byStripeId: async (sid, accountIds=null) => { const r = await pool.query('SELECT * FROM customers WHERE stripe_customer_id=$1 AND ($2::int[] IS NULL OR stripe_account_id=ANY($2::int[])) ORDER BY id ASC LIMIT 1', [sid,accountIds]); return r.rows[0]; },
+  upsert: async (data) => { await pool.query(`INSERT INTO customers (email,name,stripe_customer_id,stripe_payment_method,stripe_account_id,card_brand,card_last4,card_exp_month,card_exp_year,workspace_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT (stripe_account_id,stripe_customer_id) DO UPDATE SET stripe_payment_method=EXCLUDED.stripe_payment_method, card_brand=EXCLUDED.card_brand, card_last4=EXCLUDED.card_last4, card_exp_month=EXCLUDED.card_exp_month, card_exp_year=EXCLUDED.card_exp_year, workspace_id=EXCLUDED.workspace_id`, [data.email, data.name, data.stripe_customer_id, data.stripe_payment_method, data.stripe_account_id||null, data.card_brand, data.card_last4, data.card_exp_month, data.card_exp_year, data.workspace_id||null]); },
   updateStatus: async (id, status) => { await pool.query('UPDATE customers SET status=$1 WHERE id=$2', [status, id]); },
   updateNote: async (id, note) => { await pool.query('UPDATE customers SET note=$1 WHERE id=$2', [note, id]); },
   detail: async (id) => {
@@ -676,7 +735,7 @@ const customers = {
   stats: async () => { const r = await pool.query(`SELECT COUNT(*) as total, COUNT(CASE WHEN status='active' THEN 1 END) as active, COUNT(CASE WHEN created_at >= NOW() - INTERVAL '30 days' THEN 1 END) as new_30d, COUNT(CASE WHEN status='cancelled' AND created_at >= NOW() - INTERVAL '30 days' THEN 1 END) as churned_30d FROM customers`); return r.rows[0]; },
 };
 const subscriptions = {
-  all: async () => { const r = await pool.query(`
+  all: async (workspaceId=null) => { const r = await pool.query(`
     WITH sub_pay_stats AS (
       SELECT
         subscription_id,
@@ -714,13 +773,14 @@ const subscriptions = {
     LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id
     LEFT JOIN sub_pay_stats sp ON sp.subscription_id=s.id
     LEFT JOIN customer_pay_stats cp ON cp.customer_id=s.customer_id
-    WHERE LOWER(COALESCE(c.status,'')) <> 'pending'
+    WHERE ($1::int IS NULL OR c.workspace_id=$1)
+      AND LOWER(COALESCE(c.status,'')) <> 'pending'
       AND LOWER(COALESCE(s.status,'')) NOT IN ('incomplete','incomplete_expired','pending')
     ORDER BY
       order_sort_date DESC NULLS LAST,
       s.created_at DESC,
       s.id DESC
-  `); return r.rows; },
+  `,[workspaceId]); return r.rows; },
   byCustomer: async (cid) => { const r = await pool.query('SELECT * FROM subscriptions WHERE customer_id=$1', [cid]); return r.rows; },
   due: async () => { const r = await pool.query(`SELECT s.*, c.stripe_customer_id, c.stripe_payment_method, c.email, c.name, c.stripe_account_id, sa.secret_key as stripe_secret_key FROM subscriptions s JOIN customers c ON c.id=s.customer_id LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id WHERE s.status='active' AND c.status='active' AND s.next_billing_date <= CURRENT_DATE`); return r.rows; },
   dunningDue: async () => [], // Legacy compatibility only; Stripe Billing owns renewal retries.
@@ -735,18 +795,25 @@ const subscriptions = {
   markDunning: async () => false, // Disabled: Stripe Billing owns retries/dunning.
 };
 const payments = {
-  recent: async (limit=50) => { const r = await pool.query('SELECT p.*, c.email, c.name, c.stripe_account_id, COALESCE(p.card_brand,c.card_brand) AS card_brand, COALESCE(p.card_last4,c.card_last4) AS card_last4, sa.name AS account_name FROM payments p JOIN customers c ON c.id=p.customer_id LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id ORDER BY p.created_at DESC LIMIT $1', [limit]); return r.rows; },
+  recent: async (limit=50, workspaceId=null) => { const r = await pool.query('SELECT p.*, c.email, c.name, c.stripe_account_id, c.workspace_id, COALESCE(p.card_brand,c.card_brand) AS card_brand, COALESCE(p.card_last4,c.card_last4) AS card_last4, sa.name AS account_name FROM payments p JOIN customers c ON c.id=p.customer_id LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id WHERE ($2::int IS NULL OR c.workspace_id=$2) ORDER BY p.created_at DESC LIMIT $1', [limit,workspaceId]); return r.rows; },
   byCustomer: async (cid) => { const r = await pool.query('SELECT * FROM payments WHERE customer_id=$1 ORDER BY created_at DESC', [cid]); return r.rows; },
   stats: async () => { const r = await pool.query(`SELECT COUNT(CASE WHEN status='succeeded' THEN 1 END) as succeeded_count, COUNT(CASE WHEN status='failed' THEN 1 END) as failed_count, COALESCE(SUM(CASE WHEN status='succeeded' THEN amount ELSE 0 END),0) as total_revenue, COUNT(CASE WHEN status='succeeded' AND created_at >= NOW()-INTERVAL '30 days' THEN 1 END) as count_30d, COALESCE(SUM(CASE WHEN status='succeeded' AND created_at >= NOW()-INTERVAL '30 days' THEN amount ELSE 0 END),0) as revenue_30d FROM payments`); return r.rows[0]; },
   insert: async (data) => { await pool.query('INSERT INTO payments (customer_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,card_brand,card_last4,card_exp_month,card_exp_year,card_country,card_funding,stripe_invoice_id,stripe_fee,net_amount,balance_transaction_id,financial_currency,retry_of_payment_id,was_failed,recovered_at,payment_origin) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)', [data.customer_id, data.subscription_id, data.stripe_payment_intent, data.amount, data.currency, data.status, data.failure_reason, data.card_brand||null, data.card_last4||null, data.card_exp_month||null, data.card_exp_year||null, data.card_country||null, data.card_funding||null, data.stripe_invoice_id||null, data.stripe_fee??null, data.net_amount??null, data.balance_transaction_id||null, data.financial_currency||null, data.retry_of_payment_id||null, data.was_failed ?? (data.status==='failed'), data.recovered_at||null, data.payment_origin||null]); },
 };
 const activityLog = {
-  add: async (type, description, customer_id=null, amount=null) => { await pool.query('INSERT INTO activity_log (type,description,customer_id,amount) VALUES ($1,$2,$3,$4)', [type, description, customer_id, amount]).catch(()=>{}); },
-  recent: async (limit=50) => { const r = await pool.query('SELECT a.*, c.name as customer_name, c.email, c.stripe_account_id FROM activity_log a LEFT JOIN customers c ON c.id=a.customer_id ORDER BY a.created_at DESC LIMIT $1', [limit]); return r.rows; },
+  add: async (type, description, customer_id=null, amount=null, workspace_id=null) => {
+    let wid = workspace_id ? Number(workspace_id) : null;
+    if (!wid && customer_id) {
+      const c = await pool.query('SELECT workspace_id FROM customers WHERE id=$1',[customer_id]).catch(()=>({rows:[]}));
+      wid = Number(c.rows[0]?.workspace_id) || null;
+    }
+    await pool.query('INSERT INTO activity_log (type,description,customer_id,amount,workspace_id) VALUES ($1,$2,$3,$4,$5)', [type, description, customer_id, amount, wid]).catch(()=>{});
+  },
+  recent: async (limit=50, workspaceId=null) => { const r = await pool.query('SELECT a.*, c.name as customer_name, c.email, c.stripe_account_id FROM activity_log a LEFT JOIN customers c ON c.id=a.customer_id WHERE ($2::int IS NULL OR a.workspace_id=$2) ORDER BY a.created_at DESC LIMIT $1', [limit,workspaceId]); return r.rows; },
 };
 const webhookLogs = {
-  add: async (data) => { await pool.query('INSERT INTO webhook_logs (event_type,account_name,status,error) VALUES ($1,$2,$3,$4)', [data.event_type, data.account_name||null, data.status||'ok', data.error||null]).catch(()=>{}); },
-  recent: async (limit=50) => { const r = await pool.query('SELECT * FROM webhook_logs ORDER BY created_at DESC LIMIT $1', [limit]); return r.rows; },
+  add: async (data) => { await pool.query('INSERT INTO webhook_logs (event_type,account_name,status,error,workspace_id) VALUES ($1,$2,$3,$4,$5)', [data.event_type, data.account_name||null, data.status||'ok', data.error||null, data.workspace_id||null]).catch(()=>{}); },
+  recent: async (limit=50, workspaceId=null) => { const r = await pool.query('SELECT * FROM webhook_logs WHERE ($2::int IS NULL OR workspace_id=$2) ORDER BY created_at DESC LIMIT $1', [limit,workspaceId]); return r.rows; },
 };
 const security = {
   logAttempt: async (ip, success, adminUserId=null, username=null) => {
@@ -758,15 +825,15 @@ const security = {
   },
 };
 const adminUsers = {
-  all: async () => {
-    const r = await pool.query("SELECT id, username, role, COALESCE(permissions, '[]') as permissions, COALESCE(account_scope,'all') AS account_scope, COALESCE(allowed_account_ids,'[]') AS allowed_account_ids, COALESCE(two_fa_enabled,false) AS two_fa_enabled, workspace_id, COALESCE(is_super_admin,false) AS is_super_admin, created_at, last_login FROM admin_users ORDER BY created_at ASC");
+  all: async (workspaceId=null) => {
+    const r = await pool.query("SELECT id, username, role, COALESCE(permissions, '[]') as permissions, COALESCE(account_scope,'all') AS account_scope, COALESCE(allowed_account_ids,'[]') AS allowed_account_ids, COALESCE(two_fa_enabled,false) AS two_fa_enabled, workspace_id, COALESCE(is_super_admin,false) AS is_super_admin, created_at, last_login FROM admin_users WHERE ($1::int IS NULL OR workspace_id=$1) ORDER BY created_at ASC", [workspaceId]);
     return r.rows;
   },
   byId: async (id) => { const r = await pool.query("SELECT id, username, role, COALESCE(permissions,'[]') AS permissions, COALESCE(account_scope,'all') AS account_scope, COALESCE(allowed_account_ids,'[]') AS allowed_account_ids, COALESCE(two_fa_enabled,false) AS two_fa_enabled, workspace_id, COALESCE(is_super_admin,false) AS is_super_admin, created_at, last_login FROM admin_users WHERE id=$1", [id]); return r.rows[0]; },
   byUsername: async (username) => { const r = await pool.query('SELECT * FROM admin_users WHERE LOWER(username)=LOWER($1)', [username]); return r.rows[0]; },
-  create: async (username, password, role='admin', permissions=[], accountScope='all', allowedAccountIds=[]) => {
+  create: async (username, password, role='admin', permissions=[], accountScope='all', allowedAccountIds=[], workspaceId=null, isSuperAdmin=false) => {
     const hash = hashPassword(password);
-    await pool.query('INSERT INTO admin_users (username, password_hash, role, permissions, account_scope, allowed_account_ids) VALUES ($1,$2,$3,$4,$5,$6)', [username, hash, role, JSON.stringify(permissions), accountScope, JSON.stringify(allowedAccountIds)]);
+    await pool.query('INSERT INTO admin_users (username, password_hash, role, permissions, account_scope, allowed_account_ids, workspace_id, is_super_admin) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)', [username, hash, role, JSON.stringify(permissions), accountScope, JSON.stringify(allowedAccountIds), workspaceId, !!isSuperAdmin]);
   },
   delete: async (id) => { await pool.query('DELETE FROM admin_users WHERE id=$1', [id]); },
   updateLastLogin: async (id) => { await pool.query('UPDATE admin_users SET last_login=NOW() WHERE id=$1', [id]); },
