@@ -172,8 +172,17 @@ async function workspaceLicenseState(user) {
   if (status !== 'active') return { allowed:false, status:status||'inactive', error:'Your Subloop license is not active.', workspace:row };
   return { allowed:true, status:'active', workspace:row };
 }
-function accessResponse(user) {
-  return { role: user.role, username: user.username, permissions: user.permissions || [], account_scope: user.account_scope || 'all', allowed_account_ids: normalizeAllowedAccountIds(user), workspace_id: user.workspace_id || null, is_super_admin: !!user.is_super_admin };
+function accessResponse(user, workspace = null) {
+  return {
+    role: user.role,
+    username: user.username,
+    permissions: user.permissions || [],
+    account_scope: user.account_scope || 'all',
+    allowed_account_ids: normalizeAllowedAccountIds(user),
+    workspace_id: user.workspace_id || null,
+    workspace_is_main: workspace ? !!workspace.is_main : undefined,
+    is_super_admin: !!user.is_super_admin
+  };
 }
 function sectionForApiPath(req) {
   const path = req.path;
@@ -1428,6 +1437,11 @@ app.use('/api', async (req, res, next) => {
     if (!licenseState.allowed) return res.status(403).json({ error: licenseState.error, license_status: licenseState.status });
     req.currentUser = user;
     req.workspace = licenseState.workspace;
+    // Workspace member management is a Main-workspace feature only. Licensed customer workspaces
+    // have one Owner login provisioned from the platform admin and cannot create/manage app users.
+    if (req.path.startsWith('/admin-users') && !req.workspace?.is_main) {
+      return res.status(403).json({ error: 'Admin Users is available only in the Main workspace' });
+    }
     const workspaceAccounts = await pool.query('SELECT id FROM stripe_accounts WHERE workspace_id=$1 ORDER BY id',[user.workspace_id]);
     req.workspaceAccountIds = workspaceAccounts.rows.map(row=>Number(row.id));
     const selfSecurityPath = req.path === '/security/login-history' || req.path.startsWith('/security/2fa/');
@@ -2621,7 +2635,7 @@ app.post('/api/security/2fa/validate', async (req, res) => {
     if (!state.enabled) {
       const accessToken = issueAdminToken(user, 'access', SUBLOOP_SESSION_MINUTES);
       setAdminSessionCookie(req, res, accessToken);
-      return res.json({ valid: true, ...authTokenForJson(req, accessToken), ...accessResponse(user) });
+      return res.json({ valid: true, ...authTokenForJson(req, accessToken), ...accessResponse(user, licenseState.workspace) });
     }
     if (!speakeasy) return res.status(503).json({ valid: false, error: 'Authenticator verification is unavailable' });
     if (!state.two_fa_secret) return res.status(503).json({ valid: false, error: 'Authenticator configuration is missing' });
@@ -2629,7 +2643,7 @@ app.post('/api/security/2fa/validate', async (req, res) => {
     if (!valid) return res.json({ valid: false });
     const accessToken = issueAdminToken(user, 'access', SUBLOOP_SESSION_MINUTES);
     setAdminSessionCookie(req, res, accessToken);
-    res.json({ valid: true, ...authTokenForJson(req, accessToken), ...accessResponse(user) });
+    res.json({ valid: true, ...authTokenForJson(req, accessToken), ...accessResponse(user, licenseState.workspace) });
   } catch(err) { res.status(500).json({ valid: false, error: 'Could not verify authenticator code' }); }
 });
 app.post('/api/security/2fa/disable', async (req, res) => {
@@ -3010,10 +3024,10 @@ app.post('/api/auth/verify', async (req, res) => {
       await adminUsers.updateLastLogin(user.id);
       await security.logAttempt(ip, true, user.id, user.username);
       const twoFaState = await adminUsers.twoFAState(user.id);
-      if (twoFaState.enabled) return res.json({ success: true, requires_2fa: true, login_challenge: issueAdminToken(user, '2fa', 5), ...accessResponse(user) });
+      if (twoFaState.enabled) return res.json({ success: true, requires_2fa: true, login_challenge: issueAdminToken(user, '2fa', 5), ...accessResponse(user, licenseState.workspace) });
       const accessToken = issueAdminToken(user, 'access', SUBLOOP_SESSION_MINUTES);
       setAdminSessionCookie(req, res, accessToken);
-      return res.json({ success: true, ...authTokenForJson(req, accessToken), ...accessResponse(user) });
+      return res.json({ success: true, ...authTokenForJson(req, accessToken), ...accessResponse(user, licenseState.workspace) });
     }
 
     const attemptedUser = username ? await adminUsers.byUsername(username) : null;
@@ -3029,7 +3043,7 @@ app.post('/api/auth/check', async (req, res) => {
     if (!user) return res.json({ valid: false });
     const licenseState=await workspaceLicenseState(user);
     if(!licenseState.allowed) return res.json({valid:false,error:licenseState.error,license_status:licenseState.status});
-    res.json({ valid: true, ...accessResponse(user) });
+    res.json({ valid: true, ...accessResponse(user, licenseState.workspace) });
   } catch(err) { res.json({ valid: false }); }
 });
 app.post('/api/auth/logout', (req, res) => {

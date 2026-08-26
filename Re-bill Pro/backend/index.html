@@ -5996,7 +5996,7 @@ body.view-only-access #verification-debug-modal .modal-content{
     <svg id="settings-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform 0.2s;flex-shrink:0;"><polyline points="6 9 12 15 18 9"/></svg>
   </button>
   <div id="settings-subnav" style="display:none;overflow:hidden;">
-    <button class="nav-item" onclick="showPage('admins',this)">
+    <button class="nav-item" id="admin-users-nav" onclick="showPage('admins',this)">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>Admin Users</button>
     <button class="nav-item" onclick="showPage('settings',this)">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
@@ -6894,7 +6894,7 @@ const SUBLOOP_APP_ORIGIN='https://app.subloop.space';
 function isSubloopLoginHost(){return window.location.hostname.toLowerCase()==='subloop.space';}
 function isSubloopAppHost(){return window.location.hostname.toLowerCase()==='app.subloop.space';}
 function clearLocalAccessState(){
-  ['subloop_auth','subloop_role','subloop_permissions','subloop_username','subloop_readonly','subloop_token','subloop_login_challenge','subloop_account_scope','subloop_allowed_account_ids','subloop_workspace_id','subloop_super_admin'].forEach(function(k){localStorage.removeItem(k);});
+  ['subloop_auth','subloop_role','subloop_permissions','subloop_username','subloop_readonly','subloop_token','subloop_login_challenge','subloop_account_scope','subloop_allowed_account_ids','subloop_workspace_id','subloop_workspace_is_main','subloop_super_admin'].forEach(function(k){localStorage.removeItem(k);});
 }
 function showAuthenticatedApp(r){
   if(r)storeAccessSession(r);
@@ -6956,6 +6956,7 @@ function storeAccessSession(r){
   localStorage.setItem('subloop_account_scope',r.account_scope||'all');
   localStorage.setItem('subloop_allowed_account_ids',JSON.stringify(r.allowed_account_ids||[]));
   if(r.workspace_id!=null)localStorage.setItem('subloop_workspace_id',String(r.workspace_id));
+  if(typeof r.workspace_is_main==='boolean')localStorage.setItem('subloop_workspace_is_main',r.workspace_is_main?'1':'0');
   if(r.is_super_admin)localStorage.setItem('subloop_super_admin','1');else localStorage.removeItem('subloop_super_admin');
   localStorage.removeItem('subloop_readonly');
   if(r.role==='viewer'||r.role==='analyst')localStorage.setItem('subloop_readonly','1');
@@ -7023,8 +7024,21 @@ function blockViewOnlyAction(){
   toast('View-only access — actions are disabled','error');
   return true;
 }
+function isMainWorkspace(){
+  // Unknown is treated as Main for legacy/fallback sessions; normal subloop.space/app.subloop.space
+  // sessions always receive an explicit workspace_is_main flag from the backend.
+  return localStorage.getItem('subloop_workspace_is_main')!=='0';
+}
+function applyWorkspaceFeatureVisibility(){
+  var main=isMainWorkspace();
+  var adminsNav=document.getElementById('admin-users-nav');
+  if(adminsNav)adminsNav.style.display=main?'':'none';
+  var adminsPage=document.getElementById('page-admins');
+  if(adminsPage&&!main)adminsPage.classList.remove('active');
+}
 function canAccess(section){
   var role=getCurrentRole();
+  if(section==='admins'&&!isMainWorkspace()) return false;
   
   if(section==='security') return true;
   if(!role||role==='owner'||role==='admin') return true;
@@ -7068,6 +7082,7 @@ function applyAccessControl(){
   else localStorage.removeItem('subloop_readonly');
   applyRoleBasedPageCopy();
   applyOperationalActionVisibility();
+  applyWorkspaceFeatureVisibility();
   if(!role||role==='owner'||role==='admin') return;
   document.querySelectorAll('.nav-item').forEach(function(btn){
     var onclick=btn.getAttribute('onclick')||'';
@@ -7121,6 +7136,7 @@ function refreshRestrictedAccessAndOpen(name,el,loaders){
     localStorage.setItem('subloop_permissions',JSON.stringify(r.permissions||[]));
     if(r.account_scope)localStorage.setItem('subloop_account_scope',r.account_scope);
     if(Array.isArray(r.allowed_account_ids))localStorage.setItem('subloop_allowed_account_ids',JSON.stringify(r.allowed_account_ids));
+    if(typeof r.workspace_is_main==='boolean')localStorage.setItem('subloop_workspace_is_main',r.workspace_is_main?'1':'0');
     if(r.role==='viewer'||r.role==='analyst')localStorage.setItem('subloop_readonly','1');else localStorage.removeItem('subloop_readonly');
     applyAccessControl();
     if(canAccess(name)){
