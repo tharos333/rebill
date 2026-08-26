@@ -2820,6 +2820,9 @@ function requireSuperAdmin(req, res) {
 }
 function normalizeLicensePlan(value) {
   const v = String(value || '').toLowerCase().trim().replace(/[-\s]/g, '_');
+  if (['1_day','trial_1_day','1_day_trial'].includes(v)) return 'trial_1_day';
+  if (['3_day','3_days','trial_3_day','trial_3_days','3_day_trial','3_days_trial'].includes(v)) return 'trial_3_days';
+  if (['custom','custom_day','custom_days'].includes(v)) return 'custom_days';
   if (['3_month','3_months','quarterly'].includes(v)) return '3_months';
   if (['12_month','12_months','year','yearly','annual'].includes(v)) return '12_months';
   if (['lifetime','life'].includes(v)) return 'lifetime';
@@ -2834,8 +2837,16 @@ function addCalendarMonths(date, months) {
   d.setUTCDate(Math.min(day, last));
   return d;
 }
-function licenseExpiryForPlan(plan, start = new Date()) {
+function addCalendarDays(date, days) {
+  const d = new Date(date);
+  d.setUTCDate(d.getUTCDate() + Number(days || 0));
+  return d;
+}
+function licenseExpiryForPlan(plan, start = new Date(), customDays = null) {
   if (plan === 'lifetime') return null;
+  if (plan === 'trial_1_day') return addCalendarDays(start, 1);
+  if (plan === 'trial_3_days') return addCalendarDays(start, 3);
+  if (plan === 'custom_days') return addCalendarDays(start, customDays);
   return addCalendarMonths(start, plan === '3_months' ? 3 : 12);
 }
 function slugBaseForWorkspace(name, email) {
@@ -2881,20 +2892,23 @@ app.post('/admin/api/licenses', async (req,res) => {
     const username = String(req.body.username || '').trim();
     const password = String(req.body.password || '');
     const plan = normalizeLicensePlan(req.body.plan);
+    const customDays = plan === 'custom_days' ? Number(req.body.custom_days) : null;
     const notes = String(req.body.notes || '').trim().slice(0,2000);
     if (!customerName) return res.status(400).json({ error:'Customer name is required' });
     if (!/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ error:'Enter a valid email address' });
     if (username.length < 3 || username.length > 80) return res.status(400).json({ error:'Username must be 3-80 characters' });
     if (password.length < 8) return res.status(400).json({ error:'Password must be at least 8 characters' });
-    if (!plan) return res.status(400).json({ error:'Select 3 months, 12 months, or lifetime' });
+    if (!plan) return res.status(400).json({ error:'Select a valid license period' });
+    if (plan === 'custom_days' && (!Number.isInteger(customDays) || customDays < 1 || customDays > 3650)) return res.status(400).json({ error:'Custom period must be between 1 and 3650 days' });
     if (await adminUsers.byUsername(username)) return res.status(409).json({ error:'Username already exists' });
     const slug = await uniqueWorkspaceSlug(customerName,email);
     const startsAt = new Date();
-    const expiresAt = licenseExpiryForPlan(plan,startsAt);
+    const expiresAt = licenseExpiryForPlan(plan,startsAt,customDays);
+    const storedPlan = plan === 'custom_days' ? `custom_${customDays}_days` : plan;
     await client.query('BEGIN');
     const w = await client.query(`INSERT INTO workspaces (name,slug,is_main,status) VALUES ($1,$2,false,'licensed') RETURNING id,name,slug`,[customerName,slug]);
     const l = await client.query(`INSERT INTO licenses (workspace_id,customer_name,email,plan,starts_at,expires_at,status,notes)
-      VALUES ($1,$2,$3,$4,$5,$6,'active',$7) RETURNING *`,[w.rows[0].id,customerName,email,plan,startsAt,expiresAt,notes||null]);
+      VALUES ($1,$2,$3,$4,$5,$6,'active',$7) RETURNING *`,[w.rows[0].id,customerName,email,storedPlan,startsAt,expiresAt,notes||null]);
     const salt = crypto.randomBytes(16).toString('hex');
     const derived = crypto.scryptSync(String(password), salt, 64).toString('hex');
     const passwordHash = `scrypt$${salt}$${derived}`;
