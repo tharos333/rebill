@@ -3,27 +3,68 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" type="image/png" href="https://i.ibb.co/6cnnDkWy/Blue-and-White-Minimalist-Professional-Brand-Logo-1.png">
 <title>Subloop Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#09090f;--surface:#111118;--surface2:#171720;--border:#272733;--border2:#343442;--text:#f3f3f6;--muted:#90909f;--accent:#6c63ff;--accent2:#7c73ff;--green:#20cf72;--red:#ff6b70;--amber:#f5b820;--mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;--sans:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:var(--sans)}body.modal-lock{overflow:hidden}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0f;--surface:#111118;--surface2:#18181f;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+  --text:#f0f0f5;--muted:#888898;--accent:#6c63ff;--accent-glow:rgba(108,99,255,0.18);
+  --green:#22c55e;--green-bg:rgba(34,197,94,0.1);
+  --red:#f87171;--red-bg:rgba(248,113,113,0.1);
+  --amber:#fbbf24;--amber-bg:rgba(251,191,36,0.1);
+  --blue:#60a5fa;--blue-bg:rgba(96,165,250,0.1);
+  --mono:'DM Mono',monospace;--sans:'Syne',sans-serif;
+}
+html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:var(--sans)}
+body{min-height:100vh}body.modal-lock{overflow:hidden!important;overscroll-behavior:none}
 button,input,select,textarea{font:inherit}.hidden{display:none!important}
-.login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}.login-card{width:365px;background:var(--surface);border:1px solid var(--border2);border-radius:18px;padding:30px;box-shadow:0 24px 70px rgba(0,0,0,.35)}
-.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:22px;margin-bottom:28px}.brand-mark{width:30px;height:30px;display:grid;place-items:center;color:var(--accent)}.beta{font:600 8px var(--mono);border:1px solid var(--border2);border-radius:6px;padding:2px 4px;color:var(--muted);margin-left:2px}.admin-pill{font:600 9px var(--mono);letter-spacing:.7px;text-transform:uppercase;color:#b8b3ff;background:rgba(108,99,255,.13);border:1px solid rgba(108,99,255,.28);padding:4px 7px;border-radius:7px;margin-left:auto}
-.field{margin-bottom:16px}.field label{display:block;font:600 10px var(--mono);letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:7px}.field input,.field select,.field textarea{width:100%;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:11px 12px;border-radius:10px;outline:none}.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent)}.password-wrap{position:relative}.password-wrap input{padding-right:42px}.password-toggle{position:absolute;right:11px;top:50%;transform:translateY(-50%);border:0;background:none;color:var(--muted);padding:0;width:22px;height:22px;display:grid;place-items:center;cursor:pointer}.password-toggle:hover{color:var(--text);filter:drop-shadow(0 0 6px rgba(108,99,255,.35))}.password-toggle svg{width:19px;height:19px}.field textarea{min-height:84px;resize:vertical}
-.btn{border:1px solid var(--border2);background:var(--surface2);color:var(--text);border-radius:9px;padding:8px 12px;cursor:pointer;font-weight:600;font-size:12px}.btn:hover{border-color:#4a4a5b}.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}.btn-danger{color:var(--red);border-color:rgba(255,107,112,.35);background:rgba(255,107,112,.08)}.btn-sm{padding:5px 9px;font-size:11px}.btn-full{width:100%;padding:11px}.login-error{font-size:12px;color:var(--red);min-height:18px;margin:10px 0 2px}
-.app{min-height:100vh}.topbar{height:68px;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 28px;background:#0c0c12;position:sticky;top:0;z-index:10}.topbar .brand{margin:0}.topbar-actions{margin-left:auto;display:flex;align-items:center;gap:10px}.signed-user{font:11px var(--mono);color:var(--muted)}
-main{padding:26px 30px 50px;max-width:1500px;margin:0 auto}.page-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px}.page-head h1{font-size:22px;margin:0 0 4px}.page-head p{margin:0;color:var(--muted);font-size:13px}.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:18px}.stat{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:16px}.stat-label{font:600 10px var(--mono);letter-spacing:.8px;color:var(--muted)}.stat-value{font-weight:700;font-size:24px;margin:7px 0 4px}.stat-sub{font-size:12px;color:var(--muted)}
-.table-card{background:var(--surface);border:1px solid var(--border);border-radius:13px;overflow:hidden}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:1040px}th{font:600 10px var(--mono);letter-spacing:1px;color:var(--muted);text-transform:uppercase;text-align:left;padding:11px 14px;border-bottom:1px solid var(--border)}td{padding:12px 14px;border-bottom:1px solid var(--border);font-size:12px;vertical-align:middle}tbody tr:last-child td{border-bottom:0}.muted{color:var(--muted)}.subtext{font:10px var(--mono);color:var(--muted);margin-top:3px}.actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.empty{text-align:center;color:var(--muted);padding:38px}
-.badge{display:inline-flex;align-items:center;font:600 11px var(--mono);padding:4px 8px;border-radius:7px;white-space:nowrap}.badge-green{color:var(--green);background:rgba(32,207,114,.10)}.badge-red{color:var(--red);background:rgba(255,107,112,.10)}.badge-amber{color:var(--amber);background:rgba(245,184,32,.11)}.badge-gray{color:#c2c2ca;background:rgba(180,180,195,.09)}
-.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;align-items:center;justify-content:center;padding:24px;z-index:100}.modal-bg.open{display:flex}.modal{width:min(500px,100%);background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:22px;box-shadow:0 24px 80px rgba(0,0,0,.55);max-height:calc(100vh - 40px);overflow:auto}.modal h3{margin:0 0 5px;font-size:17px}.modal>p{margin:0 0 18px;color:var(--muted);font-size:12px;line-height:1.55}.modal-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}.toast{position:fixed;right:22px;bottom:22px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:11px 14px;font-size:12px;z-index:200;opacity:0;transform:translateY(8px);pointer-events:none;transition:.2s}.toast.show{opacity:1;transform:none}.toast.error{color:var(--red)}
-.note{margin-top:12px;font:10px var(--mono);color:var(--muted);line-height:1.55}@media(max-width:850px){.stats{grid-template-columns:repeat(2,1fr)}main{padding:20px 14px}.topbar{padding:0 15px}}@media(max-width:520px){.stats{grid-template-columns:1fr}.signed-user{display:none}.page-head{gap:12px}.page-head h1{font-size:20px}}
+
+/* Same login visual system as the main Subloop app */
+.login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000}
+.login-card{background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:40px;width:380px;max-width:95vw}
+.login-brand{text-align:center;margin-bottom:28px}
+.login-brand img{width:170px;height:auto;display:block;margin:0 auto 10px}
+.platform-label{display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:.6px;text-transform:uppercase}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;font-weight:400}
+.field input,.field select,.field textarea{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;color:var(--text);padding:12px 14px;font-size:14px;font-family:var(--sans);outline:none;transition:border-color .2s}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent)}
+.field select option{background:var(--surface2)}.field textarea{min-height:70px;resize:vertical}
+.password-wrap{position:relative}.password-wrap input{padding-right:42px}
+.password-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);width:22px;height:22px;border:0;background:none;color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;transition:color .15s,opacity .15s,filter .15s;opacity:.9}
+.password-toggle:hover{color:var(--text);opacity:1;filter:drop-shadow(0 0 6px rgba(126,102,255,.28))}.password-toggle:focus-visible{outline:none;color:var(--text)}.password-toggle svg{width:20px;height:20px;display:block}
+.login-error{background:var(--red-bg);border:1px solid transparent;color:var(--red);border-radius:8px;padding:0;font-size:13px;font-family:var(--mono);margin-top:0;min-height:18px;text-align:center}
+.login-error:not(:empty){border-color:var(--red);padding:10px 14px;margin-top:14px}
+
+/* Shared Subloop controls */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:7px 13px;border-radius:8px;font-size:13px;font-family:var(--sans);font-weight:500;cursor:pointer;transition:all .15s;border:1px solid var(--border2);background:var(--surface2);color:var(--text);white-space:nowrap}
+.btn:hover{border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.07)}.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}.btn-primary:hover{background:#7c74ff;border-color:#7c74ff}.btn-danger{color:var(--red);border-color:var(--red-bg)}.btn-danger:hover{background:var(--red-bg)}.btn-sm{padding:4px 9px;font-size:11px}.btn-full{width:100%;padding:13px;font-size:15px;font-weight:600;margin-top:8px}
+
+/* Admin shell, still visually native to Subloop */
+.app{min-height:100vh}.topbar{height:52px;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 28px;background:var(--surface);position:sticky;top:0;z-index:10}
+.admin-brand{display:flex;align-items:center;gap:12px;min-width:0}.admin-brand img{width:150px;height:auto;display:block;object-fit:contain}.admin-pill{font-size:9px;font-family:var(--mono);font-weight:500;letter-spacing:.65px;text-transform:uppercase;color:#b8b3ff;background:var(--accent-glow);border:1px solid rgba(108,99,255,.3);padding:3px 6px;border-radius:6px;white-space:nowrap}
+.topbar-actions{margin-left:auto;display:flex;align-items:center;gap:10px}.signed-user{font-size:11px;font-family:var(--mono);color:var(--muted)}
+main{padding:24px 28px 50px;max-width:none;margin:0}
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap}.page-head h1{font-size:19px;font-weight:600;letter-spacing:-.3px;margin:0}.page-title{display:flex;align-items:center;gap:10px}.page-title svg{width:18px;height:18px;flex:0 0 18px}.page-head p{font-size:13px;color:var(--muted);margin-top:2px}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:20px}.stat{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:16px;position:relative;overflow:hidden}.stat::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),transparent);opacity:.5}.stat-label{font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:.5px;text-transform:uppercase}.stat-value{font-size:22px;font-weight:700;margin-top:4px;letter-spacing:-.5px}.stat-sub{font-size:12px;color:var(--muted);margin-top:3px;font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.table-card{background:var(--surface);border:1px solid var(--border);border-radius:11px;overflow:hidden;margin-bottom:18px}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;min-width:1040px}th{text-align:left;padding:8px 16px;font-size:10px;color:var(--muted);font-family:var(--mono);font-weight:400;letter-spacing:.5px;border-bottom:1px solid var(--border);text-transform:uppercase}td{padding:11px 16px;font-size:13px;border-bottom:1px solid var(--border);vertical-align:middle}tbody tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)}.muted{color:var(--muted)}.subtext{font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:3px}.actions{display:flex;gap:4px;align-items:center;flex-wrap:wrap}.empty{text-align:center;padding:36px 20px;color:var(--muted);font-size:13px;font-family:var(--mono)}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:20px;font-size:11px;font-family:var(--mono);font-weight:600;white-space:nowrap}.badge::before{content:'●';font-size:7px}.badge-green{background:var(--green-bg);color:var(--green)}.badge-red{background:var(--red-bg);color:var(--red)}.badge-amber{background:var(--amber-bg);color:var(--amber)}.badge-gray{background:rgba(136,136,152,.1);color:var(--muted)}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:500;align-items:center;justify-content:center}.modal-bg.open{display:flex}.modal{background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:26px;width:460px;max-width:95vw;max-height:90vh;overflow-y:auto}.modal h3{font-size:16px;font-weight:600;margin-bottom:4px}.modal>p{font-size:13px;color:var(--muted);margin-bottom:18px}.modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:10px 15px;font-size:13px;font-family:var(--mono);z-index:9999;transform:translateY(80px);opacity:0;pointer-events:none;transition:all .25s}.toast.show{transform:translateY(0);opacity:1}.toast.error{border-color:var(--red);color:var(--red)}
+.note{margin-top:12px;font-size:10px;font-family:var(--mono);color:var(--muted);line-height:1.55}
+@media(max-width:850px){.stats{grid-template-columns:repeat(2,1fr)}main{padding:20px 14px}.topbar{padding:0 15px}}@media(max-width:520px){.stats{grid-template-columns:1fr}.signed-user,.admin-pill{display:none}.page-head{gap:12px}.admin-brand img{width:135px}}
+
 </style>
 </head>
 <body>
 <section id="login-screen" class="login-screen">
   <div class="login-card">
-    <div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M8 3 3 10h6l-3 11 8-10H9l4-8z"/><path d="m16 3-3 7h5l-3 11 7-10h-5l3-8z"/></svg></span><span>Subloop</span><span class="beta">BETA</span><span class="admin-pill">Admin</span></div>
+    <div class="login-brand"><img src="https://i.ibb.co/xq0HVT9G/1.png" alt="Subloop"><span class="platform-label">Platform Admin</span></div>
     <div class="field"><label>Username</label><input id="admin-user" autocomplete="username" placeholder="Admin username"></div>
     <div class="field"><label>Password</label><div class="password-wrap"><input id="admin-pass" type="password" autocomplete="current-password" placeholder="Enter password" onkeydown="if(event.key==='Enter')signIn()"><button class="password-toggle" type="button" aria-label="Show password" onclick="togglePassword(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.7"/></svg></button></div></div>
     <div id="login-error" class="login-error"></div>
@@ -32,11 +73,11 @@ main{padding:26px 30px 50px;max-width:1500px;margin:0 auto}.page-head{display:fl
 </section>
 <section id="admin-app" class="app hidden">
   <header class="topbar">
-    <div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24" width="27" height="27" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M8 3 3 10h6l-3 11 8-10H9l4-8z"/><path d="m16 3-3 7h5l-3 11 7-10h-5l3-8z"/></svg></span><span>Subloop</span><span class="admin-pill">Platform Admin</span></div>
+    <div class="admin-brand"><img src="https://i.ibb.co/xq0HVT9G/1.png" alt="Subloop"><span class="admin-pill">Platform Admin</span></div>
     <div class="topbar-actions"><span id="signed-user" class="signed-user"></span><button class="btn" onclick="logout()">Sign out</button></div>
   </header>
   <main>
-    <div class="page-head"><div><h1>Licenses</h1><p>Manage Subloop customer access and isolated workspaces.</p></div><button class="btn btn-primary" onclick="openCreate()">+ Create License</button></div>
+    <div class="page-head"><div><h1 class="page-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h6M7 13h4M16 12h2"/></svg><span>Licenses</span></h1><p>Manage Subloop customer access and isolated workspaces.</p></div><button class="btn btn-primary" onclick="openCreate()">+ Create License</button></div>
     <div class="stats">
       <div class="stat"><div class="stat-label">ACTIVE LICENSES</div><div id="stat-active" class="stat-value">0</div><div class="stat-sub">Current access</div></div>
       <div class="stat"><div class="stat-label">EXPIRING SOON</div><div id="stat-expiring" class="stat-value">0</div><div class="stat-sub">Next 30 days</div></div>
