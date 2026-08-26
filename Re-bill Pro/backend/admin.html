@@ -265,17 +265,36 @@ table{min-width:860px}
 html.light .drawer-bg{background:rgba(17,17,24,.28)}html.light .license-drawer{background:#fff;border-left-color:rgba(0,0,0,.10);box-shadow:0 24px 70px rgba(17,17,24,.18)}html.light .drawer-close{background:rgba(0,0,0,.025)!important;border-color:rgba(0,0,0,.12)!important}html.light .drawer-close:hover{background:rgba(0,0,0,.055)!important;border-color:rgba(0,0,0,.22)!important}
 @media(max-width:850px){.stats{grid-template-columns:repeat(2,1fr)}main{padding:20px 14px}.topbar{padding:0 15px}.license-drawer{width:min(500px,100vw)}}@media(max-width:520px){.stats{grid-template-columns:1fr}.signed-user,.admin-pill{display:none}.page-head{gap:12px}.admin-brand img{width:115px}.license-drawer{width:100%;max-width:100%}.drawer-head{padding-left:18px;padding-right:68px}.drawer-body{padding-left:18px;padding-right:18px}.detail-grid{grid-template-columns:1fr}.detail-box.wide{grid-column:auto}.drawer-actions{grid-template-columns:1fr}.drawer-actions .wide{grid-column:auto}}
 
+/* EXACT login component parity with the main Subloop app */
+#login-screen .login-box{background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:40px;width:380px;max-width:95vw}
+#login-screen .login-logo{text-align:center;margin-bottom:28px}
+#login-screen .login-logo img{width:145px;height:auto;display:block;margin:0 auto 10px}
+#login-screen .login-field{margin-bottom:16px}
+#login-screen .login-field label{display:block;font-size:11px;color:var(--muted);font-family:var(--mono)!important;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;font-weight:400!important;line-height:normal!important}
+#login-screen .login-field input{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;color:var(--text);padding:12px 14px;font-size:14px;font-family:var(--sans)!important;outline:none;transition:border-color .2s}
+#login-screen .login-field input:focus{border-color:var(--accent)}
+#login-screen .login-password-wrap{position:relative}
+#login-screen .login-password-wrap input{padding-right:42px}
+#login-screen .login-password-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);width:22px;height:22px;border:0;background:none;color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;transition:color .15s,opacity .15s,filter .15s;opacity:.9}
+#login-screen .login-password-toggle:hover{color:var(--text);opacity:1;filter:drop-shadow(0 0 6px rgba(126,102,255,.28))}
+#login-screen .login-password-toggle:focus-visible{outline:none;color:var(--text);opacity:1;filter:drop-shadow(0 0 0 rgba(0,0,0,0)) drop-shadow(0 0 6px rgba(126,102,255,.38))}
+#login-screen .login-password-toggle svg{width:20px;height:20px;display:block}
+#login-screen .login-password-toggle .eye-off{display:none}
+#login-screen .login-password-toggle.is-visible .eye-on{display:none}
+#login-screen .login-password-toggle.is-visible .eye-off{display:block}
+#login-screen .login-btn{width:100%;background:var(--accent);color:#fff;border:none;border-radius:10px;padding:13px;font-size:15px;font-family:var(--sans)!important;font-weight:600!important;cursor:pointer;margin-top:8px;letter-spacing:-.01em!important}
+#login-screen .login-btn:hover{background:#7c74ff}
 
 </style>
 </head>
 <body>
 <section id="login-screen" class="login-screen">
-  <div class="login-card">
-    <div class="login-brand"><img src="/icons/platform-admin-logo.png" alt="Subloop"></div>
-    <div class="field"><label>Username</label><input id="admin-user" autocomplete="username" placeholder="Admin username"></div>
-    <div class="field"><label>Password</label><div class="password-wrap"><input id="admin-pass" type="password" autocomplete="current-password" placeholder="Enter password" onkeydown="if(event.key==='Enter')signIn()"><button class="password-toggle" type="button" aria-label="Show password" onclick="togglePassword(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.7"/></svg></button></div></div>
+  <div class="login-box">
+    <div class="login-logo"><img src="/icons/platform-admin-logo.png" alt="Subloop"></div>
+    <div class="login-field"><label>Username</label><input id="admin-user" autocomplete="username" placeholder="Admin username"></div>
+    <div class="login-field"><label>Password</label><div class="login-password-wrap"><input id="admin-pass" type="password" autocomplete="current-password" placeholder="Enter password" onkeydown="if(event.key==='Enter')signIn()"><button class="login-password-toggle" id="admin-password-toggle" type="button" aria-label="Show password" title="Show password" onclick="togglePassword()"><svg class="eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.7"/></svg><svg class="eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 6.2A10.8 10.8 0 0 1 12 6c6.5 0 10 6 10 6a17.5 17.5 0 0 1-3.1 3.8"/><path d="M6.4 6.4C3.6 8.3 2 12 2 12s3.5 6 10 6a10.7 10.7 0 0 0 4.1-.8"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg></button></div></div>
     <div id="login-error" class="login-error"></div>
-    <button class="btn btn-primary btn-full" onclick="signIn()">Sign in</button>
+    <button class="login-btn" onclick="signIn()">Sign in</button>
   </div>
 </section>
 <section id="admin-app" class="app hidden">
@@ -302,7 +321,7 @@ html.light .drawer-bg{background:rgba(17,17,24,.28)}html.light .license-drawer{b
 <div id="toast" class="toast"></div>
 <script>
 let licenses=[];let confirmAction=null;let drawerLicenseId=null;
-function togglePassword(btn){const p=document.getElementById('admin-pass');const show=p.type==='password';p.type=show?'text':'password';btn.setAttribute('aria-label',show?'Hide password':'Show password');btn.innerHTML=show?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3l18 18"/><path d="M10.6 6.2A10.8 10.8 0 0 1 12 6c6.5 0 10 6 10 6a17.5 17.5 0 0 1-3.1 3.8"/><path d="M6.4 6.4C3.6 8.3 2 12 2 12s3.5 6 10 6a10.7 10.7 0 0 0 4.1-.8"/></svg>':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.7"/></svg>'}
+function togglePassword(){const p=document.getElementById('admin-pass');const btn=document.getElementById('admin-password-toggle');if(!p||!btn)return;const show=p.type==='password';p.type=show?'text':'password';btn.classList.toggle('is-visible',show);btn.setAttribute('aria-label',show?'Hide password':'Show password');btn.setAttribute('title',show?'Hide password':'Show password');p.focus();}
 function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
 function lock(){document.body.classList.toggle('modal-lock',!!document.querySelector('.modal-bg.open,.drawer-bg.open'));}
 function openModal(id){document.getElementById(id).classList.add('open');lock();}
