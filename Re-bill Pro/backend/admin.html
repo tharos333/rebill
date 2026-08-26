@@ -1,90 +1,152 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="icon" type="image/png" href="https://i.ibb.co/6cnnDkWy/Blue-and-White-Minimalist-Professional-Brand-Logo-1.png">
 <title>Subloop Admin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
+
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{--bg:#0a0a0f;--surface:#111118;--surface2:#18181f;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);--text:#f0f0f5;--muted:#888898;--accent:#6c63ff;--accent-glow:rgba(108,99,255,0.18);--green:#22c55e;--green-bg:rgba(34,197,94,0.1);--red:#f87171;--red-bg:rgba(248,113,113,0.1);--amber:#fbbf24;--amber-bg:rgba(251,191,36,0.1);--blue:#60a5fa;--blue-bg:rgba(96,165,250,0.1);--mono:'DM Mono',monospace;--sans:'Syne',sans-serif}
-body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;display:flex}body.modal-lock{overflow:hidden!important;overscroll-behavior:none}.hidden{display:none!important}
-/* EXACT MAIN APP LOGIN COMPONENTS */
+:root{
+  --bg:#0a0a0f;--surface:#111118;--surface2:#18181f;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+  --text:#f0f0f5;--muted:#888898;--accent:#6c63ff;--accent-glow:rgba(108,99,255,0.18);
+  --green:#22c55e;--green-bg:rgba(34,197,94,0.1);
+  --red:#f87171;--red-bg:rgba(248,113,113,0.1);
+  --amber:#fbbf24;--amber-bg:rgba(251,191,36,0.1);
+  --blue:#60a5fa;--blue-bg:rgba(96,165,250,0.1);
+  --font-ui:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;--mono:var(--font-ui);--sans:var(--font-ui);
+}
+html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:var(--sans)}
+body{min-height:100vh}body.modal-lock{overflow:hidden!important;overscroll-behavior:none}
+button,input,select,textarea{font:inherit}.hidden{display:none!important}
+
+/* Same login visual system as the main Subloop app */
 .login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000}
-.login-box{background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:40px;width:380px;max-width:95vw}
-.login-logo{text-align:center;margin-bottom:28px}.login-field{margin-bottom:16px}.login-field label{display:block;font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}.login-field input{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;color:var(--text);padding:12px 14px;font-size:14px;font-family:var(--sans);outline:none;transition:border-color .2s}.login-field input:focus{border-color:var(--accent)}
-.login-password-wrap{position:relative}.login-password-wrap input{padding-right:42px}.login-password-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);width:22px;height:22px;border:0;background:none;color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;transition:color .15s,opacity .15s,filter .15s;opacity:.9}.login-password-toggle:hover{color:var(--text);opacity:1;filter:drop-shadow(0 0 6px rgba(126,102,255,.28))}.login-password-toggle:focus-visible{outline:none;color:var(--text);opacity:1;filter:drop-shadow(0 0 6px rgba(126,102,255,.38))}.login-password-toggle svg{width:20px;height:20px;display:block}.login-password-toggle .eye-off{display:none}.login-password-toggle.is-visible .eye-on{display:none}.login-password-toggle.is-visible .eye-off{display:block}
-.login-btn{width:100%;background:var(--accent);color:#fff;border:none;border-radius:10px;padding:13px;font-size:15px;font-family:var(--sans);font-weight:600;cursor:pointer;margin-top:8px}.login-btn:hover{background:#7c74ff}.login-error{background:var(--red-bg);border:1px solid var(--red);color:var(--red);border-radius:8px;padding:10px 14px;font-size:13px;font-family:var(--mono);margin-top:14px;display:none;text-align:center}.login-error.visible{display:block}
-/* EXACT MAIN APP SHELL */
-.app-screen{display:flex;width:100%;min-height:100vh}.sidebar{width:220px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:0;position:fixed;height:100vh;z-index:10;overflow:hidden}.sidebar-header{height:52px!important;min-height:52px!important;max-height:52px!important;padding:0 0 0 24px!important;display:flex!important;align-items:center!important;justify-content:flex-start!important;box-sizing:border-box!important;border-bottom:1px solid rgba(255,255,255,.08)}.sidebar-logo-img{width:150px!important;height:auto!important;display:block!important;object-fit:contain!important;margin:0!important}.nav-section{font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:1px;text-transform:uppercase;padding:12px 24px 4px}.nav-item{display:flex;align-items:center;gap:10px;padding:9px 24px;font-size:13px;color:var(--muted);cursor:pointer;transition:all .15s;border-left:2px solid transparent;border:none;background:none;width:100%;text-align:left}.nav-item:hover{color:var(--text);background:rgba(255,255,255,.03)}.nav-item.active{color:var(--text);border-left-color:var(--accent);background:var(--accent-glow)}.main{margin-left:220px;flex:1;padding:24px 28px;min-height:100vh}.page-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap}.page-header h2{font-size:19px;font-weight:600;letter-spacing:-.3px}.page-header h2.page-title-with-icon{display:flex;align-items:center;gap:10px}.page-header h2.page-title-with-icon .page-title-icon{width:18px;height:18px;flex:0 0 18px;color:currentColor;stroke:currentColor}.page-header p{font-size:13px;color:var(--muted);margin-top:2px}.page-header-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 13px;border-radius:8px;font-size:13px;font-family:var(--sans);font-weight:500;cursor:pointer;transition:all .15s;border:1px solid var(--border2);background:var(--surface2);color:var(--text)}.btn:hover{border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.07)}.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}.btn-primary:hover{background:#7c74ff;border-color:#7c74ff}.btn-sm{padding:4px 9px;font-size:11px}.btn-danger{color:var(--red);border-color:var(--red-bg)}.btn-danger:hover{background:var(--red-bg)}
-.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px}.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:16px;position:relative;overflow:hidden}.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),transparent);opacity:.5}.stat-label{font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:.5px;text-transform:uppercase}.stat-value{font-size:22px;font-weight:700;margin-top:4px;letter-spacing:-.5px}.stat-sub{font-size:12px;color:var(--muted);margin-top:3px;font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card{background:var(--surface);border:1px solid var(--border);border-radius:11px;overflow:hidden;margin-bottom:18px}.scrollable{overflow-x:auto}table{width:100%;border-collapse:collapse}th{text-align:left;padding:8px 16px;font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:.5px;border-bottom:1px solid var(--border);text-transform:uppercase}td{padding:11px 16px;font-size:13px;border-bottom:1px solid var(--border);vertical-align:middle}tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)}.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:20px;font-size:11px;font-family:var(--mono);font-weight:600;white-space:nowrap}.badge::before{content:'●';font-size:7px}.badge-green{background:var(--green-bg);color:var(--green)}.badge-red{background:var(--red-bg);color:var(--red)}.badge-amber{background:var(--amber-bg);color:var(--amber)}.badge-gray{background:rgba(136,136,152,.1);color:var(--muted)}.subtext{font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:3px}.actions{display:flex;gap:4px;align-items:center;flex-wrap:wrap}.empty{text-align:center;padding:36px 20px;color:var(--muted);font-size:13px;font-family:var(--mono)}
-/* EXACT MAIN APP FORM + MODAL COMPONENTS */
-.form-group{margin-bottom:13px}label{display:block;font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:5px;text-transform:uppercase;letter-spacing:.3px}input,select,textarea{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:8px 11px;font-size:13px;font-family:var(--sans);outline:none;transition:border-color .2s}input:focus,select:focus,textarea:focus{border-color:var(--accent)}select option{background:var(--surface2)}textarea{resize:vertical;min-height:60px}.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:500;align-items:center;justify-content:center}.modal-bg.open{display:flex}.modal{background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:26px;width:460px;max-width:95vw;max-height:90vh;overflow-y:auto}.modal h3{font-size:16px;font-weight:600;margin-bottom:4px}.modal p{font-size:13px;color:var(--muted);margin-bottom:18px}.modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}.form-error{background:var(--red-bg);border:1px solid var(--red);color:var(--red);border-radius:8px;padding:10px 14px;font-size:12px;font-family:var(--mono);margin-top:10px;display:none}.form-error.visible{display:block}
-#toast{position:fixed;bottom:20px;right:20px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:10px 15px;font-size:13px;font-family:var(--mono);z-index:9999;transform:translateY(80px);opacity:0;transition:all .25s}#toast.show{transform:translateY(0);opacity:1}#toast.error{border-color:var(--red);color:var(--red)}.note{margin-top:12px;font-size:10px;font-family:var(--mono);color:var(--muted);line-height:1.55}
-@media(max-width:700px){.sidebar{width:190px}.main{margin-left:190px;padding:20px 14px}.sidebar-logo-img{width:140px!important}}@media(max-width:520px){.sidebar{display:none}.main{margin-left:0}.stats-grid{grid-template-columns:1fr}}
+.login-card{background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:40px;width:380px;max-width:95vw}
+.login-brand{text-align:center;margin-bottom:28px}
+.login-brand img{width:170px;height:auto;display:block;margin:0 auto 10px}
+.platform-label{display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:.6px;text-transform:uppercase}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;font-weight:400}
+.field input,.field select,.field textarea{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;color:var(--text);padding:12px 14px;font-size:14px;font-family:var(--sans);outline:none;transition:border-color .2s}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent)}
+.field select option{background:var(--surface2)}.field textarea{min-height:70px;resize:vertical}
+.password-wrap{position:relative}.password-wrap input{padding-right:42px}
+.password-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);width:22px;height:22px;border:0;background:none;color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;transition:color .15s,opacity .15s,filter .15s;opacity:.9}
+.password-toggle:hover{color:var(--text);opacity:1;filter:drop-shadow(0 0 6px rgba(126,102,255,.28))}.password-toggle:focus-visible{outline:none;color:var(--text)}.password-toggle svg{width:20px;height:20px;display:block}
+.login-error{background:var(--red-bg);border:1px solid transparent;color:var(--red);border-radius:8px;padding:0;font-size:13px;font-family:var(--mono);margin-top:0;min-height:18px;text-align:center}
+.login-error:not(:empty){border-color:var(--red);padding:10px 14px;margin-top:14px}
+
+/* Shared Subloop controls */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:7px 13px;border-radius:8px;font-size:13px;font-family:var(--sans);font-weight:500;cursor:pointer;transition:all .15s;border:1px solid var(--border2);background:var(--surface2);color:var(--text);white-space:nowrap}
+.btn:hover{border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.07)}.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}.btn-primary:hover{background:#7c74ff;border-color:#7c74ff}.btn-danger{color:var(--red);border-color:var(--red-bg)}.btn-danger:hover{background:var(--red-bg)}.btn-sm{padding:4px 9px;font-size:11px}.btn-full{width:100%;padding:13px;font-size:15px;font-weight:600;margin-top:8px}
+
+/* Admin shell, still visually native to Subloop */
+.app{min-height:100vh}.topbar{height:52px;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 28px;background:var(--surface);position:sticky;top:0;z-index:10}
+.admin-brand{display:flex;align-items:center;gap:12px;min-width:0}.admin-brand img{width:150px;height:auto;display:block;object-fit:contain}.admin-pill{font-size:9px;font-family:var(--mono);font-weight:500;letter-spacing:.65px;text-transform:uppercase;color:#b8b3ff;background:var(--accent-glow);border:1px solid rgba(108,99,255,.3);padding:3px 6px;border-radius:6px;white-space:nowrap}
+.topbar-actions{margin-left:auto;display:flex;align-items:center;gap:10px}.signed-user{font-size:11px;font-family:var(--mono);color:var(--muted)}
+main{padding:24px 28px 50px;max-width:none;margin:0}
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap}.page-head h1{font-size:19px;font-weight:600;letter-spacing:-.3px;margin:0}.page-title{display:flex;align-items:center;gap:10px}.page-title svg{width:18px;height:18px;flex:0 0 18px}.page-head p{font-size:13px;color:var(--muted);margin-top:2px}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:20px}.stat{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:16px;position:relative;overflow:hidden}.stat::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),transparent);opacity:.5}.stat-label{font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:.5px;text-transform:uppercase}.stat-value{font-size:22px;font-weight:700;margin-top:4px;letter-spacing:-.5px}.stat-sub{font-size:12px;color:var(--muted);margin-top:3px;font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.table-card{background:var(--surface);border:1px solid var(--border);border-radius:11px;overflow:hidden;margin-bottom:18px}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;min-width:1040px}th{text-align:left;padding:8px 16px;font-size:10px;color:var(--muted);font-family:var(--mono);font-weight:400;letter-spacing:.5px;border-bottom:1px solid var(--border);text-transform:uppercase}td{padding:11px 16px;font-size:13px;border-bottom:1px solid var(--border);vertical-align:middle}tbody tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)}.muted{color:var(--muted)}.subtext{font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:3px}.actions{display:flex;gap:4px;align-items:center;flex-wrap:wrap}.empty{text-align:center;padding:36px 20px;color:var(--muted);font-size:13px;font-family:var(--mono)}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:20px;font-size:11px;font-family:var(--mono);font-weight:600;white-space:nowrap}.badge::before{content:'●';font-size:7px}.badge-green{background:var(--green-bg);color:var(--green)}.badge-red{background:var(--red-bg);color:var(--red)}.badge-amber{background:var(--amber-bg);color:var(--amber)}.badge-gray{background:rgba(136,136,152,.1);color:var(--muted)}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:500;align-items:center;justify-content:center}.modal-bg.open{display:flex}.modal{background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:26px;width:460px;max-width:95vw;max-height:90vh;overflow-y:auto}.modal h3{font-size:16px;font-weight:600;margin-bottom:4px}.modal>p{font-size:13px;color:var(--muted);margin-bottom:18px}.modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:10px 15px;font-size:13px;font-family:var(--mono);z-index:9999;transform:translateY(80px);opacity:0;pointer-events:none;transition:all .25s}.toast.show{transform:translateY(0);opacity:1}.toast.error{border-color:var(--red);color:var(--red)}
+.note{margin-top:12px;font-size:10px;font-family:var(--mono);color:var(--muted);line-height:1.55}
+
+/* Exact typography match with the main Subloop app — layout intentionally unchanged */
+html,body,body *,button,input,select,textarea{
+  font-family:var(--font-ui)!important;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  text-rendering:geometricPrecision;
+}
+.page-head h1,.modal h3{
+  font-family:var(--font-ui)!important;
+  font-weight:750!important;
+  letter-spacing:-.02em!important;
+}
+.stat-label,.field label,th{
+  font-family:var(--font-ui)!important;
+  font-weight:700!important;
+  letter-spacing:.045em!important;
+  text-transform:uppercase!important;
+  line-height:1.2!important;
+}
+td,.subtext,.stat-sub,.signed-user,.admin-pill,.platform-label{
+  font-family:var(--font-ui)!important;
+}
+td{font-weight:500!important;letter-spacing:-.01em!important}
+button,.btn,input,select,textarea{
+  font-family:var(--font-ui)!important;
+  font-weight:600!important;
+  letter-spacing:-.01em!important;
+}
+.badge{
+  font-family:var(--font-ui)!important;
+  font-weight:700!important;
+  letter-spacing:.015em!important;
+}
+
+@media(max-width:850px){.stats{grid-template-columns:repeat(2,1fr)}main{padding:20px 14px}.topbar{padding:0 15px}}@media(max-width:520px){.stats{grid-template-columns:1fr}.signed-user,.admin-pill{display:none}.page-head{gap:12px}.admin-brand img{width:135px}}
+
 </style>
 </head>
 <body>
-<div class="login-screen" id="login-screen">
-  <div class="login-box">
-    <div class="login-logo"><img src="https://i.ibb.co/xq0HVT9G/1.png" alt="Subloop" style="width:170px;height:auto;display:block;margin:0 auto 10px;"></div>
-    <div class="login-field"><label>Username</label><input type="text" id="admin-user" placeholder="Enter username" autocomplete="username"></div>
-    <div class="login-field"><label>Password</label><div class="login-password-wrap"><input type="password" id="admin-pass" placeholder="Enter password" autocomplete="current-password" onkeydown="if(event.key==='Enter')signIn()"><button type="button" class="login-password-toggle" id="admin-password-toggle" aria-label="Show password" title="Show password" onclick="togglePassword()"><svg class="eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.7"/></svg><svg class="eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 6.2A10.8 10.8 0 0 1 12 6c6.5 0 10 6 10 6a17.5 17.5 0 0 1-3.1 3.8"/><path d="M6.4 6.4C3.6 8.3 2 12 2 12s3.5 6 10 6a10.7 10.7 0 0 0 4.1-.8"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg></button></div></div>
-    <button class="login-btn" onclick="signIn()">Sign in</button>
-    <div class="login-error" id="login-error">Incorrect username or password</div>
+<section id="login-screen" class="login-screen">
+  <div class="login-card">
+    <div class="login-brand"><img src="https://i.ibb.co/xq0HVT9G/1.png" alt="Subloop"><span class="platform-label">Platform Admin</span></div>
+    <div class="field"><label>Username</label><input id="admin-user" autocomplete="username" placeholder="Admin username"></div>
+    <div class="field"><label>Password</label><div class="password-wrap"><input id="admin-pass" type="password" autocomplete="current-password" placeholder="Enter password" onkeydown="if(event.key==='Enter')signIn()"><button class="password-toggle" type="button" aria-label="Show password" onclick="togglePassword(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.7"/></svg></button></div></div>
+    <div id="login-error" class="login-error"></div>
+    <button class="btn btn-primary btn-full" onclick="signIn()">Sign in</button>
   </div>
-</div>
-<section id="admin-app" class="app-screen hidden">
-  <nav class="sidebar">
-    <div class="sidebar-header"><img class="sidebar-logo-img" src="https://i.ibb.co/xq0HVT9G/1.png" alt="Subloop"></div>
-    <div style="flex:1;overflow-y:auto;overflow-x:hidden;min-height:0;">
-      <div class="nav-section">ADMIN</div>
-      <button class="nav-item active" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h6M7 13h4M16 12h2"/></svg>Licenses</button>
+</section>
+<section id="admin-app" class="app hidden">
+  <header class="topbar">
+    <div class="admin-brand"><img src="https://i.ibb.co/xq0HVT9G/1.png" alt="Subloop"><span class="admin-pill">Platform Admin</span></div>
+    <div class="topbar-actions"><span id="signed-user" class="signed-user"></span><button class="btn" onclick="logout()">Sign out</button></div>
+  </header>
+  <main>
+    <div class="page-head"><div><h1 class="page-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h6M7 13h4M16 12h2"/></svg><span>Licenses</span></h1><p>Manage Subloop customer access and isolated workspaces.</p></div><button class="btn btn-primary" onclick="openCreate()">+ Create License</button></div>
+    <div class="stats">
+      <div class="stat"><div class="stat-label">ACTIVE LICENSES</div><div id="stat-active" class="stat-value">0</div><div class="stat-sub">Current access</div></div>
+      <div class="stat"><div class="stat-label">EXPIRING SOON</div><div id="stat-expiring" class="stat-value">0</div><div class="stat-sub">Next 30 days</div></div>
+      <div class="stat"><div class="stat-label">LIFETIME</div><div id="stat-lifetime" class="stat-value">0</div><div class="stat-sub">No expiration</div></div>
+      <div class="stat"><div class="stat-label">SUSPENDED / EXPIRED</div><div id="stat-inactive" class="stat-value">0</div><div class="stat-sub">No current access</div></div>
     </div>
-    <div style="flex-shrink:0;background:var(--surface);height:42px;padding:0 24px;border-top:1px solid var(--border);display:flex;align-items:center;box-sizing:border-box;"><div style="display:flex;align-items:center;font-size:11px;color:var(--green);font-family:var(--mono);">● connected</div></div>
-  </nav>
-  <main class="main">
-    <div class="page-header">
-      <div><h2 class="page-title-with-icon"><svg class="page-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h6M7 13h4M16 12h2"/></svg>Licenses</h2><p>Manage Subloop customer access and isolated workspaces</p></div>
-      <div class="page-header-actions"><span id="signed-user" style="font-size:11px;font-family:var(--mono);color:var(--muted);align-self:center;margin-right:4px"></span><button class="btn" onclick="logout()">Sign out</button><button class="btn btn-primary" onclick="openCreate()">+ Create License</button></div>
-    </div>
-    <div class="stats-grid">
-      <div class="stat-card"><div class="stat-label">ACTIVE LICENSES</div><div id="stat-active" class="stat-value">0</div><div class="stat-sub">Current access</div></div>
-      <div class="stat-card"><div class="stat-label">EXPIRING SOON</div><div id="stat-expiring" class="stat-value">0</div><div class="stat-sub">Next 30 days</div></div>
-      <div class="stat-card"><div class="stat-label">LIFETIME</div><div id="stat-lifetime" class="stat-value">0</div><div class="stat-sub">No expiration</div></div>
-      <div class="stat-card"><div class="stat-label">SUSPENDED / EXPIRED</div><div id="stat-inactive" class="stat-value">0</div><div class="stat-sub">No current access</div></div>
-    </div>
-    <div class="card"><div class="scrollable"><table><thead><tr><th>Customer</th><th>Plan</th><th>Started</th><th>Expires</th><th>Status</th><th>Workspace</th><th>Actions</th></tr></thead><tbody id="licenses"><tr><td class="empty" colspan="7">Loading...</td></tr></tbody></table></div></div>
+    <div class="table-card"><div class="table-wrap"><table><thead><tr><th>Customer</th><th>Plan</th><th>Started</th><th>Expires</th><th>Status</th><th>Workspace</th><th>Actions</th></tr></thead><tbody id="licenses"><tr><td class="empty" colspan="7">Loading...</td></tr></tbody></table></div></div>
     <div class="note">This panel is separate from every Subloop workspace. Customer workspace login provisioning remains isolated from license creation until enabled.</div>
   </main>
 </section>
-<div id="create-modal" class="modal-bg"><div class="modal"><h3>Create Subloop License</h3><p>Create an isolated customer workspace and choose its access period.</p><div class="form-group"><label>Customer name</label><input id="lic-name" placeholder="Customer or business name"></div><div class="form-group"><label>Email</label><input id="lic-email" type="email" placeholder="customer@example.com"></div><div class="form-group"><label>Plan</label><select id="lic-plan"><option value="3_months">3 Months</option><option value="12_months">12 Months</option><option value="lifetime">Lifetime</option></select></div><div class="form-group"><label>Note (optional)</label><textarea id="lic-note" placeholder="Internal note..."></textarea></div><div id="create-error" class="form-error"></div><div class="modal-footer"><button class="btn" onclick="closeModal('create-modal')">Cancel</button><button class="btn btn-primary" onclick="createLicense()">Create License</button></div></div></div>
+<div id="create-modal" class="modal-bg"><div class="modal"><h3>Create Subloop License</h3><p>Create an isolated customer workspace and choose its access period.</p><div class="field"><label>Customer name</label><input id="lic-name" placeholder="Customer or business name"></div><div class="field"><label>Email</label><input id="lic-email" type="email" placeholder="customer@example.com"></div><div class="field"><label>Plan</label><select id="lic-plan"><option value="3_months">3 Months</option><option value="12_months">12 Months</option><option value="lifetime">Lifetime</option></select></div><div class="field"><label>Note (optional)</label><textarea id="lic-note" placeholder="Internal note..."></textarea></div><div id="create-error" class="login-error"></div><div class="modal-footer"><button class="btn" onclick="closeModal('create-modal')">Cancel</button><button class="btn btn-primary" onclick="createLicense()">Create License</button></div></div></div>
 <div id="confirm-modal" class="modal-bg"><div class="modal"><h3 id="confirm-title">Confirm action</h3><p id="confirm-message"></p><div class="modal-footer"><button class="btn" onclick="closeModal('confirm-modal')">Cancel</button><button id="confirm-button" class="btn btn-primary">Confirm</button></div></div></div>
-<div id="toast"></div>
+<div id="toast" class="toast"></div>
 <script>
 let licenses=[];let confirmAction=null;
-function togglePassword(){const p=document.getElementById('admin-pass');const btn=document.getElementById('admin-password-toggle');const show=p.type==='password';p.type=show?'text':'password';btn.classList.toggle('is-visible',show);btn.setAttribute('aria-label',show?'Hide password':'Show password');btn.setAttribute('title',show?'Hide password':'Show password');}
+function togglePassword(btn){const p=document.getElementById('admin-pass');const show=p.type==='password';p.type=show?'text':'password';btn.setAttribute('aria-label',show?'Hide password':'Show password');btn.innerHTML=show?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3l18 18"/><path d="M10.6 6.2A10.8 10.8 0 0 1 12 6c6.5 0 10 6 10 6a17.5 17.5 0 0 1-3.1 3.8"/><path d="M6.4 6.4C3.6 8.3 2 12 2 12s3.5 6 10 6a10.7 10.7 0 0 0 4.1-.8"/></svg>':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.7"/></svg>'}
 function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
 function lock(){document.body.classList.toggle('modal-lock',!!document.querySelector('.modal-bg.open'));}
 function openModal(id){document.getElementById(id).classList.add('open');lock();}
 function closeModal(id){document.getElementById(id).classList.remove('open');lock();}
 function toast(msg,error=false){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show'+(error?' error':'');clearTimeout(t._timer);t._timer=setTimeout(()=>t.className='toast',2600);}
 async function api(path,opts={}){const r=await fetch('/admin/api'+path,{credentials:'same-origin',...opts});let data={};try{data=await r.json()}catch{}if(r.status===401){showLogin();throw new Error('Authentication required');}return data;}
-function showLogin(){document.getElementById('admin-app').classList.add('hidden');document.getElementById('login-screen').classList.remove('hidden');const e=document.getElementById('login-error');e.classList.remove('visible');e.textContent='Incorrect username or password';}
+function showLogin(){document.getElementById('admin-app').classList.add('hidden');document.getElementById('login-screen').classList.remove('hidden');}
 function showApp(username){document.getElementById('login-screen').classList.add('hidden');document.getElementById('admin-app').classList.remove('hidden');document.getElementById('signed-user').textContent=username||'';loadLicenses();}
 async function init(){try{const r=await fetch('/admin/api/auth/check',{method:'POST',credentials:'same-origin'});const d=await r.json();if(d.valid)showApp(d.username);else showLogin();}catch{showLogin();}}
-async function signIn(){const err=document.getElementById('login-error');err.classList.remove('visible');try{const r=await fetch('/admin/api/auth/verify',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:document.getElementById('admin-user').value.trim(),password:document.getElementById('admin-pass').value})});const d=await r.json();if(!d.success){err.textContent=d.error||'Incorrect username or password';err.classList.add('visible');return;}document.getElementById('admin-pass').value='';showApp(d.username);}catch{err.textContent='Could not sign in';err.classList.add('visible');}}
-async function logout(){try{await fetch('/admin/api/auth/logout',{method:'POST',credentials:'same-origin'});}catch{}showLogin();const p=document.getElementById('admin-pass');p.value='';p.type='password';const b=document.getElementById('admin-password-toggle');if(b)b.classList.remove('is-visible');}
+async function signIn(){const err=document.getElementById('login-error');err.textContent='';try{const r=await fetch('/admin/api/auth/verify',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:document.getElementById('admin-user').value.trim(),password:document.getElementById('admin-pass').value})});const d=await r.json();if(!d.success){err.textContent=d.error||'Incorrect username or password';return;}document.getElementById('admin-pass').value='';showApp(d.username);}catch{err.textContent='Could not sign in';}}
+async function logout(){try{await fetch('/admin/api/auth/logout',{method:'POST',credentials:'same-origin'});}catch{}showLogin();document.getElementById('admin-pass').value='';}
 function fmtDate(v){if(!v)return '—';const d=new Date(v);return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}
 function days(v){if(!v)return null;return Math.ceil((new Date(v).getTime()-Date.now())/86400000);}
 function planLabel(v){return v==='3_months'?'3 Months':v==='12_months'?'12 Months':v==='lifetime'?'Lifetime':v||'—';}
 function statusBadge(v){const cls=v==='active'?'badge-green':v==='expired'?'badge-red':v==='suspended'?'badge-amber':'badge-gray';return '<span class="badge '+cls+'">'+esc((v||'unknown').replace(/_/g,' '))+'</span>';}
 async function loadLicenses(){const tb=document.getElementById('licenses');try{const d=await api('/licenses');licenses=Array.isArray(d)?d:[];const active=licenses.filter(x=>x.status==='active').length;const lifetime=licenses.filter(x=>x.status==='active'&&x.plan==='lifetime').length;const expiring=licenses.filter(x=>{const n=days(x.expires_at);return x.status==='active'&&n!==null&&n>=0&&n<=30}).length;const inactive=licenses.filter(x=>x.status==='expired'||x.status==='suspended').length;document.getElementById('stat-active').textContent=active;document.getElementById('stat-expiring').textContent=expiring;document.getElementById('stat-lifetime').textContent=lifetime;document.getElementById('stat-inactive').textContent=inactive;if(!licenses.length){tb.innerHTML='<tr><td class="empty" colspan="7">No customer licenses yet</td></tr>';return;}tb.innerHTML=licenses.map(l=>{const n=days(l.expires_at);const expiry=l.plan==='lifetime'?'No expiration':fmtDate(l.expires_at)+(n!==null?'<div class="subtext">'+(n>=0?n+' days left':'Expired')+'</div>':'');const state=l.status==='suspended'?'<button class="btn btn-sm" onclick="reactivate('+l.id+')">Reactivate</button>':'<button class="btn btn-sm" onclick="suspendLicense('+l.id+')">Suspend</button>';return '<tr><td><strong>'+esc(l.customer_name)+'</strong><div class="subtext">'+esc(l.email)+'</div></td><td><span class="badge badge-gray">'+esc(planLabel(l.plan))+'</span></td><td>'+fmtDate(l.starts_at)+'</td><td>'+expiry+'</td><td>'+statusBadge(l.status)+'</td><td><strong>'+esc(l.workspace_name||'Workspace')+'</strong><div class="subtext">'+esc(l.workspace_slug||'')+' · '+Number(l.users||0)+' users · '+Number(l.stripe_accounts||0)+' Stripe</div></td><td><div class="actions">'+state+'<button class="btn btn-sm" onclick="extendLicense('+l.id+',3)">+3 mo</button><button class="btn btn-sm" onclick="extendLicense('+l.id+',12)">+12 mo</button>'+(l.plan!=='lifetime'?'<button class="btn btn-sm" onclick="lifetime('+l.id+')">Lifetime</button>':'')+'<button class="btn btn-sm btn-danger" onclick="removeLicense('+l.id+')">Delete</button></div></td></tr>'}).join('');}catch(e){tb.innerHTML='<tr><td class="empty" colspan="7">Failed to load licenses</td></tr>';}}
-function openCreate(){document.getElementById('lic-name').value='';document.getElementById('lic-email').value='';document.getElementById('lic-plan').value='3_months';document.getElementById('lic-note').value='';const e=document.getElementById('create-error');e.textContent='';e.classList.remove('visible');openModal('create-modal');}
-async function createLicense(){const err=document.getElementById('create-error');err.textContent='';err.classList.remove('visible');const body={customer_name:document.getElementById('lic-name').value.trim(),email:document.getElementById('lic-email').value.trim(),plan:document.getElementById('lic-plan').value,notes:document.getElementById('lic-note').value.trim()};if(!body.customer_name||!body.email){err.textContent='Customer name and email are required';err.classList.add('visible');return;}const d=await api('/licenses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!d.success){err.textContent=d.error||'Failed to create license';err.classList.add('visible');return;}closeModal('create-modal');toast('License created');loadLicenses();}
+function openCreate(){document.getElementById('lic-name').value='';document.getElementById('lic-email').value='';document.getElementById('lic-plan').value='3_months';document.getElementById('lic-note').value='';document.getElementById('create-error').textContent='';openModal('create-modal');}
+async function createLicense(){const err=document.getElementById('create-error');err.textContent='';const body={customer_name:document.getElementById('lic-name').value.trim(),email:document.getElementById('lic-email').value.trim(),plan:document.getElementById('lic-plan').value,notes:document.getElementById('lic-note').value.trim()};if(!body.customer_name||!body.email){err.textContent='Customer name and email are required';return;}const d=await api('/licenses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!d.success){err.textContent=d.error||'Failed to create license';return;}closeModal('create-modal');toast('License created');loadLicenses();}
 function ask(title,message,button,fn,danger=false){document.getElementById('confirm-title').textContent=title;document.getElementById('confirm-message').textContent=message;const b=document.getElementById('confirm-button');b.textContent=button;b.className='btn '+(danger?'btn-danger':'btn-primary');confirmAction=fn;b.onclick=async()=>{closeModal('confirm-modal');await confirmAction?.()};openModal('confirm-modal');}
 function extendLicense(id,m){ask('Extend license by '+m+' months?','The access period will be extended from its current expiry date, or from today if already expired.','Extend',async()=>{const d=await api('/licenses/'+id+'/extend',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({months:m})});if(d.success){toast('License extended');loadLicenses()}else toast(d.error||'Could not extend',true)});}
 function lifetime(id){ask('Make this license lifetime?','This removes the expiration date and keeps access active unless suspended.','Make lifetime',async()=>{const d=await api('/licenses/'+id+'/lifetime',{method:'POST'});if(d.success){toast('Lifetime access enabled');loadLicenses()}else toast(d.error||'Could not update',true)});}
