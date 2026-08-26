@@ -2992,9 +2992,25 @@ app.delete('/admin/api/licenses/:id', async (req,res) => {
     if(current.is_main) return res.status(400).json({error:'Main workspace cannot be deleted'});
     const deps=await client.query(`SELECT
       (SELECT COUNT(*) FROM stripe_accounts WHERE workspace_id=$1)::int AS accounts,
-      (SELECT COUNT(*) FROM admin_users WHERE workspace_id=$1)::int AS users`,[current.workspace_id]);
-    if(Number(deps.rows[0].accounts)>0 || Number(deps.rows[0].users)>0) return res.status(409).json({error:'This workspace already has users or Stripe accounts. Suspend it instead of deleting it.'});
+      (SELECT COUNT(*) FROM customers WHERE workspace_id=$1)::int AS customers,
+      (SELECT COUNT(*) FROM subscriptions s JOIN customers c ON c.id=s.customer_id WHERE c.workspace_id=$1)::int AS subscriptions,
+      (SELECT COUNT(*) FROM payments p JOIN customers c ON c.id=p.customer_id WHERE c.workspace_id=$1)::int AS payments,
+      (SELECT COUNT(*) FROM admin_users WHERE workspace_id=$1)::int AS users,
+      (SELECT COUNT(*) FROM admin_users WHERE workspace_id=$1 AND role='owner')::int AS owners,
+      (SELECT COUNT(*) FROM admin_users WHERE workspace_id=$1 AND role<>'owner')::int AS other_users`,[current.workspace_id]);
+    const d=deps.rows[0]||{};
+    const hasBusinessData=Number(d.accounts)>0 || Number(d.customers)>0 || Number(d.subscriptions)>0 || Number(d.payments)>0;
+    const hasExtraUsers=Number(d.other_users)>0 || Number(d.users)>1 || Number(d.owners)>1;
+    if(hasBusinessData || hasExtraUsers) return res.status(409).json({error:'This workspace already has Stripe or business data. Suspend it instead of deleting it.'});
     await client.query('BEGIN');
+    // A fresh licensed workspace normally has exactly one auto-created Owner login.
+    // Remove that login and workspace-scoped auxiliary rows before deleting the workspace.
+    await client.query('DELETE FROM admin_users WHERE workspace_id=$1',[current.workspace_id]);
+    await client.query('DELETE FROM embedded_checkout_sessions WHERE workspace_id=$1',[current.workspace_id]);
+    await client.query('DELETE FROM activity_log WHERE workspace_id=$1',[current.workspace_id]);
+    await client.query('DELETE FROM webhook_logs WHERE workspace_id=$1',[current.workspace_id]);
+    await client.query('DELETE FROM settings WHERE workspace_id=$1',[current.workspace_id]).catch(()=>{});
+    await client.query('DELETE FROM security WHERE workspace_id=$1',[current.workspace_id]).catch(()=>{});
     await client.query('DELETE FROM licenses WHERE id=$1',[current.id]);
     await client.query('DELETE FROM workspaces WHERE id=$1',[current.workspace_id]);
     await client.query('COMMIT');
