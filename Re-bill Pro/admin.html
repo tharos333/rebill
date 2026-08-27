@@ -287,6 +287,45 @@ html.light .drawer-bg{background:rgba(17,17,24,.28)}html.light .license-drawer{b
 #login-screen .login-btn{width:100%;background:var(--accent);color:#fff;border:none;border-radius:10px;padding:13px;font-size:15px;font-family:var(--sans)!important;font-weight:600!important;cursor:pointer;margin-top:8px;letter-spacing:-.01em!important}
 #login-screen .login-btn:hover{background:#7c74ff}
 
+
+/* Admin Sign out = exact official-app Disconnect interaction.
+   This final rule is intentionally last so older danger-button rules cannot win. */
+.topbar-actions #panel-signout-button.btn-disconnect{
+  height:34px!important;
+  min-height:34px!important;
+  padding:0 13px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:5px!important;
+  box-sizing:border-box!important;
+  line-height:1!important;
+  border-radius:8px!important;
+  border:1px solid var(--border2)!important;
+  background:var(--surface2)!important;
+  color:var(--text)!important;
+  box-shadow:none!important;
+  transition:all .15s!important;
+}
+.topbar-actions #panel-signout-button.btn-disconnect svg{
+  width:13px!important;
+  height:13px!important;
+  display:block!important;
+  flex-shrink:0!important;
+}
+.topbar-actions #panel-signout-button.btn-disconnect:hover{
+  color:var(--red)!important;
+  background:var(--red-bg)!important;
+  border-color:var(--red)!important;
+  box-shadow:none!important;
+}
+.topbar-actions #panel-signout-button.btn-disconnect:focus:not(:hover){
+  color:var(--text)!important;
+  background:var(--surface2)!important;
+  border-color:var(--border2)!important;
+  box-shadow:none!important;
+}
+
 </style>
 </head>
 <body>
@@ -302,7 +341,7 @@ html.light .drawer-bg{background:rgba(17,17,24,.28)}html.light .license-drawer{b
 <section id="admin-app" class="app hidden">
   <header class="topbar">
     <div class="admin-brand"><img src="/icons/platform-admin-logo.png" alt="Subloop"></div>
-    <div class="topbar-actions"><span id="signed-user" class="signed-user"></span><span class="admin-pill">Platform Admin</span><button class="btn" id="panel-signout-button" style="color:var(--text)!important;border-color:var(--border2)!important;background:var(--surface2)!important" onmouseenter="this.style.setProperty('color','var(--red)','important');this.style.setProperty('border-color','var(--red)','important');this.style.setProperty('background','rgba(248,113,113,.06)','important')" onmouseleave="this.style.setProperty('color','var(--text)','important');this.style.setProperty('border-color','var(--border2)','important');this.style.setProperty('background','var(--surface2)','important')" onclick="logout()">Sign out</button></div>
+    <div class="topbar-actions"><span id="signed-user" class="signed-user"></span><span class="admin-pill">Platform Admin</span><button class="btn btn-disconnect" id="panel-signout-button" data-ui-build="20260828-signout-parity-1" onclick="logout()" title="Sign out"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Sign out</button></div>
   </header>
   <main>
     <div class="page-head"><div><h1 class="page-title"><span>Licenses</span></h1><p>Manage Subloop customer access and isolated workspaces.</p></div><button class="btn btn-primary" onclick="openCreate()">+ Create License</button></div>

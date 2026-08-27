@@ -3471,7 +3471,7 @@ app.get('*', async (req, res) => {
     const host = requestHostname(req);
     if (req.path === '/admin' || req.path.startsWith('/admin/')) {
       if (host !== SUBLOOP_APP_HOST && host !== 'localhost' && host !== '127.0.0.1') return res.redirect(302, SUBLOOP_APP_ORIGIN + '/admin');
-      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate'); res.set('Pragma', 'no-cache'); res.set('Expires', '0'); res.set('X-Subloop-Admin-Build', '20260827-inlinefix-2'); return res.sendFile(path.join(__dirname, 'admin.html'));
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate'); res.set('Pragma', 'no-cache'); res.set('Expires', '0'); res.set('X-Subloop-Admin-Build', '20260828-signout-parity-1'); return res.sendFile(path.join(__dirname, 'admin.html'));
     }
     const parsed = parseAdminToken(cookieToken(req), 'access');
     let validCookieSession = false;
