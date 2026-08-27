@@ -43,7 +43,7 @@ button,input,select,textarea{font:inherit}.hidden{display:none!important}
 
 /* Shared Subloop controls */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:7px 13px;border-radius:8px;font-size:13px;font-family:var(--sans);font-weight:500;cursor:pointer;transition:all .15s;border:1px solid var(--border2);background:var(--surface2);color:var(--text);white-space:nowrap}
-.btn:hover{border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.07)}.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}.btn-primary:hover{background:#7c74ff;border-color:#7c74ff}.btn-danger{color:var(--red);border-color:var(--red-bg)}.btn-danger:hover{background:var(--red-bg)}.btn-signout{color:var(--text)!important;border-color:var(--border2)!important;background:var(--surface2)!important}.btn-signout:hover,.btn-signout.is-hovered{color:var(--red)!important;border-color:var(--red)!important;background:var(--red-bg)!important}.btn-sm{padding:4px 9px;font-size:11px}.btn-full{width:100%;padding:13px;font-size:15px;font-weight:600;margin-top:8px}
+.btn:hover{border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.07)}.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}.btn-primary:hover{background:#7c74ff;border-color:#7c74ff}.btn-danger{color:var(--red);border-color:var(--red-bg)}.btn-danger:hover{background:var(--red-bg)}.btn-signout,.btn-signout-panel{color:var(--text)!important;border-color:var(--border2)!important;background:var(--surface2)!important}.topbar-actions .btn.btn-signout-panel:hover,.topbar-actions .btn.btn-signout-panel.is-hovered{color:var(--red)!important;border-color:var(--red)!important;background:rgba(248,113,113,.06)!important}.btn-sm{padding:4px 9px;font-size:11px}.btn-full{width:100%;padding:13px;font-size:15px;font-weight:600;margin-top:8px}
 
 /* Admin shell, still visually native to Subloop */
 .app{min-height:100vh}.topbar{height:52px;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 28px;background:var(--surface);position:sticky;top:0;z-index:10}
@@ -287,6 +287,31 @@ html.light .drawer-bg{background:rgba(17,17,24,.28)}html.light .license-drawer{b
 
 
 /* Platform admin action buttons are normalized by JS after render */
+
+/* Exact admin match fixes */
+#licenses .row-actions{display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:10px!important}
+#licenses .row-actions .btn-view,
+#licenses .row-actions .btn-more,
+#licenses .row-actions .more-wrap{
+  width:72px!important;
+  min-width:72px!important;
+  max-width:72px!important;
+}
+#licenses .row-actions .btn-view,
+#licenses .row-actions .btn-more{
+  height:30px!important;
+  min-height:30px!important;
+  max-height:30px!important;
+  padding:0 12px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  border-radius:8px!important;
+  line-height:1!important;
+}
+#licenses .row-actions .more-wrap{display:inline-flex!important;flex:0 0 72px!important}
+#licenses .row-actions .btn-more{font-size:18px!important;letter-spacing:1px!important}
+
 </style>
 </head>
 <body>
@@ -302,7 +327,7 @@ html.light .drawer-bg{background:rgba(17,17,24,.28)}html.light .license-drawer{b
 <section id="admin-app" class="app hidden">
   <header class="topbar">
     <div class="admin-brand"><img src="/icons/platform-admin-logo.png" alt="Subloop"></div>
-    <div class="topbar-actions"><span id="signed-user" class="signed-user"></span><span class="admin-pill">Platform Admin</span><button id="admin-signout-btn" class="btn btn-signout" onclick="logout()">Sign out</button></div>
+    <div class="topbar-actions"><span id="signed-user" class="signed-user"></span><span class="admin-pill">Platform Admin</span><button id="admin-signout-btn" class="btn btn-signout-panel" onclick="logout()">Sign out</button></div>
   </header>
   <main>
     <div class="page-head"><div><h1 class="page-title"><span>Licenses</span></h1><p>Manage Subloop customer access and isolated workspaces.</p></div><button class="btn btn-primary" onclick="openCreate()">+ Create License</button></div>
@@ -395,7 +420,7 @@ function removeLicense(id){ask('Delete this empty license workspace?','A workspa
 document.addEventListener('click',e=>{if(!e.target.closest('.more-wrap'))closeMoreMenus();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeMoreMenus();const openModalEl=document.querySelector('.modal-bg.open');if(openModalEl)closeModal(openModalEl.id);else if(document.getElementById('license-drawer-bg').classList.contains('open'))closeLicenseDrawer();}});
 function setupSignoutButton(){const btn=document.getElementById('admin-signout-btn');if(!btn||btn.dataset.bound==='1')return;const base=()=>{btn.classList.remove('is-hovered');btn.style.color='var(--text)';btn.style.borderColor='var(--border2)';btn.style.background='var(--surface2)';};const hover=()=>{btn.classList.add('is-hovered');btn.style.color='var(--red)';btn.style.borderColor='var(--red)';btn.style.background='var(--red-bg)';};btn.dataset.bound='1';base();btn.addEventListener('mouseenter',hover);btn.addEventListener('mouseleave',base);btn.addEventListener('blur',base);btn.addEventListener('mouseout',e=>{if(!btn.contains(e.relatedTarget))base();});}
-function syncActionButtons(){document.querySelectorAll('.row-actions').forEach(row=>{const view=row.querySelector('.btn-view');const more=row.querySelector('.btn-more');const wrap=row.querySelector('.more-wrap');if(!view||!more||!wrap)return;const cs=getComputedStyle(view);const w=Math.ceil(view.getBoundingClientRect().width||view.offsetWidth||0);const h=Math.ceil(view.getBoundingClientRect().height||view.offsetHeight||0);if(w){[view,more,wrap].forEach(el=>{el.style.width=w+'px';el.style.minWidth=w+'px';el.style.maxWidth=w+'px';});}if(h){[view,more].forEach(el=>{el.style.height=h+'px';el.style.minHeight=h+'px';el.style.maxHeight=h+'px';});}more.style.padding=cs.padding;more.style.borderRadius=cs.borderRadius;more.style.fontSize='17px';more.style.lineHeight='1';more.style.display='inline-flex';more.style.alignItems='center';more.style.justifyContent='center';more.style.flex='0 0 '+(w||view.offsetWidth||52)+'px';wrap.style.display='inline-flex';wrap.style.flex='0 0 '+(w||view.offsetWidth||52)+'px';});}
+function syncActionButtons(){document.querySelectorAll('#licenses .row-actions').forEach(row=>{const view=row.querySelector('.btn-view');const more=row.querySelector('.btn-more');const wrap=row.querySelector('.more-wrap');if(!view||!more||!wrap)return;['72px','72px'].forEach(()=>{});view.style.width='72px';view.style.minWidth='72px';view.style.maxWidth='72px';view.style.height='30px';view.style.minHeight='30px';view.style.maxHeight='30px';more.style.width='72px';more.style.minWidth='72px';more.style.maxWidth='72px';more.style.height='30px';more.style.minHeight='30px';more.style.maxHeight='30px';more.style.padding='0 12px';more.style.display='inline-flex';more.style.alignItems='center';more.style.justifyContent='center';more.style.lineHeight='1';wrap.style.width='72px';wrap.style.minWidth='72px';wrap.style.maxWidth='72px';wrap.style.display='inline-flex';wrap.style.flex='0 0 72px';});}
 function syncAdminUiFixes(){setupSignoutButton();requestAnimationFrame(syncActionButtons);}
 window.addEventListener('resize',()=>requestAnimationFrame(syncActionButtons));
 init();
