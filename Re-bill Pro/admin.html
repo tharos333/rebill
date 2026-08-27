@@ -8,8 +8,8 @@
 <meta http-equiv="Expires" content="0">
 <link rel="icon" type="image/png" href="https://i.ibb.co/6cnnDkWy/Blue-and-White-Minimalist-Professional-Brand-Logo-1.png">
 <title>Subloop Admin</title>
-<meta name="subloop-admin-build" content="20260827-signout-real-fix-4">
-<!-- SUBLOOP_ADMIN_BUILD: 20260827-signout-real-fix-4 -->
+<meta name="subloop-admin-build" content="20260827-signout-forced-final-5">
+<!-- SUBLOOP_ADMIN_BUILD: 20260827-signout-forced-final-5 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -296,6 +296,21 @@ html.light .drawer-bg{background:rgba(17,17,24,.28)}html.light .license-drawer{b
 #login-screen .login-btn{width:100%;background:var(--accent);color:#fff;border:none;border-radius:10px;padding:13px;font-size:15px;font-family:var(--sans)!important;font-weight:600!important;cursor:pointer;margin-top:8px;letter-spacing:-.01em!important}
 #login-screen .login-btn:hover{background:#7c74ff}
 
+
+/* PANEL SIGN OUT — exact official Disconnect interaction, forced last in cascade.
+   Idle: normal Subloop gray button. Hover: ONLY label turns red; border/background stay gray-hover. */
+#panel-signout-button{
+  color:var(--text)!important;
+  border-color:var(--border2)!important;
+  background:var(--surface2)!important;
+  box-shadow:none!important;
+}
+#panel-signout-button:hover{
+  color:var(--red)!important;
+  border-color:rgba(255,255,255,.25)!important;
+  background:rgba(255,255,255,.07)!important;
+  box-shadow:none!important;
+}
 </style>
 </head>
 <body>
@@ -311,7 +326,7 @@ html.light .drawer-bg{background:rgba(17,17,24,.28)}html.light .license-drawer{b
 <section id="admin-app" class="app hidden">
   <header class="topbar">
     <div class="admin-brand"><img src="/icons/platform-admin-logo.png" alt="Subloop"></div>
-    <div class="topbar-actions"><span id="signed-user" class="signed-user"></span><span class="admin-pill">Platform Admin</span><button class="btn btn-disconnect" id="panel-signout-button" onclick="logout()">Sign out</button></div>
+    <div class="topbar-actions"><span id="signed-user" class="signed-user"></span><span class="admin-pill">Platform Admin</span><button class="btn" id="panel-signout-button" style="color:var(--text)!important;border-color:var(--border2)!important;background:var(--surface2)!important;box-shadow:none!important" onmouseenter="this.style.setProperty('color','var(--red)','important');this.style.setProperty('border-color','rgba(255,255,255,.25)','important');this.style.setProperty('background','rgba(255,255,255,.07)','important')" onmouseleave="this.style.setProperty('color','var(--text)','important');this.style.setProperty('border-color','var(--border2)','important');this.style.setProperty('background','var(--surface2)','important')" onclick="logout()">Sign out</button></div>
   </header>
   <main>
     <div class="page-head"><div><h1 class="page-title"><span>Licenses</span></h1><p>Manage Subloop customer access and isolated workspaces.</p></div><button class="btn btn-primary" onclick="openCreate()">+ Create License</button></div>
