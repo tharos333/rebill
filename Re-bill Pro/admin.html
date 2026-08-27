@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="icon" type="image/png" href="https://i.ibb.co/6cnnDkWy/Blue-and-White-Minimalist-Professional-Brand-Logo-1.png">
 <title>Subloop Admin</title>
-<meta name="subloop-admin-build" content="20260827-deepfix-1">
-<!-- SUBLOOP_ADMIN_BUILD: 20260827-deepfix-1 -->
+<meta name="subloop-admin-build" content="20260827-signout-exact-3">
+<!-- SUBLOOP_ADMIN_BUILD: 20260827-signout-exact-3 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -47,11 +47,9 @@ button,input,select,textarea{font:inherit}.hidden{display:none!important}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:7px 13px;border-radius:8px;font-size:13px;font-family:var(--sans);font-weight:500;cursor:pointer;transition:all .15s;border:1px solid var(--border2);background:var(--surface2);color:var(--text);white-space:nowrap}
 .btn:hover{border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.07)}.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}.btn-primary:hover{background:#7c74ff;border-color:#7c74ff}.btn-danger{color:var(--red);border-color:var(--red-bg)}.btn-danger:hover{background:var(--red-bg)}.btn-sm{padding:4px 9px;font-size:11px}.btn-full{width:100%;padding:13px;font-size:15px;font-weight:600;margin-top:8px}
 
-/* Admin shell, still visually native to Subloop */
-.app{min-height:100vh}.topbar{height:52px;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 28px;background:var(--surface);position:sticky;top:0;z-index:10}
-.admin-brand{display:flex;align-items:center;gap:12px;min-width:0}.admin-brand img{width:127px;height:auto;display:block;object-fit:contain}.admin-pill{font-size:9px;font-family:var(--mono);font-weight:500;letter-spacing:.65px;text-transform:uppercase;color:#b8b3ff;background:var(--accent-glow);border:1px solid rgba(108,99,255,.3);padding:3px 6px;border-radius:6px;white-space:nowrap}
-.topbar-actions{margin-left:auto;display:flex;align-items:center;gap:10px}.signed-user{font-size:11px;font-family:var(--mono);color:var(--muted)}
-/* Admin Sign out: same neutral -> red hover interaction as the app Disconnect control */
+/* Exact Admin Sign out interaction copied from the live app's Disconnect button:
+   idle = normal Subloop button; hover = only text turns red while the shared
+   button hover keeps its gray border/background. Keep this after .btn rules. */
 #panel-signout-button{
   color:var(--text)!important;
   border-color:var(--border2)!important;
@@ -60,10 +58,16 @@ button,input,select,textarea{font:inherit}.hidden{display:none!important}
 }
 #panel-signout-button:hover{
   color:var(--red)!important;
-  border-color:var(--red)!important;
-  background:rgba(248,113,113,.06)!important;
+  border-color:rgba(255,255,255,.25)!important;
+  background:rgba(255,255,255,.07)!important;
   box-shadow:none!important;
 }
+
+
+/* Admin shell, still visually native to Subloop */
+.app{min-height:100vh}.topbar{height:52px;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 28px;background:var(--surface);position:sticky;top:0;z-index:10}
+.admin-brand{display:flex;align-items:center;gap:12px;min-width:0}.admin-brand img{width:127px;height:auto;display:block;object-fit:contain}.admin-pill{font-size:9px;font-family:var(--mono);font-weight:500;letter-spacing:.65px;text-transform:uppercase;color:#b8b3ff;background:var(--accent-glow);border:1px solid rgba(108,99,255,.3);padding:3px 6px;border-radius:6px;white-space:nowrap}
+.topbar-actions{margin-left:auto;display:flex;align-items:center;gap:10px}.signed-user{font-size:11px;font-family:var(--mono);color:var(--muted)}
 main{padding:24px 28px 50px;max-width:none;margin:0}
 .page-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap}.page-head h1{font-size:19px;font-weight:600;letter-spacing:-.3px;margin:0}.page-title{display:flex;align-items:center;gap:10px}.page-title svg{width:18px;height:18px;flex:0 0 18px}.page-head p{font-size:13px;color:var(--muted);margin-top:2px}
 .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:20px}.stat{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:16px;position:relative;overflow:hidden}.stat::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),transparent);opacity:.5}.stat-label{font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:.5px;text-transform:uppercase}.stat-value{font-size:22px;font-weight:700;margin-top:4px;letter-spacing:-.5px}.stat-sub{font-size:12px;color:var(--muted);margin-top:3px;font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
