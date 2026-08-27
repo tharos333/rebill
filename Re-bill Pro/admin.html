@@ -285,6 +285,43 @@ html.light .drawer-bg{background:rgba(17,17,24,.28)}html.light .license-drawer{b
 #login-screen .login-btn{width:100%;background:var(--accent);color:#fff;border:none;border-radius:10px;padding:13px;font-size:15px;font-family:var(--sans)!important;font-weight:600!important;cursor:pointer;margin-top:8px;letter-spacing:-.01em!important}
 #login-screen .login-btn:hover{background:#7c74ff}
 
+
+/* Final UI match: platform sign-out mirrors app disconnect behavior; action buttons equal size */
+.topbar-actions .btn.btn-signout{
+  color:var(--text)!important;
+  border-color:var(--border2)!important;
+  background:var(--surface2)!important;
+}
+.topbar-actions .btn.btn-signout:hover{
+  color:var(--red)!important;
+  border-color:rgba(255,255,255,.25)!important;
+  background:rgba(255,255,255,.07)!important;
+}
+.row-actions > .btn.btn-view,
+.row-actions > .more-wrap > .btn.btn-more{
+  width:52px!important;
+  min-width:52px!important;
+  max-width:52px!important;
+  height:28px!important;
+  min-height:28px!important;
+  box-sizing:border-box!important;
+  padding:4px 9px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  flex:0 0 52px!important;
+}
+.row-actions > .more-wrap{
+  width:52px!important;
+  min-width:52px!important;
+  max-width:52px!important;
+  flex:0 0 52px!important;
+}
+.row-actions > .more-wrap > .btn.btn-more{
+  padding:0!important;
+  letter-spacing:1px!important;
+  line-height:1!important;
+}
 </style>
 </head>
 <body>
