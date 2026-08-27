@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="icon" type="image/png" href="https://i.ibb.co/6cnnDkWy/Blue-and-White-Minimalist-Professional-Brand-Logo-1.png">
 <title>Subloop Admin</title>
-<meta name="subloop-admin-build" content="20260827-exact-disconnect-copy-1">
-<!-- SUBLOOP_ADMIN_BUILD: 20260827-exact-disconnect-copy-1 -->
+<meta name="subloop-admin-build" content="20260827-deepfix-1">
+<!-- SUBLOOP_ADMIN_BUILD: 20260827-deepfix-1 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -43,21 +43,14 @@ button,input,select,textarea{font:inherit}.hidden{display:none!important}
 .login-error{display:none;background:var(--red-bg);border:1px solid var(--red);color:var(--red);border-radius:8px;padding:10px 14px;font-size:13px;font-family:var(--mono);margin-top:14px;text-align:center}
 .login-error:not(:empty){display:block}
 
-/* Shared Subloop controls — Disconnect rules copied verbatim from the official app.
-   Keep these two rules BEFORE .btn/.btn:hover: that cascade is the official effect. */
-.btn-disconnect{color:var(--red);border-color:rgba(248,113,113,0.22);background:rgba(248,113,113,0.06)}
-.btn-disconnect:hover{background:var(--red-bg);border-color:var(--red);color:var(--red)}
+/* Shared Subloop controls */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:7px 13px;border-radius:8px;font-size:13px;font-family:var(--sans);font-weight:500;cursor:pointer;transition:all .15s;border:1px solid var(--border2);background:var(--surface2);color:var(--text);white-space:nowrap}
-.btn:hover{border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.07)}
-.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}.btn-primary:hover{background:#7c74ff;border-color:#7c74ff}.btn-danger{color:var(--red);border-color:var(--red-bg)}.btn-danger:hover{background:var(--red-bg)}.btn-sm{padding:4px 9px;font-size:11px}.btn-full{width:100%;padding:13px;font-size:15px;font-weight:600;margin-top:8px}
+.btn:hover{border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.07)}.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}.btn-primary:hover{background:#7c74ff;border-color:#7c74ff}.btn-danger{color:var(--red);border-color:var(--red-bg)}.btn-danger:hover{background:var(--red-bg)}.btn-sm{padding:4px 9px;font-size:11px}.btn-full{width:100%;padding:13px;font-size:15px;font-weight:600;margin-top:8px}
 
 /* Admin shell, still visually native to Subloop */
 .app{min-height:100vh}.topbar{height:52px;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 28px;background:var(--surface);position:sticky;top:0;z-index:10}
 .admin-brand{display:flex;align-items:center;gap:12px;min-width:0}.admin-brand img{width:127px;height:auto;display:block;object-fit:contain}.admin-pill{font-size:9px;font-family:var(--mono);font-weight:500;letter-spacing:.65px;text-transform:uppercase;color:#b8b3ff;background:var(--accent-glow);border:1px solid rgba(108,99,255,.3);padding:3px 6px;border-radius:6px;white-space:nowrap}
-.topbar-actions{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.topbar-actions .btn{height:34px;min-height:34px;padding:0 13px;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;line-height:1}
-.topbar-actions .btn svg{width:13px;height:13px;display:block;flex-shrink:0}
-.signed-user{font-size:11px;font-family:var(--mono);color:var(--muted)}
+.topbar-actions{margin-left:auto;display:flex;align-items:center;gap:10px}.signed-user{font-size:11px;font-family:var(--mono);color:var(--muted)}
 main{padding:24px 28px 50px;max-width:none;margin:0}
 .page-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap}.page-head h1{font-size:19px;font-weight:600;letter-spacing:-.3px;margin:0}.page-title{display:flex;align-items:center;gap:10px}.page-title svg{width:18px;height:18px;flex:0 0 18px}.page-head p{font-size:13px;color:var(--muted);margin-top:2px}
 .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:20px}.stat{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:16px;position:relative;overflow:hidden}.stat::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),transparent);opacity:.5}.stat-label{font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:.5px;text-transform:uppercase}.stat-value{font-size:22px;font-weight:700;margin-top:4px;letter-spacing:-.5px}.stat-sub{font-size:12px;color:var(--muted);margin-top:3px;font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -309,10 +302,7 @@ html.light .drawer-bg{background:rgba(17,17,24,.28)}html.light .license-drawer{b
 <section id="admin-app" class="app hidden">
   <header class="topbar">
     <div class="admin-brand"><img src="/icons/platform-admin-logo.png" alt="Subloop"></div>
-    <div class="topbar-actions"><span id="signed-user" class="signed-user"></span><span class="admin-pill">Platform Admin</span><button class="btn btn-disconnect" onclick="logout()" title="Sign out">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-        Sign out
-      </button></div>
+    <div class="topbar-actions"><span id="signed-user" class="signed-user"></span><span class="admin-pill">Platform Admin</span><button class="btn" id="panel-signout-button" style="color:var(--text)!important;border-color:var(--border2)!important;background:var(--surface2)!important" onmouseenter="this.style.setProperty('color','var(--red)','important');this.style.setProperty('border-color','var(--red)','important');this.style.setProperty('background','rgba(248,113,113,.06)','important')" onmouseleave="this.style.setProperty('color','var(--text)','important');this.style.setProperty('border-color','var(--border2)','important');this.style.setProperty('background','var(--surface2)','important')" onclick="logout()">Sign out</button></div>
   </header>
   <main>
     <div class="page-head"><div><h1 class="page-title"><span>Licenses</span></h1><p>Manage Subloop customer access and isolated workspaces.</p></div><button class="btn btn-primary" onclick="openCreate()">+ Create License</button></div>
