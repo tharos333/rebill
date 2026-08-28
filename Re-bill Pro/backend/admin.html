@@ -334,21 +334,26 @@ html.light .drawer-bg{background:rgba(17,17,24,.28)}html.light .license-drawer{b
 #login-screen .login-error{background:var(--red-bg)!important;border:1px solid var(--red)!important;color:var(--red)!important;border-radius:8px!important;padding:10px 14px!important;font-size:13px!important;font-family:var(--font-ui)!important;font-weight:400!important;margin-top:14px!important;display:none;text-align:center!important}
 #login-screen .login-error:not(:empty){display:block!important}
 
-/* ACTION BUTTON PARITY — same final btn + btn-sm typography as the official app */
+/* ACTION BUTTON PARITY — exact same top/bottom height for View and More */
 .row-actions button.btn.btn-sm.btn-view,
 .row-actions button.btn.btn-sm.btn-more{
   font-family:var(--font-ui)!important;
   font-size:11px!important;
   font-weight:600!important;
   letter-spacing:-.01em!important;
-  line-height:normal!important;
-  padding:4px 9px!important;
-  height:auto!important;min-height:0!important;max-height:none!important;
+  line-height:1!important;
+  height:28px!important;
+  min-height:28px!important;
+  max-height:28px!important;
+  padding:0 9px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
   width:auto!important;min-width:0!important;max-width:none!important;
   box-sizing:border-box!important;
 }
-.row-actions .more-wrap{width:auto!important;min-width:0!important;max-width:none!important;flex:0 0 auto!important}
-.row-actions button.btn.btn-sm.btn-more svg{width:12px!important;height:12px!important;display:block!important}
+.row-actions .more-wrap{width:auto!important;min-width:0!important;max-width:none!important;flex:0 0 auto!important;display:inline-flex!important;align-items:center!important}
+.row-actions button.btn.btn-sm.btn-more svg{width:12px!important;height:12px!important;display:block!important;flex:0 0 12px!important}
 
 </style>
 <!-- SUBLOOP_ADMIN_LITERAL_DISCONNECT_COPY_20260828_0110 -->
