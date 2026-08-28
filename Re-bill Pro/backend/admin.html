@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="icon" type="image/png" href="https://i.ibb.co/6cnnDkWy/Blue-and-White-Minimalist-Professional-Brand-Logo-1.png">
 <title>Subloop Admin</title>
-<meta name="subloop-admin-build" content="20260828-system-font-exact-app-parity-3">
+<meta name="subloop-admin-build" content="20260828-panel-actions-exact-app-28px">
 <!-- SUBLOOP_ADMIN_BUILD: 20260828-system-font-exact-app-parity-3 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -334,27 +334,31 @@ html.light .drawer-bg{background:rgba(17,17,24,.28)}html.light .license-drawer{b
 #login-screen .login-error{background:var(--red-bg)!important;border:1px solid var(--red)!important;color:var(--red)!important;border-radius:8px!important;padding:10px 14px!important;font-size:13px!important;font-family:var(--font-ui)!important;font-weight:400!important;margin-top:14px!important;display:none;text-align:center!important}
 #login-screen .login-error:not(:empty){display:block!important}
 
-/* ACTION BUTTON PARITY — exact same top/bottom height for View and More */
+
+
+/* SUBLOOP_ADMIN_ACTION_BUTTONS_EXACT_APP_28PX_20260828 */
+.row-actions{display:flex!important;align-items:center!important;gap:4px!important;flex-wrap:nowrap!important}
 .row-actions button.btn.btn-sm.btn-view,
 .row-actions button.btn.btn-sm.btn-more{
-  font-family:var(--font-ui)!important;
-  font-size:11px!important;
-  font-weight:600!important;
-  letter-spacing:-.01em!important;
-  line-height:1!important;
   height:28px!important;
   min-height:28px!important;
   max-height:28px!important;
-  padding:0 9px!important;
+  box-sizing:border-box!important;
+  border-radius:8px!important;
+  padding-top:0!important;
+  padding-bottom:0!important;
   display:inline-flex!important;
   align-items:center!important;
   justify-content:center!important;
-  width:auto!important;min-width:0!important;max-width:none!important;
-  box-sizing:border-box!important;
+  vertical-align:middle!important;
+  line-height:1!important;
+  font-size:11px!important;
+  font-weight:500!important;
 }
-.row-actions .more-wrap{width:auto!important;min-width:0!important;max-width:none!important;flex:0 0 auto!important;display:inline-flex!important;align-items:center!important}
+.row-actions button.btn.btn-sm.btn-view{padding-left:9px!important;padding-right:9px!important;width:auto!important;min-width:0!important}
+.row-actions .more-wrap{height:28px!important;display:inline-flex!important;align-items:center!important;width:auto!important;min-width:0!important;flex:0 0 auto!important}
+.row-actions button.btn.btn-sm.btn-more{width:38px!important;min-width:38px!important;max-width:38px!important;padding-left:0!important;padding-right:0!important}
 .row-actions button.btn.btn-sm.btn-more svg{width:12px!important;height:12px!important;display:block!important;flex:0 0 12px!important}
-
 </style>
 <!-- SUBLOOP_ADMIN_LITERAL_DISCONNECT_COPY_20260828_0110 -->
 </head>
