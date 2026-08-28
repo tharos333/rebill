@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="icon" type="image/png" href="https://i.ibb.co/6cnnDkWy/Blue-and-White-Minimalist-Professional-Brand-Logo-1.png">
 <title>Subloop Admin</title>
-<meta name="subloop-admin-build" content="20260828-signout-exact-cascade-2">
-<!-- SUBLOOP_ADMIN_BUILD: 20260828-signout-exact-cascade-2 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -44,12 +42,6 @@ button,input,select,textarea{font:inherit}.hidden{display:none!important}
 .login-error:not(:empty){display:block}
 
 /* Shared Subloop controls */
-/* IMPORTANT: these two Disconnect rules are intentionally BEFORE .btn/.btn:hover,
-   exactly like the official app. The later generic .btn rules make idle neutral;
-   on hover only the Disconnect color remains red while the normal button hover
-   controls the background/border. Do not move these rules below .btn. */
-.btn-disconnect{color:var(--red);border-color:rgba(248,113,113,0.22);background:rgba(248,113,113,0.06)}
-.btn-disconnect:hover{background:var(--red-bg);border-color:var(--red);color:var(--red)}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:7px 13px;border-radius:8px;font-size:13px;font-family:var(--sans);font-weight:500;cursor:pointer;transition:all .15s;border:1px solid var(--border2);background:var(--surface2);color:var(--text);white-space:nowrap}
 .btn:hover{border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.07)}.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}.btn-primary:hover{background:#7c74ff;border-color:#7c74ff}.btn-danger{color:var(--red);border-color:var(--red-bg)}.btn-danger:hover{background:var(--red-bg)}.btn-sm{padding:4px 9px;font-size:11px}.btn-full{width:100%;padding:13px;font-size:15px;font-weight:600;margin-top:8px}
 
@@ -57,9 +49,6 @@ button,input,select,textarea{font:inherit}.hidden{display:none!important}
 .app{min-height:100vh}.topbar{height:52px;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 28px;background:var(--surface);position:sticky;top:0;z-index:10}
 .admin-brand{display:flex;align-items:center;gap:12px;min-width:0}.admin-brand img{width:127px;height:auto;display:block;object-fit:contain}.admin-pill{font-size:9px;font-family:var(--mono);font-weight:500;letter-spacing:.65px;text-transform:uppercase;color:#b8b3ff;background:var(--accent-glow);border:1px solid rgba(108,99,255,.3);padding:3px 6px;border-radius:6px;white-space:nowrap}
 .topbar-actions{margin-left:auto;display:flex;align-items:center;gap:10px}.signed-user{font-size:11px;font-family:var(--mono);color:var(--muted)}
-/* Exact official-app topbar button geometry */
-.topbar-actions .btn{height:34px;min-height:34px;padding:0 13px;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;line-height:1}
-.topbar-actions .btn svg{width:13px;height:13px;display:block;flex-shrink:0}
 main{padding:24px 28px 50px;max-width:none;margin:0}
 .page-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap}.page-head h1{font-size:19px;font-weight:600;letter-spacing:-.3px;margin:0}.page-title{display:flex;align-items:center;gap:10px}.page-title svg{width:18px;height:18px;flex:0 0 18px}.page-head p{font-size:13px;color:var(--muted);margin-top:2px}
 .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:20px}.stat{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:16px;position:relative;overflow:hidden}.stat::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),transparent);opacity:.5}.stat-label{font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:.5px;text-transform:uppercase}.stat-value{font-size:22px;font-weight:700;margin-top:4px;letter-spacing:-.5px}.stat-sub{font-size:12px;color:var(--muted);margin-top:3px;font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -297,6 +286,27 @@ html.light .drawer-bg{background:rgba(17,17,24,.28)}html.light .license-drawer{b
 #login-screen .login-btn:hover{background:#7c74ff}
 
 </style>
+
+<style id="subloop-admin-signout-runtime-style">
+/* SUBLOOP_ADMIN_SIGNOUT_RUNTIME_GUARD: 20260828-admin-signout-runtime-enforced-4
+   Exact main-app Disconnect behavior: neutral idle; text/icon red on hover only. */
+#panel-signout-button.subloop-admin-signout{
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:5px!important;
+  height:34px!important;min-height:34px!important;box-sizing:border-box!important;
+  padding:7px 13px!important;border-radius:8px!important;
+  border:1px solid var(--border2)!important;background:var(--surface2)!important;color:var(--text)!important;
+  font-size:13px!important;font-weight:500!important;line-height:1!important;
+  box-shadow:none!important;transition:all .15s!important;
+}
+#panel-signout-button.subloop-admin-signout svg{width:13px!important;height:13px!important;display:block!important;flex:0 0 13px!important;stroke:currentColor!important;}
+#panel-signout-button.subloop-admin-signout:hover{
+  color:var(--red)!important;
+  border-color:rgba(255,255,255,.25)!important;
+  background:rgba(255,255,255,.07)!important;
+  box-shadow:none!important;
+}
+html.light #panel-signout-button.subloop-admin-signout:hover{border-color:rgba(0,0,0,.20)!important;background:rgba(0,0,0,.04)!important;}
+</style>
 </head>
 <body>
 <section id="login-screen" class="login-screen">
@@ -311,9 +321,9 @@ html.light .drawer-bg{background:rgba(17,17,24,.28)}html.light .license-drawer{b
 <section id="admin-app" class="app hidden">
   <header class="topbar">
     <div class="admin-brand"><img src="/icons/platform-admin-logo.png" alt="Subloop"></div>
-    <div class="topbar-actions"><span id="signed-user" class="signed-user"></span><span class="admin-pill">Platform Admin</span><button class="btn btn-disconnect" id="panel-signout-button" data-ui-build="20260828-signout-exact-cascade-2" onclick="logout()" title="Sign out">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-        Sign out
+    <div class="topbar-actions"><span id="signed-user" class="signed-user"></span><span class="admin-pill">Platform Admin</span><button class="btn subloop-admin-signout" id="panel-signout-button" data-ui-build="20260828-admin-signout-runtime-enforced-4" onclick="logout()" title="Sign out">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <span>Sign out</span>
       </button></div>
   </header>
   <main>
@@ -407,5 +417,20 @@ function removeLicense(id){ask('Delete this empty license workspace?','A workspa
 document.addEventListener('click',e=>{if(!e.target.closest('.more-wrap'))closeMoreMenus();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeMoreMenus();const openModalEl=document.querySelector('.modal-bg.open');if(openModalEl)closeModal(openModalEl.id);else if(document.getElementById('license-drawer-bg').classList.contains('open'))closeLicenseDrawer();}});
 init();
+</script>
+
+<script id="subloop-admin-signout-runtime-script">
+/* SUBLOOP_ADMIN_SIGNOUT_RUNTIME_DOM_GUARD: 20260828-admin-signout-runtime-enforced-4 */
+(function enforceSubloopAdminSignout(){
+  var b=document.getElementById('panel-signout-button');
+  if(!b)return;
+  b.removeAttribute('style');
+  b.removeAttribute('onmouseenter');
+  b.removeAttribute('onmouseleave');
+  b.className='btn subloop-admin-signout';
+  b.setAttribute('data-ui-build','20260828-admin-signout-runtime-enforced-4');
+  b.setAttribute('title','Sign out');
+  b.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>Sign out</span>';
+})();
 </script>
 </body></html>
