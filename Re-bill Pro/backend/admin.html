@@ -270,47 +270,82 @@ table{min-width:860px}
 html.light .drawer-bg{background:rgba(17,17,24,.28)}html.light .license-drawer{background:#fff;border-left-color:rgba(0,0,0,.10);box-shadow:0 24px 70px rgba(17,17,24,.18)}html.light .drawer-close{background:rgba(0,0,0,.025)!important;border-color:rgba(0,0,0,.12)!important}html.light .drawer-close:hover{background:rgba(0,0,0,.055)!important;border-color:rgba(0,0,0,.22)!important}
 @media(max-width:850px){.stats{grid-template-columns:repeat(2,1fr)}main{padding:20px 14px}.topbar{padding:0 15px}.license-drawer{width:min(500px,100vw)}}@media(max-width:520px){.stats{grid-template-columns:1fr}.signed-user,.admin-pill{display:none}.page-head{gap:12px}.admin-brand img{width:115px}.license-drawer{width:100%;max-width:100%}.drawer-head{padding-left:18px;padding-right:68px}.drawer-body{padding-left:18px;padding-right:18px}.detail-grid{grid-template-columns:1fr}.detail-box.wide{grid-column:auto}.drawer-actions{grid-template-columns:1fr}.drawer-actions .wide{grid-column:auto}}
 
-/* EXACT login component parity with the main Subloop app — literal app CSS, isolated from Admin Inter overrides */
-#login-screen{--mono:'DM Mono',monospace;--sans:'Syne',sans-serif;font-family:var(--sans)!important}
-#login-screen .login-box{font-family:var(--sans)!important}
-#login-screen .login-box{background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:40px;width:380px;max-width:95vw}
+/* FINAL LOGIN PARITY — matches the official app's final computed typography */
+#login-screen{font-family:var(--font-ui)!important}
+#login-screen .login-box{background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:40px;width:380px;max-width:95vw;font-family:var(--font-ui)!important}
 #login-screen .login-logo{text-align:center;margin-bottom:28px}
 #login-screen .login-logo img{width:145px;height:auto;display:block;margin:0 auto 10px}
 #login-screen .login-field{margin-bottom:16px}
-#login-screen .login-field label{display:block;font-size:11px!important;color:var(--muted)!important;font-family:var(--mono)!important;font-weight:400!important;margin-bottom:6px!important;text-transform:uppercase!important;letter-spacing:.5px!important}
-#login-screen .login-field input{width:100%!important;background:var(--surface2)!important;border:1px solid var(--border2)!important;border-radius:10px!important;color:var(--text)!important;padding:12px 14px!important;font-size:14px!important;font-family:var(--sans)!important;font-weight:400!important;outline:none!important;transition:border-color .2s!important}
-#login-screen .login-field input::placeholder{font-family:var(--sans)!important;font-size:14px!important;font-weight:400!important;color:var(--muted)!important;opacity:1!important}
+#login-screen .login-field label{
+  display:block!important;
+  font-family:var(--font-ui)!important;
+  font-size:11px!important;
+  font-weight:700!important;
+  color:var(--muted)!important;
+  margin-bottom:6px!important;
+  text-transform:uppercase!important;
+  letter-spacing:.045em!important;
+  line-height:1.2!important;
+}
+#login-screen .login-field input{
+  width:100%!important;
+  background:var(--surface2)!important;
+  border:1px solid var(--border2)!important;
+  border-radius:10px!important;
+  color:var(--text)!important;
+  padding:12px 14px!important;
+  font-family:var(--font-ui)!important;
+  font-size:14px!important;
+  font-weight:600!important;
+  letter-spacing:-.01em!important;
+  line-height:normal!important;
+  outline:none!important;
+  transition:border-color .2s!important;
+}
+#login-screen .login-field input::placeholder{
+  font-family:var(--font-ui)!important;
+  font-size:14px!important;
+  font-weight:600!important;
+  letter-spacing:-.01em!important;
+  color:var(--muted)!important;
+  opacity:1!important;
+}
 #login-screen .login-field input:focus{border-color:var(--accent)!important}
 #login-screen .login-password-wrap{position:relative}
 #login-screen .login-password-wrap input{padding-right:52px!important}
-#login-screen .login-password-toggle{position:absolute!important;right:14px!important;top:50%!important;transform:translateY(-50%)!important;width:24px!important;height:24px!important;min-width:24px!important;min-height:24px!important;border:0!important;background:none!important;color:var(--muted)!important;display:flex!important;align-items:center!important;justify-content:center!important;cursor:pointer!important;padding:0!important;transition:color .15s,opacity .15s,filter .15s!important;opacity:.9!important;overflow:visible!important;flex-shrink:0!important;font-family:var(--sans)!important;font-weight:400!important}
+#login-screen .login-password-toggle{
+  position:absolute!important;right:14px!important;top:50%!important;transform:translateY(-50%)!important;
+  width:24px!important;height:24px!important;min-width:24px!important;min-height:24px!important;
+  border:0!important;background:none!important;color:var(--muted)!important;display:flex!important;
+  align-items:center!important;justify-content:center!important;cursor:pointer!important;padding:0!important;
+  transition:color .15s,opacity .15s,filter .15s!important;opacity:.9!important;overflow:visible!important;flex-shrink:0!important;
+}
 #login-screen .login-password-toggle:hover{color:var(--text)!important;opacity:1!important;filter:drop-shadow(0 0 6px rgba(126,102,255,.28))!important}
 #login-screen .login-password-toggle:focus-visible{outline:none!important;color:var(--text)!important;opacity:1!important;filter:drop-shadow(0 0 0 rgba(0,0,0,0)) drop-shadow(0 0 6px rgba(126,102,255,.38))!important}
 #login-screen .login-password-toggle svg{width:22px!important;height:22px!important;display:block!important;overflow:visible!important;pointer-events:none!important}
 #login-screen .login-password-toggle .eye-off{display:none!important}
 #login-screen .login-password-toggle.is-visible .eye-on{display:none!important}
 #login-screen .login-password-toggle.is-visible .eye-off{display:block!important}
-#login-screen .login-btn{width:100%!important;background:var(--accent)!important;color:#fff!important;border:none!important;border-radius:10px!important;padding:13px!important;font-size:15px!important;font-family:var(--sans)!important;font-weight:600!important;cursor:pointer!important;margin-top:8px!important}
+#login-screen .login-btn{
+  width:100%!important;background:var(--accent)!important;color:#fff!important;border:none!important;border-radius:10px!important;
+  padding:13px!important;font-family:var(--font-ui)!important;font-size:15px!important;font-weight:600!important;
+  letter-spacing:-.01em!important;line-height:normal!important;cursor:pointer!important;margin-top:8px!important;
+}
 #login-screen .login-btn:hover{background:#7c74ff!important}
-#login-screen .login-error{background:var(--red-bg)!important;border:1px solid var(--red)!important;color:var(--red)!important;border-radius:8px!important;padding:10px 14px!important;font-size:13px!important;font-family:var(--mono)!important;font-weight:400!important;margin-top:14px!important;display:none;text-align:center!important}
+#login-screen .login-error{background:var(--red-bg)!important;border:1px solid var(--red)!important;color:var(--red)!important;border-radius:8px!important;padding:10px 14px!important;font-size:13px!important;font-family:var(--font-ui)!important;font-weight:400!important;margin-top:14px!important;display:none;text-align:center!important}
 #login-screen .login-error:not(:empty){display:block!important}
 
-
-/* OFFICIAL APP ACTION BUTTON PARITY — beats Admin global Inter/600 overrides */
+/* ACTION BUTTON PARITY — same final btn + btn-sm typography as the official app */
 .row-actions button.btn.btn-sm.btn-view,
 .row-actions button.btn.btn-sm.btn-more{
-  font-family:'Syne',sans-serif!important;
+  font-family:var(--font-ui)!important;
   font-size:11px!important;
-  font-weight:500!important;
-  letter-spacing:normal!important;
+  font-weight:600!important;
+  letter-spacing:-.01em!important;
   line-height:normal!important;
   padding:4px 9px!important;
-  height:auto!important;
-  min-height:0!important;
-  max-height:none!important;
-  width:auto!important;
-  min-width:0!important;
-  max-width:none!important;
+  height:auto!important;min-height:0!important;max-height:none!important;
+  width:auto!important;min-width:0!important;max-width:none!important;
   box-sizing:border-box!important;
 }
 .row-actions .more-wrap{width:auto!important;min-width:0!important;max-width:none!important;flex:0 0 auto!important}
