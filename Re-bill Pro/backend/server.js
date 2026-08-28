@@ -2823,7 +2823,9 @@ function normalizeLicensePlan(value) {
   if (['1_day','trial_1_day','1_day_trial'].includes(v)) return 'trial_1_day';
   if (['3_day','3_days','trial_3_day','trial_3_days','3_day_trial','3_days_trial'].includes(v)) return 'trial_3_days';
   if (['custom','custom_day','custom_days'].includes(v)) return 'custom_days';
+  if (['1_month','1_months','monthly'].includes(v)) return '1_month';
   if (['3_month','3_months','quarterly'].includes(v)) return '3_months';
+  if (['6_month','6_months','half_year','half_yearly','semiannual','semi_annual'].includes(v)) return '6_months';
   if (['12_month','12_months','year','yearly','annual'].includes(v)) return '12_months';
   if (['lifetime','life'].includes(v)) return 'lifetime';
   return null;
@@ -2847,7 +2849,10 @@ function licenseExpiryForPlan(plan, start = new Date(), customDays = null) {
   if (plan === 'trial_1_day') return addCalendarDays(start, 1);
   if (plan === 'trial_3_days') return addCalendarDays(start, 3);
   if (plan === 'custom_days') return addCalendarDays(start, customDays);
-  return addCalendarMonths(start, plan === '3_months' ? 3 : 12);
+  if (plan === '1_month') return addCalendarMonths(start, 1);
+  if (plan === '3_months') return addCalendarMonths(start, 3);
+  if (plan === '6_months') return addCalendarMonths(start, 6);
+  return addCalendarMonths(start, 12);
 }
 function slugBaseForWorkspace(name, email) {
   const base = String(name || email || 'workspace').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40) || 'workspace';
@@ -3466,7 +3471,7 @@ app.get('*', async (req, res) => {
     const host = requestHostname(req);
     if (req.path === '/admin' || req.path.startsWith('/admin/')) {
       if (host !== SUBLOOP_APP_HOST && host !== 'localhost' && host !== '127.0.0.1') return res.redirect(302, SUBLOOP_APP_ORIGIN + '/admin');
-      return res.sendFile(path.join(__dirname, 'admin.html'));
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate'); res.set('Pragma', 'no-cache'); res.set('Expires', '0'); res.set('X-Subloop-Admin-Build', '20260827-inlinefix-2'); return res.sendFile(path.join(__dirname, 'admin.html'));
     }
     const parsed = parseAdminToken(cookieToken(req), 'access');
     let validCookieSession = false;
