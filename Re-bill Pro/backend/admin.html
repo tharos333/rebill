@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="icon" type="image/png" href="https://i.ibb.co/6cnnDkWy/Blue-and-White-Minimalist-Professional-Brand-Logo-1.png">
 <title>Subloop Admin</title>
-<meta name="subloop-admin-build" content="20260828-login-actions-literal-app-1">
-<!-- SUBLOOP_ADMIN_BUILD: 20260828-login-actions-literal-app-1 -->
+<meta name="subloop-admin-build" content="20260828-login-actions-isolated-exact-2">
+<!-- SUBLOOP_ADMIN_BUILD: 20260828-login-actions-isolated-exact-2 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -271,27 +271,50 @@ html.light .drawer-bg{background:rgba(17,17,24,.28)}html.light .license-drawer{b
 @media(max-width:850px){.stats{grid-template-columns:repeat(2,1fr)}main{padding:20px 14px}.topbar{padding:0 15px}.license-drawer{width:min(500px,100vw)}}@media(max-width:520px){.stats{grid-template-columns:1fr}.signed-user,.admin-pill{display:none}.page-head{gap:12px}.admin-brand img{width:115px}.license-drawer{width:100%;max-width:100%}.drawer-head{padding-left:18px;padding-right:68px}.drawer-body{padding-left:18px;padding-right:18px}.detail-grid{grid-template-columns:1fr}.detail-box.wide{grid-column:auto}.drawer-actions{grid-template-columns:1fr}.drawer-actions .wide{grid-column:auto}}
 
 /* EXACT login component parity with the main Subloop app — literal app CSS, isolated from Admin Inter overrides */
+#login-screen{--mono:'DM Mono',monospace;--sans:'Syne',sans-serif;font-family:var(--sans)!important}
+#login-screen .login-box{font-family:var(--sans)!important}
 #login-screen .login-box{background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:40px;width:380px;max-width:95vw}
 #login-screen .login-logo{text-align:center;margin-bottom:28px}
 #login-screen .login-logo img{width:145px;height:auto;display:block;margin:0 auto 10px}
 #login-screen .login-field{margin-bottom:16px}
-#login-screen .login-field label{display:block;font-size:11px!important;color:var(--muted)!important;font-family:'DM Mono',monospace!important;font-weight:400!important;margin-bottom:6px!important;text-transform:uppercase!important;letter-spacing:.5px!important;line-height:normal!important}
-#login-screen .login-field input{width:100%!important;background:var(--surface2)!important;border:1px solid var(--border2)!important;border-radius:10px!important;color:var(--text)!important;padding:12px 14px!important;font-size:14px!important;font-family:'Syne',sans-serif!important;font-weight:400!important;letter-spacing:normal!important;line-height:normal!important;outline:none!important;transition:border-color .2s!important}
-#login-screen .login-field input::placeholder{font-family:'Syne',sans-serif!important;font-size:14px!important;font-weight:400!important;letter-spacing:normal!important;color:var(--muted)!important;opacity:1!important}
+#login-screen .login-field label{display:block;font-size:11px!important;color:var(--muted)!important;font-family:var(--mono)!important;font-weight:400!important;margin-bottom:6px!important;text-transform:uppercase!important;letter-spacing:.5px!important}
+#login-screen .login-field input{width:100%!important;background:var(--surface2)!important;border:1px solid var(--border2)!important;border-radius:10px!important;color:var(--text)!important;padding:12px 14px!important;font-size:14px!important;font-family:var(--sans)!important;font-weight:400!important;outline:none!important;transition:border-color .2s!important}
+#login-screen .login-field input::placeholder{font-family:var(--sans)!important;font-size:14px!important;font-weight:400!important;color:var(--muted)!important;opacity:1!important}
 #login-screen .login-field input:focus{border-color:var(--accent)!important}
 #login-screen .login-password-wrap{position:relative}
 #login-screen .login-password-wrap input{padding-right:52px!important}
-#login-screen .login-password-toggle{position:absolute!important;right:14px!important;top:50%!important;transform:translateY(-50%)!important;width:24px!important;height:24px!important;min-width:24px!important;min-height:24px!important;border:0!important;background:none!important;color:var(--muted)!important;display:flex!important;align-items:center!important;justify-content:center!important;cursor:pointer!important;padding:0!important;transition:color .15s,opacity .15s,filter .15s!important;opacity:.9!important;overflow:visible!important;flex-shrink:0!important;font-family:'Syne',sans-serif!important;font-weight:400!important}
+#login-screen .login-password-toggle{position:absolute!important;right:14px!important;top:50%!important;transform:translateY(-50%)!important;width:24px!important;height:24px!important;min-width:24px!important;min-height:24px!important;border:0!important;background:none!important;color:var(--muted)!important;display:flex!important;align-items:center!important;justify-content:center!important;cursor:pointer!important;padding:0!important;transition:color .15s,opacity .15s,filter .15s!important;opacity:.9!important;overflow:visible!important;flex-shrink:0!important;font-family:var(--sans)!important;font-weight:400!important}
 #login-screen .login-password-toggle:hover{color:var(--text)!important;opacity:1!important;filter:drop-shadow(0 0 6px rgba(126,102,255,.28))!important}
 #login-screen .login-password-toggle:focus-visible{outline:none!important;color:var(--text)!important;opacity:1!important;filter:drop-shadow(0 0 0 rgba(0,0,0,0)) drop-shadow(0 0 6px rgba(126,102,255,.38))!important}
 #login-screen .login-password-toggle svg{width:22px!important;height:22px!important;display:block!important;overflow:visible!important;pointer-events:none!important}
 #login-screen .login-password-toggle .eye-off{display:none!important}
 #login-screen .login-password-toggle.is-visible .eye-on{display:none!important}
 #login-screen .login-password-toggle.is-visible .eye-off{display:block!important}
-#login-screen .login-btn{width:100%!important;background:var(--accent)!important;color:#fff!important;border:none!important;border-radius:10px!important;padding:13px!important;font-size:15px!important;font-family:'Syne',sans-serif!important;font-weight:600!important;letter-spacing:normal!important;line-height:normal!important;cursor:pointer!important;margin-top:8px!important}
+#login-screen .login-btn{width:100%!important;background:var(--accent)!important;color:#fff!important;border:none!important;border-radius:10px!important;padding:13px!important;font-size:15px!important;font-family:var(--sans)!important;font-weight:600!important;cursor:pointer!important;margin-top:8px!important}
 #login-screen .login-btn:hover{background:#7c74ff!important}
-#login-screen .login-error{background:var(--red-bg)!important;border:1px solid var(--red)!important;color:var(--red)!important;border-radius:8px!important;padding:10px 14px!important;font-size:13px!important;font-family:'DM Mono',monospace!important;font-weight:400!important;letter-spacing:normal!important;margin-top:14px!important;display:none;text-align:center!important}
+#login-screen .login-error{background:var(--red-bg)!important;border:1px solid var(--red)!important;color:var(--red)!important;border-radius:8px!important;padding:10px 14px!important;font-size:13px!important;font-family:var(--mono)!important;font-weight:400!important;margin-top:14px!important;display:none;text-align:center!important}
 #login-screen .login-error:not(:empty){display:block!important}
+
+
+/* OFFICIAL APP ACTION BUTTON PARITY — beats Admin global Inter/600 overrides */
+.row-actions button.btn.btn-sm.btn-view,
+.row-actions button.btn.btn-sm.btn-more{
+  font-family:'Syne',sans-serif!important;
+  font-size:11px!important;
+  font-weight:500!important;
+  letter-spacing:normal!important;
+  line-height:normal!important;
+  padding:4px 9px!important;
+  height:auto!important;
+  min-height:0!important;
+  max-height:none!important;
+  width:auto!important;
+  min-width:0!important;
+  max-width:none!important;
+  box-sizing:border-box!important;
+}
+.row-actions .more-wrap{width:auto!important;min-width:0!important;max-width:none!important;flex:0 0 auto!important}
+.row-actions button.btn.btn-sm.btn-more svg{width:12px!important;height:12px!important;display:block!important}
 
 </style>
 <!-- SUBLOOP_ADMIN_LITERAL_DISCONNECT_COPY_20260828_0110 -->
@@ -302,8 +325,8 @@ html.light .drawer-bg{background:rgba(17,17,24,.28)}html.light .license-drawer{b
     <div class="login-logo"><img src="/icons/platform-admin-logo.png" alt="Subloop"></div>
     <div class="login-field"><label>Username</label><input id="admin-user" autocomplete="username" placeholder="Enter username"></div>
     <div class="login-field"><label>Password</label><div class="login-password-wrap"><input id="admin-pass" type="password" autocomplete="current-password" placeholder="Enter password" onkeydown="if(event.key==='Enter')signIn()"><button class="login-password-toggle" id="admin-password-toggle" type="button" aria-label="Show password" title="Show password" onclick="togglePassword()"><svg class="eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.7"/></svg><svg class="eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.7"/><path d="M4 4L9.7 9.7"/><path d="M14.3 14.3L20 20"/></svg></button></div></div>
-    <div id="login-error" class="login-error"></div>
     <button class="login-btn" onclick="signIn()">Sign in</button>
+    <div id="login-error" class="login-error"></div>
   </div>
 </section>
 <section id="admin-app" class="app hidden">
