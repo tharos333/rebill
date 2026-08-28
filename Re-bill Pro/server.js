@@ -1,7 +1,6 @@
 const express = require('express');
 const app = express();
 const path = require('path');
-const fs = require('fs');
 const { init, pool, settingsDb, stripeAccounts, customers, subscriptions, payments, activityLog, webhookLogs, security, adminUsers, platformAdmins } = require('./db');
 let speakeasy, QRCode;
 try { speakeasy = require('speakeasy'); QRCode = require('qrcode'); } catch(e) {}
@@ -23,18 +22,6 @@ const SUBLOOP_SESSION_COOKIE = 'subloop_session';
 const SUBLOOP_PLATFORM_ADMIN_COOKIE = 'subloop_platform_admin';
 const SUBLOOP_SESSION_MINUTES = 480;
 const SUBLOOP_PLATFORM_ADMIN_SESSION_MINUTES = 480;
-const SUBLOOP_ADMIN_UI_BUILD = '20260828-admin-signout-runtime-enforced-4';
-function renderPlatformAdminHtml() {
-  const adminPath = path.join(__dirname, 'admin.html');
-  let html = fs.readFileSync(adminPath, 'utf8');
-  if (!html.includes('SUBLOOP_ADMIN_SIGNOUT_RUNTIME_GUARD: 20260828-admin-signout-runtime-enforced-4')) {
-    const style = `<style id="subloop-admin-signout-runtime-style">#panel-signout-button{display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:5px!important;height:34px!important;min-height:34px!important;box-sizing:border-box!important;padding:7px 13px!important;border-radius:8px!important;border:1px solid var(--border2)!important;background:var(--surface2)!important;color:var(--text)!important;font-size:13px!important;font-weight:500!important;line-height:1!important;box-shadow:none!important;transition:all .15s!important}#panel-signout-button svg{width:13px!important;height:13px!important;display:block!important;flex:0 0 13px!important;stroke:currentColor!important}#panel-signout-button:hover{color:var(--red)!important;border-color:rgba(255,255,255,.25)!important;background:rgba(255,255,255,.07)!important;box-shadow:none!important}</style>`;
-    const script = `<script>(function(){var b=document.getElementById('panel-signout-button');if(!b)return;b.removeAttribute('style');b.removeAttribute('onmouseenter');b.removeAttribute('onmouseleave');b.className='btn subloop-admin-signout';b.setAttribute('data-ui-build','20260828-admin-signout-runtime-enforced-4');b.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>Sign out</span>';})();<\/script>`;
-    html = html.replace('</head>', style + '</head>').replace('</body>', script + '</body>');
-  }
-  return html;
-}
-
 const ANALYST_DEFAULT_SECTIONS = ['dashboard','customers','payments','forecast','summary','mrr','recovery'];
 // View-only users may be assigned any non-administrative operating/reporting page, but cannot write.
 const ANALYST_ASSIGNABLE_SECTIONS = ['dashboard','activity','customers','subscriptions','payments','links','accounts','forecast','summary','mrr','recovery','webhooks'];
@@ -3484,7 +3471,7 @@ app.get('*', async (req, res) => {
     const host = requestHostname(req);
     if (req.path === '/admin' || req.path.startsWith('/admin/')) {
       if (host !== SUBLOOP_APP_HOST && host !== 'localhost' && host !== '127.0.0.1') return res.redirect(302, SUBLOOP_APP_ORIGIN + '/admin');
-      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate'); res.set('Pragma', 'no-cache'); res.set('Expires', '0'); res.set('X-Subloop-Admin-Build', SUBLOOP_ADMIN_UI_BUILD); return res.type('html').send(renderPlatformAdminHtml());
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate'); res.set('Pragma', 'no-cache'); res.set('Expires', '0'); res.set('X-Subloop-Admin-Build', '20260827-inlinefix-2'); return res.sendFile(path.join(__dirname, 'admin.html'));
     }
     const parsed = parseAdminToken(cookieToken(req), 'access');
     let validCookieSession = false;
@@ -3526,5 +3513,5 @@ init().then(async () => {
   // customer whose final subscription had already been canceled in an older build).
   await reconcileExistingCustomerLifecycles().catch(err => console.log('[customer-reconcile] startup pass failed:', err.message));
   initScheduler({ reconcileCustomerLifecycle });
-  app.listen(PORT, () => { console.log(`Subloop running on port ${PORT}`); console.log(`[ui] Platform Admin build ${SUBLOOP_ADMIN_UI_BUILD}`); });
+  app.listen(PORT, () => console.log(`Subloop running on port ${PORT}`));
 }).catch(err => { console.error('DB init failed:', err.message); process.exit(1); });
