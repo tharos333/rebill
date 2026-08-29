@@ -9662,7 +9662,7 @@ function deleteAdmin(id){
     }catch(e){toast('Error','error');}
   });
 }
-async function changeMyPassword(){var np=document.getElementById('change-pass-new').value;var cp=document.getElementById('change-pass-confirm').value;if(!np||np.length<8){toast('Password must be at least 8 characters','error');return;}if(np!==cp){toast('Passwords do not match','error');return;}try{var list=await api('/api/admin-users');var me=list.find(function(a){return a.username===localStorage.getItem('subloop_username');});if(!me){toast('Could not find your account','error');return;}var r=await api('/api/admin-users/'+me.id+'/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:np})});if(r.success){toast('✓ Password updated');document.getElementById('change-pass-new').value='';document.getElementById('change-pass-confirm').value='';}else toast('Error: '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
+async function changeMyPassword(){var np=document.getElementById('change-pass-new').value;var cp=document.getElementById('change-pass-confirm').value;if(!np||np.length<8){toast('Password must be at least 8 characters','error');return;}if(np!==cp){toast('Passwords do not match','error');return;}try{var r=await api('/api/security/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:np})});if(r.success){toast('✓ Password updated');document.getElementById('change-pass-new').value='';document.getElementById('change-pass-confirm').value='';}else toast('Error: '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
 var searchTimer=null;
 function closeGlobalSearch(){
   var res=document.getElementById('global-search-results');

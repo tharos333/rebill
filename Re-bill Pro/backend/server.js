@@ -1444,7 +1444,7 @@ app.use('/api', async (req, res, next) => {
     }
     const workspaceAccounts = await pool.query('SELECT id FROM stripe_accounts WHERE workspace_id=$1 ORDER BY id',[user.workspace_id]);
     req.workspaceAccountIds = workspaceAccounts.rows.map(row=>Number(row.id));
-    const selfSecurityPath = req.path === '/security/login-history' || req.path.startsWith('/security/2fa/');
+    const selfSecurityPath = req.path === '/security/login-history' || req.path === '/security/change-password' || req.path.startsWith('/security/2fa/');
     const sensitive = ['/admin-users', '/settings', '/debug', '/licenses'];
     if (sensitive.some(prefix => req.path.startsWith(prefix)) && !isOwnerOrAdmin(user)) {
       return res.status(403).json({ error: 'Owner or admin access required' });
@@ -2598,6 +2598,23 @@ app.get('/api/webhook-logs', async (req, res) => { try { const list=await webhoo
 app.get('/api/security/login-history', async (req, res) => {
   try { res.json(await security.recentLoginsForUser(req.currentUser.id, 20)); }
   catch(err) { res.status(500).json({ error: err.message }); }
+});
+app.post('/api/security/change-password', async (req, res) => {
+  try {
+    const password = String(req.body?.password || '');
+    if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    await adminUsers.changePassword(req.currentUser.id, password);
+    if (req.currentUser.role === 'owner') {
+      await pool.query(
+        'UPDATE licenses SET temporary_password=NULL, temporary_password_created_at=NULL, updated_at=NOW() WHERE workspace_id=$1',
+        [req.currentUser.workspace_id]
+      ).catch(()=>{});
+    }
+    res.json({ success: true });
+  } catch(err) {
+    console.error('[security] change password error:', err.message);
+    res.status(500).json({ error: 'Failed to update password' });
+  }
 });
 app.get('/api/security/2fa/status', async (req, res) => {
   try { const state = await adminUsers.twoFAState(req.currentUser.id); res.json({ enabled: !!state.enabled }); }
