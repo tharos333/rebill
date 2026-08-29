@@ -254,6 +254,8 @@ async function init() {
     'ALTER TABLE webhook_logs ADD COLUMN IF NOT EXISTS workspace_id INT',
     'ALTER TABLE settings ADD COLUMN IF NOT EXISTS workspace_id INT',
     'ALTER TABLE security ADD COLUMN IF NOT EXISTS workspace_id INT',
+    'ALTER TABLE licenses ADD COLUMN IF NOT EXISTS temporary_password TEXT',
+    'ALTER TABLE licenses ADD COLUMN IF NOT EXISTS temporary_password_created_at TIMESTAMPTZ',
     'ALTER TABLE stripe_accounts ADD COLUMN IF NOT EXISTS publishable_key TEXT',
     'ALTER TABLE customers ADD COLUMN IF NOT EXISTS stripe_account_id INT',
     'ALTER TABLE customers ADD COLUMN IF NOT EXISTS note TEXT',

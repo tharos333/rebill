@@ -2744,6 +2744,9 @@ app.post('/api/admin-users/:id/change-password', async (req, res) => {
     const { password } = req.body;
     if (!password || password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
     await adminUsers.changePassword(req.params.id, password);
+    if (isSelf && target.role === 'owner') {
+      await pool.query('UPDATE licenses SET temporary_password=NULL, temporary_password_created_at=NULL, updated_at=NOW() WHERE workspace_id=$1',[target.workspace_id]).catch(()=>{});
+    }
     res.json({ success: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
@@ -2912,8 +2915,8 @@ app.post('/admin/api/licenses', async (req,res) => {
     const storedPlan = plan === 'custom_days' ? `custom_${customDays}_days` : plan;
     await client.query('BEGIN');
     const w = await client.query(`INSERT INTO workspaces (name,slug,is_main,status) VALUES ($1,$2,false,'licensed') RETURNING id,name,slug`,[customerName,slug]);
-    const l = await client.query(`INSERT INTO licenses (workspace_id,customer_name,email,plan,starts_at,expires_at,status,notes)
-      VALUES ($1,$2,$3,$4,$5,$6,'active',$7) RETURNING *`,[w.rows[0].id,customerName,email,storedPlan,startsAt,expiresAt,notes||null]);
+    const l = await client.query(`INSERT INTO licenses (workspace_id,customer_name,email,plan,starts_at,expires_at,status,notes,temporary_password,temporary_password_created_at)
+      VALUES ($1,$2,$3,$4,$5,$6,'active',$7,$8,NOW()) RETURNING *`,[w.rows[0].id,customerName,email,storedPlan,startsAt,expiresAt,notes||null,password]);
     const salt = crypto.randomBytes(16).toString('hex');
     const derived = crypto.scryptSync(String(password), salt, 64).toString('hex');
     const passwordHash = `scrypt$${salt}$${derived}`;
@@ -2941,6 +2944,7 @@ app.post('/admin/api/licenses/:id/access', async (req,res) => {
     const collision=await adminUsers.byUsername(username);
     if(collision) return res.status(409).json({error:'Username already exists'});
     await adminUsers.create(username,password,'owner',[],'all',[],lic.workspace_id,false);
+    await pool.query('UPDATE licenses SET temporary_password=$1, temporary_password_created_at=NOW(), updated_at=NOW() WHERE id=$2',[password,lic.id]);
     res.json({success:true,username});
   } catch(err){ res.status(500).json({error:err.message}); }
 });
@@ -2955,6 +2959,7 @@ app.post('/admin/api/licenses/:id/access/reset-password', async (req,res) => {
     if(!owner) return res.status(404).json({error:'Create workspace access first'});
     await adminUsers.changePassword(owner.id,password);
     await adminUsers.disable2FA(owner.id).catch(()=>{});
+    await pool.query('UPDATE licenses SET temporary_password=$1, temporary_password_created_at=NOW(), updated_at=NOW() WHERE id=$2',[password,req.params.id]);
     res.json({success:true,username:owner.username});
   } catch(err){ res.status(500).json({error:err.message}); }
 });
