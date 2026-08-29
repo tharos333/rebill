@@ -2798,13 +2798,19 @@ app.post('/admin/api/auth/verify', async (req,res) => {
     if (!platformAdminHostAllowed(req)) return res.status(404).json({ error:'Not found' });
     const configured = await platformAdmins.configured();
     if (!configured) return res.status(503).json({ success:false, error:'Platform admin is not configured. Add SUBLOOP_PLATFORM_ADMIN_USERNAME and SUBLOOP_PLATFORM_ADMIN_PASSWORD in Railway, then redeploy.' });
-    const user = await platformAdmins.verify(req.body?.username, req.body?.password);
-    if (!user) return res.status(401).json({ success:false, error:'Incorrect username or password' });
+    const attemptedUsername=String(req.body?.username||'').trim();
+    const ip=requestClientIp(req);
+    const user = await platformAdmins.verify(attemptedUsername, req.body?.password);
+    if (!user) {
+      await platformAdmins.logLoginAttempt(null,attemptedUsername,ip,false);
+      return res.status(401).json({ success:false, error:'Incorrect username or password' });
+    }
     const state = await platformAdmins.twoFAState(user.id);
     if (state.enabled) {
       return res.json({ success:true, requires_2fa:true, login_challenge:issueAdminToken(user,'platform-admin-2fa',5), username:user.username });
     }
     await platformAdmins.markLogin(user.id);
+    await platformAdmins.logLoginAttempt(user.id,user.username,ip,true);
     const token = issueAdminToken(user,'platform-admin',SUBLOOP_PLATFORM_ADMIN_SESSION_MINUTES);
     setPlatformAdminSessionCookie(req,res,token);
     res.json({ success:true, username:user.username });
@@ -2820,9 +2826,14 @@ app.post('/admin/api/auth/2fa/validate', async (req,res) => {
     const state = await platformAdmins.twoFAState(user.id);
     if (!state.enabled || !state.two_fa_secret) return res.status(400).json({ success:false, valid:false, error:'Two-factor authentication is not configured.' });
     if (!speakeasy) return res.status(503).json({ success:false, valid:false, error:'Authenticator verification is unavailable' });
+    const ip=requestClientIp(req);
     const valid = speakeasy.totp.verify({ secret:state.two_fa_secret, encoding:'base32', token:String(req.body?.token||''), window:2 });
-    if (!valid) return res.json({ success:false, valid:false, error:'Invalid code' });
+    if (!valid) {
+      await platformAdmins.logLoginAttempt(user.id,user.username,ip,false);
+      return res.json({ success:false, valid:false, error:'Invalid code' });
+    }
     await platformAdmins.markLogin(user.id);
+    await platformAdmins.logLoginAttempt(user.id,user.username,ip,true);
     const token = issueAdminToken(user,'platform-admin',SUBLOOP_PLATFORM_ADMIN_SESSION_MINUTES);
     setPlatformAdminSessionCookie(req,res,token);
     res.json({ success:true, valid:true, username:user.username });
@@ -2862,6 +2873,7 @@ app.post('/admin/api/security/change-password', async (req,res) => {
     const password=String(req.body?.password||'');
     if (password.length<8) return res.status(400).json({ success:false, error:'Password must be at least 8 characters' });
     await platformAdmins.changePassword(req.platformAdmin.id,password);
+    await platformAdmins.logActivity(req.platformAdmin,'security','Platform Admin password changed');
     res.json({ success:true });
   } catch(err) {
     console.error('[platform-admin] change password error:',err.message);
@@ -2871,6 +2883,14 @@ app.post('/admin/api/security/change-password', async (req,res) => {
 app.get('/admin/api/security/2fa/status', async (req,res) => {
   try { const state=await platformAdmins.twoFAState(req.platformAdmin.id); res.json({ enabled:!!state.enabled }); }
   catch(err) { res.status(500).json({ error:'Could not load two-factor authentication status' }); }
+});
+app.get('/admin/api/security/login-activity', async (req,res) => {
+  try { res.json(await platformAdmins.recentLoginActivity(req.platformAdmin.id,req.platformAdmin.username,20)); }
+  catch(err) { res.status(500).json({ error:'Could not load Admin login activity' }); }
+});
+app.get('/admin/api/security/activity', async (req,res) => {
+  try { res.json(await platformAdmins.recentActivity(req.platformAdmin.id,30)); }
+  catch(err) { res.status(500).json({ error:'Could not load Admin activity' }); }
 });
 app.post('/admin/api/security/2fa/setup', async (req,res) => {
   try {
@@ -2889,11 +2909,16 @@ app.post('/admin/api/security/2fa/verify', async (req,res) => {
     const valid=speakeasy.totp.verify({ secret:state.two_fa_secret_pending, encoding:'base32', token:String(req.body?.token||''), window:2 });
     if (!valid) return res.json({ success:false, valid:false, error:'Invalid code' });
     await platformAdmins.enable2FA(req.platformAdmin.id,state.two_fa_secret_pending);
+    await platformAdmins.logActivity(req.platformAdmin,'security','Two-factor authentication enabled');
     res.json({ success:true, valid:true });
   } catch(err) { res.status(500).json({ success:false, error:'Could not enable two-factor authentication' }); }
 });
 app.post('/admin/api/security/2fa/disable', async (req,res) => {
-  try { await platformAdmins.disable2FA(req.platformAdmin.id); res.json({ success:true }); }
+  try {
+    await platformAdmins.disable2FA(req.platformAdmin.id);
+    await platformAdmins.logActivity(req.platformAdmin,'security','Two-factor authentication disabled');
+    res.json({ success:true });
+  }
   catch(err) { res.status(500).json({ success:false, error:'Could not disable two-factor authentication' }); }
 });
 
@@ -3004,6 +3029,7 @@ app.post('/admin/api/licenses', async (req,res) => {
     await client.query(`INSERT INTO admin_users (username,password_hash,role,permissions,account_scope,allowed_account_ids,workspace_id,is_super_admin)
       VALUES ($1,$2,'owner','[]'::jsonb,'all','[]'::jsonb,$3,false)`,[username,passwordHash,w.rows[0].id]);
     await client.query('COMMIT');
+    await platformAdmins.logActivity(req.platformAdmin,'license',`Created ${storedPlan.replace(/_/g,' ')} license for ${customerName}`);
     res.json({ success:true, license:l.rows[0], workspace:w.rows[0], username });
   } catch(err) {
     await client.query('ROLLBACK').catch(()=>{});
@@ -3026,6 +3052,7 @@ app.post('/admin/api/licenses/:id/access', async (req,res) => {
     if(collision) return res.status(409).json({error:'Username already exists'});
     await adminUsers.create(username,password,'owner',[],'all',[],lic.workspace_id,false);
     await pool.query('UPDATE licenses SET temporary_password=$1, temporary_password_created_at=NOW(), updated_at=NOW() WHERE id=$2',[password,lic.id]);
+    await platformAdmins.logActivity(req.platformAdmin,'access',`Created workspace Owner access for ${lic.customer_name || 'license #'+lic.id}`);
     res.json({success:true,username});
   } catch(err){ res.status(500).json({error:err.message}); }
 });
@@ -3034,13 +3061,14 @@ app.post('/admin/api/licenses/:id/access/reset-password', async (req,res) => {
     if (!req.platformAdmin) return res.status(401).json({ error:'Platform admin authentication required' });
     const password=String(req.body?.password||'');
     if(password.length<8) return res.status(400).json({error:'Password must be at least 8 characters'});
-    const lic=(await pool.query('SELECT workspace_id FROM licenses WHERE id=$1',[req.params.id])).rows[0];
+    const lic=(await pool.query('SELECT workspace_id,customer_name FROM licenses WHERE id=$1',[req.params.id])).rows[0];
     if(!lic) return res.status(404).json({error:'License not found'});
     const owner=(await pool.query("SELECT id,username FROM admin_users WHERE workspace_id=$1 AND role='owner' ORDER BY id ASC LIMIT 1",[lic.workspace_id])).rows[0];
     if(!owner) return res.status(404).json({error:'Create workspace access first'});
     await adminUsers.changePassword(owner.id,password);
     await adminUsers.disable2FA(owner.id).catch(()=>{});
     await pool.query('UPDATE licenses SET temporary_password=$1, temporary_password_created_at=NOW(), updated_at=NOW() WHERE id=$2',[password,req.params.id]);
+    await platformAdmins.logActivity(req.platformAdmin,'security',`Reset temporary password for ${lic.customer_name || owner.username}`);
     res.json({success:true,username:owner.username});
   } catch(err){ res.status(500).json({error:err.message}); }
 });
@@ -3056,24 +3084,27 @@ app.post('/admin/api/licenses/:id/extend', async (req,res) => {
     const expires = addCalendarMonths(base,months);
     await pool.query(`UPDATE licenses SET plan=$1, expires_at=$2, status='active', updated_at=NOW() WHERE id=$3`,[months===3?'3_months':'12_months',expires,current.id]);
     await pool.query(`UPDATE workspaces SET status='licensed',updated_at=NOW() WHERE id=$1`,[current.workspace_id]);
+    await platformAdmins.logActivity(req.platformAdmin,'license',`Extended ${current.customer_name || 'license #'+current.id} by ${months} months`);
     res.json({ success:true, expires_at:expires });
   } catch(err) { res.status(500).json({ error:err.message }); }
 });
 app.post('/admin/api/licenses/:id/lifetime', async (req,res) => {
   try {
     if (!req.platformAdmin) return res.status(401).json({ error:'Platform admin authentication required' });
-    const r=await pool.query(`UPDATE licenses SET plan='lifetime', expires_at=NULL, status='active', updated_at=NOW() WHERE id=$1 RETURNING workspace_id`,[req.params.id]);
+    const r=await pool.query(`UPDATE licenses SET plan='lifetime', expires_at=NULL, status='active', updated_at=NOW() WHERE id=$1 RETURNING workspace_id,customer_name`,[req.params.id]);
     if(!r.rows[0]) return res.status(404).json({error:'License not found'});
     await pool.query(`UPDATE workspaces SET status='licensed',updated_at=NOW() WHERE id=$1`,[r.rows[0].workspace_id]);
+    await platformAdmins.logActivity(req.platformAdmin,'license',`Made ${r.rows[0].customer_name || 'license #'+req.params.id} lifetime`);
     res.json({success:true});
   } catch(err){res.status(500).json({error:err.message});}
 });
 app.post('/admin/api/licenses/:id/suspend', async (req,res) => {
   try {
     if (!req.platformAdmin) return res.status(401).json({ error:'Platform admin authentication required' });
-    const r=await pool.query(`UPDATE licenses SET status='suspended',updated_at=NOW() WHERE id=$1 RETURNING workspace_id`,[req.params.id]);
+    const r=await pool.query(`UPDATE licenses SET status='suspended',updated_at=NOW() WHERE id=$1 RETURNING workspace_id,customer_name`,[req.params.id]);
     if(!r.rows[0]) return res.status(404).json({error:'License not found'});
     await pool.query(`UPDATE workspaces SET status='suspended',updated_at=NOW() WHERE id=$1`,[r.rows[0].workspace_id]);
+    await platformAdmins.logActivity(req.platformAdmin,'license',`Suspended ${r.rows[0].customer_name || 'license #'+req.params.id}`);
     res.json({success:true});
   } catch(err){res.status(500).json({error:err.message});}
 });
@@ -3085,6 +3116,7 @@ app.post('/admin/api/licenses/:id/reactivate', async (req,res) => {
     if(current.expires_at && new Date(current.expires_at)<=new Date()) return res.status(400).json({error:'This license is expired. Extend it or make it lifetime first.'});
     await pool.query(`UPDATE licenses SET status='active',updated_at=NOW() WHERE id=$1`,[current.id]);
     await pool.query(`UPDATE workspaces SET status='licensed',updated_at=NOW() WHERE id=$1`,[current.workspace_id]);
+    await platformAdmins.logActivity(req.platformAdmin,'license',`Reactivated ${current.customer_name || 'license #'+current.id}`);
     res.json({success:true});
   } catch(err){res.status(500).json({error:err.message});}
 });
@@ -3119,6 +3151,7 @@ app.delete('/admin/api/licenses/:id', async (req,res) => {
     await client.query('DELETE FROM licenses WHERE id=$1',[current.id]);
     await client.query('DELETE FROM workspaces WHERE id=$1',[current.workspace_id]);
     await client.query('COMMIT');
+    await platformAdmins.logActivity(req.platformAdmin,'license',`Deleted license for ${current.customer_name || 'license #'+current.id}`);
     res.json({success:true});
   } catch(err){await client.query('ROLLBACK').catch(()=>{});res.status(500).json({error:err.message});}
   finally{client.release();}

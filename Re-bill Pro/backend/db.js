@@ -97,6 +97,22 @@ async function init() {
       updated_at TIMESTAMPTZ DEFAULT NOW(),
       last_login TIMESTAMPTZ
     );
+    CREATE TABLE IF NOT EXISTS platform_admin_login_activity (
+      id BIGSERIAL PRIMARY KEY,
+      admin_id INT REFERENCES platform_admins(id) ON DELETE SET NULL,
+      username TEXT,
+      ip_address TEXT NOT NULL,
+      success BOOLEAN NOT NULL DEFAULT false,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS platform_admin_activity_log (
+      id BIGSERIAL PRIMARY KEY,
+      admin_id INT REFERENCES platform_admins(id) ON DELETE SET NULL,
+      username TEXT,
+      action TEXT NOT NULL,
+      description TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
     CREATE TABLE IF NOT EXISTS workspace_settings (
       workspace_id INT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
       key TEXT NOT NULL,
@@ -300,6 +316,8 @@ async function init() {
   await pool.query('CREATE INDEX IF NOT EXISTS customers_workspace_idx ON customers(workspace_id)').catch(()=>{});
   await pool.query('CREATE INDEX IF NOT EXISTS admin_users_workspace_idx ON admin_users(workspace_id)').catch(()=>{});
   await pool.query('CREATE INDEX IF NOT EXISTS activity_log_workspace_idx ON activity_log(workspace_id)').catch(()=>{});
+  await pool.query('CREATE INDEX IF NOT EXISTS platform_admin_login_activity_admin_idx ON platform_admin_login_activity(admin_id,created_at DESC)').catch(()=>{});
+  await pool.query('CREATE INDEX IF NOT EXISTS platform_admin_activity_log_admin_idx ON platform_admin_activity_log(admin_id,created_at DESC)').catch(()=>{});
   await pool.query('CREATE INDEX IF NOT EXISTS webhook_logs_workspace_idx ON webhook_logs(workspace_id)').catch(()=>{});
   // Stripe object IDs are only meaningful inside their Stripe account. Multi-workspace
   // installations must allow the same cus_ identifier to exist under different accounts.
@@ -888,5 +906,22 @@ const platformAdmins = {
     return { id:user.id, username:user.username };
   },
   markLogin: async (id) => { await pool.query('UPDATE platform_admins SET last_login=NOW() WHERE id=$1',[id]); },
+  logLoginAttempt: async (adminId,username,ip,success) => {
+    await pool.query('INSERT INTO platform_admin_login_activity (admin_id,username,ip_address,success) VALUES ($1,$2,$3,$4)',[adminId||null,String(username||'').slice(0,120)||null,String(ip||'unknown').slice(0,200),!!success]).catch(()=>{});
+  },
+  recentLoginActivity: async (adminId,username,limit=20) => {
+    const r=await pool.query(`SELECT id,ip_address,success,created_at FROM platform_admin_login_activity
+      WHERE admin_id=$1 OR (admin_id IS NULL AND LOWER(COALESCE(username,''))=LOWER($2))
+      ORDER BY created_at DESC LIMIT $3`,[adminId,String(username||''),Math.max(1,Math.min(Number(limit)||20,100))]);
+    return r.rows;
+  },
+  logActivity: async (admin,action,description) => {
+    const id=admin?.id||null, username=String(admin?.username||'').slice(0,120)||null;
+    await pool.query('INSERT INTO platform_admin_activity_log (admin_id,username,action,description) VALUES ($1,$2,$3,$4)',[id,username,String(action||'activity').slice(0,80),String(description||'').slice(0,1000)]).catch(()=>{});
+  },
+  recentActivity: async (adminId,limit=30) => {
+    const r=await pool.query('SELECT id,action,description,created_at FROM platform_admin_activity_log WHERE admin_id=$1 ORDER BY created_at DESC LIMIT $2',[adminId,Math.max(1,Math.min(Number(limit)||30,100))]);
+    return r.rows;
+  },
 };
 module.exports = { init, pool, settingsDb, stripeAccounts, customers, subscriptions, payments, activityLog, webhookLogs, security, adminUsers, platformAdmins };
