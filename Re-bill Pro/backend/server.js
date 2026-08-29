@@ -2800,10 +2800,33 @@ app.post('/admin/api/auth/verify', async (req,res) => {
     if (!configured) return res.status(503).json({ success:false, error:'Platform admin is not configured. Add SUBLOOP_PLATFORM_ADMIN_USERNAME and SUBLOOP_PLATFORM_ADMIN_PASSWORD in Railway, then redeploy.' });
     const user = await platformAdmins.verify(req.body?.username, req.body?.password);
     if (!user) return res.status(401).json({ success:false, error:'Incorrect username or password' });
+    const state = await platformAdmins.twoFAState(user.id);
+    if (state.enabled) {
+      return res.json({ success:true, requires_2fa:true, login_challenge:issueAdminToken(user,'platform-admin-2fa',5), username:user.username });
+    }
+    await platformAdmins.markLogin(user.id);
     const token = issueAdminToken(user,'platform-admin',SUBLOOP_PLATFORM_ADMIN_SESSION_MINUTES);
     setPlatformAdminSessionCookie(req,res,token);
     res.json({ success:true, username:user.username });
   } catch(err) { res.status(500).json({ success:false, error:'Could not sign in' }); }
+});
+app.post('/admin/api/auth/2fa/validate', async (req,res) => {
+  try {
+    if (!platformAdminHostAllowed(req)) return res.status(404).json({ error:'Not found' });
+    const challenge = parseAdminToken(req.body?.login_challenge,'platform-admin-2fa');
+    if (!challenge) return res.status(401).json({ success:false, valid:false, error:'Login session expired. Please sign in again.' });
+    const user = await platformAdmins.byId(challenge.id);
+    if (!user) return res.status(401).json({ success:false, valid:false, error:'Platform admin access revoked.' });
+    const state = await platformAdmins.twoFAState(user.id);
+    if (!state.enabled || !state.two_fa_secret) return res.status(400).json({ success:false, valid:false, error:'Two-factor authentication is not configured.' });
+    if (!speakeasy) return res.status(503).json({ success:false, valid:false, error:'Authenticator verification is unavailable' });
+    const valid = speakeasy.totp.verify({ secret:state.two_fa_secret, encoding:'base32', token:String(req.body?.token||''), window:2 });
+    if (!valid) return res.json({ success:false, valid:false, error:'Invalid code' });
+    await platformAdmins.markLogin(user.id);
+    const token = issueAdminToken(user,'platform-admin',SUBLOOP_PLATFORM_ADMIN_SESSION_MINUTES);
+    setPlatformAdminSessionCookie(req,res,token);
+    res.json({ success:true, valid:true, username:user.username });
+  } catch(err) { res.status(500).json({ success:false, valid:false, error:'Could not verify authenticator code' }); }
 });
 app.post('/admin/api/auth/check', async (req,res) => {
   try {
@@ -2831,6 +2854,47 @@ app.use('/admin/api', async (req,res,next) => {
     req.platformAdmin = user;
     next();
   } catch(_err) { res.status(401).json({ error:'Platform admin authentication required' }); }
+});
+
+// ── Platform Admin Security ──────────────────────────────────────────────────
+app.post('/admin/api/security/change-password', async (req,res) => {
+  try {
+    const password=String(req.body?.password||'');
+    if (password.length<8) return res.status(400).json({ success:false, error:'Password must be at least 8 characters' });
+    await platformAdmins.changePassword(req.platformAdmin.id,password);
+    res.json({ success:true });
+  } catch(err) {
+    console.error('[platform-admin] change password error:',err.message);
+    res.status(500).json({ success:false, error:'Failed to update password' });
+  }
+});
+app.get('/admin/api/security/2fa/status', async (req,res) => {
+  try { const state=await platformAdmins.twoFAState(req.platformAdmin.id); res.json({ enabled:!!state.enabled }); }
+  catch(err) { res.status(500).json({ error:'Could not load two-factor authentication status' }); }
+});
+app.post('/admin/api/security/2fa/setup', async (req,res) => {
+  try {
+    if (!speakeasy || !QRCode) return res.status(503).json({ error:'Authenticator setup is unavailable' });
+    const secret=speakeasy.generateSecret({ name:'Subloop Platform Admin ('+req.platformAdmin.username+')' });
+    await platformAdmins.setPending2FA(req.platformAdmin.id,secret.base32);
+    const qr=await QRCode.toDataURL(secret.otpauth_url);
+    res.json({ success:true, secret:secret.base32, qrCode:qr });
+  } catch(err) { res.status(500).json({ error:'Could not start two-factor authentication setup' }); }
+});
+app.post('/admin/api/security/2fa/verify', async (req,res) => {
+  try {
+    if (!speakeasy) return res.status(503).json({ success:false, error:'Authenticator verification is unavailable' });
+    const state=await platformAdmins.twoFAState(req.platformAdmin.id);
+    if (!state.two_fa_secret_pending) return res.status(400).json({ success:false, error:'No pending 2FA setup' });
+    const valid=speakeasy.totp.verify({ secret:state.two_fa_secret_pending, encoding:'base32', token:String(req.body?.token||''), window:2 });
+    if (!valid) return res.json({ success:false, valid:false, error:'Invalid code' });
+    await platformAdmins.enable2FA(req.platformAdmin.id,state.two_fa_secret_pending);
+    res.json({ success:true, valid:true });
+  } catch(err) { res.status(500).json({ success:false, error:'Could not enable two-factor authentication' }); }
+});
+app.post('/admin/api/security/2fa/disable', async (req,res) => {
+  try { await platformAdmins.disable2FA(req.platformAdmin.id); res.json({ success:true }); }
+  catch(err) { res.status(500).json({ success:false, error:'Could not disable two-factor authentication' }); }
 });
 
 // ── SaaS Licenses / Workspaces (Super Admin only) ────────────────────────────

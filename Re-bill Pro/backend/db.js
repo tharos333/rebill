@@ -90,6 +90,9 @@ async function init() {
       id SERIAL PRIMARY KEY,
       username TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
+      two_fa_enabled BOOLEAN DEFAULT false,
+      two_fa_secret TEXT,
+      two_fa_secret_pending TEXT,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW(),
       last_login TIMESTAMPTZ
@@ -247,6 +250,9 @@ async function init() {
     ALTER TABLE login_attempts ADD COLUMN IF NOT EXISTS username TEXT;
   `);
   const migrations = [
+    'ALTER TABLE platform_admins ADD COLUMN IF NOT EXISTS two_fa_enabled BOOLEAN DEFAULT false',
+    'ALTER TABLE platform_admins ADD COLUMN IF NOT EXISTS two_fa_secret TEXT',
+    'ALTER TABLE platform_admins ADD COLUMN IF NOT EXISTS two_fa_secret_pending TEXT',
     'ALTER TABLE stripe_accounts ADD COLUMN IF NOT EXISTS workspace_id INT',
     'ALTER TABLE customers ADD COLUMN IF NOT EXISTS workspace_id INT',
     'ALTER TABLE embedded_checkout_sessions ADD COLUMN IF NOT EXISTS workspace_id INT',
@@ -459,7 +465,7 @@ async function init() {
     await pool.query('INSERT INTO platform_admins (username,password_hash) VALUES ($1,$2)', [platformBootstrap.username, hashPassword(platformBootstrap.password)]);
     console.log(`[db] Platform admin created for ${platformBootstrap.username}`);
   } else if (existingPlatform && platformBootstrap.forceReset && validatePlatformAdminCredentials(platformBootstrap.username, platformBootstrap.password)) {
-    await pool.query('UPDATE platform_admins SET username=$1,password_hash=$2,updated_at=NOW() WHERE id=$3', [platformBootstrap.username, hashPassword(platformBootstrap.password), existingPlatform.id]);
+    await pool.query('UPDATE platform_admins SET username=$1,password_hash=$2,two_fa_enabled=false,two_fa_secret=NULL,two_fa_secret_pending=NULL,updated_at=NOW() WHERE id=$3', [platformBootstrap.username, hashPassword(platformBootstrap.password), existingPlatform.id]);
     console.log(`[db] Platform admin credentials force-reset for ${platformBootstrap.username}`);
   }
 
@@ -865,7 +871,12 @@ const adminUsers = {
 };
 const platformAdmins = {
   configured: async () => { const r = await pool.query('SELECT COUNT(*)::int AS count FROM platform_admins'); return Number(r.rows[0]?.count || 0) > 0; },
-  byId: async (id) => { const r = await pool.query('SELECT id,username,created_at,last_login FROM platform_admins WHERE id=$1', [id]); return r.rows[0] || null; },
+  byId: async (id) => { const r = await pool.query('SELECT id,username,created_at,last_login,two_fa_enabled FROM platform_admins WHERE id=$1', [id]); return r.rows[0] || null; },
+  changePassword: async (id,password) => { await pool.query('UPDATE platform_admins SET password_hash=$1,updated_at=NOW() WHERE id=$2', [hashPassword(password),id]); },
+  twoFAState: async (id) => { const r = await pool.query('SELECT two_fa_enabled,two_fa_secret,two_fa_secret_pending FROM platform_admins WHERE id=$1',[id]); const row=r.rows[0]||{}; return { enabled:!!row.two_fa_enabled, two_fa_secret:row.two_fa_secret||null, two_fa_secret_pending:row.two_fa_secret_pending||null }; },
+  setPending2FA: async (id,secret) => { await pool.query('UPDATE platform_admins SET two_fa_secret_pending=$1,updated_at=NOW() WHERE id=$2',[secret,id]); },
+  enable2FA: async (id,secret) => { await pool.query('UPDATE platform_admins SET two_fa_enabled=true,two_fa_secret=$1,two_fa_secret_pending=NULL,updated_at=NOW() WHERE id=$2',[secret,id]); },
+  disable2FA: async (id) => { await pool.query('UPDATE platform_admins SET two_fa_enabled=false,two_fa_secret=NULL,two_fa_secret_pending=NULL,updated_at=NOW() WHERE id=$1',[id]); },
   verify: async (username,password) => {
     const r = await pool.query('SELECT * FROM platform_admins WHERE LOWER(username)=LOWER($1) LIMIT 1', [username]);
     const user = r.rows[0] || null;
@@ -874,8 +885,8 @@ const platformAdmins = {
       const upgraded = hashPassword(password);
       await pool.query('UPDATE platform_admins SET password_hash=$1,updated_at=NOW() WHERE id=$2', [upgraded,user.id]);
     }
-    await pool.query('UPDATE platform_admins SET last_login=NOW() WHERE id=$1', [user.id]);
     return { id:user.id, username:user.username };
   },
+  markLogin: async (id) => { await pool.query('UPDATE platform_admins SET last_login=NOW() WHERE id=$1',[id]); },
 };
 module.exports = { init, pool, settingsDb, stripeAccounts, customers, subscriptions, payments, activityLog, webhookLogs, security, adminUsers, platformAdmins };
