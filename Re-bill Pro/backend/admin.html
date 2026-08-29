@@ -269,13 +269,16 @@ table{min-width:860px}
 html.light .drawer-bg{background:rgba(17,17,24,.28)}html.light .license-drawer{background:#fff;border-left-color:rgba(0,0,0,.10);box-shadow:0 24px 70px rgba(17,17,24,.18)}html.light .drawer-close{background:rgba(0,0,0,.025)!important;border-color:rgba(0,0,0,.12)!important}html.light .drawer-close:hover{background:rgba(0,0,0,.055)!important;border-color:rgba(0,0,0,.22)!important}
 @media(max-width:850px){.stats{grid-template-columns:repeat(2,1fr)}main{padding:20px 14px}.topbar{padding:0 15px}.license-drawer{width:min(500px,100vw)}}@media(max-width:520px){.stats{grid-template-columns:1fr}.signed-user,.admin-pill{display:none}.page-head{gap:12px}.admin-brand img{width:115px}.license-drawer{width:100%;max-width:100%}.drawer-head{padding-left:18px;padding-right:68px}.drawer-body{padding-left:18px;padding-right:18px}.detail-grid{grid-template-columns:1fr}.detail-box.wide{grid-column:auto}.drawer-actions{grid-template-columns:1fr}.drawer-actions .wide{grid-column:auto}}
 
+/* ADMIN LOGIN CONTEXT LABEL — outside the login card, card itself remains unchanged */
+#login-screen .admin-login-shell{position:relative;display:block}
+#login-screen .admin-login-context{position:absolute;left:50%;top:-30px;transform:translateX(-50%);display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:3px 7px;border-radius:6px;border:1px solid rgba(108,99,255,.30);background:var(--accent-glow);color:#b8b3ff;font-family:var(--font-ui)!important;font-size:9px;font-weight:600!important;letter-spacing:.065em!important;line-height:1.15;text-transform:uppercase;white-space:nowrap}
+#login-screen .admin-login-context svg{width:10px;height:10px;display:block;flex:0 0 10px;stroke:currentColor}
+
 /* FINAL LOGIN PARITY — matches the official app's final computed typography */
 #login-screen{font-family:var(--font-ui)!important}
 #login-screen .login-box{background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:40px;width:380px;max-width:95vw;font-family:var(--font-ui)!important}
-#login-screen .login-logo{text-align:center;margin-bottom:24px}
+#login-screen .login-logo{text-align:center;margin-bottom:28px}
 #login-screen .login-logo img{width:145px;height:auto;display:block;margin:0 auto 10px}
-#login-screen .admin-login-badge{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:3px 7px;border-radius:6px;border:1px solid rgba(108,99,255,.30);background:var(--accent-glow);color:#b8b3ff;font-family:var(--font-ui)!important;font-size:9px;font-weight:600!important;letter-spacing:.065em!important;line-height:1.15;text-transform:uppercase;white-space:nowrap}
-#login-screen .admin-login-badge svg{width:10px;height:10px;display:block;flex:0 0 10px;stroke:currentColor}
 #login-screen .login-field{margin-bottom:16px}
 #login-screen .login-field label{
   display:block!important;
@@ -358,12 +361,15 @@ html.light .drawer-bg{background:rgba(17,17,24,.28)}html.light .license-drawer{b
 </head>
 <body>
 <section id="login-screen" class="login-screen">
-  <div class="login-box">
-    <div class="login-logo"><img src="/icons/platform-admin-logo.png" alt="Subloop"><span class="admin-login-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg><span>Platform Admin</span></span></div>
+  <div class="admin-login-shell">
+    <div class="admin-login-context"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg><span>Platform Admin</span></div>
+    <div class="login-box">
+    <div class="login-logo"><img src="/icons/platform-admin-logo.png" alt="Subloop"></div>
     <div class="login-field"><label>Username</label><input id="admin-user" autocomplete="username" placeholder="Enter username"></div>
     <div class="login-field"><label>Password</label><div class="login-password-wrap"><input id="admin-pass" type="password" autocomplete="current-password" placeholder="Enter password" onkeydown="if(event.key==='Enter')signIn()"><button class="login-password-toggle" id="admin-password-toggle" type="button" aria-label="Show password" title="Show password" onclick="togglePassword()"><svg class="eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.7"/></svg><svg class="eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.7"/><path d="M4 4L9.7 9.7"/><path d="M14.3 14.3L20 20"/></svg></button></div></div>
     <button class="login-btn" onclick="signIn()">Sign in</button>
     <div id="login-error" class="login-error"></div>
+    </div>
   </div>
 </section>
 <section id="admin-app" class="app hidden">
