@@ -229,12 +229,12 @@ textarea{resize:vertical;min-height:60px}
 .link-result{display:none;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:11px 14px;margin-top:12px}
 .link-result.visible{display:block}
 /* Migration result uses the same compact inline success/error treatment as the app */
-.migration-status{display:none;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;margin-top:10px;font-family:var(--mono)!important;font-size:13px;line-height:1.4;color:var(--text);font-weight:400!important;letter-spacing:normal!important}
-.migration-status.visible{display:block}
-.migration-status.success{background:var(--green-bg);border-color:var(--green);color:var(--green)}
-.migration-status.error{background:var(--red-bg);border-color:var(--red);color:var(--red)}
-.migration-status .migration-status-title{font-family:var(--mono)!important;font-size:13px;font-weight:400!important;letter-spacing:normal!important;line-height:1.25;margin-bottom:4px;color:inherit}
-.migration-status .migration-status-detail{font-family:var(--mono)!important;font-size:11px;font-weight:400!important;letter-spacing:normal!important;line-height:1.5;color:var(--muted)}
+.migration-result-box{display:none;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;margin-top:10px;font-family:var(--mono);font-size:13px;line-height:1.4;color:var(--text);font-weight:400;letter-spacing:normal}
+.migration-result-box.visible{display:block}
+.migration-result-box.success{background:var(--green-bg);border-color:var(--green);color:var(--green)}
+.migration-result-box.error{background:var(--red-bg);border-color:var(--red);color:var(--red)}
+.migration-result-box .migration-result-title{font-family:var(--mono);font-size:13px;font-weight:400;letter-spacing:normal;line-height:1.25;margin-bottom:4px;color:inherit}
+.migration-result-box .migration-result-detail{font-family:var(--mono);font-size:11px;font-weight:400;letter-spacing:normal;line-height:1.5;color:var(--muted)}
 .link-url{font-family:var(--mono);font-size:12px;color:var(--accent);word-break:break-all}
 #toast{position:fixed;bottom:20px;right:20px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:10px 15px;font-size:13px;font-family:var(--mono);z-index:9999;transform:translateY(80px);opacity:0;transition:all 0.25s}
 #toast.show{transform:translateY(0);opacity:1}
@@ -6675,7 +6675,7 @@ body.view-only-access #verification-debug-modal .modal-content{
       <label id="migration-live-amount-label">Verification amount</label>
       <input id="migration-live-amount" type="number" inputmode="decimal" min="0.50" max="1000" step="0.01" placeholder="5.00" oninput="updateMigrationLiveChargeButton()">
     </div>
-    <div id="migration-result" class="migration-status"></div>
+    <div id="migration-result" class="migration-result-box"></div>
     <div class="modal-footer" style="align-items:center;">
       <button class="btn" onclick="closeModal('migration-modal')">Cancel</button>
       <button class="btn" id="migration-test-btn" onclick="testMigrationCharge()" style="display:none;">Test card</button>
@@ -8256,8 +8256,8 @@ async function checkMigrationDestination(){
     var r=await api('/api/migrations/check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subscription_id:subId,destination_stripe_account_id:accountId,destination_customer_id:customerId})});
     currentMigrationCheck={subscription_id:subId,destination_stripe_account_id:accountId,destination_customer_id:customerId,currency:r.subscription?.currency||'usd',livemode:!!r.livemode,can_live_charge:!!r.can_live_charge};
     var lines=[];
-    lines.push('<div class="migration-status-title">'+(r.ready?'Destination verified':'Destination not verified')+'</div>');
-    lines.push('<div class="migration-status-detail">');
+    lines.push('<div class="migration-result-title">'+(r.ready?'Destination verified':'Destination not verified')+'</div>');
+    lines.push('<div class="migration-result-detail">');
     lines.push('Source: '+escHtml(r.source_account.name)+' · '+escHtml(migrationCardLabel(r.source_payment_method))+'<br>');
     lines.push('Destination: '+escHtml(r.destination_account.name)+' · '+escHtml(migrationCardLabel(r.destination_payment_method))+'<br>');
     lines.push('Mode: '+(r.livemode?'Live':'Test')+' · Customer: '+escHtml(r.destination_customer.id));
@@ -8291,7 +8291,7 @@ async function testMigrationCharge(){
   var btn=document.getElementById('migration-test-btn');btn.disabled=true;btn.textContent='Testing…';
   try{
     var r=await api('/api/migrations/test-charge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(currentMigrationCheck)});
-    if(r.success){setMigrationResult('<div class="migration-status-title">Test charge succeeded</div><div class="migration-status-detail">Stripe B accepted the migrated saved card. PaymentIntent: '+escHtml(r.payment_intent_id||'—')+'</div>','success');toast('✓ Destination card verified');}
+    if(r.success){setMigrationResult('<div class="migration-result-title">Test charge succeeded</div><div class="migration-result-detail">Stripe B accepted the migrated saved card. PaymentIntent: '+escHtml(r.payment_intent_id||'—')+'</div>','success');toast('✓ Destination card verified');}
     else setMigrationResult(escHtml(r.error||'Test charge failed'),'error');
   }catch(e){setMigrationResult(escHtml(e.message||'Test charge failed'),'error');toast(e.message||'Test charge failed','error');}
   finally{btn.disabled=false;btn.textContent='Verify card';}
@@ -8338,7 +8338,7 @@ function chargeMigrationLiveVerification(){
       if(r.success){
         var charged=Number(r.amount||0)/100;
         var chargedLabel=migrationLiveAmountLabel(charged||amount);
-        setMigrationResult('<div class="migration-status-title">'+escHtml(chargedLabel)+' verification charge succeeded</div><div class="migration-status-detail">The destination account successfully charged the migrated payment method.<br>PaymentIntent: '+escHtml(r.payment_intent_id||'—')+'</div>','success');
+        setMigrationResult('<div class="migration-result-title">'+escHtml(chargedLabel)+' verification charge succeeded</div><div class="migration-result-detail">The destination account successfully charged the migrated payment method.<br>PaymentIntent: '+escHtml(r.payment_intent_id||'—')+'</div>','success');
         toast('✓ '+chargedLabel+' verification succeeded');
       }else{
         setMigrationResult(escHtml(r.error||'Verification failed'),'error');
