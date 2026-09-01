@@ -1622,7 +1622,7 @@ async function getStripeAccountDisplayStatus(accountRow) {
 app.get('/api/payment-link-accounts', async (req, res) => {
   try {
     const ids = scopedAccountIds(req);
-    const r = await pool.query('SELECT id, name, is_default FROM stripe_accounts WHERE id=ANY($1::int[]) ORDER BY created_at DESC, id DESC',[ids]);
+    const r = await pool.query('SELECT id, name, is_default FROM stripe_accounts WHERE id=ANY($1::int[]) ORDER BY created_at DESC NULLS LAST, id DESC',[ids]);
     res.json(r.rows);
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
@@ -1643,7 +1643,7 @@ app.get('/api/stripe-accounts', async (req, res) => {
         LEFT(secret_key,12)||'...' as key_preview
       FROM stripe_accounts
       WHERE id=ANY($1::int[])
-      ORDER BY created_at DESC, id DESC
+      ORDER BY created_at DESC NULLS LAST, id DESC
     `,[ids]);
 
     const accounts = await Promise.all(r.rows.map(async (account) => {
@@ -2180,7 +2180,7 @@ app.get('/api/migrations/subscription/:id', async (req, res) => {
       localPaymentMethodId: row.stripe_payment_method || null
     });
     const ids = scopedAccountIds(req).filter(id => Number(id) !== Number(sourceAccount.id));
-    const destinations = ids.length ? (await pool.query('SELECT id,name FROM stripe_accounts WHERE id=ANY($1::int[]) AND workspace_id=$2 ORDER BY name,id',[ids,req.currentUser.workspace_id])).rows : [];
+    const destinations = ids.length ? (await pool.query('SELECT id,name,created_at FROM stripe_accounts WHERE id=ANY($1::int[]) AND workspace_id=$2 ORDER BY created_at DESC NULLS LAST, id DESC',[ids,req.currentUser.workspace_id])).rows : [];
     res.json({
       subscription:{ id:row.id, stripe_subscription_id:row.stripe_subscription_id || null, amount:row.amount, currency:row.currency, interval_days:row.interval_days, next_billing_date:row.next_billing_date },
       customer:{ id:row.customer_id, name:row.name, email:row.email, stripe_customer_id:row.stripe_customer_id },

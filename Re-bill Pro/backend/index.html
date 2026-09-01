@@ -235,10 +235,12 @@ textarea{resize:vertical;min-height:60px}
 .migration-result-box.error{background:var(--red-bg);border-color:var(--red);color:var(--red);font-size:11px}
 .migration-result-box .migration-result-title{font-family:var(--mono);font-size:13px;font-weight:400;letter-spacing:normal;line-height:1.25;margin-bottom:4px;color:inherit}
 .migration-result-box .migration-result-detail{font-family:var(--mono);font-size:11px;font-weight:400;letter-spacing:normal;line-height:1.5;color:var(--muted)}
-.migration-card-input{background-repeat:no-repeat!important;background-position:11px center!important;background-size:24px 16px!important;padding-left:44px!important}
+/* Migration payment method uses the exact same card-brand icon treatment as Customers / Payments. */
+.migration-readonly-payment{width:100%;min-height:34px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:8px 11px;font-size:13px;font-family:var(--sans);display:flex;align-items:center;box-sizing:border-box}
 .migration-payment-method{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;vertical-align:middle}
-.migration-payment-method .payment-img{width:24px!important;height:16px!important;min-width:24px!important;max-width:24px!important;object-fit:contain!important;border-radius:4px!important;flex:0 0 auto!important}
+.migration-payment-method .payment-img{width:24px!important;height:16px!important;min-width:24px!important;max-width:24px!important;max-height:16px!important;object-fit:contain!important;display:block!important;flex:0 0 auto!important;border-radius:4px!important;overflow:hidden!important;clip-path:inset(0 round 4px)!important;background:transparent!important;border:none!important;box-shadow:none!important;filter:drop-shadow(0 4px 10px rgba(0,0,0,.28))!important}
 .migration-payment-method .migration-payment-label{font-family:var(--mono);font-size:11px;font-weight:400;color:inherit;letter-spacing:normal}
+.migration-readonly-payment .migration-payment-label{font-family:var(--sans);font-size:13px;color:var(--text)}
 .link-url{font-family:var(--mono);font-size:12px;color:var(--accent);word-break:break-all}
 #toast{position:fixed;bottom:20px;right:20px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:10px 15px;font-size:13px;font-family:var(--mono);z-index:9999;transform:translateY(80px);opacity:0;transition:all 0.25s}
 #toast.show{transform:translateY(0);opacity:1}
@@ -6671,7 +6673,7 @@ body.view-only-access #verification-debug-modal .modal-content{
     </div>
     <div class="form-row">
       <div class="form-group"><label>Customer</label><input id="migration-source-customer" type="text" readonly value="—"></div>
-      <div class="form-group"><label>Saved card</label><input id="migration-source-card" class="migration-card-input" type="text" readonly value="—"></div>
+      <div class="form-group"><label>Saved card</label><div id="migration-source-card" class="migration-readonly-payment">—</div></div>
     </div>
     <div class="form-group"><label>Destination Stripe account</label><select id="migration-destination-account"></select></div>
     <div class="form-group"><label>Destination customer ID</label><input id="migration-destination-customer" type="text" placeholder="cus_..."></div>
@@ -8222,12 +8224,9 @@ function migrationCardHtml(card){
   return '<span class="migration-payment-method">'+icon+'<span class="migration-payment-label">'+escHtml(info.label+' •••• '+card.last4)+'</span></span>';
 }
 function setMigrationCardInput(card){
-  var input=document.getElementById('migration-source-card');
-  if(!input)return;
-  input.value=migrationCardLabel(card);
-  var info=(card&&card.last4)?migrationPaymentBrand(card):null;
-  input.style.backgroundImage=(info&&info.icon)?'url("'+info.icon+'")':'none';
-  input.style.paddingLeft=(info&&info.icon)?'44px':'11px';
+  var field=document.getElementById('migration-source-card');
+  if(!field)return;
+  field.innerHTML=migrationCardHtml(card);
 }
 function setMigrationResult(html,state){
   var box=document.getElementById('migration-result');
@@ -8246,7 +8245,7 @@ async function openMigrationModal(subId){
   document.getElementById('migration-source-account').value='Loading…';
   document.getElementById('migration-source-sub').value='Loading…';
   document.getElementById('migration-source-customer').value='Loading…';
-  var migrationSourceCardInput=document.getElementById('migration-source-card');if(migrationSourceCardInput){migrationSourceCardInput.value='Loading…';migrationSourceCardInput.style.backgroundImage='none';migrationSourceCardInput.style.paddingLeft='11px';}
+  var migrationSourceCardInput=document.getElementById('migration-source-card');if(migrationSourceCardInput){migrationSourceCardInput.textContent='Loading…';}
   document.getElementById('migration-destination-customer').value='';
   var result=document.getElementById('migration-result');if(result){result.classList.remove('visible');result.style.display='none';result.innerHTML='';}
   var test=document.getElementById('migration-test-btn');if(test){test.style.display='none';test.disabled=false;test.textContent='Verify card';}
@@ -8254,14 +8253,21 @@ async function openMigrationModal(subId){
   var amountInput=document.getElementById('migration-live-amount');if(amountInput)amountInput.value='';
   openModal('migration-modal');
   try{
-    var data=await api('/api/migrations/subscription/'+subId);
+    var migrationLoad=await Promise.all([
+      api('/api/migrations/subscription/'+subId),
+      api('/api/stripe-accounts')
+    ]);
+    var data=migrationLoad[0];
+    var stripeAccountList=Array.isArray(migrationLoad[1])?migrationLoad[1]:[];
     document.getElementById('migration-source-account').value=data.source_account?.name||'—';
     document.getElementById('migration-source-sub').value=data.subscription?.stripe_subscription_id||'No Stripe subscription ID';
     document.getElementById('migration-source-customer').value=data.customer?.stripe_customer_id||'—';
     setMigrationCardInput(data.source_payment_method);
     document.getElementById('migration-destination-customer').value=data.customer?.stripe_customer_id||'';
     var select=document.getElementById('migration-destination-account');
-    var destinations=(data.destination_accounts||[]);
+    var sourceAccountId=Number(data.source_account&&data.source_account.id);
+    /* Keep the exact order returned by /api/stripe-accounts, which is the same order used by the Stripe Accounts page: newest added first. */
+    var destinations=stripeAccountList.filter(function(a){return Number(a.id)!==sourceAccountId;});
     select.innerHTML=destinations.length?destinations.map(function(a){return '<option value="'+a.id+'">'+escHtml(a.name)+'</option>';}).join(''):'<option value="">No other Stripe account available</option>';
     document.getElementById('migration-check-btn').disabled=!destinations.length;
     if(!destinations.length)setMigrationResult('Add a second Stripe account to Subloop before testing a migration.','error');
