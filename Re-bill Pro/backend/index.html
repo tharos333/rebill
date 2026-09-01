@@ -8344,7 +8344,7 @@ async function testMigrationCharge(){
     if(r.success){setMigrationResult('<div class="migration-result-title">Test charge succeeded</div><div class="migration-result-detail">Stripe B accepted the migrated saved card. PaymentIntent: '+escHtml(r.payment_intent_id||'—')+'</div>','success');toast('✓ Destination card verified');}
     else setMigrationResult(escHtml(r.error||'Test charge failed'),'error');
   }catch(e){setMigrationResult(escHtml(e.message||'Test charge failed'),'error');toast(e.message||'Test charge failed','error');}
-  finally{btn.disabled=false;btn.textContent='Verify card';}
+  finally{btn.disabled=false;btn.textContent='Verify card';if(typeof loadPayments==='function'){try{await loadPayments();}catch(_e){}}}
 }
 function migrationVerificationRequestId(){
   try{if(window.crypto&&typeof window.crypto.randomUUID==='function')return window.crypto.randomUUID();}catch(_e){}
@@ -8411,6 +8411,7 @@ function chargeMigrationLiveVerification(){
       toast(e.message||'Verification failed','error');
     }finally{
       if(btn){btn.disabled=false;updateMigrationLiveChargeButton();}
+      if(typeof loadPayments==='function'){try{await loadPayments();}catch(_e){}}
     }
   });
 }
@@ -8747,7 +8748,7 @@ function renderPayments(list){
     var reasonHtml=shortReason?'<div style="font-size:12px;color:var(--red);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+p.failure_reason+'">'+shortReason+'</div>':'<span style="color:var(--muted);font-size:12px;">—</span>';
     var refHtml=isViewer?buildRefReadOnlyCell(p.stripe_payment_intent):buildRefCell(p.stripe_payment_intent);
     var actions='<div style="display:flex;gap:4px;align-items:center;">';
-    if(!isViewer&&p.status==='failed'&&!isGhost)actions+='<button class="btn btn-sm btn-success" onclick="event.stopPropagation();retryPayment('+p.id+')">Retry</button>';
+    if(!isViewer&&p.status==='failed'&&!isGhost&&String(p.payment_origin||'').toLowerCase()!=='migration_verification')actions+='<button class="btn btn-sm btn-success" onclick="event.stopPropagation();retryPayment('+p.id+')">Retry</button>';
     if(!isViewer)actions+='<button class="btn btn-sm payment-note-btn" onclick="event.stopPropagation();openPaymentNote('+p.id+')" title="'+(p.note||'Add note')+'">'+(p.note?'<svg class="payment-note-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/></svg><span>Note</span>':'Note')+'</button>';
     actions+='</div>';
     var rowBg=(p.status==='failed'||isGhost)?'background:rgba(248,113,113,0.04);':'';
@@ -8776,6 +8777,7 @@ function paymentTypeLabel(p){
   if(origin==='subscription_renewal')return 'Subscription renewal';
   if(origin==='subscription_initial'||origin==='subscription')return 'Subscription card payment';
   if(origin==='one_time')return 'One-time card payment';
+  if(origin==='migration_verification')return 'Migration verification';
   if(p.subscription_id&&!p.stripe_invoice_id)return 'Recurring card payment';
   if(p.subscription_id||p.stripe_invoice_id)return 'Subscription card payment';
   return 'One-time card payment';
@@ -8913,7 +8915,7 @@ function renderPaymentDetailModal(p, syncing){
   h+='</div></section>';
 
   h+='</div>';
-  if(!isViewer&&isFailed&&!isGhost){h+='<div class="pd-fixed-actions"><button class="pd-retry-btn" onclick="closeModal(\'payment-detail-modal\');retryPayment('+p.id+')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg><span>Retry payment</span></button></div>';}
+  if(!isViewer&&isFailed&&!isGhost&&String(p.payment_origin||'').toLowerCase()!=='migration_verification'){h+='<div class="pd-fixed-actions"><button class="pd-retry-btn" onclick="closeModal(\'payment-detail-modal\');retryPayment('+p.id+')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg><span>Retry payment</span></button></div>';}
   h+='</div></div>';
   document.getElementById('payment-detail-body').innerHTML=h;
   bindDrawerScrollFades(document.querySelector('#payment-detail-modal .pd-drawer-scroll-body'));
