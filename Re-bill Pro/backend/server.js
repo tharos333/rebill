@@ -2190,6 +2190,30 @@ app.get('/api/migrations/subscription/:id', async (req, res) => {
     });
   } catch(err) { console.error('[migration-details]',err.message); res.status(500).json({ error:err.message }); }
 });
+function migrationPaymentStatus(pi) {
+  if (pi?.status === 'succeeded') return 'succeeded';
+  if (pi?.last_payment_error || pi?.status === 'requires_payment_method' || pi?.status === 'canceled') return 'failed';
+  return pi?.status || 'failed';
+}
+
+async function syncMigrationVerificationHistory(stripe, destination, destinationCustomerId) {
+  try {
+    const list = await stripe.paymentIntents.list({ customer: destinationCustomerId, limit: 100 });
+    for (const pi of (list.data || [])) {
+      const isMigrationVerification = pi?.metadata?.subloop_migration_verification === 'true'
+        || pi?.metadata?.subloop_migration_test === 'true'
+        || String(pi?.description || '').toLowerCase().includes('subloop stripe migration verification')
+        || String(pi?.description || '').toLowerCase().includes('subloop migration test');
+      if (!isMigrationVerification) continue;
+      await savePaymentIntent(stripe, destination, pi, migrationPaymentStatus(pi)).catch((saveErr) => {
+        console.error('[migration-history-sync] could not save PaymentIntent', pi?.id || '-', saveErr.message);
+      });
+    }
+  } catch (err) {
+    console.error('[migration-history-sync]', err.message);
+  }
+}
+
 app.post('/api/migrations/check', async (req, res) => {
   try {
     const ctx = await migrationContext(req, res, req.body.subscription_id); if (!ctx) return;
@@ -2207,6 +2231,11 @@ app.post('/api/migrations/check', async (req, res) => {
     ]);
     if (sourceCustomer?.deleted) return res.status(400).json({ error:'Source Stripe customer has been deleted' });
     if (destinationCustomer?.deleted) return res.status(400).json({ error:'Destination Stripe customer has been deleted' });
+
+    // Backfill any migration verification attempts Stripe already has for this copied
+    // destination customer. This recovers attempts created before direct saving was added.
+    await syncMigrationVerificationHistory(destStripe, destination, destinationCustomerId);
+
     const sameMode = !!sourceCustomer.livemode === !!destinationCustomer.livemode;
     const warnings = [];
     if (!sameMode) warnings.push('Source and destination are not in the same Stripe mode.');
@@ -2233,13 +2262,15 @@ app.post('/api/migrations/check', async (req, res) => {
   }
 });
 app.post('/api/migrations/test-charge', async (req, res) => {
+  let stripe = null;
+  let destination = null;
   try {
     const ctx = await migrationContext(req, res, req.body.subscription_id); if (!ctx) return;
     const { row, sourceAccount } = ctx;
-    const destination = await migrationDestinationAccount(req, res, sourceAccount.id, req.body.destination_stripe_account_id); if (!destination) return;
+    destination = await migrationDestinationAccount(req, res, sourceAccount.id, req.body.destination_stripe_account_id); if (!destination) return;
     const destinationCustomerId = String(req.body.destination_customer_id || '').trim();
     if (!/^cus_[A-Za-z0-9]+$/.test(destinationCustomerId)) return res.status(400).json({ error:'A valid destination customer ID (cus_...) is required' });
-    const stripe = new Stripe(destination.secret_key);
+    stripe = new Stripe(destination.secret_key);
     const customer = await stripe.customers.retrieve(destinationCustomerId);
     if (customer?.deleted) return res.status(400).json({ error:'Destination Stripe customer has been deleted' });
     if (customer.livemode) return res.status(400).json({ error:'Test card is available only when the destination Stripe account is in test mode' });
@@ -2257,24 +2288,35 @@ app.post('/api/migrations/test-charge', async (req, res) => {
       description:'Subloop migration test',
       metadata:{ subloop_migration_test:'true', source_subscription_id:String(row.id), source_stripe_subscription_id:String(row.stripe_subscription_id || '') }
     });
+    await savePaymentIntent(stripe, destination, pi, migrationPaymentStatus(pi)).catch((saveErr) => {
+      console.error('[migration-test-charge] could not save PaymentIntent:', saveErr.message);
+    });
     res.json({ success:pi.status==='succeeded', status:pi.status, payment_intent_id:pi.id, amount:pi.amount, currency:pi.currency });
   } catch(err) {
     console.error('[migration-test-charge]',err.message);
+    const failedPi = err?.payment_intent || err?.raw?.payment_intent || null;
+    if (stripe && destination && failedPi) {
+      await savePaymentIntent(stripe, destination, failedPi, 'failed').catch((saveErr) => {
+        console.error('[migration-test-charge] could not save failed PaymentIntent:', saveErr.message);
+      });
+    }
     res.status(err.statusCode || 402).json({ success:false, error:err.message });
   }
 });
 
 
 app.post('/api/migrations/live-verification-charge', async (req, res) => {
+  let stripe = null;
+  let destination = null;
   try {
     const ctx = await migrationContext(req, res, req.body.subscription_id); if (!ctx) return;
     const { row, sourceAccount } = ctx;
-    const destination = await migrationDestinationAccount(req, res, sourceAccount.id, req.body.destination_stripe_account_id); if (!destination) return;
+    destination = await migrationDestinationAccount(req, res, sourceAccount.id, req.body.destination_stripe_account_id); if (!destination) return;
     const destinationCustomerId = String(req.body.destination_customer_id || '').trim();
     if (!/^cus_[A-Za-z0-9]+$/.test(destinationCustomerId)) return res.status(400).json({ error:'A valid destination customer ID (cus_...) is required' });
     const currency = String(row.currency || '').toLowerCase();
     if (currency !== 'usd') return res.status(400).json({ error:'Live verification charging is currently available only for USD subscriptions' });
-    const stripe = new Stripe(destination.secret_key);
+    stripe = new Stripe(destination.secret_key);
     const customer = await stripe.customers.retrieve(destinationCustomerId);
     if (customer?.deleted) return res.status(400).json({ error:'Destination Stripe customer has been deleted' });
     if (!customer.livemode) return res.status(400).json({ error:'Live verification charge is available only on a live Stripe destination account' });
@@ -2303,9 +2345,27 @@ app.post('/api/migrations/live-verification-charge', async (req, res) => {
         destination_stripe_account_id:String(destination.id)
       }
     }, { idempotencyKey:'subloop-migration-verify-'+requestId });
+
+    // Save immediately so migration verification payments appear in Subloop even if
+    // the destination Stripe account webhook is missing or delayed. savePaymentIntent
+    // upserts by Stripe PaymentIntent ID, so a later webhook updates the same row.
+    await savePaymentIntent(stripe, destination, pi).catch((saveErr) => {
+      console.error('[migration-live-verification-charge] could not save PaymentIntent:', saveErr.message);
+    });
+
     res.json({ success:pi.status==='succeeded', status:pi.status, payment_intent_id:pi.id, amount:pi.amount, currency:pi.currency });
   } catch(err) {
     console.error('[migration-live-verification-charge]',err.message);
+
+    // Stripe can return a failed PaymentIntent inside a 402 error. Persist that too,
+    // so blocked/declined verification attempts show on the Subloop Payments page.
+    const failedPi = err?.payment_intent || err?.raw?.payment_intent || null;
+    if (stripe && destination && failedPi) {
+      await savePaymentIntent(stripe, destination, failedPi, 'failed').catch((saveErr) => {
+        console.error('[migration-live-verification-charge] could not save failed PaymentIntent:', saveErr.message);
+      });
+    }
+
     const message = err?.code === 'authentication_required'
       ? 'The card requires customer authentication (3DS), so the off-session verification charge could not complete.'
       : err.message;
