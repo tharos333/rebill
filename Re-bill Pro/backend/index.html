@@ -228,6 +228,13 @@ textarea{resize:vertical;min-height:60px}
 .form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
 .link-result{display:none;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:11px 14px;margin-top:12px}
 .link-result.visible{display:block}
+/* Migration result uses the same compact inline success/error treatment as the app */
+.migration-status{display:none;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;margin-top:10px;font-family:var(--mono);font-size:13px;line-height:1.4;color:var(--text)}
+.migration-status.visible{display:block}
+.migration-status.success{background:var(--green-bg);border-color:var(--green);color:var(--green)}
+.migration-status.error{background:var(--red-bg);border-color:var(--red);color:var(--red)}
+.migration-status .migration-status-title{font-size:13px;font-weight:600;line-height:1.25;margin-bottom:4px;color:inherit}
+.migration-status .migration-status-detail{font-size:11px;line-height:1.5;color:var(--muted);font-family:var(--mono)}
 .link-url{font-family:var(--mono);font-size:12px;color:var(--accent);word-break:break-all}
 #toast{position:fixed;bottom:20px;right:20px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:10px 15px;font-size:13px;font-family:var(--mono);z-index:9999;transform:translateY(80px);opacity:0;transition:all 0.25s}
 #toast.show{transform:translateY(0);opacity:1}
@@ -6652,7 +6659,7 @@ body.view-only-access #verification-debug-modal .modal-content{
 <div class="modal-bg" id="migration-modal">
   <div class="modal">
     <h3>Migrate Subscription</h3>
-    <p>Use this after Stripe has copied the customer and saved card from the source account to the destination account. Subloop never exports or handles raw card data. After the destination is confirmed ready, you can enter a verification amount to charge on Stripe B.</p>
+    <p>Move this subscription to another connected Stripe account. Copy the customer and payment method in Stripe first, then verify the destination account below.<span style="display:block;margin-top:5px;font-size:11px;color:var(--muted);">Payment data is handled securely by Stripe.</span></p>
     <input type="hidden" id="migration-sub-id">
     <div class="form-row">
       <div class="form-group"><label>Source account</label><input id="migration-source-account" type="text" readonly value="—"></div>
@@ -6668,11 +6675,11 @@ body.view-only-access #verification-debug-modal .modal-content{
       <label id="migration-live-amount-label">Verification amount</label>
       <input id="migration-live-amount" type="number" inputmode="decimal" min="0.50" max="1000" step="0.01" placeholder="5.00" oninput="updateMigrationLiveChargeButton()">
     </div>
-    <div id="migration-result" class="link-result" style="margin-top:10px;"></div>
+    <div id="migration-result" class="migration-status"></div>
     <div class="modal-footer" style="align-items:center;">
       <button class="btn" onclick="closeModal('migration-modal')">Cancel</button>
       <button class="btn" id="migration-test-btn" onclick="testMigrationCharge()" style="display:none;">Test card</button>
-      <button class="btn btn-primary" id="migration-check-btn" onclick="checkMigrationDestination()">Check destination</button>
+      <button class="btn btn-primary" id="migration-check-btn" onclick="checkMigrationDestination()">Verify destination</button>
     </div>
   </div>
 </div>
@@ -8199,9 +8206,9 @@ function setMigrationResult(html,state){
   var box=document.getElementById('migration-result');
   if(!box)return;
   box.style.display='block';
+  box.classList.remove('success','error');
   box.classList.add('visible');
-  box.style.borderColor=state==='error'?'var(--red)':state==='success'?'var(--green)':'var(--border2)';
-  box.style.color=state==='error'?'var(--red)':state==='success'?'var(--green)':'var(--text)';
+  if(state==='success'||state==='error')box.classList.add(state);
   box.innerHTML=html;
 }
 async function openMigrationModal(subId){
@@ -8215,7 +8222,7 @@ async function openMigrationModal(subId){
   document.getElementById('migration-source-card').value='Loading…';
   document.getElementById('migration-destination-customer').value='';
   var result=document.getElementById('migration-result');if(result){result.classList.remove('visible');result.style.display='none';result.innerHTML='';}
-  var test=document.getElementById('migration-test-btn');if(test){test.style.display='none';test.disabled=false;test.textContent='Test card';}
+  var test=document.getElementById('migration-test-btn');if(test){test.style.display='none';test.disabled=false;test.textContent='Verify card';}
   var amountWrap=document.getElementById('migration-live-amount-wrap');if(amountWrap)amountWrap.style.display='none';
   var amountInput=document.getElementById('migration-live-amount');if(amountInput)amountInput.value='';
   openModal('migration-modal');
@@ -8249,8 +8256,8 @@ async function checkMigrationDestination(){
     var r=await api('/api/migrations/check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subscription_id:subId,destination_stripe_account_id:accountId,destination_customer_id:customerId})});
     currentMigrationCheck={subscription_id:subId,destination_stripe_account_id:accountId,destination_customer_id:customerId,currency:r.subscription?.currency||'usd',livemode:!!r.livemode,can_live_charge:!!r.can_live_charge};
     var lines=[];
-    lines.push('<div style="font-weight:600;margin-bottom:6px;">'+(r.ready?'Destination ready':'Destination not ready')+'</div>');
-    lines.push('<div style="color:var(--muted);font-size:12px;line-height:1.55;">');
+    lines.push('<div class="migration-status-title">'+(r.ready?'Destination verified':'Destination not verified')+'</div>');
+    lines.push('<div class="migration-status-detail">');
     lines.push('Source: '+escHtml(r.source_account.name)+' · '+escHtml(migrationCardLabel(r.source_payment_method))+'<br>');
     lines.push('Destination: '+escHtml(r.destination_account.name)+' · '+escHtml(migrationCardLabel(r.destination_payment_method))+'<br>');
     lines.push('Mode: '+(r.livemode?'Live':'Test')+' · Customer: '+escHtml(r.destination_customer.id));
@@ -8270,24 +8277,24 @@ async function checkMigrationDestination(){
         updateMigrationLiveChargeButton();
       }else{
         test.disabled=false;
-        test.textContent='Test card';
+        test.textContent='Verify card';
       }
     }
   }catch(e){currentMigrationCheck=null;setMigrationResult(escHtml(e.message||'Destination check failed'),'error');}
-  finally{btn.disabled=false;btn.textContent='Check destination';}
+  finally{btn.disabled=false;btn.textContent='Verify destination';}
 }
 async function testMigrationCharge(){
-  if(!currentMigrationCheck){setMigrationResult('Run Check destination first.','error');return;}
+  if(!currentMigrationCheck){setMigrationResult('Verify the destination first.','error');return;}
   if(currentMigrationCheck.livemode){
     return chargeMigrationLiveVerification();
   }
   var btn=document.getElementById('migration-test-btn');btn.disabled=true;btn.textContent='Testing…';
   try{
     var r=await api('/api/migrations/test-charge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(currentMigrationCheck)});
-    if(r.success){setMigrationResult('<div style="font-weight:600;margin-bottom:5px;">Test charge succeeded</div><div style="color:var(--muted);font-size:12px;">Stripe B accepted the migrated saved card. PaymentIntent: '+escHtml(r.payment_intent_id||'—')+'</div>','success');toast('✓ Destination card test succeeded');}
+    if(r.success){setMigrationResult('<div class="migration-status-title">Test charge succeeded</div><div class="migration-status-detail">Stripe B accepted the migrated saved card. PaymentIntent: '+escHtml(r.payment_intent_id||'—')+'</div>','success');toast('✓ Destination card verified');}
     else setMigrationResult(escHtml(r.error||'Test charge failed'),'error');
   }catch(e){setMigrationResult(escHtml(e.message||'Test charge failed'),'error');toast(e.message||'Test charge failed','error');}
-  finally{btn.disabled=false;btn.textContent='Test card';}
+  finally{btn.disabled=false;btn.textContent='Verify card';}
 }
 function migrationVerificationRequestId(){
   try{if(window.crypto&&typeof window.crypto.randomUUID==='function')return window.crypto.randomUUID();}catch(_e){}
@@ -8308,37 +8315,37 @@ function updateMigrationLiveChargeButton(){
   var amount=migrationLiveAmount();
   var valid=amount!==null&&amount>=0.50&&amount<=1000;
   btn.disabled=!valid;
-  btn.textContent=valid?'Charge '+migrationLiveAmountLabel(amount):'Charge amount';
+  btn.textContent=valid?'Verify charge '+migrationLiveAmountLabel(amount):'Enter amount';
 }
 function chargeMigrationLiveVerification(){
-  if(!currentMigrationCheck||!currentMigrationCheck.livemode){setMigrationResult('Run Check destination first.','error');return;}
+  if(!currentMigrationCheck||!currentMigrationCheck.livemode){setMigrationResult('Verify the destination first.','error');return;}
   if(String(currentMigrationCheck.currency||'').toLowerCase()!=='usd'){setMigrationResult('Live verification charging is currently available only for USD subscriptions.','error');return;}
   var amount=migrationLiveAmount();
   if(amount===null||amount<0.50||amount>1000){setMigrationResult('Enter a verification amount between $0.50 and $1,000.00.','error');return;}
   var amountLabel=migrationLiveAmountLabel(amount);
   openAppActionConfirm({
-    title:'Charge '+amountLabel+' on Stripe B?',
-    message:'This is a real '+amountLabel+' USD charge to the migrated saved card on the destination Stripe account. It will not cancel or modify the Stripe A subscription.',
+    title:'Verify '+amountLabel+' charge on destination?',
+    message:'This is a real '+amountLabel+' USD verification charge on the destination account. The source subscription will remain unchanged.',
     cancelText:'Cancel',
-    confirmText:'Charge '+amountLabel,
+    confirmText:'Verify charge '+amountLabel,
     danger:false
   },async function(){
     var btn=document.getElementById('migration-test-btn');
-    if(btn){btn.disabled=true;btn.textContent='Charging…';}
+    if(btn){btn.disabled=true;btn.textContent='Verifying…';}
     try{
       var payload=Object.assign({},currentMigrationCheck,{request_id:migrationVerificationRequestId(),amount:amount});
       var r=await api('/api/migrations/live-verification-charge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
       if(r.success){
         var charged=Number(r.amount||0)/100;
         var chargedLabel=migrationLiveAmountLabel(charged||amount);
-        setMigrationResult('<div style="font-weight:600;margin-bottom:5px;">'+escHtml(chargedLabel)+' verification charge succeeded</div><div style="color:var(--muted);font-size:12px;line-height:1.5;">Stripe B successfully charged the migrated saved card.<br>PaymentIntent: '+escHtml(r.payment_intent_id||'—')+'</div>','success');
-        toast('✓ '+chargedLabel+' migration verification succeeded');
+        setMigrationResult('<div class="migration-status-title">'+escHtml(chargedLabel)+' verification charge succeeded</div><div class="migration-status-detail">The destination account successfully charged the migrated payment method.<br>PaymentIntent: '+escHtml(r.payment_intent_id||'—')+'</div>','success');
+        toast('✓ '+chargedLabel+' verification succeeded');
       }else{
-        setMigrationResult(escHtml(r.error||'Verification charge failed'),'error');
+        setMigrationResult(escHtml(r.error||'Verification failed'),'error');
       }
     }catch(e){
-      setMigrationResult(escHtml(e.message||'Verification charge failed'),'error');
-      toast(e.message||'Verification charge failed','error');
+      setMigrationResult(escHtml(e.message||'Verification failed'),'error');
+      toast(e.message||'Verification failed','error');
     }finally{
       if(btn){btn.disabled=false;updateMigrationLiveChargeButton();}
     }
