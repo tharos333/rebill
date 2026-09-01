@@ -232,9 +232,13 @@ textarea{resize:vertical;min-height:60px}
 .migration-result-box{display:none;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;margin-top:10px;font-family:var(--mono);font-size:13px;line-height:1.4;color:var(--text);font-weight:400;letter-spacing:normal}
 .migration-result-box.visible{display:block}
 .migration-result-box.success{background:var(--green-bg);border-color:var(--green);color:var(--green)}
-.migration-result-box.error{background:var(--red-bg);border-color:var(--red);color:var(--red)}
+.migration-result-box.error{background:var(--red-bg);border-color:var(--red);color:var(--red);font-size:11px}
 .migration-result-box .migration-result-title{font-family:var(--mono);font-size:13px;font-weight:400;letter-spacing:normal;line-height:1.25;margin-bottom:4px;color:inherit}
 .migration-result-box .migration-result-detail{font-family:var(--mono);font-size:11px;font-weight:400;letter-spacing:normal;line-height:1.5;color:var(--muted)}
+.migration-card-input{background-repeat:no-repeat!important;background-position:11px center!important;background-size:24px 16px!important;padding-left:44px!important}
+.migration-payment-method{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;vertical-align:middle}
+.migration-payment-method .payment-img{width:24px!important;height:16px!important;min-width:24px!important;max-width:24px!important;object-fit:contain!important;border-radius:4px!important;flex:0 0 auto!important}
+.migration-payment-method .migration-payment-label{font-family:var(--mono);font-size:11px;font-weight:400;color:inherit;letter-spacing:normal}
 .link-url{font-family:var(--mono);font-size:12px;color:var(--accent);word-break:break-all}
 #toast{position:fixed;bottom:20px;right:20px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:10px 15px;font-size:13px;font-family:var(--mono);z-index:9999;transform:translateY(80px);opacity:0;transition:all 0.25s}
 #toast.show{transform:translateY(0);opacity:1}
@@ -6667,7 +6671,7 @@ body.view-only-access #verification-debug-modal .modal-content{
     </div>
     <div class="form-row">
       <div class="form-group"><label>Customer</label><input id="migration-source-customer" type="text" readonly value="—"></div>
-      <div class="form-group"><label>Saved card</label><input id="migration-source-card" type="text" readonly value="—"></div>
+      <div class="form-group"><label>Saved card</label><input id="migration-source-card" class="migration-card-input" type="text" readonly value="—"></div>
     </div>
     <div class="form-group"><label>Destination Stripe account</label><select id="migration-destination-account"></select></div>
     <div class="form-group"><label>Destination customer ID</label><input id="migration-destination-customer" type="text" placeholder="cus_..."></div>
@@ -8196,11 +8200,34 @@ function renderSubscriptions(list){
   tb.innerHTML=rows.join('');
 }
 let currentMigrationCheck=null;
+function migrationPaymentBrand(card){
+  var raw=String(card&&card.brand||'').toLowerCase().trim().replace(/[\s-]+/g,'_');
+  var aliases={american_express:'amex',diners_club:'diners',master_card:'mastercard',carte_bancaire:'cartes_bancaires',cb:'cartes_bancaires'};
+  var key=aliases[raw]||raw;
+  var icons={visa:'visa.svg',mastercard:'mastercard.svg',amex:'american-express.svg',discover:'discover.svg',diners:'diners.svg',jcb:'jcb.svg',unionpay:'unionpay.svg',cartes_bancaires:'cartes-bancaires.svg',dankort:'dankort.svg',elo:'elo.svg',hipercard:'hipercard.svg',maestro:'maestro.svg',uatp:'uatp.svg',vpay:'vpay.svg'};
+  var labels={visa:'Visa',mastercard:'Mastercard',amex:'American Express',discover:'Discover',diners:'Diners Club',jcb:'JCB',unionpay:'UnionPay',cartes_bancaires:'Cartes Bancaires',dankort:'Dankort',elo:'Elo',hipercard:'Hipercard',maestro:'Maestro',uatp:'UATP',vpay:'V Pay'};
+  var fallback=String(card&&card.brand||'Card').replace(/_/g,' ');
+  fallback=fallback.charAt(0).toUpperCase()+fallback.slice(1);
+  return {key:key,label:labels[key]||fallback||'Card',icon:icons[key]?('/icons/'+icons[key]):''};
+}
 function migrationCardLabel(card){
   if(!card||!card.last4)return 'No saved card found';
-  var brand=String(card.brand||'Card').replace(/_/g,' ');
-  brand=brand.charAt(0).toUpperCase()+brand.slice(1);
-  return brand+' •••• '+card.last4;
+  var info=migrationPaymentBrand(card);
+  return info.label+' •••• '+card.last4;
+}
+function migrationCardHtml(card){
+  if(!card||!card.last4)return '<span class="migration-payment-label">No saved card found</span>';
+  var info=migrationPaymentBrand(card);
+  var icon=info.icon?'<img src="'+info.icon+'" class="payment-img" alt="'+escHtml(info.label)+'">':'';
+  return '<span class="migration-payment-method">'+icon+'<span class="migration-payment-label">'+escHtml(info.label+' •••• '+card.last4)+'</span></span>';
+}
+function setMigrationCardInput(card){
+  var input=document.getElementById('migration-source-card');
+  if(!input)return;
+  input.value=migrationCardLabel(card);
+  var info=(card&&card.last4)?migrationPaymentBrand(card):null;
+  input.style.backgroundImage=(info&&info.icon)?'url("'+info.icon+'")':'none';
+  input.style.paddingLeft=(info&&info.icon)?'44px':'11px';
 }
 function setMigrationResult(html,state){
   var box=document.getElementById('migration-result');
@@ -8219,7 +8246,7 @@ async function openMigrationModal(subId){
   document.getElementById('migration-source-account').value='Loading…';
   document.getElementById('migration-source-sub').value='Loading…';
   document.getElementById('migration-source-customer').value='Loading…';
-  document.getElementById('migration-source-card').value='Loading…';
+  var migrationSourceCardInput=document.getElementById('migration-source-card');if(migrationSourceCardInput){migrationSourceCardInput.value='Loading…';migrationSourceCardInput.style.backgroundImage='none';migrationSourceCardInput.style.paddingLeft='11px';}
   document.getElementById('migration-destination-customer').value='';
   var result=document.getElementById('migration-result');if(result){result.classList.remove('visible');result.style.display='none';result.innerHTML='';}
   var test=document.getElementById('migration-test-btn');if(test){test.style.display='none';test.disabled=false;test.textContent='Verify card';}
@@ -8231,7 +8258,7 @@ async function openMigrationModal(subId){
     document.getElementById('migration-source-account').value=data.source_account?.name||'—';
     document.getElementById('migration-source-sub').value=data.subscription?.stripe_subscription_id||'No Stripe subscription ID';
     document.getElementById('migration-source-customer').value=data.customer?.stripe_customer_id||'—';
-    document.getElementById('migration-source-card').value=migrationCardLabel(data.source_payment_method);
+    setMigrationCardInput(data.source_payment_method);
     document.getElementById('migration-destination-customer').value=data.customer?.stripe_customer_id||'';
     var select=document.getElementById('migration-destination-account');
     var destinations=(data.destination_accounts||[]);
@@ -8258,8 +8285,8 @@ async function checkMigrationDestination(){
     var lines=[];
     lines.push('<div class="migration-result-title">'+(r.ready?'✓ Destination verified':'Destination not verified')+'</div>');
     lines.push('<div class="migration-result-detail">');
-    lines.push('Source: '+escHtml(r.source_account.name)+' · '+escHtml(migrationCardLabel(r.source_payment_method))+'<br>');
-    lines.push('Destination: '+escHtml(r.destination_account.name)+' · '+escHtml(migrationCardLabel(r.destination_payment_method))+'<br>');
+    lines.push('Source: '+escHtml(r.source_account.name)+' · '+migrationCardHtml(r.source_payment_method)+'<br>');
+    lines.push('Destination: '+escHtml(r.destination_account.name)+' · '+migrationCardHtml(r.destination_payment_method)+'<br>');
     lines.push('Mode: '+(r.livemode?'Live':'Test')+' · Customer: '+escHtml(r.destination_customer.id));
     if(r.warnings&&r.warnings.length)lines.push('<br>'+r.warnings.map(escHtml).join('<br>'));
     lines.push('</div>');
