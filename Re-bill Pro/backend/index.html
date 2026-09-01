@@ -8365,7 +8365,7 @@ function migrationLiveAmountLabel(amount){
     var m=Math.round(millions*100)/100;
     return '$'+String(m).replace(/\.0+$|(?<=\.[0-9])0+$/,'')+'M';
   }
-  if(abs>=100000){
+  if(abs>=10000){
     var thousands=n/1000;
     var k=Math.round(thousands*10)/10;
     return '$'+String(k).replace(/\.0$/,'')+'K';
