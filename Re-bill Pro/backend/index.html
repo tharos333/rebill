@@ -6649,6 +6649,30 @@ body.view-only-access #verification-debug-modal .modal-content{
   </div>
 </div>
 
+<div class="modal-bg" id="migration-modal">
+  <div class="modal">
+    <h3>Migrate Subscription</h3>
+    <p>Use this after Stripe has copied the customer and saved card from the source account to the destination account. Subloop never exports or handles raw card data.</p>
+    <input type="hidden" id="migration-sub-id">
+    <div class="form-row">
+      <div class="form-group"><label>Source account</label><input id="migration-source-account" type="text" readonly value="—"></div>
+      <div class="form-group"><label>Subscription</label><input id="migration-source-sub" type="text" readonly value="—"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Customer</label><input id="migration-source-customer" type="text" readonly value="—"></div>
+      <div class="form-group"><label>Saved card</label><input id="migration-source-card" type="text" readonly value="—"></div>
+    </div>
+    <div class="form-group"><label>Destination Stripe account</label><select id="migration-destination-account"></select></div>
+    <div class="form-group"><label>Destination customer ID</label><input id="migration-destination-customer" type="text" placeholder="cus_..."></div>
+    <div id="migration-result" class="link-result" style="margin-top:10px;"></div>
+    <div class="modal-footer" style="align-items:center;">
+      <button class="btn" onclick="closeModal('migration-modal')">Cancel</button>
+      <button class="btn" id="migration-test-btn" onclick="testMigrationCharge()" style="display:none;">Test card</button>
+      <button class="btn btn-primary" id="migration-check-btn" onclick="checkMigrationDestination()">Check destination</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg" id="action-confirm-modal">
   <div class="modal app-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="action-confirm-title">
     <div class="app-confirm-icon" aria-hidden="true">
@@ -8148,17 +8172,99 @@ function renderSubscriptions(list){
     var cancelBtn=(!isCanceled&&!isCanceling)?'<button class="btn btn-sm btn-danger" onclick="cancelSub('+s.id+')">Cancel</button>':'';
     var cancelNowBtn=isCanceling?'<button class="btn btn-sm btn-danger" onclick="cancelSubNow('+s.id+')">Cancel now</button>':'';
     var editSpan=(!isCanceled&&!isCanceling)?'<button class="btn btn-sm" onclick="showEditAmount('+s.id+','+s.amount+')">Edit amount</button><span id="edit-'+s.id+'"></span>':'';
+    var migrateBtn=(!isCanceled && ['owner','admin'].includes(getCurrentRole()))?'<button class="btn btn-sm" onclick="openMigrationModal('+s.id+')">Migrate</button>':'';
     var dunningBadge='';
     var resumeDate=s.resume_date?'<br><span style="font-size:10px;color:var(--blue);">Resumes '+fmtDate(s.resume_date)+'</span>':'';
     var cancelEnd=isCanceling?'<br><span style="font-size:10px;color:var(--amber);">Ends '+fmtDate(s.next_billing_date)+'</span>':'';
     var row='<tr id="sub-row-'+s.id+'" style="'+bg+'">';
     if(!isViewer)row+='<td style="width:36px;display:'+cbDisplay+';"><input type="checkbox" class="sub-checkbox" data-id="'+s.id+'" '+cbChecked+' onchange="toggleSubSelect('+s.id+')" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;"></td>';
     row+='<td><div class="customer-cell"><div class="avatar">'+initials(s.name)+'</div><div><div class="customer-name">'+(s.name||'—')+'</div><div class="customer-email">'+(s.email||'')+'</div></div></div></td><td class="mono">'+fmt(s.amount,s.currency)+'</td><td class="mono">'+(s.interval_days||30)+' days</td><td class="mono">'+fmtDate(s.next_billing_date)+resumeDate+cancelEnd+'</td><td>'+badge(s.status)+dunningBadge+'</td>';
-    if(!isViewer)row+='<td><div class="actions">'+chargeBtn+editSpan+pauseBtn+resumeBtn+reactivateBtn+retryBtn+cancelBtn+cancelNowBtn+'</div></td>';
+    if(!isViewer)row+='<td><div class="actions">'+chargeBtn+editSpan+migrateBtn+pauseBtn+resumeBtn+reactivateBtn+retryBtn+cancelBtn+cancelNowBtn+'</div></td>';
     rows.push(row+'</tr>');
   });
   tb.innerHTML=rows.join('');
 }
+let currentMigrationCheck=null;
+function migrationCardLabel(card){
+  if(!card||!card.last4)return 'No saved card found';
+  var brand=String(card.brand||'Card').replace(/_/g,' ');
+  brand=brand.charAt(0).toUpperCase()+brand.slice(1);
+  return brand+' •••• '+card.last4;
+}
+function setMigrationResult(html,state){
+  var box=document.getElementById('migration-result');
+  if(!box)return;
+  box.style.display='block';
+  box.classList.add('visible');
+  box.style.borderColor=state==='error'?'var(--red)':state==='success'?'var(--green)':'var(--border2)';
+  box.style.color=state==='error'?'var(--red)':state==='success'?'var(--green)':'var(--text)';
+  box.innerHTML=html;
+}
+async function openMigrationModal(subId){
+  if(blockViewOnlyAction())return;
+  if(!['owner','admin'].includes(getCurrentRole())){toast('Owner or admin access required','error');return;}
+  currentMigrationCheck=null;
+  document.getElementById('migration-sub-id').value=subId;
+  document.getElementById('migration-source-account').value='Loading…';
+  document.getElementById('migration-source-sub').value='Loading…';
+  document.getElementById('migration-source-customer').value='Loading…';
+  document.getElementById('migration-source-card').value='Loading…';
+  document.getElementById('migration-destination-customer').value='';
+  var result=document.getElementById('migration-result');if(result){result.classList.remove('visible');result.style.display='none';result.innerHTML='';}
+  var test=document.getElementById('migration-test-btn');if(test)test.style.display='none';
+  openModal('migration-modal');
+  try{
+    var data=await api('/api/migrations/subscription/'+subId);
+    document.getElementById('migration-source-account').value=data.source_account?.name||'—';
+    document.getElementById('migration-source-sub').value=data.subscription?.stripe_subscription_id||'No Stripe subscription ID';
+    document.getElementById('migration-source-customer').value=data.customer?.stripe_customer_id||'—';
+    document.getElementById('migration-source-card').value=migrationCardLabel(data.source_payment_method);
+    document.getElementById('migration-destination-customer').value=data.customer?.stripe_customer_id||'';
+    var select=document.getElementById('migration-destination-account');
+    var destinations=(data.destination_accounts||[]);
+    select.innerHTML=destinations.length?destinations.map(function(a){return '<option value="'+a.id+'">'+escHtml(a.name)+'</option>';}).join(''):'<option value="">No other Stripe account available</option>';
+    document.getElementById('migration-check-btn').disabled=!destinations.length;
+    if(!destinations.length)setMigrationResult('Add a second Stripe account to Subloop before testing a migration.','error');
+  }catch(e){
+    document.getElementById('migration-check-btn').disabled=true;
+    setMigrationResult(escHtml(e.message||'Unable to load migration details'),'error');
+  }
+}
+async function checkMigrationDestination(){
+  var subId=Number(document.getElementById('migration-sub-id').value);
+  var accountId=Number(document.getElementById('migration-destination-account').value);
+  var customerId=String(document.getElementById('migration-destination-customer').value||'').trim();
+  if(!accountId){setMigrationResult('Choose a destination Stripe account.','error');return;}
+  if(!/^cus_[A-Za-z0-9]+$/.test(customerId)){setMigrationResult('Enter a valid destination customer ID (cus_...).','error');return;}
+  var btn=document.getElementById('migration-check-btn');btn.disabled=true;btn.textContent='Checking…';
+  var test=document.getElementById('migration-test-btn');if(test)test.style.display='none';
+  try{
+    var r=await api('/api/migrations/check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subscription_id:subId,destination_stripe_account_id:accountId,destination_customer_id:customerId})});
+    currentMigrationCheck={subscription_id:subId,destination_stripe_account_id:accountId,destination_customer_id:customerId,currency:r.subscription?.currency||'usd'};
+    var lines=[];
+    lines.push('<div style="font-weight:600;margin-bottom:6px;">'+(r.ready?'Destination ready':'Destination not ready')+'</div>');
+    lines.push('<div style="color:var(--muted);font-size:12px;line-height:1.55;">');
+    lines.push('Source: '+escHtml(r.source_account.name)+' · '+escHtml(migrationCardLabel(r.source_payment_method))+'<br>');
+    lines.push('Destination: '+escHtml(r.destination_account.name)+' · '+escHtml(migrationCardLabel(r.destination_payment_method))+'<br>');
+    lines.push('Mode: '+(r.livemode?'Live':'Test')+' · Customer: '+escHtml(r.destination_customer.id));
+    if(r.warnings&&r.warnings.length)lines.push('<br>'+r.warnings.map(escHtml).join('<br>'));
+    lines.push('</div>');
+    setMigrationResult(lines.join(''),r.ready?'success':'error');
+    if(test&&r.ready&&r.can_test_charge){test.style.display='inline-flex';test.disabled=false;test.textContent='Test card';}
+  }catch(e){currentMigrationCheck=null;setMigrationResult(escHtml(e.message||'Destination check failed'),'error');}
+  finally{btn.disabled=false;btn.textContent='Check destination';}
+}
+async function testMigrationCharge(){
+  if(!currentMigrationCheck){setMigrationResult('Run Check destination first.','error');return;}
+  var btn=document.getElementById('migration-test-btn');btn.disabled=true;btn.textContent='Testing…';
+  try{
+    var r=await api('/api/migrations/test-charge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(currentMigrationCheck)});
+    if(r.success){setMigrationResult('<div style="font-weight:600;margin-bottom:5px;">Test charge succeeded</div><div style="color:var(--muted);font-size:12px;">Stripe B accepted the migrated saved card. PaymentIntent: '+escHtml(r.payment_intent_id||'—')+'</div>','success');toast('✓ Destination card test succeeded');}
+    else setMigrationResult(escHtml(r.error||'Test charge failed'),'error');
+  }catch(e){setMigrationResult(escHtml(e.message||'Test charge failed'),'error');toast(e.message||'Test charge failed','error');}
+  finally{btn.disabled=false;btn.textContent='Test card';}
+}
+
 function filterSubscriptions(){const q=document.getElementById('sub-search').value.toLowerCase();renderSubscriptions(allSubscriptions.filter(s=>(s.name||'').toLowerCase().includes(q)||(s.email||'').toLowerCase().includes(q)));}
 function enterBulkMode(){bulkMode=true;selectedSubs.clear();document.getElementById('sub-default-btn').style.display='none';document.getElementById('sub-bulk-btns').style.display='flex';document.getElementById('bulk-cb-header').style.display='table-cell';renderSubscriptions(allSubscriptions);updateBulkBar();}
 function exitBulkMode(){bulkMode=false;selectedSubs.clear();document.getElementById('sub-default-btn').style.display='block';document.getElementById('sub-bulk-btns').style.display='none';document.getElementById('bulk-cb-header').style.display='none';var cb=document.getElementById('select-all-checkbox');if(cb)cb.checked=false;renderSubscriptions(allSubscriptions);}

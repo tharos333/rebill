@@ -188,7 +188,7 @@ function sectionForApiPath(req) {
   const path = req.path;
   if (path.startsWith('/stats') || path.startsWith('/revenue-chart') || path.startsWith('/churn-alerts')) return 'dashboard';
   if (path.startsWith('/customers')) return 'customers';
-  if (path.startsWith('/subscriptions')) return 'subscriptions';
+  if (path.startsWith('/subscriptions') || path.startsWith('/migrations')) return 'subscriptions';
   if (path.startsWith('/payments')) return 'payments';
   if (path.startsWith('/payment-link-accounts') || path.startsWith('/payment-links') || path.startsWith('/plan-templates') || path.startsWith('/embedded-checkout-token')) return 'links';
   if (path.startsWith('/stripe-accounts')) return 'accounts';
@@ -2133,6 +2133,134 @@ app.get('/api/customers/export', async (req, res) => {
     const csv = ['Name,Email,Card,Status,Last Payment,Created,Total Paid by Currency'].concat(rows).join('\n');
     res.setHeader('Content-Type','text/csv'); res.setHeader('Content-Disposition','attachment; filename=customers.csv'); res.send(csv);
   } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Stripe account migration test (isolated; does not modify Subloop subscription state) ──
+async function migrationContext(req, res, subscriptionId) {
+  if (!requireOwnerOrAdmin(req, res)) return null;
+  const r = await pool.query(`
+    SELECT s.*, c.email, c.name, c.stripe_customer_id, c.stripe_payment_method,
+           c.stripe_account_id, c.workspace_id, sa.name AS source_account_name
+    FROM subscriptions s
+    JOIN customers c ON c.id=s.customer_id
+    LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id
+    WHERE s.id=$1
+  `, [subscriptionId]);
+  const row = r.rows[0];
+  if (!row) { res.status(404).json({ error:'Subscription not found' }); return null; }
+  if (!ensureRowScope(req, res, row)) return null;
+  if (!row.stripe_account_id) { res.status(400).json({ error:'Source Stripe account is missing' }); return null; }
+  if (!String(row.stripe_customer_id || '').startsWith('cus_')) { res.status(400).json({ error:'Source Stripe customer ID is missing' }); return null; }
+  const sourceAccount = await stripeAccounts.byId(row.stripe_account_id);
+  if (!sourceAccount?.secret_key) { res.status(400).json({ error:'Source Stripe account secret key not found' }); return null; }
+  return { row, sourceAccount };
+}
+async function migrationDestinationAccount(req, res, sourceAccountId, destinationId) {
+  const id = Number(destinationId);
+  if (!Number.isInteger(id)) { res.status(400).json({ error:'Destination Stripe account is required' }); return null; }
+  if (Number(sourceAccountId) === id) { res.status(400).json({ error:'Choose a different Stripe account as the destination' }); return null; }
+  const destination = await stripeAccounts.byId(id);
+  if (!destination || Number(destination.workspace_id) !== Number(req.currentUser.workspace_id)) {
+    res.status(404).json({ error:'Destination Stripe account not found' }); return null;
+  }
+  if (!ensureRowScope(req, res, { stripe_account_id:destination.id, workspace_id:destination.workspace_id })) return null;
+  if (!destination.secret_key) { res.status(400).json({ error:'Destination Stripe account secret key not found' }); return null; }
+  return destination;
+}
+function migrationCardSummary(pm) {
+  return pm ? { id:pm.id, brand:normalizeCardBrand(pm.card?.brand), last4:pm.card?.last4 || null, exp_month:pm.card?.exp_month || null, exp_year:pm.card?.exp_year || null } : null;
+}
+app.get('/api/migrations/subscription/:id', async (req, res) => {
+  try {
+    const ctx = await migrationContext(req, res, req.params.id); if (!ctx) return;
+    const { row, sourceAccount } = ctx;
+    const sourceStripe = new Stripe(sourceAccount.secret_key);
+    const pmInfo = await resolveBestPaymentMethodInfo(sourceStripe, row.stripe_customer_id, {
+      subscriptionId: row.stripe_subscription_id || null,
+      localPaymentMethodId: row.stripe_payment_method || null
+    });
+    const ids = scopedAccountIds(req).filter(id => Number(id) !== Number(sourceAccount.id));
+    const destinations = ids.length ? (await pool.query('SELECT id,name FROM stripe_accounts WHERE id=ANY($1::int[]) AND workspace_id=$2 ORDER BY name,id',[ids,req.currentUser.workspace_id])).rows : [];
+    res.json({
+      subscription:{ id:row.id, stripe_subscription_id:row.stripe_subscription_id || null, amount:row.amount, currency:row.currency, interval_days:row.interval_days, next_billing_date:row.next_billing_date },
+      customer:{ id:row.customer_id, name:row.name, email:row.email, stripe_customer_id:row.stripe_customer_id },
+      source_account:{ id:sourceAccount.id, name:sourceAccount.name },
+      source_payment_method:migrationCardSummary(pmInfo.paymentMethod),
+      destination_accounts:destinations
+    });
+  } catch(err) { console.error('[migration-details]',err.message); res.status(500).json({ error:err.message }); }
+});
+app.post('/api/migrations/check', async (req, res) => {
+  try {
+    const ctx = await migrationContext(req, res, req.body.subscription_id); if (!ctx) return;
+    const { row, sourceAccount } = ctx;
+    const destination = await migrationDestinationAccount(req, res, sourceAccount.id, req.body.destination_stripe_account_id); if (!destination) return;
+    const destinationCustomerId = String(req.body.destination_customer_id || '').trim();
+    if (!/^cus_[A-Za-z0-9]+$/.test(destinationCustomerId)) return res.status(400).json({ error:'A valid destination customer ID (cus_...) is required' });
+    const sourceStripe = new Stripe(sourceAccount.secret_key);
+    const destStripe = new Stripe(destination.secret_key);
+    const [sourceCustomer, destinationCustomer, sourcePmInfo, destinationPmInfo] = await Promise.all([
+      sourceStripe.customers.retrieve(row.stripe_customer_id),
+      destStripe.customers.retrieve(destinationCustomerId),
+      resolveBestPaymentMethodInfo(sourceStripe, row.stripe_customer_id, { subscriptionId:row.stripe_subscription_id || null, localPaymentMethodId:row.stripe_payment_method || null }),
+      resolveBestPaymentMethodInfo(destStripe, destinationCustomerId, {})
+    ]);
+    if (sourceCustomer?.deleted) return res.status(400).json({ error:'Source Stripe customer has been deleted' });
+    if (destinationCustomer?.deleted) return res.status(400).json({ error:'Destination Stripe customer has been deleted' });
+    const sameMode = !!sourceCustomer.livemode === !!destinationCustomer.livemode;
+    const warnings = [];
+    if (!sameMode) warnings.push('Source and destination are not in the same Stripe mode.');
+    if (!destinationPmInfo.paymentMethod) warnings.push('No reusable saved card is attached to the destination customer yet.');
+    if (!sourcePmInfo.paymentMethod) warnings.push('No reusable saved card was found on the source customer.');
+    const ready = sameMode && !!sourcePmInfo.paymentMethod && !!destinationPmInfo.paymentMethod;
+    res.json({
+      ready,
+      livemode:!!destinationCustomer.livemode,
+      can_test_charge:ready && !destinationCustomer.livemode,
+      warnings,
+      subscription:{ id:row.id, amount:row.amount, currency:row.currency, interval_days:row.interval_days, next_billing_date:row.next_billing_date, stripe_subscription_id:row.stripe_subscription_id || null },
+      source_account:{ id:sourceAccount.id, name:sourceAccount.name },
+      destination_account:{ id:destination.id, name:destination.name },
+      source_customer:{ id:sourceCustomer.id, livemode:!!sourceCustomer.livemode },
+      destination_customer:{ id:destinationCustomer.id, livemode:!!destinationCustomer.livemode },
+      source_payment_method:migrationCardSummary(sourcePmInfo.paymentMethod),
+      destination_payment_method:migrationCardSummary(destinationPmInfo.paymentMethod)
+    });
+  } catch(err) {
+    console.error('[migration-check]',err.message);
+    res.status(err.statusCode || 500).json({ error:err.message });
+  }
+});
+app.post('/api/migrations/test-charge', async (req, res) => {
+  try {
+    const ctx = await migrationContext(req, res, req.body.subscription_id); if (!ctx) return;
+    const { row, sourceAccount } = ctx;
+    const destination = await migrationDestinationAccount(req, res, sourceAccount.id, req.body.destination_stripe_account_id); if (!destination) return;
+    const destinationCustomerId = String(req.body.destination_customer_id || '').trim();
+    if (!/^cus_[A-Za-z0-9]+$/.test(destinationCustomerId)) return res.status(400).json({ error:'A valid destination customer ID (cus_...) is required' });
+    const stripe = new Stripe(destination.secret_key);
+    const customer = await stripe.customers.retrieve(destinationCustomerId);
+    if (customer?.deleted) return res.status(400).json({ error:'Destination Stripe customer has been deleted' });
+    if (customer.livemode) return res.status(400).json({ error:'Test card is available only when the destination Stripe account is in test mode' });
+    const pmInfo = await resolveBestPaymentMethodInfo(stripe, destinationCustomerId, {});
+    const pm = pmInfo.paymentMethod;
+    if (!pm) return res.status(400).json({ error:'No reusable saved card is attached to the destination customer' });
+    const currency = String(row.currency || 'usd').toLowerCase();
+    const pi = await stripe.paymentIntents.create({
+      amount:100,
+      currency,
+      customer:destinationCustomerId,
+      payment_method:pm.id,
+      off_session:true,
+      confirm:true,
+      description:'Subloop migration test',
+      metadata:{ subloop_migration_test:'true', source_subscription_id:String(row.id), source_stripe_subscription_id:String(row.stripe_subscription_id || '') }
+    });
+    res.json({ success:pi.status==='succeeded', status:pi.status, payment_intent_id:pi.id, amount:pi.amount, currency:pi.currency });
+  } catch(err) {
+    console.error('[migration-test-charge]',err.message);
+    res.status(err.statusCode || 402).json({ success:false, error:err.message });
+  }
 });
 
 // ── Subscriptions ─────────────────────────────────────────────────────────────
