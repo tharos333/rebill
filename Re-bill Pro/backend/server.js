@@ -2217,6 +2217,7 @@ app.post('/api/migrations/check', async (req, res) => {
       ready,
       livemode:!!destinationCustomer.livemode,
       can_test_charge:ready && !destinationCustomer.livemode,
+      can_live_charge:ready && !!destinationCustomer.livemode && String(row.currency || '').toLowerCase()==='usd',
       warnings,
       subscription:{ id:row.id, amount:row.amount, currency:row.currency, interval_days:row.interval_days, next_billing_date:row.next_billing_date, stripe_subscription_id:row.stripe_subscription_id || null },
       source_account:{ id:sourceAccount.id, name:sourceAccount.name },
@@ -2260,6 +2261,55 @@ app.post('/api/migrations/test-charge', async (req, res) => {
   } catch(err) {
     console.error('[migration-test-charge]',err.message);
     res.status(err.statusCode || 402).json({ success:false, error:err.message });
+  }
+});
+
+
+app.post('/api/migrations/live-verification-charge', async (req, res) => {
+  try {
+    const ctx = await migrationContext(req, res, req.body.subscription_id); if (!ctx) return;
+    const { row, sourceAccount } = ctx;
+    const destination = await migrationDestinationAccount(req, res, sourceAccount.id, req.body.destination_stripe_account_id); if (!destination) return;
+    const destinationCustomerId = String(req.body.destination_customer_id || '').trim();
+    if (!/^cus_[A-Za-z0-9]+$/.test(destinationCustomerId)) return res.status(400).json({ error:'A valid destination customer ID (cus_...) is required' });
+    const currency = String(row.currency || '').toLowerCase();
+    if (currency !== 'usd') return res.status(400).json({ error:'Live verification charging is currently available only for USD subscriptions' });
+    const stripe = new Stripe(destination.secret_key);
+    const customer = await stripe.customers.retrieve(destinationCustomerId);
+    if (customer?.deleted) return res.status(400).json({ error:'Destination Stripe customer has been deleted' });
+    if (!customer.livemode) return res.status(400).json({ error:'Live verification charge is available only on a live Stripe destination account' });
+    const pmInfo = await resolveBestPaymentMethodInfo(stripe, destinationCustomerId, {});
+    const pm = pmInfo.paymentMethod;
+    if (!pm) return res.status(400).json({ error:'No reusable saved card is attached to the destination customer' });
+    const amountMajor = Number(req.body.amount);
+    if (!Number.isFinite(amountMajor) || amountMajor < 0.50 || amountMajor > 1000) return res.status(400).json({ error:'Verification amount must be between $0.50 and $1,000.00' });
+    const amountMinor = Math.round(amountMajor * 100);
+    if (Math.abs((amountMinor / 100) - amountMajor) > 0.000001) return res.status(400).json({ error:'Verification amount can have at most 2 decimal places' });
+    const requestId = String(req.body.request_id || '').replace(/[^A-Za-z0-9_-]/g,'').slice(0,80);
+    if (!requestId) return res.status(400).json({ error:'Verification request ID is required' });
+    const pi = await stripe.paymentIntents.create({
+      amount:amountMinor,
+      currency:'usd',
+      customer:destinationCustomerId,
+      payment_method:pm.id,
+      off_session:true,
+      confirm:true,
+      description:'Subloop Stripe migration verification',
+      metadata:{
+        subloop_migration_verification:'true',
+        source_subscription_id:String(row.id),
+        source_stripe_subscription_id:String(row.stripe_subscription_id || ''),
+        source_stripe_account_id:String(sourceAccount.id),
+        destination_stripe_account_id:String(destination.id)
+      }
+    }, { idempotencyKey:'subloop-migration-verify-'+requestId });
+    res.json({ success:pi.status==='succeeded', status:pi.status, payment_intent_id:pi.id, amount:pi.amount, currency:pi.currency });
+  } catch(err) {
+    console.error('[migration-live-verification-charge]',err.message);
+    const message = err?.code === 'authentication_required'
+      ? 'The card requires customer authentication (3DS), so the off-session verification charge could not complete.'
+      : err.message;
+    res.status(err.statusCode || 402).json({ success:false, error:message });
   }
 });
 

@@ -6652,7 +6652,7 @@ body.view-only-access #verification-debug-modal .modal-content{
 <div class="modal-bg" id="migration-modal">
   <div class="modal">
     <h3>Migrate Subscription</h3>
-    <p>Use this after Stripe has copied the customer and saved card from the source account to the destination account. Subloop never exports or handles raw card data.</p>
+    <p>Use this after Stripe has copied the customer and saved card from the source account to the destination account. Subloop never exports or handles raw card data. After the destination is confirmed ready, you can enter a verification amount to charge on Stripe B.</p>
     <input type="hidden" id="migration-sub-id">
     <div class="form-row">
       <div class="form-group"><label>Source account</label><input id="migration-source-account" type="text" readonly value="—"></div>
@@ -6664,6 +6664,10 @@ body.view-only-access #verification-debug-modal .modal-content{
     </div>
     <div class="form-group"><label>Destination Stripe account</label><select id="migration-destination-account"></select></div>
     <div class="form-group"><label>Destination customer ID</label><input id="migration-destination-customer" type="text" placeholder="cus_..."></div>
+    <div class="form-group" id="migration-live-amount-wrap" style="display:none;">
+      <label id="migration-live-amount-label">Verification amount</label>
+      <input id="migration-live-amount" type="number" inputmode="decimal" min="0.50" max="1000" step="0.01" placeholder="5.00" oninput="updateMigrationLiveChargeButton()">
+    </div>
     <div id="migration-result" class="link-result" style="margin-top:10px;"></div>
     <div class="modal-footer" style="align-items:center;">
       <button class="btn" onclick="closeModal('migration-modal')">Cancel</button>
@@ -8211,7 +8215,9 @@ async function openMigrationModal(subId){
   document.getElementById('migration-source-card').value='Loading…';
   document.getElementById('migration-destination-customer').value='';
   var result=document.getElementById('migration-result');if(result){result.classList.remove('visible');result.style.display='none';result.innerHTML='';}
-  var test=document.getElementById('migration-test-btn');if(test)test.style.display='none';
+  var test=document.getElementById('migration-test-btn');if(test){test.style.display='none';test.disabled=false;test.textContent='Test card';}
+  var amountWrap=document.getElementById('migration-live-amount-wrap');if(amountWrap)amountWrap.style.display='none';
+  var amountInput=document.getElementById('migration-live-amount');if(amountInput)amountInput.value='';
   openModal('migration-modal');
   try{
     var data=await api('/api/migrations/subscription/'+subId);
@@ -8238,9 +8244,10 @@ async function checkMigrationDestination(){
   if(!/^cus_[A-Za-z0-9]+$/.test(customerId)){setMigrationResult('Enter a valid destination customer ID (cus_...).','error');return;}
   var btn=document.getElementById('migration-check-btn');btn.disabled=true;btn.textContent='Checking…';
   var test=document.getElementById('migration-test-btn');if(test)test.style.display='none';
+  var amountWrap=document.getElementById('migration-live-amount-wrap');if(amountWrap)amountWrap.style.display='none';
   try{
     var r=await api('/api/migrations/check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subscription_id:subId,destination_stripe_account_id:accountId,destination_customer_id:customerId})});
-    currentMigrationCheck={subscription_id:subId,destination_stripe_account_id:accountId,destination_customer_id:customerId,currency:r.subscription?.currency||'usd'};
+    currentMigrationCheck={subscription_id:subId,destination_stripe_account_id:accountId,destination_customer_id:customerId,currency:r.subscription?.currency||'usd',livemode:!!r.livemode,can_live_charge:!!r.can_live_charge};
     var lines=[];
     lines.push('<div style="font-weight:600;margin-bottom:6px;">'+(r.ready?'Destination ready':'Destination not ready')+'</div>');
     lines.push('<div style="color:var(--muted);font-size:12px;line-height:1.55;">');
@@ -8250,12 +8257,30 @@ async function checkMigrationDestination(){
     if(r.warnings&&r.warnings.length)lines.push('<br>'+r.warnings.map(escHtml).join('<br>'));
     lines.push('</div>');
     setMigrationResult(lines.join(''),r.ready?'success':'error');
-    if(test&&r.ready&&r.can_test_charge){test.style.display='inline-flex';test.disabled=false;test.textContent='Test card';}
+    if(test&&r.ready&&(r.can_test_charge||r.can_live_charge)){
+      test.style.display='inline-flex';
+      test.dataset.mode=r.can_live_charge?'live':'test';
+      if(r.can_live_charge){
+        var wrap=document.getElementById('migration-live-amount-wrap');
+        var input=document.getElementById('migration-live-amount');
+        var label=document.getElementById('migration-live-amount-label');
+        if(wrap)wrap.style.display='block';
+        if(label)label.textContent='Verification amount (USD)';
+        if(input)input.value='';
+        updateMigrationLiveChargeButton();
+      }else{
+        test.disabled=false;
+        test.textContent='Test card';
+      }
+    }
   }catch(e){currentMigrationCheck=null;setMigrationResult(escHtml(e.message||'Destination check failed'),'error');}
   finally{btn.disabled=false;btn.textContent='Check destination';}
 }
 async function testMigrationCharge(){
   if(!currentMigrationCheck){setMigrationResult('Run Check destination first.','error');return;}
+  if(currentMigrationCheck.livemode){
+    return chargeMigrationLiveVerification();
+  }
   var btn=document.getElementById('migration-test-btn');btn.disabled=true;btn.textContent='Testing…';
   try{
     var r=await api('/api/migrations/test-charge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(currentMigrationCheck)});
@@ -8264,6 +8289,62 @@ async function testMigrationCharge(){
   }catch(e){setMigrationResult(escHtml(e.message||'Test charge failed'),'error');toast(e.message||'Test charge failed','error');}
   finally{btn.disabled=false;btn.textContent='Test card';}
 }
+function migrationVerificationRequestId(){
+  try{if(window.crypto&&typeof window.crypto.randomUUID==='function')return window.crypto.randomUUID();}catch(_e){}
+  return 'v'+Date.now()+'-'+Math.random().toString(36).slice(2,12);
+}
+function migrationLiveAmount(){
+  var input=document.getElementById('migration-live-amount');
+  var value=Number(input&&input.value);
+  if(!Number.isFinite(value))return null;
+  return Math.round(value*100)/100;
+}
+function migrationLiveAmountLabel(amount){
+  return '$'+Number(amount).toFixed(2);
+}
+function updateMigrationLiveChargeButton(){
+  var btn=document.getElementById('migration-test-btn');
+  if(!btn||btn.dataset.mode!=='live')return;
+  var amount=migrationLiveAmount();
+  var valid=amount!==null&&amount>=0.50&&amount<=1000;
+  btn.disabled=!valid;
+  btn.textContent=valid?'Charge '+migrationLiveAmountLabel(amount):'Charge amount';
+}
+function chargeMigrationLiveVerification(){
+  if(!currentMigrationCheck||!currentMigrationCheck.livemode){setMigrationResult('Run Check destination first.','error');return;}
+  if(String(currentMigrationCheck.currency||'').toLowerCase()!=='usd'){setMigrationResult('Live verification charging is currently available only for USD subscriptions.','error');return;}
+  var amount=migrationLiveAmount();
+  if(amount===null||amount<0.50||amount>1000){setMigrationResult('Enter a verification amount between $0.50 and $1,000.00.','error');return;}
+  var amountLabel=migrationLiveAmountLabel(amount);
+  openAppActionConfirm({
+    title:'Charge '+amountLabel+' on Stripe B?',
+    message:'This is a real '+amountLabel+' USD charge to the migrated saved card on the destination Stripe account. It will not cancel or modify the Stripe A subscription.',
+    cancelText:'Cancel',
+    confirmText:'Charge '+amountLabel,
+    danger:false
+  },async function(){
+    var btn=document.getElementById('migration-test-btn');
+    if(btn){btn.disabled=true;btn.textContent='Charging…';}
+    try{
+      var payload=Object.assign({},currentMigrationCheck,{request_id:migrationVerificationRequestId(),amount:amount});
+      var r=await api('/api/migrations/live-verification-charge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      if(r.success){
+        var charged=Number(r.amount||0)/100;
+        var chargedLabel=migrationLiveAmountLabel(charged||amount);
+        setMigrationResult('<div style="font-weight:600;margin-bottom:5px;">'+escHtml(chargedLabel)+' verification charge succeeded</div><div style="color:var(--muted);font-size:12px;line-height:1.5;">Stripe B successfully charged the migrated saved card.<br>PaymentIntent: '+escHtml(r.payment_intent_id||'—')+'</div>','success');
+        toast('✓ '+chargedLabel+' migration verification succeeded');
+      }else{
+        setMigrationResult(escHtml(r.error||'Verification charge failed'),'error');
+      }
+    }catch(e){
+      setMigrationResult(escHtml(e.message||'Verification charge failed'),'error');
+      toast(e.message||'Verification charge failed','error');
+    }finally{
+      if(btn){btn.disabled=false;updateMigrationLiveChargeButton();}
+    }
+  });
+}
+
 
 function filterSubscriptions(){const q=document.getElementById('sub-search').value.toLowerCase();renderSubscriptions(allSubscriptions.filter(s=>(s.name||'').toLowerCase().includes(q)||(s.email||'').toLowerCase().includes(q)));}
 function enterBulkMode(){bulkMode=true;selectedSubs.clear();document.getElementById('sub-default-btn').style.display='none';document.getElementById('sub-bulk-btns').style.display='flex';document.getElementById('bulk-cb-header').style.display='table-cell';renderSubscriptions(allSubscriptions);updateBulkBar();}
