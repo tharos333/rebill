@@ -8256,7 +8256,7 @@ async function checkMigrationDestination(){
     var r=await api('/api/migrations/check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subscription_id:subId,destination_stripe_account_id:accountId,destination_customer_id:customerId})});
     currentMigrationCheck={subscription_id:subId,destination_stripe_account_id:accountId,destination_customer_id:customerId,currency:r.subscription?.currency||'usd',livemode:!!r.livemode,can_live_charge:!!r.can_live_charge};
     var lines=[];
-    lines.push('<div class="migration-result-title">'+(r.ready?'Destination verified':'Destination not verified')+'</div>');
+    lines.push('<div class="migration-result-title">'+(r.ready?'✓ Destination verified':'Destination not verified')+'</div>');
     lines.push('<div class="migration-result-detail">');
     lines.push('Source: '+escHtml(r.source_account.name)+' · '+escHtml(migrationCardLabel(r.source_payment_method))+'<br>');
     lines.push('Destination: '+escHtml(r.destination_account.name)+' · '+escHtml(migrationCardLabel(r.destination_payment_method))+'<br>');
