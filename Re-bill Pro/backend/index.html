@@ -232,7 +232,7 @@ textarea{resize:vertical;min-height:60px}
 .migration-result-box{display:none;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;margin-top:10px;font-family:var(--mono);font-size:13px;line-height:1.4;color:var(--text);font-weight:400;letter-spacing:normal}
 .migration-result-box.visible{display:block}
 .migration-result-box.success{background:var(--green-bg);border-color:var(--green);color:var(--green)}
-.migration-result-box.error{background:var(--red-bg);border-color:var(--red);color:var(--red);font-size:11px}
+.migration-result-box.error{background:var(--red-bg);border-color:var(--red);color:var(--red);font-size:13px}
 .migration-result-box .migration-result-title{font-family:var(--mono);font-size:13px;font-weight:400;letter-spacing:normal;line-height:1.25;margin-bottom:4px;color:inherit}
 .migration-result-box .migration-result-detail{font-family:var(--mono);font-size:11px;font-weight:400;letter-spacing:normal;line-height:1.5;color:var(--muted)}
 /* Migration payment method uses the exact same card-brand icon treatment as Customers / Payments. */
@@ -8266,9 +8266,26 @@ async function openMigrationModal(subId){
     document.getElementById('migration-destination-customer').value=data.customer?.stripe_customer_id||'';
     var select=document.getElementById('migration-destination-account');
     var sourceAccountId=Number(data.source_account&&data.source_account.id);
-    /* Keep the exact order returned by /api/stripe-accounts, which is the same order used by the Stripe Accounts page: newest added first. */
+    /* Preserve Stripe Accounts page order (newest added first). Real account selectors show Default first; filter bars are intentionally unchanged. */
     var destinations=stripeAccountList.filter(function(a){return Number(a.id)!==sourceAccountId;});
-    select.innerHTML=destinations.length?destinations.map(function(a){return '<option value="'+a.id+'">'+escHtml(a.name)+'</option>';}).join(''):'<option value="">No other Stripe account available</option>';
+    var workspaceDefault=stripeAccountList.find(function(a){return !!a.is_default;}) || (stripeAccountList.length?stripeAccountList[stripeAccountList.length-1]:null);
+    var defaultIsValid=!!workspaceDefault && Number(workspaceDefault.id)!==sourceAccountId;
+    if(destinations.length){
+      var destinationOptions=[];
+      if(workspaceDefault){
+        if(defaultIsValid) destinationOptions.push('<option value="'+workspaceDefault.id+'">Default</option>');
+        else destinationOptions.push('<option value="" disabled>Default (source account)</option>');
+      }else{
+        destinationOptions.push('<option value="" disabled>Default</option>');
+      }
+      destinations.forEach(function(a){
+        if(defaultIsValid && Number(a.id)===Number(workspaceDefault.id))return;
+        destinationOptions.push('<option value="'+a.id+'">'+escHtml(a.name)+'</option>');
+      });
+      select.innerHTML=destinationOptions.join('');
+    }else{
+      select.innerHTML='<option value="">No other Stripe account available</option>';
+    }
     document.getElementById('migration-check-btn').disabled=!destinations.length;
     if(!destinations.length)setMigrationResult('Add a second Stripe account to Subloop before testing a migration.','error');
   }catch(e){
@@ -8291,8 +8308,8 @@ async function checkMigrationDestination(){
     var lines=[];
     lines.push('<div class="migration-result-title">'+(r.ready?'✓ Destination verified':'Destination not verified')+'</div>');
     lines.push('<div class="migration-result-detail">');
-    lines.push('Source: '+escHtml(r.source_account.name)+' · '+migrationCardHtml(r.source_payment_method)+'<br>');
-    lines.push('Destination: '+escHtml(r.destination_account.name)+' · '+migrationCardHtml(r.destination_payment_method)+'<br>');
+    lines.push('Source: '+escHtml(r.source_account.name)+' · '+escHtml(migrationCardLabel(r.source_payment_method))+'<br>');
+    lines.push('Destination: '+escHtml(r.destination_account.name)+' · '+escHtml(migrationCardLabel(r.destination_payment_method))+'<br>');
     lines.push('Mode: '+(r.livemode?'Live':'Test')+' · Customer: '+escHtml(r.destination_customer.id));
     if(r.warnings&&r.warnings.length)lines.push('<br>'+r.warnings.map(escHtml).join('<br>'));
     lines.push('</div>');
@@ -9527,18 +9544,18 @@ async function loadAccounts(){
       }
     }
     allStripeAccounts=list;
-    const opts=list.map(a=>'<option value="'+a.id+'"'+(a.is_default?' selected':'')+'>'+a.name+'</option>').join('');
-    const ls=document.getElementById('link-account');if(ls)ls.innerHTML=opts||'<option value="">No accounts</option>';
-    const ms=document.getElementById('mc-account');if(ms)ms.innerHTML='<option value="">Default</option>'+opts;
+    const selectorOpts=list.map(a=>'<option value="'+a.id+'">'+escHtml(a.name)+'</option>').join('');
+    const ls=document.getElementById('link-account');if(ls)ls.innerHTML='<option value="">Default</option>'+selectorOpts;
+    const ms=document.getElementById('mc-account');if(ms)ms.innerHTML='<option value="">Default</option>'+selectorOpts;
   }catch(e){}
 }
 async function loadPaymentLinkAccounts(){
   try{
     var list=await api('/api/payment-link-accounts');
     var select=document.getElementById('link-account');if(!select)return;
-    var options=(list||[]).map(function(a){return '<option value="'+a.id+'"'+(a.is_default?' selected':'')+'>'+a.name+'</option>';}).join('');
-    select.innerHTML=options||'<option value="">No permitted Stripe accounts</option>';
-  }catch(e){var select=document.getElementById('link-account');if(select)select.innerHTML='<option value="">No permitted Stripe accounts</option>';}
+    var options=(list||[]).map(function(a){return '<option value="'+a.id+'">'+escHtml(a.name)+'</option>';}).join('');
+    select.innerHTML='<option value="">Default</option>'+options;
+  }catch(e){var select=document.getElementById('link-account');if(select)select.innerHTML='<option value="">Default</option>';}
 }
 function configurePaymentLinksAccessUI(){
   var canManageTemplates=getCurrentRole()==='owner'||getCurrentRole()==='admin';
