@@ -229,12 +229,12 @@ textarea{resize:vertical;min-height:60px}
 .link-result{display:none;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:11px 14px;margin-top:12px}
 .link-result.visible{display:block}
 /* Migration result uses the same compact inline success/error treatment as the app */
-.migration-status{display:none;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;margin-top:10px;font-family:var(--mono);font-size:13px;line-height:1.4;color:var(--text)}
+.migration-status{display:none;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;margin-top:10px;font-family:var(--mono)!important;font-size:13px;line-height:1.4;color:var(--text);font-weight:400!important;letter-spacing:normal!important}
 .migration-status.visible{display:block}
 .migration-status.success{background:var(--green-bg);border-color:var(--green);color:var(--green)}
 .migration-status.error{background:var(--red-bg);border-color:var(--red);color:var(--red)}
-.migration-status .migration-status-title{font-size:13px;font-weight:400;line-height:1.25;margin-bottom:4px;color:inherit}
-.migration-status .migration-status-detail{font-size:11px;line-height:1.5;color:var(--muted);font-family:var(--mono)}
+.migration-status .migration-status-title{font-family:var(--mono)!important;font-size:13px;font-weight:400!important;letter-spacing:normal!important;line-height:1.25;margin-bottom:4px;color:inherit}
+.migration-status .migration-status-detail{font-family:var(--mono)!important;font-size:11px;font-weight:400!important;letter-spacing:normal!important;line-height:1.5;color:var(--muted)}
 .link-url{font-family:var(--mono);font-size:12px;color:var(--accent);word-break:break-all}
 #toast{position:fixed;bottom:20px;right:20px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:10px 15px;font-size:13px;font-family:var(--mono);z-index:9999;transform:translateY(80px);opacity:0;transition:all 0.25s}
 #toast.show{transform:translateY(0);opacity:1}
