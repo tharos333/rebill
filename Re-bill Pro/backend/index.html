@@ -6679,7 +6679,7 @@ body.view-only-access #verification-debug-modal .modal-content{
     <div class="form-group"><label>Destination customer ID</label><input id="migration-destination-customer" type="text" placeholder="cus_..."></div>
     <div class="form-group" id="migration-live-amount-wrap" style="display:none;">
       <label id="migration-live-amount-label">Verification amount</label>
-      <input id="migration-live-amount" type="number" inputmode="decimal" min="0.50" max="1000" step="0.01" placeholder="5.00" oninput="updateMigrationLiveChargeButton()">
+      <input id="migration-live-amount" type="number" inputmode="decimal" min="0.50" step="0.01" placeholder="5.00" oninput="updateMigrationLiveChargeButton()">
     </div>
     <div id="migration-result" class="migration-result-box"></div>
     <div class="modal-footer" style="align-items:center;">
@@ -8357,13 +8357,26 @@ function migrationLiveAmount(){
   return Math.round(value*100)/100;
 }
 function migrationLiveAmountLabel(amount){
-  return '$'+Number(amount).toFixed(2);
+  var n=Number(amount);
+  if(!Number.isFinite(n))return '$0.00';
+  var abs=Math.abs(n);
+  if(abs>=1000000){
+    var millions=n/1000000;
+    var m=Math.round(millions*100)/100;
+    return '$'+String(m).replace(/\.0+$|(?<=\.[0-9])0+$/,'')+'M';
+  }
+  if(abs>=100000){
+    var thousands=n/1000;
+    var k=Math.round(thousands*10)/10;
+    return '$'+String(k).replace(/\.0$/,'')+'K';
+  }
+  return '$'+n.toFixed(2);
 }
 function updateMigrationLiveChargeButton(){
   var btn=document.getElementById('migration-test-btn');
   if(!btn||btn.dataset.mode!=='live')return;
   var amount=migrationLiveAmount();
-  var valid=amount!==null&&amount>=0.50&&amount<=1000;
+  var valid=amount!==null&&amount>=0.50;
   btn.disabled=!valid;
   btn.textContent=valid?'Verify charge '+migrationLiveAmountLabel(amount):'Enter amount';
 }
@@ -8371,7 +8384,7 @@ function chargeMigrationLiveVerification(){
   if(!currentMigrationCheck||!currentMigrationCheck.livemode){setMigrationResult('Verify the destination first.','error');return;}
   if(String(currentMigrationCheck.currency||'').toLowerCase()!=='usd'){setMigrationResult('Live verification charging is currently available only for USD subscriptions.','error');return;}
   var amount=migrationLiveAmount();
-  if(amount===null||amount<0.50||amount>1000){setMigrationResult('Enter a verification amount between $0.50 and $1,000.00.','error');return;}
+  if(amount===null||amount<0.50){setMigrationResult('Enter a verification amount of at least $0.50.','error');return;}
   var amountLabel=migrationLiveAmountLabel(amount);
   openAppActionConfirm({
     title:'Verify '+amountLabel+' charge on destination?',

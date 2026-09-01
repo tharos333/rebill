@@ -2324,8 +2324,9 @@ app.post('/api/migrations/live-verification-charge', async (req, res) => {
     const pm = pmInfo.paymentMethod;
     if (!pm) return res.status(400).json({ error:'No reusable saved card is attached to the destination customer' });
     const amountMajor = Number(req.body.amount);
-    if (!Number.isFinite(amountMajor) || amountMajor < 0.50 || amountMajor > 1000) return res.status(400).json({ error:'Verification amount must be between $0.50 and $1,000.00' });
+    if (!Number.isFinite(amountMajor) || amountMajor < 0.50) return res.status(400).json({ error:'Verification amount must be at least $0.50' });
     const amountMinor = Math.round(amountMajor * 100);
+    if (!Number.isSafeInteger(amountMinor)) return res.status(400).json({ error:'Verification amount is too large to process safely' });
     if (Math.abs((amountMinor / 100) - amountMajor) > 0.000001) return res.status(400).json({ error:'Verification amount can have at most 2 decimal places' });
     const requestId = String(req.body.request_id || '').replace(/[^A-Za-z0-9_-]/g,'').slice(0,80);
     if (!requestId) return res.status(400).json({ error:'Verification request ID is required' });
