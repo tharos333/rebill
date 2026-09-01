@@ -2196,6 +2196,107 @@ function migrationPaymentStatus(pi) {
   return pi?.status || 'failed';
 }
 
+// Migration verification payments need an explicit Stripe-B customer association.
+// A copied Stripe customer can have the same cus_ ID on Stripe A and Stripe B, so
+// routing these attempts through the generic importer can associate them ambiguously.
+async function ensureMigrationDestinationLocalCustomer(stripe, destination, destinationCustomerId, cardDetails = {}, paymentMethodId = null) {
+  const stripeCustomer = await stripe.customers.retrieve(destinationCustomerId);
+  if (!stripeCustomer || stripeCustomer.deleted) throw new Error('Destination Stripe customer has been deleted');
+  const email = cleanEmail(stripeCustomer.email) || `${destinationCustomerId}@stripe.local`;
+  const name = stripeCustomer.name || stripeCustomer.email || destinationCustomerId;
+
+  const r = await pool.query(`
+    INSERT INTO customers (
+      email,name,stripe_customer_id,stripe_payment_method,stripe_account_id,
+      card_brand,card_last4,card_exp_month,card_exp_year,status,workspace_id
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'active',$10)
+    ON CONFLICT (stripe_account_id,stripe_customer_id) DO UPDATE SET
+      email=EXCLUDED.email,
+      name=EXCLUDED.name,
+      stripe_payment_method=COALESCE(EXCLUDED.stripe_payment_method,customers.stripe_payment_method),
+      card_brand=COALESCE(EXCLUDED.card_brand,customers.card_brand),
+      card_last4=COALESCE(EXCLUDED.card_last4,customers.card_last4),
+      card_exp_month=COALESCE(EXCLUDED.card_exp_month,customers.card_exp_month),
+      card_exp_year=COALESCE(EXCLUDED.card_exp_year,customers.card_exp_year),
+      workspace_id=EXCLUDED.workspace_id
+    RETURNING id,email,name
+  `, [
+    email, name, destinationCustomerId, paymentMethodId || null, destination.id,
+    cardDetails.brand || null, cardDetails.last4 || null, cardDetails.exp_month || null,
+    cardDetails.exp_year || null, destination.workspace_id || null
+  ]);
+  return r.rows[0];
+}
+
+async function persistMigrationVerificationPayment(stripe, destination, destinationCustomerId, pi, forcedStatus = null) {
+  await ensureWebhookColumns();
+  if (typeof pi === 'string') pi = await stripe.paymentIntents.retrieve(pi, { expand:['latest_charge','payment_method'] });
+  if (!pi?.id) throw new Error('Stripe did not return a PaymentIntent to save');
+
+  try {
+    const fullPi = await stripe.paymentIntents.retrieve(pi.id, { expand:['latest_charge','payment_method'] });
+    pi = { ...pi, ...fullPi, latest_charge:fullPi.latest_charge || pi.latest_charge, payment_method:fullPi.payment_method || pi.payment_method };
+  } catch (e) {
+    console.log('[migration-payment-save] could not expand PaymentIntent:', e.message);
+  }
+
+  const cardDetails = await getCardDetailsFromPaymentIntent(stripe, pi);
+  const paymentMethodId = typeof pi.payment_method === 'string' ? pi.payment_method : pi.payment_method?.id || null;
+  const localCustomer = await ensureMigrationDestinationLocalCustomer(
+    stripe, destination, destinationCustomerId, cardDetails, paymentMethodId
+  );
+
+  const status = forcedStatus || migrationPaymentStatus(pi);
+  const failureReason = pi.last_payment_error?.message || pi.cancellation_reason || null;
+  const financials = await getFinancialsFromPaymentIntent(stripe, pi);
+  // Use the requested amount for failed/blocked attempts too; amount_received is 0 there.
+  const amount = Number.isFinite(Number(pi.amount)) ? Number(pi.amount) : (financials.amount || pi.amount_received || 0);
+  const currency = pi.currency || financials.currency || 'usd';
+  const createdAt = Number.isFinite(Number(pi.created)) ? new Date(Number(pi.created) * 1000) : new Date();
+
+  const existing = await pool.query('SELECT id,status,was_failed,recovered_at FROM payments WHERE stripe_payment_intent=$1', [pi.id]);
+  let paymentId;
+  if (existing.rows[0]) {
+    paymentId = existing.rows[0].id;
+    await pool.query(`UPDATE payments SET
+      customer_id=$1, subscription_id=NULL, amount=$2, currency=$3, status=$4, failure_reason=$5,
+      card_brand=COALESCE($6,card_brand), card_last4=COALESCE($7,card_last4),
+      card_exp_month=COALESCE($8,card_exp_month), card_exp_year=COALESCE($9,card_exp_year),
+      card_country=COALESCE($10,card_country), card_funding=COALESCE($11,card_funding),
+      payment_method_type=COALESCE($12,payment_method_type), wallet_type=COALESCE($13,wallet_type), wallet_checked=TRUE,
+      stripe_fee=COALESCE($14,stripe_fee), net_amount=COALESCE($15,net_amount),
+      balance_transaction_id=COALESCE($16,balance_transaction_id), financial_currency=COALESCE($17,financial_currency),
+      was_failed=COALESCE(was_failed,false) OR $4='failed',
+      recovered_at=CASE WHEN $4='succeeded' AND (COALESCE(was_failed,false) OR status='failed') THEN COALESCE(recovered_at,NOW()) ELSE recovered_at END,
+      payment_origin='migration_verification'
+      WHERE id=$18`, [
+        localCustomer.id, amount, currency, status, failureReason,
+        cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year,
+        cardDetails.country, cardDetails.funding, cardDetails.payment_method_type, cardDetails.wallet_type,
+        financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency,
+        paymentId
+      ]);
+  } else {
+    const ins = await pool.query(`INSERT INTO payments (
+      customer_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,
+      card_brand,card_last4,card_exp_month,card_exp_year,card_country,card_funding,
+      payment_method_type,wallet_type,wallet_checked,stripe_fee,net_amount,balance_transaction_id,
+      financial_currency,was_failed,payment_origin,created_at
+    ) VALUES ($1,NULL,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,TRUE,$15,$16,$17,$18,$19,'migration_verification',$20)
+    RETURNING id`, [
+      localCustomer.id, pi.id, amount, currency, status, failureReason,
+      cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year,
+      cardDetails.country, cardDetails.funding, cardDetails.payment_method_type, cardDetails.wallet_type,
+      financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency,
+      status === 'failed', createdAt
+    ]);
+    paymentId = ins.rows[0].id;
+  }
+
+  console.log('[migration-payment-save] saved:', pi.id, 'payment:', paymentId, 'destination account:', destination.id, 'customer:', destinationCustomerId, 'status:', status);
+  return paymentId;
+}
+
 async function syncMigrationVerificationHistory(stripe, destination, destinationCustomerId) {
   try {
     const list = await stripe.paymentIntents.list({ customer: destinationCustomerId, limit: 100 });
@@ -2205,7 +2306,7 @@ async function syncMigrationVerificationHistory(stripe, destination, destination
         || String(pi?.description || '').toLowerCase().includes('subloop stripe migration verification')
         || String(pi?.description || '').toLowerCase().includes('subloop migration test');
       if (!isMigrationVerification) continue;
-      await savePaymentIntent(stripe, destination, pi, migrationPaymentStatus(pi)).catch((saveErr) => {
+      await persistMigrationVerificationPayment(stripe, destination, destinationCustomerId, pi, migrationPaymentStatus(pi)).catch((saveErr) => {
         console.error('[migration-history-sync] could not save PaymentIntent', pi?.id || '-', saveErr.message);
       });
     }
@@ -2264,11 +2365,12 @@ app.post('/api/migrations/check', async (req, res) => {
 app.post('/api/migrations/test-charge', async (req, res) => {
   let stripe = null;
   let destination = null;
+  let destinationCustomerId = '';
   try {
     const ctx = await migrationContext(req, res, req.body.subscription_id); if (!ctx) return;
     const { row, sourceAccount } = ctx;
     destination = await migrationDestinationAccount(req, res, sourceAccount.id, req.body.destination_stripe_account_id); if (!destination) return;
-    const destinationCustomerId = String(req.body.destination_customer_id || '').trim();
+    destinationCustomerId = String(req.body.destination_customer_id || '').trim();
     if (!/^cus_[A-Za-z0-9]+$/.test(destinationCustomerId)) return res.status(400).json({ error:'A valid destination customer ID (cus_...) is required' });
     stripe = new Stripe(destination.secret_key);
     const customer = await stripe.customers.retrieve(destinationCustomerId);
@@ -2288,7 +2390,7 @@ app.post('/api/migrations/test-charge', async (req, res) => {
       description:'Subloop migration test',
       metadata:{ subloop_migration_test:'true', source_subscription_id:String(row.id), source_stripe_subscription_id:String(row.stripe_subscription_id || '') }
     });
-    await savePaymentIntent(stripe, destination, pi, migrationPaymentStatus(pi)).catch((saveErr) => {
+    await persistMigrationVerificationPayment(stripe, destination, destinationCustomerId, pi, migrationPaymentStatus(pi)).catch((saveErr) => {
       console.error('[migration-test-charge] could not save PaymentIntent:', saveErr.message);
     });
     res.json({ success:pi.status==='succeeded', status:pi.status, payment_intent_id:pi.id, amount:pi.amount, currency:pi.currency });
@@ -2296,7 +2398,7 @@ app.post('/api/migrations/test-charge', async (req, res) => {
     console.error('[migration-test-charge]',err.message);
     const failedPi = err?.payment_intent || err?.raw?.payment_intent || null;
     if (stripe && destination && failedPi) {
-      await savePaymentIntent(stripe, destination, failedPi, 'failed').catch((saveErr) => {
+      await persistMigrationVerificationPayment(stripe, destination, destinationCustomerId, failedPi, 'failed').catch((saveErr) => {
         console.error('[migration-test-charge] could not save failed PaymentIntent:', saveErr.message);
       });
     }
@@ -2308,11 +2410,12 @@ app.post('/api/migrations/test-charge', async (req, res) => {
 app.post('/api/migrations/live-verification-charge', async (req, res) => {
   let stripe = null;
   let destination = null;
+  let destinationCustomerId = '';
   try {
     const ctx = await migrationContext(req, res, req.body.subscription_id); if (!ctx) return;
     const { row, sourceAccount } = ctx;
     destination = await migrationDestinationAccount(req, res, sourceAccount.id, req.body.destination_stripe_account_id); if (!destination) return;
-    const destinationCustomerId = String(req.body.destination_customer_id || '').trim();
+    destinationCustomerId = String(req.body.destination_customer_id || '').trim();
     if (!/^cus_[A-Za-z0-9]+$/.test(destinationCustomerId)) return res.status(400).json({ error:'A valid destination customer ID (cus_...) is required' });
     const currency = String(row.currency || '').toLowerCase();
     if (currency !== 'usd') return res.status(400).json({ error:'Live verification charging is currently available only for USD subscriptions' });
@@ -2350,7 +2453,7 @@ app.post('/api/migrations/live-verification-charge', async (req, res) => {
     // Save immediately so migration verification payments appear in Subloop even if
     // the destination Stripe account webhook is missing or delayed. savePaymentIntent
     // upserts by Stripe PaymentIntent ID, so a later webhook updates the same row.
-    await savePaymentIntent(stripe, destination, pi).catch((saveErr) => {
+    await persistMigrationVerificationPayment(stripe, destination, destinationCustomerId, pi, migrationPaymentStatus(pi)).catch((saveErr) => {
       console.error('[migration-live-verification-charge] could not save PaymentIntent:', saveErr.message);
     });
 
@@ -2362,7 +2465,7 @@ app.post('/api/migrations/live-verification-charge', async (req, res) => {
     // so blocked/declined verification attempts show on the Subloop Payments page.
     const failedPi = err?.payment_intent || err?.raw?.payment_intent || null;
     if (stripe && destination && failedPi) {
-      await savePaymentIntent(stripe, destination, failedPi, 'failed').catch((saveErr) => {
+      await persistMigrationVerificationPayment(stripe, destination, destinationCustomerId, failedPi, 'failed').catch((saveErr) => {
         console.error('[migration-live-verification-charge] could not save failed PaymentIntent:', saveErr.message);
       });
     }
