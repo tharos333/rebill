@@ -2832,13 +2832,19 @@ app.get('/api/payments/:id/migration-retry-context', async (req, res) => {
     }
 
     const charge = pi.latest_charge && typeof pi.latest_charge === 'object' ? pi.latest_charge : null;
-    const blockReason = retryBlockReason({
+    const retryAdvice = {
       last_error_decline_code:pi.last_payment_error?.decline_code || null,
       last_error_code:pi.last_payment_error?.code || null,
       advice_code:charge?.outcome?.advice_code || null,
       failure_reason:payment.failure_reason || pi.last_payment_error?.message || null
-    });
-    if (blockReason) return res.status(409).json({ error:blockReason });
+    };
+    const blockReason = retryBlockReason(retryAdvice);
+    const authenticationRequired = retryAdvice.last_error_decline_code === 'authentication_required'
+      || retryAdvice.last_error_code === 'authentication_required';
+    const retryWarning = !authenticationRequired && retryAdvice.advice_code === 'try_again_later'
+      ? blockReason
+      : null;
+    if (blockReason && !retryWarning) return res.status(409).json({ error:blockReason });
 
     const ctx = await migrationContext(req, res, sourceSubscriptionId);
     if (!ctx) return;
@@ -2856,7 +2862,8 @@ app.get('/api/payments/:id/migration-retry-context', async (req, res) => {
       destination_account_name:destination.name,
       destination_customer_id:destinationCustomerId,
       amount:payment.amount,
-      currency:payment.currency || pi.currency || 'usd'
+      currency:payment.currency || pi.currency || 'usd',
+      retry_warning:retryWarning
     });
   } catch(err) {
     console.error('[migration-retry-context]', err.message);
