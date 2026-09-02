@@ -233,8 +233,9 @@ textarea{resize:vertical;min-height:60px}
 .migration-result-box.visible{display:block}
 .migration-result-box.success{background:var(--green-bg);border-color:var(--green);color:var(--green)}
 .migration-result-box.error{background:var(--red-bg);border-color:var(--red);color:var(--red);font-size:12px}
-.migration-result-box.warning{background:var(--amber-bg);border-color:var(--amber);color:var(--amber)}
-.migration-result-box .migration-result-title{font-family:var(--mono);font-size:13px;font-weight:400;letter-spacing:normal;line-height:1.25;margin-bottom:4px;color:inherit}
+.migration-result-box.warning{background:rgba(245,158,11,.07);border-color:rgba(245,158,11,.22);color:#f59e0b}
+.migration-result-box .migration-result-title{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:13px;font-weight:400;letter-spacing:normal;line-height:1.25;margin-bottom:4px;color:inherit}
+.migration-result-box .migration-result-icon{display:block;width:14px;height:14px;flex:0 0 14px}
 .migration-result-box .migration-result-detail{font-family:var(--mono);font-size:11px;font-weight:400;letter-spacing:normal;line-height:1.5;color:var(--muted)}
 /* Migration payment method uses the exact same card-brand icon treatment as Customers / Payments. */
 .migration-readonly-payment{width:100%;min-height:34px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:8px 11px;font-size:13px!important;font-family:var(--font-ui)!important;font-weight:600!important;letter-spacing:-.01em!important;display:flex;align-items:center;box-sizing:border-box}
@@ -8263,6 +8264,11 @@ function setMigrationResult(html,state){
   if(state==='success'||state==='error')box.classList.add(state);
   box.innerHTML=html;
 }
+function migrationResultIcon(type){
+  if(type==='success')return '<svg class="migration-result-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9"/></svg>';
+  if(type==='warning')return '<svg class="migration-result-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+  return '';
+}
 function setMigrationRetryWarning(message){
   var box=document.getElementById('migration-retry-warning');
   if(!box)return;
@@ -8274,7 +8280,7 @@ function setMigrationRetryWarning(message){
   }
   box.style.display='block';
   box.classList.add('visible','warning');
-  box.innerHTML='<div class="migration-result-title">Retry later</div><div class="migration-result-detail">'+escHtml(message)+' No charge has been made.</div>';
+  box.innerHTML='<div class="migration-result-title">'+migrationResultIcon('warning')+'<span>Retry later</span></div><div class="migration-result-detail">'+escHtml(message)+' No charge has been made.</div>';
 }
 async function openMigrationModal(subId){
   if(blockViewOnlyAction())return;
@@ -8375,7 +8381,7 @@ async function checkMigrationDestination(){
     var r=await api('/api/migrations/check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subscription_id:subId,destination_stripe_account_id:accountId,destination_customer_id:customerId})});
     currentMigrationCheck={subscription_id:subId,destination_stripe_account_id:accountId,destination_customer_id:customerId,currency:r.subscription?.currency||'usd',livemode:!!r.livemode,can_live_charge:!!r.can_live_charge};
     var lines=[];
-    lines.push('<div class="migration-result-title">'+(r.ready?'✓ Destination verified':'Destination not verified')+'</div>');
+    lines.push('<div class="migration-result-title">'+(r.ready?migrationResultIcon('success')+'<span>Destination verified</span>':'<span>Destination not verified</span>')+'</div>');
     lines.push('<div class="migration-result-detail">');
     lines.push('Source: '+escHtml(r.source_account.name)+' · '+escHtml(migrationCardLabel(r.source_payment_method))+'<br>');
     lines.push('Destination: '+escHtml(r.destination_account.name)+' · '+escHtml(migrationCardLabel(r.destination_payment_method))+'<br>');
