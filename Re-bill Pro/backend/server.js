@@ -2765,9 +2765,15 @@ app.post('/api/subscriptions/:id/charge', async (req, res) => {
       // Deliberately do NOT alter next_billing_date: Stripe Billing owns the renewal schedule.
       res.json({ success:pi.status==='succeeded', status:pi.status, paymentIntentId:pi.id, renewal_date_unchanged:true, definitive:true });
     } catch(chargeErr) {
-      if (chargeErr?.payment_intent) await savePaymentIntent(stripe, acc, chargeErr.payment_intent, 'failed').catch(()=>{});
-      // Stripe returned a known result (card_error / authentication_required / etc.) — definitive.
-      return res.status(402).json({ success:false, error:chargeErr.message, definitive:true });
+      const failedPi = chargeErr?.payment_intent || chargeErr?.raw?.payment_intent || null;
+      if (failedPi?.id) {
+        await savePaymentIntent(stripe, acc, failedPi, 'failed').catch(()=>{});
+        // Stripe attached a PaymentIntent, so the decline/authentication result is known.
+        return res.status(402).json({ success:false, error:chargeErr.message, definitive:true });
+      }
+      // Connection, Stripe API, or local persistence failures can be ambiguous. Preserve the
+      // attempt_id so the next click reuses the same Stripe idempotency key.
+      throw chargeErr;
     }
   } catch(err) {
     // Unexpected/DB-level failure — we don't know if Stripe already processed the charge. Ambiguous.
@@ -2881,13 +2887,25 @@ app.post('/api/payments/:id/retry', async (req, res) => {
 
     let invoiceId = p.stripe_invoice_id || null;
     if (!invoiceId && p.stripe_payment_intent) {
-      const originalPi = await stripe.paymentIntents.retrieve(p.stripe_payment_intent, { expand:['invoice'] }).catch(()=>null);
-      invoiceId = typeof originalPi?.invoice === 'string' ? originalPi.invoice : originalPi?.invoice?.id || null;
+      try {
+        const originalPi = await stripe.paymentIntents.retrieve(p.stripe_payment_intent, { expand:['invoice'] });
+        invoiceId = typeof originalPi?.invoice === 'string' ? originalPi.invoice : originalPi?.invoice?.id || null;
+      } catch(lookupErr) {
+        // No new payment was attempted. Do not guess that this is standalone and accidentally
+        // create a disconnected PaymentIntent when the Stripe invoice lookup is unavailable.
+        return res.status(502).json({ success:false, error:'Could not verify the original payment invoice. No retry charge was created.', definitive:true });
+      }
     }
 
-    // Stripe subscription failures must retry/pay the actual invoice. Creating a separate
-    // PaymentIntent would leave Stripe Billing's invoice unpaid and the subscription past due.
-    if (invoiceId && (p.subscription_id || p.stripe_subscription_id)) {
+    const paymentOrigin = String(p.payment_origin || '').toLowerCase();
+    const isStripeBillingPayment = ['subscription','subscription_initial','subscription_renewal'].includes(paymentOrigin);
+    if (isStripeBillingPayment && !invoiceId) {
+      return res.status(409).json({ success:false, error:'The Stripe invoice for this subscription payment could not be identified. No retry charge was created.', definitive:true });
+    }
+
+    // Any Stripe invoice failure must retry/pay the actual invoice. Creating a separate
+    // PaymentIntent would leave that invoice unpaid (and a Billing subscription past due).
+    if (invoiceId) {
       const invoice = await stripe.invoices.retrieve(invoiceId, { expand:['subscription','payment_intent'] });
       if (invoice.status === 'paid') return res.status(409).json({ error:'This Stripe invoice is already paid', definitive:true });
       const originalPiId = p.stripe_payment_intent || (typeof invoice.payment_intent === 'string' ? invoice.payment_intent : invoice.payment_intent?.id || null);
@@ -2916,6 +2934,12 @@ app.post('/api/payments/:id/retry', async (req, res) => {
         return res.json({ success:paidInvoice.status==='paid', status:paidInvoice.status, invoice_id:invoiceId, retry_of_payment_id:p.id, payment_id:newPaymentId, definitive:true });
       } catch(invoiceErr) {
         if (originalPiId) await pool.query('UPDATE payments SET stripe_payment_intent=$1 WHERE id=$2 AND stripe_payment_intent IS NULL', [originalPiId,p.id]).catch(()=>{});
+        const failedPi = invoiceErr?.payment_intent || invoiceErr?.raw?.payment_intent || null;
+        if (failedPi?.id) {
+          const paymentId = await savePaymentIntent(stripe, acc, failedPi, 'failed').catch(()=>null);
+          if (paymentId && Number(paymentId) !== Number(p.id)) await pool.query('UPDATE payments SET retry_of_payment_id=$1 WHERE id=$2', [p.id,paymentId]).catch(()=>{});
+          return res.status(402).json({ success:false, error:invoiceErr.message, invoice_id:invoiceId, retry_of_payment_id:p.id, payment_id:paymentId, definitive:true });
+        }
         throw invoiceErr;
       }
     }
@@ -2933,12 +2957,16 @@ app.post('/api/payments/:id/retry', async (req, res) => {
       await activityLog.add('retry', `Retried payment for ${p.name}: ${status}`, p.customer_id, p.amount);
       return res.json({ success:status==='succeeded', status, retry_of_payment_id:p.id, payment_id:paymentId, definitive:true });
     } catch(retryErr) {
-      if (retryErr?.payment_intent) {
-        const paymentId = await savePaymentIntent(stripe, acc, retryErr.payment_intent, 'failed').catch(()=>null);
+      const failedPi = retryErr?.payment_intent || retryErr?.raw?.payment_intent || null;
+      if (failedPi?.id) {
+        const paymentId = await savePaymentIntent(stripe, acc, failedPi, 'failed').catch(()=>null);
         if (paymentId) await pool.query('UPDATE payments SET retry_of_payment_id=$1 WHERE id=$2', [p.id,paymentId]).catch(()=>{});
+        // Stripe attached a PaymentIntent, so the decline/authentication result is known.
+        return res.status(402).json({ success:false, error:retryErr.message, definitive:true });
       }
-      // Stripe returned a known result — definitive.
-      return res.status(402).json({ success:false, error:retryErr.message, definitive:true });
+      // Do not clear the attempt_id when Stripe may have processed the request but no result
+      // reached Subloop, or when local persistence failed after Stripe accepted it.
+      throw retryErr;
     }
   } catch(err) {
     console.error('[payment-retry] failed:', err.message);
