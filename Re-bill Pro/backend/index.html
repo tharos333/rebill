@@ -8265,8 +8265,7 @@ function setMigrationResult(html,state){
   box.innerHTML=html;
 }
 function migrationResultIcon(type){
-  if(type==='success')return '<svg class="migration-result-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9"/></svg>';
-  if(type==='warning')return '<svg class="migration-result-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+  if(type==='success')return '<svg class="migration-result-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9"/></svg>';
   return '';
 }
 function setMigrationRetryWarning(message){
@@ -8280,7 +8279,7 @@ function setMigrationRetryWarning(message){
   }
   box.style.display='block';
   box.classList.add('visible','warning');
-  box.innerHTML='<div class="migration-result-title">'+migrationResultIcon('warning')+'<span>Retry later</span></div><div class="migration-result-detail">'+escHtml(message)+' No charge has been made.</div>';
+  box.innerHTML='<div class="migration-result-title"><span>Retry later</span></div><div class="migration-result-detail">'+escHtml(message)+' No charge has been made.</div>';
 }
 async function openMigrationModal(subId){
   if(blockViewOnlyAction())return;
