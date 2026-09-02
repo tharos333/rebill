@@ -2798,6 +2798,71 @@ app.delete('/api/subscriptions/:id', async (req, res) => {
 
 // ── Payments ──────────────────────────────────────────────────────────────────
 app.get('/api/payments', async (req, res) => { try { const list=await payments.recent(1000,req.currentUser.workspace_id); res.json(list.filter(p => rowWithinScope(req,p))); } catch(err) { res.status(500).json({ error: err.message }); } });
+app.get('/api/payments/:id/migration-retry-context', async (req, res) => {
+  try {
+    if (!requireOwnerOrAdmin(req, res)) return;
+    const r = await pool.query(`SELECT p.*, c.workspace_id
+      FROM payments p JOIN customers c ON c.id=p.customer_id WHERE p.id=$1`, [req.params.id]);
+    const payment = r.rows[0];
+    if (!payment) return res.status(404).json({ error:'Payment not found' });
+    if (!ensureRowScope(req, res, { stripe_account_id:payment.stripe_account_id, workspace_id:payment.workspace_id })) return;
+    if (String(payment.payment_origin || '').toLowerCase() !== 'migration_verification') {
+      return res.status(400).json({ error:'This is not a migration verification payment' });
+    }
+    if (normalizeSubStatus(payment.status) !== 'failed') {
+      return res.status(409).json({ error:'Only failed migration verification payments can be retried' });
+    }
+    if (!payment.stripe_payment_intent) {
+      return res.status(409).json({ error:'This migration payment has no Stripe PaymentIntent reference' });
+    }
+
+    const destination = await stripeAccounts.byId(payment.stripe_account_id);
+    if (!destination?.secret_key || Number(destination.workspace_id) !== Number(req.currentUser.workspace_id)) {
+      return res.status(404).json({ error:'Destination Stripe account is no longer available' });
+    }
+    const stripe = new Stripe(destination.secret_key);
+    const pi = await stripe.paymentIntents.retrieve(payment.stripe_payment_intent, { expand:['latest_charge'] });
+    const destinationCustomerId = typeof pi.customer === 'string' ? pi.customer : pi.customer?.id || '';
+    const sourceSubscriptionId = Number(pi.metadata?.source_subscription_id);
+    if (!Number.isInteger(sourceSubscriptionId)) {
+      return res.status(409).json({ error:'This older migration payment does not contain its source subscription. Start from Migrate Subscription instead.' });
+    }
+    if (!/^cus_[A-Za-z0-9]+$/.test(destinationCustomerId)) {
+      return res.status(409).json({ error:'The destination Stripe customer could not be identified' });
+    }
+
+    const charge = pi.latest_charge && typeof pi.latest_charge === 'object' ? pi.latest_charge : null;
+    const blockReason = retryBlockReason({
+      last_error_decline_code:pi.last_payment_error?.decline_code || null,
+      last_error_code:pi.last_payment_error?.code || null,
+      advice_code:charge?.outcome?.advice_code || null,
+      failure_reason:payment.failure_reason || pi.last_payment_error?.message || null
+    });
+    if (blockReason) return res.status(409).json({ error:blockReason });
+
+    const ctx = await migrationContext(req, res, sourceSubscriptionId);
+    if (!ctx) return;
+    if (Number(ctx.row.customer_id) !== Number(payment.customer_id)) {
+      return res.status(409).json({ error:'The migration source no longer matches this payment' });
+    }
+    if (Number(ctx.sourceAccount.id) === Number(destination.id)) {
+      return res.status(409).json({ error:'The original destination is now the source Stripe account' });
+    }
+
+    res.json({
+      payment_id:payment.id,
+      subscription_id:ctx.row.id,
+      destination_stripe_account_id:destination.id,
+      destination_account_name:destination.name,
+      destination_customer_id:destinationCustomerId,
+      amount:payment.amount,
+      currency:payment.currency || pi.currency || 'usd'
+    });
+  } catch(err) {
+    console.error('[migration-retry-context]', err.message);
+    res.status(err.statusCode || 500).json({ error:err.message });
+  }
+});
 app.get('/api/payments/:id/financials', async (req, res) => {
   try {
     await ensureWebhookColumns();

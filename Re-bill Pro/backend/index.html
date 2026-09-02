@@ -8312,10 +8312,37 @@ async function openMigrationModal(subId){
     }
     document.getElementById('migration-check-btn').disabled=!destinations.length;
     if(!destinations.length)setMigrationResult('Add a second Stripe account to Subloop before testing a migration.','error');
+    return true;
   }catch(e){
     document.getElementById('migration-check-btn').disabled=true;
     setMigrationResult(escHtml(e.message||'Unable to load migration details'),'error');
+    return false;
   }
+}
+async function retryMigrationVerification(paymentId,btn){
+  if(blockViewOnlyAction())return;
+  if(!['owner','admin'].includes(getCurrentRole())){toast('Owner or admin access required','error');return;}
+  if(btn&&btn.disabled)return;
+  if(btn)btn.disabled=true;
+  try{
+    var context=await api('/api/payments/'+paymentId+'/migration-retry-context');
+    closeModal('payment-detail-modal');
+    var loaded=await openMigrationModal(context.subscription_id);
+    if(!loaded)return;
+    var select=document.getElementById('migration-destination-account');
+    var destinationId=String(context.destination_stripe_account_id||'');
+    var option=select&&Array.from(select.options).find(function(item){return String(item.value)===destinationId;});
+    if(!option){setMigrationResult('The original destination Stripe account is not available for this migration.','error');return;}
+    select.value=destinationId;
+    document.getElementById('migration-destination-customer').value=context.destination_customer_id||'';
+    await checkMigrationDestination();
+    if(currentMigrationCheck&&currentMigrationCheck.livemode){
+      var amountInput=document.getElementById('migration-live-amount');
+      var amountMajor=Number(context.amount||0)/100;
+      if(amountInput&&Number.isFinite(amountMajor)&&amountMajor>=0.50){amountInput.value=amountMajor.toFixed(2);updateMigrationLiveChargeButton();}
+    }
+  }catch(e){toast((e&&e.message)||'Could not reopen this migration verification','error');}
+  finally{if(btn)btn.disabled=false;}
 }
 async function checkMigrationDestination(){
   var subId=Number(document.getElementById('migration-sub-id').value);
@@ -8764,15 +8791,18 @@ function tableAccountDisplayName(accountName){
 }
 function renderPayments(list){
   var isViewer=localStorage.getItem('subloop_readonly')==='1';
+  var canManageMigration=['owner','admin'].includes(getCurrentRole());
   var tb=document.getElementById('payments-table');
   if(!list.length){tb.innerHTML='<tr><td colspan="'+(isViewer?8:9)+'" class="empty">No payments found</td></tr>';return;}
   tb.innerHTML=list.map(function(p){
     var isGhost=((p.email||'').toLowerCase().endsWith('@stripe.local')||(p.name||'').startsWith('pi_')||(p.name||'').startsWith('external_'));
+    var paymentOrigin=String(p.payment_origin||'').toLowerCase();
     var shortReason=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'';
     var reasonHtml=shortReason?'<div style="font-size:12px;color:var(--red);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+p.failure_reason+'">'+shortReason+'</div>':'<span style="color:var(--muted);font-size:12px;">—</span>';
     var refHtml=isViewer?buildRefReadOnlyCell(p.stripe_payment_intent):buildRefCell(p.stripe_payment_intent);
     var actions='<div style="display:flex;gap:4px;align-items:center;">';
-    if(!isViewer&&p.status==='failed'&&!isGhost&&String(p.payment_origin||'').toLowerCase()!=='migration_verification')actions+='<button class="btn btn-sm btn-success" onclick="event.stopPropagation();retryPayment('+p.id+',this)">Retry</button>';
+    if(!isViewer&&p.status==='failed'&&!isGhost&&paymentOrigin!=='migration_verification')actions+='<button class="btn btn-sm btn-success" onclick="event.stopPropagation();retryPayment('+p.id+',this)">Retry</button>';
+    if(!isViewer&&canManageMigration&&p.status==='failed'&&!isGhost&&paymentOrigin==='migration_verification')actions+='<button class="btn btn-sm btn-success" onclick="event.stopPropagation();retryMigrationVerification('+p.id+',this)">Retry</button>';
     if(!isViewer)actions+='<button class="btn btn-sm payment-note-btn" onclick="event.stopPropagation();openPaymentNote('+p.id+')" title="'+(p.note||'Add note')+'">'+(p.note?'<svg class="payment-note-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/></svg><span>Note</span>':'Note')+'</button>';
     actions+='</div>';
     var rowBg=(p.status==='failed'||isGhost)?'background:rgba(248,113,113,0.04);':'';
@@ -8843,6 +8873,8 @@ function renderPaymentDetailModal(p, syncing){
   if(!p||!p.id)return;
   var isGhost=((p.email||'').toLowerCase().endsWith('@stripe.local')||(p.name||'').startsWith('pi_')||(p.name||'').startsWith('external_'));
   var isViewer=localStorage.getItem('subloop_readonly')==='1';
+  var canManageMigration=['owner','admin'].includes(getCurrentRole());
+  var paymentOrigin=String(p.payment_origin||'').toLowerCase();
   var fullReason=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'';
   var isFailed=p.status==='failed', isSucceeded=p.status==='succeeded', isPaymentNeeded=badgeLabel(p.status)==='Payment needed', isCanceled=badgeLabel(p.status)==='Canceled';
   var isRedState=isFailed||isCanceled;
@@ -8939,7 +8971,8 @@ function renderPaymentDetailModal(p, syncing){
   h+='</div></section>';
 
   h+='</div>';
-  if(!isViewer&&isFailed&&!isGhost&&String(p.payment_origin||'').toLowerCase()!=='migration_verification'){h+='<div class="pd-fixed-actions"><button class="pd-retry-btn" onclick="var _b=this;closeModal(\'payment-detail-modal\');retryPayment('+p.id+',_b)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg><span>Retry payment</span></button></div>';}
+  if(!isViewer&&isFailed&&!isGhost&&paymentOrigin!=='migration_verification'){h+='<div class="pd-fixed-actions"><button class="pd-retry-btn" onclick="var _b=this;closeModal(\'payment-detail-modal\');retryPayment('+p.id+',_b)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg><span>Retry payment</span></button></div>';}
+  if(!isViewer&&canManageMigration&&isFailed&&!isGhost&&paymentOrigin==='migration_verification'){h+='<div class="pd-fixed-actions"><button class="pd-retry-btn" onclick="retryMigrationVerification('+p.id+',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg><span>Retry verification</span></button></div>';}
   h+='</div></div>';
   document.getElementById('payment-detail-body').innerHTML=h;
   bindDrawerScrollFades(document.querySelector('#payment-detail-modal .pd-drawer-scroll-body'));
