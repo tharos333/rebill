@@ -233,7 +233,6 @@ textarea{resize:vertical;min-height:60px}
 .migration-result-box.visible{display:block}
 .migration-result-box.success{background:var(--green-bg);border-color:var(--green);color:var(--green)}
 .migration-result-box.error{background:var(--red-bg);border-color:var(--red);color:var(--red);font-size:12px}
-.migration-result-box.warning{background:rgba(245,158,11,.07);border-color:rgba(245,158,11,.22);color:#f59e0b}
 .migration-result-box .migration-result-title{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:13px;font-weight:400;letter-spacing:normal;line-height:1.25;margin-bottom:4px;color:inherit}
 .migration-result-box .migration-result-icon{display:block;width:14px;height:14px;flex:0 0 14px}
 #embed-status.embed-ready{display:flex;align-items:center;gap:5px}
@@ -6618,7 +6617,7 @@ body.view-only-access #verification-debug-modal .modal-content{
 <!-- Modals -->
 <div class="modal-bg" id="add-customer-modal">
   <div class="modal">
-    <h3>Add Stripe Customer</h3><p>Enter the real Stripe customer ID. Subloop will retrieve the customer and reusable saved payment method directly from Stripe.</p>
+    <h3>Add Stripe Customer</h3><p>Import a customer and saved card from Stripe.</p>
     <div class="form-group"><label>Stripe customer ID (cus_...)</label><input type="text" id="mc-stripe-id" placeholder="cus_xxx..."></div>
     <div class="form-group"><label>Stripe account</label><select id="mc-account"><option value="">Default</option></select></div>
     <div class="form-group"><label>Note (optional)</label><textarea id="mc-note" placeholder="Internal note..."></textarea></div>
@@ -6669,7 +6668,7 @@ body.view-only-access #verification-debug-modal .modal-content{
 <div class="modal-bg" id="migration-modal">
   <div class="modal">
     <h3>Migrate Subscription</h3>
-    <p>Move this subscription to another connected Stripe account. Copy the customer and payment method in Stripe first, then verify the destination account below.</p>
+    <p>Copy the customer and card in Stripe, then verify the destination.</p>
     <input type="hidden" id="migration-sub-id">
     <div class="form-row">
       <div class="form-group"><label>Source account</label><input id="migration-source-account" type="text" readonly value="—"></div>
@@ -6686,7 +6685,6 @@ body.view-only-access #verification-debug-modal .modal-content{
       <input id="migration-live-amount" type="number" inputmode="decimal" min="0.50" step="0.01" placeholder="5.00" oninput="updateMigrationLiveChargeButton()">
     </div>
     <div id="migration-result" class="migration-result-box"></div>
-    <div id="migration-retry-warning" class="migration-result-box warning"></div>
     <div class="modal-footer" style="align-items:center;">
       <button class="btn" onclick="closeModal('migration-modal')">Cancel</button>
       <button class="btn" id="migration-test-btn" onclick="testMigrationCharge()" style="display:none;">Test card</button>
@@ -6723,7 +6721,7 @@ body.view-only-access #verification-debug-modal .modal-content{
   <div class="modal admin-access-modal">
     <div class="admin-access-head">
       <h3>Add user</h3>
-      <p>Control which data and Stripe accounts this user can access</p>
+      <p>Choose what this user can access.</p>
     </div>
     <div class="admin-access-body">
       <div class="form-row">
@@ -6762,7 +6760,7 @@ body.view-only-access #verification-debug-modal .modal-content{
         </div>
         <div id="perms-list" class="permission-choice-grid"></div>
       </div>
-      <div id="admin-analyst-note" class="analyst-note" style="display:none;">View-only users can open selected sections and assigned-account data only. Add, edit, retry, export and billing actions are disabled.</div>
+      <div id="admin-analyst-note" class="analyst-note" style="display:none;">View-only users can see selected sections and accounts but cannot make changes.</div>
     </div>
     <div class="modal-footer admin-access-footer">
       <button class="btn" onclick="closeModal('add-admin-modal')">Cancel</button>
@@ -6799,7 +6797,7 @@ body.view-only-access #verification-debug-modal .modal-content{
   <div class="modal admin-access-modal">
     <div class="admin-access-head">
       <h3>Edit access</h3>
-      <p id="edit-access-subtitle">Update role, sections and Stripe account access</p>
+      <p id="edit-access-subtitle">Update this user’s access.</p>
     </div>
     <div class="admin-access-body">
       <input type="hidden" id="edit-access-id">
@@ -6831,7 +6829,7 @@ body.view-only-access #verification-debug-modal .modal-content{
         <div class="access-section-header"><div><div id="edit-perms-title" class="access-section-title">Visible sections</div><div id="edit-perms-subtitle" class="access-section-subtitle">Choose which sections this user can view</div></div><div class="access-actions"><button class="btn btn-sm" onclick="selectAllEditPerms()" type="button">Select all</button><button class="btn btn-sm" onclick="clearAllEditPerms()" type="button">Clear</button></div></div>
         <div id="edit-perms-list" class="permission-choice-grid"></div>
       </div>
-      <div id="edit-analyst-note" class="analyst-note" style="display:none;">View-only users can open selected sections and assigned-account data only. Add, edit, retry, export and billing actions are disabled.</div>
+      <div id="edit-analyst-note" class="analyst-note" style="display:none;">View-only users can see selected sections and accounts but cannot make changes.</div>
       <div id="edit-access-error" style="display:none;background:var(--red-bg);border:1px solid var(--red);color:var(--red);border-radius:8px;padding:10px 14px;font-size:12px;font-family:var(--mono);margin-top:12px;"></div>
     </div>
     <div class="modal-footer admin-access-footer">
@@ -6894,7 +6892,7 @@ body.view-only-access #verification-debug-modal .modal-content{
 <div class="modal-bg" id="admin-login-activity-modal">
   <div class="modal" style="width:560px;max-width:calc(100vw - 32px);">
     <h3 id="admin-login-activity-title">Login activity</h3>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:16px;">Security history for this user only.</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:16px;">Recent sign-in activity for this user.</p>
     <div class="scrollable" style="max-height:300px;">
       <table>
         <thead><tr><th>IP Address</th><th>Result</th><th>Time</th></tr></thead>
@@ -6908,7 +6906,7 @@ body.view-only-access #verification-debug-modal .modal-content{
 <div class="modal-bg" id="verification-debug-modal">
   <div class="modal" style="width:760px;max-width:96vw;max-height:88vh;overflow:auto;">
     <h3>Stripe Account Check</h3>
-    <p>Simple check for payment access, payout access, and required Stripe actions.</p>
+    <p>Check payments, payouts, and required actions.</p>
     <div id="verification-debug-summary" style="font-size:13px;color:var(--text);font-family:var(--sans);margin-bottom:12px;line-height:1.5;"></div>
     <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin:8px 0 6px;">Technical details</div>
     <pre id="verification-debug-output" style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:12px;max-height:260px;overflow:auto;font-size:11px;line-height:1.45;color:var(--text);white-space:pre-wrap;"></pre>
@@ -8270,19 +8268,6 @@ function migrationResultIcon(type){
   if(type==='success')return '<svg class="migration-result-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9"/></svg>';
   return '';
 }
-function setMigrationRetryWarning(message){
-  var box=document.getElementById('migration-retry-warning');
-  if(!box)return;
-  if(!message){
-    box.classList.remove('visible');
-    box.style.display='none';
-    box.innerHTML='';
-    return;
-  }
-  box.style.display='block';
-  box.classList.add('visible','warning');
-  box.innerHTML='<div class="migration-result-title"><span>Retry later</span></div><div class="migration-result-detail">'+escHtml(message)+' No charge has been made.</div>';
-}
 async function openMigrationModal(subId){
   if(blockViewOnlyAction())return;
   if(!['owner','admin'].includes(getCurrentRole())){toast('Owner or admin access required','error');return;}
@@ -8294,7 +8279,6 @@ async function openMigrationModal(subId){
   var migrationSourceCardInput=document.getElementById('migration-source-card');if(migrationSourceCardInput){migrationSourceCardInput.textContent='Loading…';}
   document.getElementById('migration-destination-customer').value='';
   var result=document.getElementById('migration-result');if(result){result.classList.remove('visible');result.style.display='none';result.innerHTML='';}
-  setMigrationRetryWarning('');
   var test=document.getElementById('migration-test-btn');if(test){test.style.display='none';test.disabled=false;test.textContent='Verify card';}
   var amountWrap=document.getElementById('migration-live-amount-wrap');if(amountWrap)amountWrap.style.display='none';
   var amountInput=document.getElementById('migration-live-amount');if(amountInput)amountInput.value='';
@@ -8359,7 +8343,6 @@ async function retryMigrationVerification(paymentId,btn){
     select.value=destinationId;
     document.getElementById('migration-destination-customer').value=context.destination_customer_id||'';
     await checkMigrationDestination();
-    if(currentMigrationCheck)setMigrationRetryWarning(context.retry_warning||'');
     if(currentMigrationCheck&&currentMigrationCheck.livemode){
       var amountInput=document.getElementById('migration-live-amount');
       var amountMajor=Number(context.amount||0)/100;
@@ -8369,7 +8352,6 @@ async function retryMigrationVerification(paymentId,btn){
   finally{if(btn)btn.disabled=false;}
 }
 async function checkMigrationDestination(){
-  setMigrationRetryWarning('');
   var subId=Number(document.getElementById('migration-sub-id').value);
   var accountId=Number(document.getElementById('migration-destination-account').value);
   var customerId=String(document.getElementById('migration-destination-customer').value||'').trim();
@@ -8414,7 +8396,6 @@ async function testMigrationCharge(){
   if(currentMigrationCheck.livemode){
     return chargeMigrationLiveVerification();
   }
-  setMigrationRetryWarning('');
   var btn=document.getElementById('migration-test-btn');btn.disabled=true;btn.textContent='Testing…';
   try{
     var r=await api('/api/migrations/test-charge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(currentMigrationCheck)});
@@ -8465,12 +8446,11 @@ function chargeMigrationLiveVerification(){
   var amountLabel=migrationLiveAmountLabel(amount);
   openAppActionConfirm({
     title:'Verify '+amountLabel+' charge on destination?',
-    message:'This is a real '+amountLabel+' USD verification charge on the destination account. The source subscription will remain unchanged.',
+    message:'A real '+amountLabel+' USD charge will be made on the destination. The source subscription will not change.',
     cancelText:'Cancel',
     confirmText:'Verify charge '+amountLabel,
     danger:false
   },async function(){
-    setMigrationRetryWarning('');
     var btn=document.getElementById('migration-test-btn');
     if(btn){btn.disabled=true;btn.textContent='Verifying…';}
     try{
@@ -8503,7 +8483,7 @@ function toggleSelectAll(){var cbs=document.querySelectorAll('.sub-checkbox');va
 function updateBulkBar(){var n=selectedSubs.size;var countEl=document.getElementById('bulk-count');if(countEl)countEl.textContent=n>0?n+' selected':'';['bulk-charge-btn','bulk-pause-btn','bulk-cancel-btn'].forEach(function(id){var el=document.getElementById(id);if(el){el.disabled=n===0;el.style.opacity=n===0?'0.4':'1';}});var cb=document.getElementById('select-all-checkbox');var total=document.querySelectorAll('.sub-checkbox').length;if(cb)cb.checked=n>0&&n===total;}
 function clearSelection(){selectedSubs.clear();document.querySelectorAll('.sub-checkbox').forEach(function(cb){cb.checked=false;});document.querySelectorAll('[id^="sub-row-"]').forEach(function(row){row.style.background='';});var cb=document.getElementById('select-all-checkbox');if(cb)cb.checked=false;updateBulkBar();}
 function selectedSubscriptionIdsByStatus(statuses){var allowed=new Set(statuses.map(function(v){return normalizeSubscriptionStatus(v);}));return Array.from(selectedSubs).filter(function(id){var sub=(allSubscriptions||[]).find(function(s){return Number(s.id)===Number(id);});return sub&&allowed.has(normalizeSubscriptionStatus(sub.status));});}
-function bulkCharge(){if(!selectedSubs.size)return;var ids=selectedSubscriptionIdsByStatus(['active']);var skipped=selectedSubs.size-ids.length;if(!ids.length){toast('Only Active subscriptions can be charged','error');return;}var count=ids.length;openAppActionConfirm({title:'Charge '+count+' subscription'+(count===1?'':'s')+'?',message:'Subloop will attempt a manual recurring card payment for the '+count+' Active subscription'+(count===1?'':'s')+'.'+(skipped?' '+skipped+' selected subscription'+(skipped===1?' is':'s are')+' not Active and will be skipped.':''),cancelText:'Go back',confirmText:'Charge now',danger:false},async function(){toast('Charging '+count+' subscription'+(count===1?'':'s')+'…');let ok=0,fail=0;for(const id of ids){const key='sub-charge-'+id;const attemptId=getOrCreateAttemptId(key);try{const r=await api('/api/subscriptions/'+id+'/charge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({attempt_id:attemptId})});clearAttemptId(key);if(r.success)ok++;else fail++;}catch(e){if(e&&e.definitive)clearAttemptId(key);fail++;}}toast('✓ '+ok+' charged'+(fail?' — '+fail+' failed':'')+(skipped?' — '+skipped+' skipped':''));exitBulkMode();loadStats();loadSubscriptions();});}
+function bulkCharge(){if(!selectedSubs.size)return;var ids=selectedSubscriptionIdsByStatus(['active']);var skipped=selectedSubs.size-ids.length;if(!ids.length){toast('Only Active subscriptions can be charged','error');return;}var count=ids.length;openAppActionConfirm({title:'Charge '+count+' subscription'+(count===1?'':'s')+'?',message:'Charge the selected active subscription'+(count===1?'':'s')+'.'+(skipped?' '+skipped+' inactive selection'+(skipped===1?' will':'s will')+' be skipped.':''),cancelText:'Go back',confirmText:'Charge now',danger:false},async function(){toast('Charging '+count+' subscription'+(count===1?'':'s')+'…');let ok=0,fail=0;for(const id of ids){const key='sub-charge-'+id;const attemptId=getOrCreateAttemptId(key);try{const r=await api('/api/subscriptions/'+id+'/charge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({attempt_id:attemptId})});clearAttemptId(key);if(r.success)ok++;else fail++;}catch(e){if(e&&e.definitive)clearAttemptId(key);fail++;}}toast('✓ '+ok+' charged'+(fail?' — '+fail+' failed':'')+(skipped?' — '+skipped+' skipped':''));exitBulkMode();loadStats();loadSubscriptions();});}
 function bulkPause(){
   if(!selectedSubs.size)return;
   var eligible=selectedSubscriptionIdsByStatus(['active']);
@@ -8521,12 +8501,12 @@ function bulkPause(){
   if(id)id.value='';
   if(date)date.value='';
   if(title)title.textContent='Pause '+count+' subscriptions?';
-  if(message)message.textContent='Billing will be paused for all selected subscriptions until they are resumed.';
+  if(message)message.textContent='Billing will stop for the selected subscriptions until resumed.';
   if(cancel)cancel.textContent='Keep active';
   if(submit){submit.textContent='Pause subscriptions';submit.className='btn btn-danger';}
   openModal('pause-modal');
 }
-async function bulkCancel(){if(!selectedSubs.size)return;var count=selectedSubs.size;openAppActionConfirm({title:'Schedule '+count+' cancellations?',message:'These subscriptions will stay active until the end of their current paid periods and can be reactivated before they end.',cancelText:'Keep active',confirmText:'Cancel at period end'},async function(){for(const id of selectedSubs){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'canceling'})}).catch(()=>{});}toast('✓ '+count+' scheduled to cancel');exitBulkMode();loadSubscriptions();loadStats();});}
+async function bulkCancel(){if(!selectedSubs.size)return;var count=selectedSubs.size;openAppActionConfirm({title:'Schedule '+count+' cancellations?',message:'Billing continues until period end. You can reactivate before then.',cancelText:'Keep active',confirmText:'Cancel at period end'},async function(){for(const id of selectedSubs){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'canceling'})}).catch(()=>{});}toast('✓ '+count+' scheduled to cancel');exitBulkMode();loadSubscriptions();loadStats();});}
 function showEditAmount(subId,currentAmount){const container=document.getElementById('edit-'+subId);if(!container)return;const dollars=(currentAmount/100).toFixed(2);container.innerHTML='<div style="display:inline-flex;align-items:center;gap:4px;"><input type="number" id="new-amount-'+subId+'" value="'+dollars+'" step="0.01" min="0.50" style="width:75px;padding:3px 6px;font-size:12px;"><button class="btn btn-sm btn-primary" onclick="saveAmount('+subId+')">Save</button><button class="btn btn-sm" onclick="loadSubscriptions()">✕</button></div>';document.getElementById('new-amount-'+subId).focus();}
 async function saveAmount(subId){const input=document.getElementById('new-amount-'+subId);if(!input)return;const newCents=Math.round(parseFloat(input.value)*100);if(isNaN(newCents)||newCents<50){toast('Minimum amount is 0.50 in the subscription currency','error');return;}const r=await api('/api/subscriptions/'+subId+'/amount',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:newCents})});if(r.success){toast('✓ Amount updated');loadSubscriptions();}else toast('Error','error');}
 function compactPayAccountName(accountName){
@@ -9048,7 +9028,7 @@ function update2FAView(enabled){const badge2fa=document.getElementById('2fa-badg
 async function setup2FA(){try{const r=await api('/api/security/2fa/setup',{method:'POST'});document.getElementById('2fa-qr').src=r.qrCode;document.getElementById('2fa-disabled-view').style.display='none';document.getElementById('2fa-setup-view').style.display='block';}catch(e){toast('Error setting up 2FA','error');}}
 async function confirm2FA(){const token=document.getElementById('2fa-verify-code').value;if(token.length!==6){toast('Enter 6-digit code','error');return;}try{const r=await api('/api/security/2fa/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});if(r.success){toast('✓ 2FA enabled!');update2FAView(true);}else toast('Invalid code','error');}catch(e){toast('Error','error');}}
 function cancel2FASetup(){document.getElementById('2fa-setup-view').style.display='none';document.getElementById('2fa-disabled-view').style.display='block';}
-function disable2FA(){openAppActionConfirm({title:'Disable two-factor authentication?',message:'Your account will no longer require a verification code at sign in.',cancelText:'Keep 2FA',confirmText:'Disable 2FA'},async function(){await api('/api/security/2fa/disable',{method:'POST'});toast('2FA disabled');update2FAView(false);});}
+function disable2FA(){openAppActionConfirm({title:'Disable two-factor authentication?',message:'Sign-in codes will no longer be required.',cancelText:'Keep 2FA',confirmText:'Disable 2FA'},async function(){await api('/api/security/2fa/disable',{method:'POST'});toast('2FA disabled');update2FAView(false);});}
 let pendingAppActionConfirm=null;
 function openAppActionConfirm(options,onConfirm){
   options=options||{};
@@ -9150,7 +9130,7 @@ function cancelSub(id){
   if(blockViewOnlyAction())return;
   openAppActionConfirm({
     title:'Schedule cancellation?',
-    message:'The subscription will stay active until the end of the current paid period. You can reactivate it any time before it ends.',
+    message:'Billing continues until period end. You can reactivate before then.',
     cancelText:'Keep active',
     confirmText:'Cancel at period end'
   },function(){return setSubStatus(id,'canceling');});
@@ -9159,7 +9139,7 @@ function cancelSubNow(id){
   if(blockViewOnlyAction())return;
   openAppActionConfirm({
     title:'Cancel subscription now?',
-    message:'This immediately ends the current Stripe subscription. This action cannot be undone or reactivated.',
+    message:'This ends the Stripe subscription immediately and cannot be undone.',
     cancelText:'Keep active',
     confirmText:'Cancel now'
   },function(){return setSubStatus(id,'cancelled');});
@@ -9462,7 +9442,7 @@ async function cancelCustomerSubscriptions(id){
   if(blockViewOnlyAction())return;
   openAppActionConfirm({
     title:'Schedule all cancellations?',
-    message:'All active subscriptions for this customer will stay active until the end of their current paid periods. You can reactivate them before they end.',
+    message:'Billing continues until period end. You can reactivate before then.',
     cancelText:'Keep active',
     confirmText:'Cancel at period end'
   },function(){return setCustStatus(id,'canceling');});
@@ -9471,7 +9451,7 @@ async function reactivateCustomerSubscriptions(id){
   if(blockViewOnlyAction())return;
   openAppActionConfirm({
     title:'Reactivate subscriptions?',
-    message:'Subscriptions scheduled to cancel will return to Active and continue billing normally.',
+    message:'Remove the scheduled cancellation and continue billing.',
     cancelText:'Not now',
     confirmText:'Reactivate all',
     danger:false
@@ -9481,7 +9461,7 @@ async function cancelCustomerSubscriptionsNow(id){
   if(blockViewOnlyAction())return;
   openAppActionConfirm({
     title:'Cancel all subscriptions now?',
-    message:'This immediately ends the customer’s current Stripe subscriptions. This action cannot be undone or reactivated.',
+    message:'This ends all current Stripe subscriptions immediately and cannot be undone.',
     cancelText:'Keep active',
     confirmText:'Cancel all now'
   },function(){return setCustStatus(id,'cancelled');});
@@ -9666,7 +9646,7 @@ function clearDefaultAccount(){openAppActionConfirm({title:'Remove default Strip
 function deleteAccount(id){
   openAppActionConfirm({
     title:'Delete Stripe account?',
-    message:'This will remove the Stripe account from Subloop. This action cannot be undone.',
+    message:'This removes the Stripe account from Subloop and cannot be undone.',
     cancelText:'Keep account',
     confirmText:'Delete account'
   },async function(){
@@ -9916,7 +9896,7 @@ async function loadAdminUserSecurity(id){
 function resetAdminUser2FA(){
   if(!currentAdminDetailUserId)return;
   var userId=currentAdminDetailUserId;
-  openAppActionConfirm({title:'Reset two-factor authentication?',message:'This user will need to set up two-factor authentication again the next time it is required.',cancelText:'Keep 2FA',confirmText:'Reset 2FA'},async function(){
+  openAppActionConfirm({title:'Reset two-factor authentication?',message:'This user must set up 2FA again.',cancelText:'Keep 2FA',confirmText:'Reset 2FA'},async function(){
     try{
       await api('/api/admin-users/'+userId+'/security/reset-2fa',{method:'POST'});
       toast('✓ 2FA reset');
@@ -9941,7 +9921,7 @@ function removeAdminAccessFromDetails(){
   if(!canManageAccessUser(user)){toast('You cannot remove this user access','error');return;}
   var userId=user.id;
   var username=user.username||'this user';
-  openAppActionConfirm({title:'Remove access for '+username+'?',message:'This user will no longer be able to log in or access assigned Stripe accounts.',cancelText:'Keep access',confirmText:'Remove access'},async function(){
+  openAppActionConfirm({title:'Remove access for '+username+'?',message:'This user will lose access to Subloop.',cancelText:'Keep access',confirmText:'Remove access'},async function(){
     try{
       var result=await api('/api/admin-users/'+userId,{method:'DELETE'});
       if(result.success){
@@ -9994,7 +9974,7 @@ function deleteAdmin(id){
   if(!canManageAccessUser(target)){toast('You cannot remove this user access','error');return;}
   openAppActionConfirm({
     title:'Remove user access?',
-    message:'This user will lose access to Subloop. You can add them again later if needed.',
+    message:'This user will lose access to Subloop.',
     cancelText:'Keep access',
     confirmText:'Remove access'
   },async function(){
