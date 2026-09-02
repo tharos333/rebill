@@ -226,6 +226,9 @@ select option{background:var(--surface2)}
 textarea{resize:vertical;min-height:60px}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.stripe-account-name-preview{margin:-2px 0 12px;padding:9px 11px;background:var(--surface2);border:1px solid var(--border);border-radius:8px}
+.stripe-account-name-preview-label{margin-bottom:3px;color:var(--muted);font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.stripe-account-name-preview-value{color:var(--text);font-family:var(--mono);font-size:11px;line-height:1.4;overflow-wrap:anywhere}
 .link-result{display:none;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:11px 14px;margin-top:12px}
 .link-result.visible{display:block}
 /* Migration result uses the same compact inline success/error treatment as the app */
@@ -6627,7 +6630,12 @@ body.view-only-access #verification-debug-modal .modal-content{
 <div class="modal-bg" id="add-account-modal">
   <div class="modal">
     <h3>Add Stripe Account</h3><p>Connect a new Stripe account</p>
-    <div class="form-group"><label>Account name</label><input type="text" id="acc-name" placeholder="My Store"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Account type</label><select id="acc-type" onchange="updateStripeAccountNamePreview('acc')"><option value="Solo">Solo</option><option value="Business">Business</option></select></div>
+      <div class="form-group"><label>Country code</label><input type="text" id="acc-country" maxlength="2" placeholder="FR" autocomplete="off" oninput="normalizeStripeCountryInput(this);updateStripeAccountNamePreview('acc')"></div>
+    </div>
+    <div class="form-group"><label>Name</label><input type="text" id="acc-display-name" maxlength="80" placeholder="Murat KOCPINAR" autocomplete="off" oninput="updateStripeAccountNamePreview('acc')"></div>
+    <div class="stripe-account-name-preview"><div class="stripe-account-name-preview-label">Saved account name</div><div class="stripe-account-name-preview-value" id="acc-name-preview">Stripe_Solo_CC_Name</div></div>
     <div class="form-group"><label>Secret key (sk_live_...)</label><input type="password" id="acc-key" placeholder="sk_live_..."></div>
     <div class="form-group"><label>Publishable key (pk_live_...) — required for embedded checkout</label><input type="text" id="acc-publishable" placeholder="pk_live_..."></div>
     <div class="form-group"><label>Webhook secret (whsec_...) — optional</label><input type="text" id="acc-webhook" placeholder="whsec_..."></div>
@@ -6781,7 +6789,12 @@ body.view-only-access #verification-debug-modal .modal-content{
     <h3>Edit Stripe Account</h3>
     <p>Update the account name or credentials</p>
     <input type="hidden" id="edit-acc-id">
-    <div class="form-group"><label>Account name</label><input type="text" id="edit-acc-name" placeholder="My Store"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Account type</label><select id="edit-acc-type" onchange="updateStripeAccountNamePreview('edit-acc')"><option value="Solo">Solo</option><option value="Business">Business</option></select></div>
+      <div class="form-group"><label>Country code</label><input type="text" id="edit-acc-country" maxlength="2" placeholder="FR" autocomplete="off" oninput="normalizeStripeCountryInput(this);updateStripeAccountNamePreview('edit-acc')"></div>
+    </div>
+    <div class="form-group"><label>Name</label><input type="text" id="edit-acc-display-name" maxlength="80" placeholder="Murat KOCPINAR" autocomplete="off" oninput="updateStripeAccountNamePreview('edit-acc')"></div>
+    <div class="stripe-account-name-preview"><div class="stripe-account-name-preview-label">Saved account name</div><div class="stripe-account-name-preview-value" id="edit-acc-name-preview">Stripe_Solo_CC_Name</div></div>
     <div class="form-group"><label>New secret key (sk_live_...)</label><input type="password" id="edit-acc-key" placeholder="Leave blank to keep existing key"></div>
     <div class="form-group"><label>Publishable key (pk_live_...)</label><input type="text" id="edit-acc-publishable" placeholder="Leave blank to keep existing key"></div>
     <div class="form-group"><label>Webhook secret (whsec_...)</label><input type="text" id="edit-acc-webhook" placeholder="Leave blank to keep existing secret"></div>
@@ -8512,7 +8525,7 @@ async function saveAmount(subId){const input=document.getElementById('new-amount
 function compactPayAccountName(accountName){
   var full=String(accountName||'').trim();
   if(!full)return 'All Stripe Accounts';
-  return full.replace(/^Stripe_Solo_/i,'');
+  return full.replace(/^Stripe_(?:Solo|Business)_/i,'');
 }
 function preparePayAccountOptionsExpanded(){
   var sel=document.getElementById('pay-account-filter');
@@ -8789,7 +8802,7 @@ function paymentRecoveryAdvice(reason){
 function tableAccountDisplayName(accountName){
   var full=String(accountName||'').trim();
   if(!full)return '—';
-  var compact=full.replace(/^Stripe_Solo_/i,'');
+  var compact=full.replace(/^Stripe_(?:Solo|Business)_/i,'');
   var match=compact.match(/^([A-Za-z]{2,3})_(.+)$/);
   if(match){
     return match[1].toUpperCase()+'_'+match[2].replace(/_/g,' ');
@@ -9640,7 +9653,56 @@ function configurePaymentLinksAccessUI(){
   var canManageTemplates=getCurrentRole()==='owner'||getCurrentRole()==='admin';
   var builder=document.getElementById('template-builder-row');if(builder)builder.style.display=canManageTemplates?'flex':'none';
 }
-async function addAccount(){const name=document.getElementById('acc-name').value.trim(),key=document.getElementById('acc-key').value.trim(),publishable=document.getElementById('acc-publishable').value.trim(),webhook=document.getElementById('acc-webhook').value.trim();if(!name||!key){toast('Name and key required','error');return;}const r=await api('/api/stripe-accounts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,secret_key:key,publishable_key:publishable||null,webhook_secret:webhook})});if(r.success){toast('✓ Account added');closeModal('add-account-modal');document.getElementById('acc-name').value='';document.getElementById('acc-key').value='';document.getElementById('acc-publishable').value='';document.getElementById('acc-webhook').value='';loadAccounts();}else toast('Error: '+(r.error||'Failed'),'error');}
+function normalizeStripeCountryInput(input){
+  if(!input)return;
+  input.value=String(input.value||'').toUpperCase().replace(/[^A-Z]/g,'').slice(0,2);
+}
+function parseStripeAccountName(name){
+  var raw=String(name||'').trim();
+  var match=raw.match(/^Stripe_(Solo|Business)_([A-Za-z]{2})_(.+)$/i);
+  if(!match)return {account_type:'Solo',country_code:'',display_name:raw};
+  return {account_type:match[1].toLowerCase()==='business'?'Business':'Solo',country_code:match[2].toUpperCase(),display_name:match[3].trim()};
+}
+function stripeAccountIdentity(prefix){
+  var type=String((document.getElementById(prefix+'-type')||{}).value||'').trim();
+  var country=String((document.getElementById(prefix+'-country')||{}).value||'').trim().toUpperCase();
+  var displayName=String((document.getElementById(prefix+'-display-name')||{}).value||'').replace(/\s+/g,' ').trim();
+  if(type!=='Solo'&&type!=='Business')return {error:'Choose Solo or Business'};
+  if(!/^[A-Z]{2}$/.test(country))return {error:'Enter a two-letter country code, such as FR or CA'};
+  if(!displayName)return {error:'Name is required'};
+  if(displayName.length>80)return {error:'Name must be 80 characters or fewer'};
+  return {account_type:type,country_code:country,display_name:displayName,name:'Stripe_'+type+'_'+country+'_'+displayName};
+}
+function updateStripeAccountNamePreview(prefix){
+  var type=String((document.getElementById(prefix+'-type')||{}).value||'Solo');
+  var country=String((document.getElementById(prefix+'-country')||{}).value||'').trim().toUpperCase();
+  var displayName=String((document.getElementById(prefix+'-display-name')||{}).value||'').replace(/\s+/g,' ').trim();
+  var preview=document.getElementById(prefix+'-name-preview');
+  if(preview)preview.textContent='Stripe_'+(type==='Business'?'Business':'Solo')+'_'+(/^[A-Z]{2}$/.test(country)?country:'CC')+'_'+(displayName||'Name');
+}
+async function addAccount(){
+  var identity=stripeAccountIdentity('acc');
+  var key=document.getElementById('acc-key').value.trim();
+  var publishable=document.getElementById('acc-publishable').value.trim();
+  var webhook=document.getElementById('acc-webhook').value.trim();
+  if(identity.error){toast(identity.error,'error');return;}
+  if(!key){toast('Secret key is required','error');return;}
+  try{
+    var r=await api('/api/stripe-accounts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_type:identity.account_type,country_code:identity.country_code,display_name:identity.display_name,secret_key:key,publishable_key:publishable||null,webhook_secret:webhook})});
+    if(r.success){
+      toast('✓ Account added');
+      closeModal('add-account-modal');
+      document.getElementById('acc-type').value='Solo';
+      document.getElementById('acc-country').value='';
+      document.getElementById('acc-display-name').value='';
+      document.getElementById('acc-key').value='';
+      document.getElementById('acc-publishable').value='';
+      document.getElementById('acc-webhook').value='';
+      updateStripeAccountNamePreview('acc');
+      loadAccounts();
+    }else toast('Error: '+(r.error||'Failed'),'error');
+  }catch(e){toast((e&&e.message)||'Could not add Stripe account','error');}
+}
 async function setDefaultAccount(id){var r=await api('/api/stripe-accounts/'+id+'/default',{method:'PATCH'});if(r.success){toast('✓ Default updated');loadAccounts();}else toast('Error: '+(r.error||'Failed'),'error');}
 function clearDefaultAccount(){openAppActionConfirm({title:'Remove default Stripe account?',message:'No Stripe account will be selected as the default after this change.',cancelText:'Keep default',confirmText:'Remove default'},async function(){var r=await api('/api/stripe-accounts/default/clear',{method:'PATCH'});if(r.success){toast('✓ Default removed');loadAccounts();}else toast('Error: '+(r.error||'Failed'),'error');});}
 function deleteAccount(id){
@@ -10185,8 +10247,12 @@ function copyStoredRef(keyOrEl){var key=typeof keyOrEl==='string'?keyOrEl:keyOrE
 function fallbackCopy(text){var ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;left:-9999px;top:-9999px;';document.body.appendChild(ta);ta.select();try{document.execCommand('copy');toast('Copied!');}catch(e){toast('Copy failed','error');}document.body.removeChild(ta);}
 function openEditAcc(id){
   var a=(allStripeAccounts||[]).find(function(x){return x.id===id;});
+  var identity=parseStripeAccountName(a?a.name:'');
   document.getElementById('edit-acc-id').value=id;
-  document.getElementById('edit-acc-name').value=a?a.name:'';
+  document.getElementById('edit-acc-type').value=identity.account_type;
+  document.getElementById('edit-acc-country').value=identity.country_code;
+  document.getElementById('edit-acc-display-name').value=identity.display_name;
+  updateStripeAccountNamePreview('edit-acc');
   document.getElementById('edit-acc-key').value='';
   document.getElementById('edit-acc-publishable').value='';
   document.getElementById('edit-acc-webhook').value='';
@@ -10195,14 +10261,18 @@ function openEditAcc(id){
 }
 async function saveEditAccount(){
   var id=document.getElementById('edit-acc-id').value;
-  var name=document.getElementById('edit-acc-name').value.trim();
+  var identity=stripeAccountIdentity('edit-acc');
   var key=document.getElementById('edit-acc-key').value.trim();
   var publishable=document.getElementById('edit-acc-publishable').value.trim();
   var webhook=document.getElementById('edit-acc-webhook').value.trim();
   var errEl=document.getElementById('edit-acc-error');
   errEl.style.display='none';
-  if(!name){errEl.textContent='Account name is required';errEl.style.display='block';return;}
-  try{var r=await api('/api/stripe-accounts/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,secret_key:key||null,publishable_key:publishable||null,webhook_secret:webhook||null})});if(r.success){toast('✓ Account updated');closeModal('edit-account-modal');loadAccounts();}else{errEl.textContent=r.error||'Update failed';errEl.style.display='block';}}catch(e){errEl.textContent='Server error';errEl.style.display='block';}
+  if(identity.error){errEl.textContent=identity.error;errEl.style.display='block';return;}
+  try{
+    var r=await api('/api/stripe-accounts/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_type:identity.account_type,country_code:identity.country_code,display_name:identity.display_name,secret_key:key||null,publishable_key:publishable||null,webhook_secret:webhook||null})});
+    if(r.success){toast('✓ Account updated');closeModal('edit-account-modal');loadAccounts();}
+    else{errEl.textContent=r.error||'Update failed';errEl.style.display='block';}
+  }catch(e){errEl.textContent=(e&&e.message)||'Could not update Stripe account';errEl.style.display='block';}
 }
 function toggleSettingsNav(){var sub=document.getElementById('settings-subnav');var chev=document.getElementById('settings-chevron');var open=sub.style.display==='none';sub.style.display=open?'block':'none';if(chev)chev.style.transform=open?'rotate(180deg)':'rotate(0deg)';}
 function expandSettingsIfNeeded(name){var settingsPages=['admins','settings','security','webhooks'];if(settingsPages.includes(name)){var sub=document.getElementById('settings-subnav');var chev=document.getElementById('settings-chevron');if(sub&&sub.style.display==='none'){sub.style.display='block';if(chev)chev.style.transform='rotate(180deg)';}}}

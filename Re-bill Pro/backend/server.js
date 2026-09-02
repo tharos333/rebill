@@ -1831,13 +1831,45 @@ app.get('/api/stripe-accounts/:id/verification-debug', async (req, res) => {
   }
 });
 
+function normalizeStripeAccountIdentity(body = {}) {
+  let accountType = String(body.account_type || '').trim().toLowerCase();
+  let countryCode = String(body.country_code || '').trim().toUpperCase();
+  let displayName = String(body.display_name || '').replace(/\s+/g, ' ').trim();
+  const hasStructuredIdentity = !!(accountType || countryCode || displayName);
+
+  // Backward compatibility for an older client that already sends a canonical name.
+  if (!hasStructuredIdentity) {
+    const canonical = String(body.name || '').trim().match(/^Stripe_(Solo|Business)_([A-Za-z]{2})_(.+)$/i);
+    if (canonical) {
+      accountType = canonical[1].toLowerCase();
+      countryCode = canonical[2].toUpperCase();
+      displayName = canonical[3].replace(/\s+/g, ' ').trim();
+    }
+  }
+
+  const normalizedType = accountType === 'solo' ? 'Solo' : (accountType === 'business' ? 'Business' : null);
+  if (!normalizedType) return { error: 'Account type must be Solo or Business' };
+  if (!/^[A-Z]{2}$/.test(countryCode)) return { error: 'Country code must contain two letters, such as FR or CA' };
+  if (!displayName) return { error: 'Account name is required' };
+  if (displayName.length > 80) return { error: 'Account name must be 80 characters or fewer' };
+
+  return {
+    account_type: normalizedType,
+    country_code: countryCode,
+    display_name: displayName,
+    name: `Stripe_${normalizedType}_${countryCode}_${displayName}`
+  };
+}
+
 app.post('/api/stripe-accounts', async (req, res) => {
   try {
-    const { name, secret_key, publishable_key, webhook_secret } = req.body;
-    if (!name || !secret_key) return res.status(400).json({ error: 'Name and secret key required' });
+    const { secret_key, publishable_key, webhook_secret } = req.body;
+    const identity = normalizeStripeAccountIdentity(req.body);
+    if (identity.error) return res.status(400).json({ error: identity.error });
+    if (!secret_key) return res.status(400).json({ error: 'Secret key is required' });
     if (publishable_key && !String(publishable_key).startsWith('pk_')) return res.status(400).json({ error: 'Publishable key must start with pk_' });
-    await stripeAccounts.create({ name, secret_key, publishable_key, webhook_secret, workspace_id:req.currentUser.workspace_id });
-    res.json({ success: true });
+    await stripeAccounts.create({ name:identity.name, secret_key, publishable_key, webhook_secret, workspace_id:req.currentUser.workspace_id });
+    res.json({ success: true, name:identity.name });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.patch('/api/stripe-accounts/:id', async (req, res) => {
@@ -1845,18 +1877,19 @@ app.patch('/api/stripe-accounts/:id', async (req, res) => {
     const account = await stripeAccounts.byId(req.params.id);
     if (!account) return res.status(404).json({ error:'Stripe account not found' });
     if (!ensureRowScope(req,res,{ stripe_account_id:account.id, workspace_id:account.workspace_id })) return;
-    const { name, secret_key, publishable_key, webhook_secret } = req.body;
-    if (!name) return res.status(400).json({ error: 'Name is required' });
+    const { secret_key, publishable_key, webhook_secret } = req.body;
+    const identity = normalizeStripeAccountIdentity(req.body);
+    if (identity.error) return res.status(400).json({ error: identity.error });
     if (publishable_key && !String(publishable_key).startsWith('pk_')) return res.status(400).json({ error: 'Publishable key must start with pk_' });
     const updates = ['name=$1'];
-    const values = [name];
+    const values = [identity.name];
     if (secret_key && secret_key.trim()) { values.push(secret_key.trim()); updates.push(`secret_key=$${values.length}`); }
     if (publishable_key && publishable_key.trim()) { values.push(publishable_key.trim()); updates.push(`publishable_key=$${values.length}`); }
     if (webhook_secret && webhook_secret.trim()) { values.push(webhook_secret.trim()); updates.push(`webhook_secret=$${values.length}`); }
     values.push(req.params.id);
     values.push(req.currentUser.workspace_id);
     await pool.query(`UPDATE stripe_accounts SET ${updates.join(', ')} WHERE id=$${values.length-1} AND workspace_id=$${values.length}`, values);
-    res.json({ success: true });
+    res.json({ success: true, name:identity.name });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.patch('/api/stripe-accounts/:id/default', async (req, res) => {
