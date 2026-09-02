@@ -289,6 +289,21 @@ async function ensureWebhookColumns() {
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_origin TEXT').catch(()=>{});
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS stripe_account_id INT REFERENCES stripe_accounts(id)').catch(()=>{});
   await pool.query(`UPDATE payments p SET stripe_account_id=c.stripe_account_id FROM customers c WHERE p.customer_id=c.id AND p.stripe_account_id IS NULL`).catch(()=>{});
+  // Stripe risk/outcome diagnostics, captured from charge.outcome and last_payment_error for
+  // distinguishing issuer declines from Radar/Stripe-level blocks without guessing from message text.
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS risk_level TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS risk_score INT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS outcome_type TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS outcome_reason TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS advice_code TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS network_decline_code TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS network_advice_code TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS network_status TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS last_error_code TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS last_error_decline_code TEXT').catch(()=>{});
+  // Client-generated attempt id, stored for reconciling a charge attempt across ambiguous
+  // network failures/retries with the exact Stripe idempotency key that was used.
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS subloop_attempt_id TEXT').catch(()=>{});
   await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT').catch(()=>{});
   await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_price_id TEXT').catch(()=>{});
   await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_invoice_id TEXT').catch(()=>{});
@@ -907,6 +922,50 @@ function paymentOriginFromStripeContext(pi, invoice, hasSubscription) {
   return 'one_time';
 }
 
+// Derives a stable Stripe idempotency key from a client-supplied attempt_id, scoped to the
+// specific resource being charged. Same attempt_id (same click, including its network retries)
+// -> same key -> Stripe dedupes. A new click generates a new attempt_id client-side -> new key.
+function idemKeyFromAttempt(prefix, attemptId) {
+  const clean = String(attemptId || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 100);
+  const safeAttempt = clean || crypto.randomUUID(); // fallback for older clients without attempt_id yet
+  return crypto.createHash('sha256').update(`${prefix}-${safeAttempt}`).digest('hex');
+}
+
+// Supplemental in-process guard against the same resource being charged twice concurrently.
+// This is not the durable protection (the Stripe idempotency key is) — it just avoids two
+// simultaneous requests both reaching Stripe before either one's idempotency key would help.
+const inFlightCharges = new Set();
+function beginInFlight(key, res) {
+  if (inFlightCharges.has(key)) {
+    res.status(409).json({ success:false, error:'A charge for this is already in progress', definitive:false });
+    return false;
+  }
+  inFlightCharges.add(key);
+  return true;
+}
+function endInFlight(key) { inFlightCharges.delete(key); }
+
+// Checks whether Stripe's last known result for this payment means an immediate automatic
+// retry should be refused. Returns a user-facing reason string, or null if retrying is fine.
+function retryBlockReason(p) {
+  const declineCode = p.last_error_decline_code || null;
+  const errorCode = p.last_error_code || null;
+  const advice = p.advice_code || null;
+  if (declineCode === 'authentication_required' || errorCode === 'authentication_required') {
+    return 'This payment requires customer authentication and cannot be retried off-session automatically.';
+  }
+  if (advice === 'do_not_try_again') {
+    return 'Stripe advises not retrying this payment.' + (p.failure_reason ? ' ' + p.failure_reason : '');
+  }
+  if (advice === 'try_again_later') {
+    return 'Stripe advises waiting before retrying this payment.';
+  }
+  if (advice === 'confirm_card_data') {
+    return 'The card details may need to be re-confirmed with the customer before retrying.';
+  }
+  return null;
+}
+
 async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null, fallbackCustomer = {}) {
   await ensureWebhookColumns();
   if (!pi?.id && typeof pi === 'string') pi = await stripe.paymentIntents.retrieve(pi, { expand: ['latest_charge', 'payment_method', 'invoice'] });
@@ -966,6 +1025,25 @@ async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null, f
   const amount = pi.amount_received || financials.amount || pi.amount || 0;
   const currency = pi.currency || financials.currency || 'usd';
 
+  // Risk/outcome diagnostics live on the Charge object (pi.latest_charge.outcome), not the
+  // PaymentIntent itself. Only trust these fields when latest_charge was actually expanded to
+  // an object (see the retrieve() call above) — a bare charge ID string carries no outcome data.
+  const chargeObj = pi.latest_charge && typeof pi.latest_charge === 'object' ? pi.latest_charge : null;
+  const outcome = chargeObj?.outcome || null;
+  const diagnostics = {
+    risk_level: outcome?.risk_level || null,
+    risk_score: Number.isFinite(outcome?.risk_score) ? outcome.risk_score : null,
+    outcome_type: outcome?.type || null,
+    outcome_reason: outcome?.reason || null,
+    advice_code: outcome?.advice_code || null,
+    network_decline_code: outcome?.network_decline_code || null,
+    network_advice_code: outcome?.network_advice_code || null,
+    network_status: outcome?.network_status || null,
+    last_error_code: pi.last_payment_error?.code || null,
+    last_error_decline_code: pi.last_payment_error?.decline_code || null,
+    subloop_attempt_id: pi.metadata?.subloop_attempt_id || null
+  };
+
   const existingPayment = await pool.query('SELECT id, status, was_failed, recovered_at FROM payments WHERE stripe_payment_intent=$1', [pi.id]);
   if (existingPayment.rows[0]) {
     await pool.query(`UPDATE payments SET customer_id=$1, stripe_account_id=$21, subscription_id=COALESCE($2,subscription_id), amount=$3, currency=$4, status=$5, failure_reason=$6,
@@ -979,6 +1057,13 @@ async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null, f
       [localCustomer.id, localSubId, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency, status, paymentOrigin, existingPayment.rows[0].id, usedAccount.id]);
     await pool.query(`UPDATE payments SET payment_method_type=COALESCE($1,payment_method_type), wallet_type=COALESCE($2,wallet_type), wallet_checked=TRUE WHERE id=$3`,
       [cardDetails.payment_method_type, cardDetails.wallet_type, existingPayment.rows[0].id]).catch(()=>{});
+    await pool.query(`UPDATE payments SET risk_level=COALESCE($1,risk_level), risk_score=COALESCE($2,risk_score), outcome_type=COALESCE($3,outcome_type),
+      outcome_reason=COALESCE($4,outcome_reason), advice_code=COALESCE($5,advice_code), network_decline_code=COALESCE($6,network_decline_code),
+      network_advice_code=COALESCE($7,network_advice_code), network_status=COALESCE($8,network_status), last_error_code=COALESCE($9,last_error_code),
+      last_error_decline_code=COALESCE($10,last_error_decline_code), subloop_attempt_id=COALESCE($11,subloop_attempt_id) WHERE id=$12`,
+      [diagnostics.risk_level, diagnostics.risk_score, diagnostics.outcome_type, diagnostics.outcome_reason, diagnostics.advice_code,
+       diagnostics.network_decline_code, diagnostics.network_advice_code, diagnostics.network_status, diagnostics.last_error_code,
+       diagnostics.last_error_decline_code, diagnostics.subloop_attempt_id, existingPayment.rows[0].id]).catch(e=>console.error('[payment] diagnostics update failed:', e.message));
     await syncFirstPaymentEligibility(localCustomer.id, localSubId, status).catch(e => console.error('[payment] eligibility sync failed:', e.message));
     console.log('[external-import] updated payment:', pi.id, 'customer:', localCustomer.email, 'method:', cardDetails.payment_method_type || '-', 'wallet:', cardDetails.wallet_type || '-');
     return existingPayment.rows[0].id;
@@ -991,6 +1076,13 @@ async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null, f
   );
   await pool.query(`UPDATE payments SET payment_method_type=COALESCE($1,payment_method_type), wallet_type=COALESCE($2,wallet_type), wallet_checked=TRUE WHERE id=$3`,
     [cardDetails.payment_method_type, cardDetails.wallet_type, ins.rows[0].id]).catch(()=>{});
+  await pool.query(`UPDATE payments SET risk_level=COALESCE($1,risk_level), risk_score=COALESCE($2,risk_score), outcome_type=COALESCE($3,outcome_type),
+    outcome_reason=COALESCE($4,outcome_reason), advice_code=COALESCE($5,advice_code), network_decline_code=COALESCE($6,network_decline_code),
+    network_advice_code=COALESCE($7,network_advice_code), network_status=COALESCE($8,network_status), last_error_code=COALESCE($9,last_error_code),
+    last_error_decline_code=COALESCE($10,last_error_decline_code), subloop_attempt_id=COALESCE($11,subloop_attempt_id) WHERE id=$12`,
+    [diagnostics.risk_level, diagnostics.risk_score, diagnostics.outcome_type, diagnostics.outcome_reason, diagnostics.advice_code,
+     diagnostics.network_decline_code, diagnostics.network_advice_code, diagnostics.network_status, diagnostics.last_error_code,
+     diagnostics.last_error_decline_code, diagnostics.subloop_attempt_id, ins.rows[0].id]).catch(e=>console.error('[payment] diagnostics insert-update failed:', e.message));
   await syncFirstPaymentEligibility(localCustomer.id, localSubId, status).catch(e => console.error('[payment] eligibility sync failed:', e.message));
   console.log('[external-import] saved payment:', pi.id, 'row id:', ins.rows[0].id, 'customer:', localCustomer.email, 'method:', cardDetails.payment_method_type || '-', 'wallet:', cardDetails.wallet_type || '-');
   await activityLog.add('payment', `Payment ${status} for ${localCustomer.email}`, localCustomer.id, amount).catch(()=>{});
@@ -2080,39 +2172,49 @@ app.post('/api/customers/:id/portal', async (req, res) => {
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.post('/api/customers/:id/charge-once', async (req, res) => {
+  const inFlightKey = 'charge-once-' + req.params.id;
+  if (!beginInFlight(inFlightKey, res)) return;
   try {
     const { amount, description, currency } = req.body;
-    if (!Number.isInteger(Number(amount)) || Number(amount) <= 0) return res.status(400).json({ error: 'A positive amount is required' });
-    if (!currency || !/^[a-zA-Z]{3}$/.test(String(currency))) return res.status(400).json({ error: 'Currency is required for a one-time charge' });
+    const attemptId = String(req.body?.attempt_id || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 100) || null;
+    if (!Number.isInteger(Number(amount)) || Number(amount) <= 0) return res.status(400).json({ error: 'A positive amount is required', definitive:true });
+    if (!currency || !/^[a-zA-Z]{3}$/.test(String(currency))) return res.status(400).json({ error: 'Currency is required for a one-time charge', definitive:true });
     const chargeCurrency = String(currency).toLowerCase();
     const identifier = String(req.params.id || '').trim();
     const c = identifier.startsWith('cus_') ? await customers.byStripeId(identifier,scopedAccountIds(req)) : await customers.byId(identifier);
-    if (!c) return res.status(404).json({ error: 'Customer not found' });
+    if (!c) return res.status(404).json({ error: 'Customer not found', definitive:true });
     if (!ensureRowScope(req, res, c)) return;
-    if (!String(c.stripe_customer_id || '').startsWith('cus_')) return res.status(400).json({ error: 'A real Stripe customer is required for a one-time charge' });
+    if (!String(c.stripe_customer_id || '').startsWith('cus_')) return res.status(400).json({ error: 'A real Stripe customer is required for a one-time charge', definitive:true });
     const acc = await stripeAccounts.byId(c.stripe_account_id);
-    if (!acc?.secret_key) return res.status(400).json({ error: 'Stripe account secret key not found' });
+    if (!acc?.secret_key) return res.status(400).json({ error: 'Stripe account secret key not found', definitive:true });
     const stripe = require('stripe')(acc.secret_key);
     const pm = await resolveBestPaymentMethod(stripe, c.stripe_customer_id, { localPaymentMethodId: c.stripe_payment_method });
-    if (!pm) return res.status(400).json({ error: 'No usable saved card found for this customer' });
+    if (!pm) return res.status(400).json({ error: 'No usable saved card found for this customer', definitive:true });
     await syncLocalPaymentMethod(c.id, pm);
+    const chargeDescription = description || 'Manual invoice';
+    const idemKey = idemKeyFromAttempt(`subloop-once-${c.id}-${pm.id}-${Number(amount)}-${chargeCurrency}-${chargeDescription}`, attemptId);
     try {
-      const pi = await stripe.paymentIntents.create({ amount: Number(amount), currency: chargeCurrency, customer: c.stripe_customer_id, payment_method: pm.id, confirm: true, description: description||'Manual invoice', off_session: true, metadata: { subloop_payment_origin: 'one_time' } });
+      const pi = await stripe.paymentIntents.create({ amount: Number(amount), currency: chargeCurrency, customer: c.stripe_customer_id, payment_method: pm.id, confirm: true, description: chargeDescription, off_session: true, metadata: { subloop_payment_origin: 'one_time', subloop_attempt_id: attemptId || '' } }, { idempotencyKey: idemKey });
       await savePaymentIntent(stripe, acc, pi, pi.status==='succeeded'?'succeeded':pi.status, { email:c.email, name:c.name }).catch(async () => {
         await payments.insert({ customer_id: c.id, subscription_id: null, stripe_payment_intent: pi.id, amount: Number(amount), currency: chargeCurrency, status: pi.status==='succeeded'?'succeeded':'failed', failure_reason: null, payment_origin: 'one_time' });
       });
       await reconcileCustomerLifecycle(c.id, pi.status==='succeeded'?{oneTimeSuccess:true}:{}).catch(()=>{});
-      return res.json({ success: pi.status==='succeeded', status: pi.status });
+      return res.json({ success: pi.status==='succeeded', status: pi.status, definitive:true });
     } catch(chargeErr) {
       const failedPi = chargeErr?.payment_intent || chargeErr?.raw?.payment_intent || null;
       if (failedPi?.id) {
         await savePaymentIntent(stripe, acc, failedPi, 'failed', { email:c.email, name:c.name }).catch(()=>{});
         await reconcileCustomerLifecycle(c.id).catch(()=>{});
-        return res.status(402).json({ success:false, status:'failed', error:chargeErr.message });
+        return res.status(402).json({ success:false, status:'failed', error:chargeErr.message, definitive:true });
       }
       throw chargeErr;
     }
-  } catch(err) { res.status(500).json({ error: err.message }); }
+  } catch(err) {
+    // Unexpected/DB-level failure — ambiguous whether Stripe already processed the charge.
+    res.status(500).json({ error: err.message, definitive:false });
+  } finally {
+    endInFlight(inFlightKey);
+  }
 });
 app.get('/api/customers/export', async (req, res) => {
   try {
@@ -2629,21 +2731,25 @@ app.patch('/api/subscriptions/:id/amount', async (req, res) => {
   }
 });
 app.post('/api/subscriptions/:id/charge', async (req, res) => {
+  const inFlightKey = 'sub-charge-' + req.params.id;
+  if (!beginInFlight(inFlightKey, res)) return;
   try {
+    const attemptId = String(req.body?.attempt_id || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 100) || null;
     const sub = await scopedSubscription(req, res, req.params.id);
     if (!sub) return;
-    if (normalizeSubStatus(sub.status) !== 'active') return res.status(409).json({ success:false, error:'Manual recurring charges are allowed only on an Active subscription' });
+    if (normalizeSubStatus(sub.status) !== 'active') return res.status(409).json({ success:false, error:'Manual recurring charges are allowed only on an Active subscription', definitive:true });
     const c = await customers.byId(sub.customer_id);
-    if (!String(c?.stripe_customer_id || '').startsWith('cus_')) return res.status(400).json({ success:false, error:'A valid Stripe customer is required' });
+    if (!String(c?.stripe_customer_id || '').startsWith('cus_')) return res.status(400).json({ success:false, error:'A valid Stripe customer is required', definitive:true });
     const acc = await stripeAccounts.byId(c.stripe_account_id);
-    if (!acc?.secret_key) return res.status(400).json({ success:false, error:'Stripe account secret key not found' });
+    if (!acc?.secret_key) return res.status(400).json({ success:false, error:'Stripe account secret key not found', definitive:true });
     const stripe = new Stripe(acc.secret_key);
     const pm = await resolveBestPaymentMethod(stripe, c.stripe_customer_id, {
       subscriptionId: sub.stripe_subscription_id || null,
       localPaymentMethodId: c.stripe_payment_method
     });
-    if (!pm) return res.status(400).json({ success:false, error:'No reusable saved card attached to this Stripe customer' });
+    if (!pm) return res.status(400).json({ success:false, error:'No reusable saved card attached to this Stripe customer', definitive:true });
     await syncLocalPaymentMethod(c.id, pm);
+    const idemKey = idemKeyFromAttempt('subloop-sub-charge-' + sub.id, attemptId);
     try {
       const pi = await stripe.paymentIntents.create({
         amount: sub.amount,
@@ -2652,17 +2758,23 @@ app.post('/api/subscriptions/:id/charge', async (req, res) => {
         payment_method: pm.id,
         off_session: true,
         confirm: true,
-        metadata: { subloop_payment_origin:'recurring_manual', subloop_subscription_id:String(sub.id) }
-      });
+        metadata: { subloop_payment_origin:'recurring_manual', subloop_subscription_id:String(sub.id), subloop_attempt_id: attemptId || '' }
+      }, { idempotencyKey: idemKey });
       await savePaymentIntent(stripe, acc, pi, pi.status === 'succeeded' ? 'succeeded' : pi.status);
       await activityLog.add('charge', `Manual recurring charge of ${(sub.amount/100).toFixed(2)} ${String(sub.currency||'').toUpperCase()} for ${c.email}`, c.id, sub.amount);
       // Deliberately do NOT alter next_billing_date: Stripe Billing owns the renewal schedule.
-      res.json({ success:pi.status==='succeeded', status:pi.status, paymentIntentId:pi.id, renewal_date_unchanged:true });
+      res.json({ success:pi.status==='succeeded', status:pi.status, paymentIntentId:pi.id, renewal_date_unchanged:true, definitive:true });
     } catch(chargeErr) {
       if (chargeErr?.payment_intent) await savePaymentIntent(stripe, acc, chargeErr.payment_intent, 'failed').catch(()=>{});
-      return res.status(402).json({ success:false, error:chargeErr.message });
+      // Stripe returned a known result (card_error / authentication_required / etc.) — definitive.
+      return res.status(402).json({ success:false, error:chargeErr.message, definitive:true });
     }
-  } catch(err) { res.status(500).json({ success:false, error:err.message }); }
+  } catch(err) {
+    // Unexpected/DB-level failure — we don't know if Stripe already processed the charge. Ambiguous.
+    res.status(500).json({ success:false, error:err.message, definitive:false });
+  } finally {
+    endInFlight(inFlightKey);
+  }
 });
 app.delete('/api/subscriptions/:id', async (req, res) => {
   try {
@@ -2740,7 +2852,10 @@ app.get('/api/payments/:id/financials', async (req, res) => {
   }
 });
 app.post('/api/payments/:id/retry', async (req, res) => {
+  const inFlightKey = 'payment-retry-' + req.params.id;
+  if (!beginInFlight(inFlightKey, res)) return;
   try {
+    const attemptId = String(req.body?.attempt_id || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 100) || null;
     await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS retry_of_payment_id INT REFERENCES payments(id)').catch(()=>{});
     const r = await pool.query(`SELECT p.*, c.stripe_customer_id, c.stripe_payment_method, COALESCE(p.stripe_account_id,c.stripe_account_id) AS stripe_account_id, c.email, c.name, s.stripe_subscription_id
       FROM payments p
@@ -2748,18 +2863,20 @@ app.post('/api/payments/:id/retry', async (req, res) => {
       LEFT JOIN subscriptions s ON s.id=p.subscription_id
       WHERE p.id=$1`, [req.params.id]);
     const p = r.rows[0];
-    if (!p) return res.status(404).json({ error:'Not found' });
+    if (!p) return res.status(404).json({ error:'Not found', definitive:true });
     if (!ensureRowScope(req,res,p)) return;
-    if (String(p.payment_origin || '').toLowerCase() === 'migration_verification') return res.status(400).json({ error:'Migration verification payments cannot be retried from Payments' });
-    if (normalizeSubStatus(p.status) !== 'failed') return res.status(400).json({ error:'Only failed payments can be retried' });
+    if (String(p.payment_origin || '').toLowerCase() === 'migration_verification') return res.status(400).json({ error:'Migration verification payments cannot be retried from Payments', definitive:true });
+    if (normalizeSubStatus(p.status) !== 'failed') return res.status(400).json({ error:'Only failed payments can be retried', definitive:true });
+    const blockReason = retryBlockReason(p);
+    if (blockReason) return res.status(409).json({ success:false, error:blockReason, definitive:true });
     const acc = await stripeAccounts.byId(p.stripe_account_id);
-    if (!acc?.secret_key) return res.status(400).json({ error:'Stripe account secret key not found' });
+    if (!acc?.secret_key) return res.status(400).json({ error:'Stripe account secret key not found', definitive:true });
     const stripe = new Stripe(acc.secret_key);
     const pm = await resolveBestPaymentMethod(stripe, p.stripe_customer_id, {
       subscriptionId:p.stripe_subscription_id || null,
       localPaymentMethodId:p.stripe_payment_method
     });
-    if (!pm) return res.status(400).json({ error:'No reusable saved card attached to this Stripe customer' });
+    if (!pm) return res.status(400).json({ error:'No reusable saved card attached to this Stripe customer', definitive:true });
     await syncLocalPaymentMethod(p.customer_id, pm);
 
     let invoiceId = p.stripe_invoice_id || null;
@@ -2772,7 +2889,7 @@ app.post('/api/payments/:id/retry', async (req, res) => {
     // PaymentIntent would leave Stripe Billing's invoice unpaid and the subscription past due.
     if (invoiceId && (p.subscription_id || p.stripe_subscription_id)) {
       const invoice = await stripe.invoices.retrieve(invoiceId, { expand:['subscription','payment_intent'] });
-      if (invoice.status === 'paid') return res.status(409).json({ error:'This Stripe invoice is already paid' });
+      if (invoice.status === 'paid') return res.status(409).json({ error:'This Stripe invoice is already paid', definitive:true });
       const originalPiId = p.stripe_payment_intent || (typeof invoice.payment_intent === 'string' ? invoice.payment_intent : invoice.payment_intent?.id || null);
 
       // Preserve the original failed attempt as Failed. The successful invoice retry gets its own
@@ -2780,8 +2897,9 @@ app.post('/api/payments/:id/retry', async (req, res) => {
       if (originalPiId && p.stripe_payment_intent === originalPiId) {
         await pool.query('UPDATE payments SET stripe_payment_intent=NULL WHERE id=$1', [p.id]);
       }
+      const invoicePayIdemKey = idemKeyFromAttempt('subloop-invoice-pay-' + invoiceId, attemptId);
       try {
-        const paidInvoice = await stripe.invoices.pay(invoiceId, { payment_method:pm.id });
+        const paidInvoice = await stripe.invoices.pay(invoiceId, { payment_method:pm.id }, { idempotencyKey: invoicePayIdemKey });
         const retryPiId = typeof paidInvoice.payment_intent === 'string' ? paidInvoice.payment_intent : paidInvoice.payment_intent?.id || originalPiId;
         let newPaymentId = null;
         if (retryPiId) {
@@ -2795,7 +2913,7 @@ app.post('/api/payments/:id/retry', async (req, res) => {
         if (newPaymentId && Number(newPaymentId) !== Number(p.id)) await pool.query('UPDATE payments SET retry_of_payment_id=$1 WHERE id=$2', [p.id, newPaymentId]);
         await reconcileCustomerLifecycle(p.customer_id).catch(()=>{});
         await activityLog.add('retry', `Retried Stripe invoice for ${p.name}: ${paidInvoice.status}`, p.customer_id, p.amount);
-        return res.json({ success:paidInvoice.status==='paid', status:paidInvoice.status, invoice_id:invoiceId, retry_of_payment_id:p.id, payment_id:newPaymentId });
+        return res.json({ success:paidInvoice.status==='paid', status:paidInvoice.status, invoice_id:invoiceId, retry_of_payment_id:p.id, payment_id:newPaymentId, definitive:true });
       } catch(invoiceErr) {
         if (originalPiId) await pool.query('UPDATE payments SET stripe_payment_intent=$1 WHERE id=$2 AND stripe_payment_intent IS NULL', [originalPiId,p.id]).catch(()=>{});
         throw invoiceErr;
@@ -2804,25 +2922,30 @@ app.post('/api/payments/:id/retry', async (req, res) => {
 
     // Standalone one-time/manual-recurring retry: no Stripe Billing invoice exists to pay.
     const retryOrigin = p.subscription_id ? 'recurring_manual' : 'one_time';
-    const retryMetadata = { subloop_payment_origin:retryOrigin };
+    const retryMetadata = { subloop_payment_origin:retryOrigin, subloop_attempt_id: attemptId || '' };
     if (p.subscription_id) retryMetadata.subloop_subscription_id = String(p.subscription_id);
+    const retryIdemKey = idemKeyFromAttempt('subloop-retry-' + p.id, attemptId);
     try {
-      const pi = await stripe.paymentIntents.create({ amount:p.amount, currency:p.currency||'usd', customer:p.stripe_customer_id, payment_method:pm.id, confirm:true, off_session:true, metadata:retryMetadata });
+      const pi = await stripe.paymentIntents.create({ amount:p.amount, currency:p.currency||'usd', customer:p.stripe_customer_id, payment_method:pm.id, confirm:true, off_session:true, metadata:retryMetadata }, { idempotencyKey: retryIdemKey });
       const status = pi.status==='succeeded' ? 'succeeded' : pi.status;
       const paymentId = await savePaymentIntent(stripe, acc, pi, status);
       if (paymentId) await pool.query('UPDATE payments SET retry_of_payment_id=$1 WHERE id=$2', [p.id,paymentId]);
       await activityLog.add('retry', `Retried payment for ${p.name}: ${status}`, p.customer_id, p.amount);
-      return res.json({ success:status==='succeeded', status, retry_of_payment_id:p.id, payment_id:paymentId });
+      return res.json({ success:status==='succeeded', status, retry_of_payment_id:p.id, payment_id:paymentId, definitive:true });
     } catch(retryErr) {
       if (retryErr?.payment_intent) {
         const paymentId = await savePaymentIntent(stripe, acc, retryErr.payment_intent, 'failed').catch(()=>null);
         if (paymentId) await pool.query('UPDATE payments SET retry_of_payment_id=$1 WHERE id=$2', [p.id,paymentId]).catch(()=>{});
       }
-      return res.status(402).json({ success:false, error:retryErr.message });
+      // Stripe returned a known result — definitive.
+      return res.status(402).json({ success:false, error:retryErr.message, definitive:true });
     }
   } catch(err) {
     console.error('[payment-retry] failed:', err.message);
-    res.status(500).json({ error:err.message });
+    // Unexpected/DB-level failure — ambiguous whether Stripe already processed it.
+    res.status(500).json({ error:err.message, definitive:false });
+  } finally {
+    endInFlight(inFlightKey);
   }
 });
 app.patch('/api/payments/:id/note', async (req, res) => {
