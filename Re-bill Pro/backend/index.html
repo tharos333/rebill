@@ -233,9 +233,9 @@ textarea{resize:vertical;min-height:60px}
 .migration-result-box.visible{display:block}
 .migration-result-box.success{background:var(--green-bg);border-color:var(--green);color:var(--green)}
 .migration-result-box.error{background:var(--red-bg);border-color:var(--red);color:var(--red);font-size:12px}
+.migration-result-box.warning{background:var(--amber-bg);border-color:var(--amber);color:var(--amber)}
 .migration-result-box .migration-result-title{font-family:var(--mono);font-size:13px;font-weight:400;letter-spacing:normal;line-height:1.25;margin-bottom:4px;color:inherit}
 .migration-result-box .migration-result-detail{font-family:var(--mono);font-size:11px;font-weight:400;letter-spacing:normal;line-height:1.5;color:var(--muted)}
-.migration-retry-warning{margin-top:8px;padding:8px 10px;border:1px solid var(--amber);border-radius:7px;background:var(--amber-bg);color:var(--amber);font-family:var(--mono);font-size:11px;font-weight:400;line-height:1.45}
 /* Migration payment method uses the exact same card-brand icon treatment as Customers / Payments. */
 .migration-readonly-payment{width:100%;min-height:34px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:8px 11px;font-size:13px!important;font-family:var(--font-ui)!important;font-weight:600!important;letter-spacing:-.01em!important;display:flex;align-items:center;box-sizing:border-box}
 .migration-payment-method{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;vertical-align:middle}
@@ -6683,6 +6683,7 @@ body.view-only-access #verification-debug-modal .modal-content{
       <input id="migration-live-amount" type="number" inputmode="decimal" min="0.50" step="0.01" placeholder="5.00" oninput="updateMigrationLiveChargeButton()">
     </div>
     <div id="migration-result" class="migration-result-box"></div>
+    <div id="migration-retry-warning" class="migration-result-box warning"></div>
     <div class="modal-footer" style="align-items:center;">
       <button class="btn" onclick="closeModal('migration-modal')">Cancel</button>
       <button class="btn" id="migration-test-btn" onclick="testMigrationCharge()" style="display:none;">Test card</button>
@@ -8262,6 +8263,19 @@ function setMigrationResult(html,state){
   if(state==='success'||state==='error')box.classList.add(state);
   box.innerHTML=html;
 }
+function setMigrationRetryWarning(message){
+  var box=document.getElementById('migration-retry-warning');
+  if(!box)return;
+  if(!message){
+    box.classList.remove('visible');
+    box.style.display='none';
+    box.innerHTML='';
+    return;
+  }
+  box.style.display='block';
+  box.classList.add('visible','warning');
+  box.innerHTML='<div class="migration-result-title">Retry later</div><div class="migration-result-detail">'+escHtml(message)+' No charge has been made.</div>';
+}
 async function openMigrationModal(subId){
   if(blockViewOnlyAction())return;
   if(!['owner','admin'].includes(getCurrentRole())){toast('Owner or admin access required','error');return;}
@@ -8273,6 +8287,7 @@ async function openMigrationModal(subId){
   var migrationSourceCardInput=document.getElementById('migration-source-card');if(migrationSourceCardInput){migrationSourceCardInput.textContent='Loading…';}
   document.getElementById('migration-destination-customer').value='';
   var result=document.getElementById('migration-result');if(result){result.classList.remove('visible');result.style.display='none';result.innerHTML='';}
+  setMigrationRetryWarning('');
   var test=document.getElementById('migration-test-btn');if(test){test.style.display='none';test.disabled=false;test.textContent='Verify card';}
   var amountWrap=document.getElementById('migration-live-amount-wrap');if(amountWrap)amountWrap.style.display='none';
   var amountInput=document.getElementById('migration-live-amount');if(amountInput)amountInput.value='';
@@ -8337,10 +8352,7 @@ async function retryMigrationVerification(paymentId,btn){
     select.value=destinationId;
     document.getElementById('migration-destination-customer').value=context.destination_customer_id||'';
     await checkMigrationDestination();
-    if(currentMigrationCheck&&context.retry_warning){
-      var resultBox=document.getElementById('migration-result');
-      if(resultBox)resultBox.innerHTML+='<div class="migration-retry-warning"><strong>Retry later</strong><br>'+escHtml(context.retry_warning)+' No charge has been made.</div>';
-    }
+    if(currentMigrationCheck)setMigrationRetryWarning(context.retry_warning||'');
     if(currentMigrationCheck&&currentMigrationCheck.livemode){
       var amountInput=document.getElementById('migration-live-amount');
       var amountMajor=Number(context.amount||0)/100;
@@ -8350,6 +8362,7 @@ async function retryMigrationVerification(paymentId,btn){
   finally{if(btn)btn.disabled=false;}
 }
 async function checkMigrationDestination(){
+  setMigrationRetryWarning('');
   var subId=Number(document.getElementById('migration-sub-id').value);
   var accountId=Number(document.getElementById('migration-destination-account').value);
   var customerId=String(document.getElementById('migration-destination-customer').value||'').trim();
@@ -8394,6 +8407,7 @@ async function testMigrationCharge(){
   if(currentMigrationCheck.livemode){
     return chargeMigrationLiveVerification();
   }
+  setMigrationRetryWarning('');
   var btn=document.getElementById('migration-test-btn');btn.disabled=true;btn.textContent='Testing…';
   try{
     var r=await api('/api/migrations/test-charge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(currentMigrationCheck)});
@@ -8449,6 +8463,7 @@ function chargeMigrationLiveVerification(){
     confirmText:'Verify charge '+amountLabel,
     danger:false
   },async function(){
+    setMigrationRetryWarning('');
     var btn=document.getElementById('migration-test-btn');
     if(btn){btn.disabled=true;btn.textContent='Verifying…';}
     try{
