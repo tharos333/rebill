@@ -226,9 +226,9 @@ select option{background:var(--surface2)}
 textarea{resize:vertical;min-height:60px}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
-.stripe-account-name-preview{margin:-2px 0 12px;padding:9px 11px;background:var(--surface2);border:1px solid var(--border);border-radius:8px}
-.stripe-account-name-preview-label{margin-bottom:3px;color:var(--muted);font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
-.stripe-account-name-preview-value{color:var(--text);font-family:var(--mono);font-size:11px;line-height:1.4;overflow-wrap:anywhere}
+.stripe-account-name-preview{display:flex;align-items:baseline;gap:5px;min-width:0;margin:-5px 0 12px;font-family:var(--mono);font-size:11px;line-height:1.4}
+.stripe-account-name-preview-label{flex:0 0 auto;color:var(--muted);font-size:10px;font-weight:500}
+.stripe-account-name-preview-value{min-width:0;color:var(--text);overflow-wrap:anywhere}
 .link-result{display:none;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:11px 14px;margin-top:12px}
 .link-result.visible{display:block}
 /* Migration result uses the same compact inline success/error treatment as the app */
@@ -6635,7 +6635,7 @@ body.view-only-access #verification-debug-modal .modal-content{
       <div class="form-group"><label>Country code</label><input type="text" id="acc-country" maxlength="2" placeholder="FR" autocomplete="off" oninput="normalizeStripeCountryInput(this);updateStripeAccountNamePreview('acc')"></div>
     </div>
     <div class="form-group"><label>Name</label><input type="text" id="acc-display-name" maxlength="80" placeholder="Murat KOCPINAR" autocomplete="off" oninput="updateStripeAccountNamePreview('acc')"></div>
-    <div class="stripe-account-name-preview"><div class="stripe-account-name-preview-label">Saved account name</div><div class="stripe-account-name-preview-value" id="acc-name-preview">Stripe_Solo_CC_Name</div></div>
+    <div class="stripe-account-name-preview"><span class="stripe-account-name-preview-label">Saved as:</span><span class="stripe-account-name-preview-value" id="acc-name-preview">Stripe_Solo_CC_Name</span></div>
     <div class="form-group"><label>Secret key (sk_live_...)</label><input type="password" id="acc-key" placeholder="sk_live_..."></div>
     <div class="form-group"><label>Publishable key (pk_live_...) — required for embedded checkout</label><input type="text" id="acc-publishable" placeholder="pk_live_..."></div>
     <div class="form-group"><label>Webhook secret (whsec_...) — optional</label><input type="text" id="acc-webhook" placeholder="whsec_..."></div>
@@ -6794,7 +6794,7 @@ body.view-only-access #verification-debug-modal .modal-content{
       <div class="form-group"><label>Country code</label><input type="text" id="edit-acc-country" maxlength="2" placeholder="FR" autocomplete="off" oninput="normalizeStripeCountryInput(this);updateStripeAccountNamePreview('edit-acc')"></div>
     </div>
     <div class="form-group"><label>Name</label><input type="text" id="edit-acc-display-name" maxlength="80" placeholder="Murat KOCPINAR" autocomplete="off" oninput="updateStripeAccountNamePreview('edit-acc')"></div>
-    <div class="stripe-account-name-preview"><div class="stripe-account-name-preview-label">Saved account name</div><div class="stripe-account-name-preview-value" id="edit-acc-name-preview">Stripe_Solo_CC_Name</div></div>
+    <div class="stripe-account-name-preview"><span class="stripe-account-name-preview-label">Saved as:</span><span class="stripe-account-name-preview-value" id="edit-acc-name-preview">Stripe_Solo_CC_Name</span></div>
     <div class="form-group"><label>New secret key (sk_live_...)</label><input type="password" id="edit-acc-key" placeholder="Leave blank to keep existing key"></div>
     <div class="form-group"><label>Publishable key (pk_live_...)</label><input type="text" id="edit-acc-publishable" placeholder="Leave blank to keep existing key"></div>
     <div class="form-group"><label>Webhook secret (whsec_...)</label><input type="text" id="edit-acc-webhook" placeholder="Leave blank to keep existing secret"></div>
