@@ -935,6 +935,7 @@ function idemKeyFromAttempt(prefix, attemptId) {
 // This is not the durable protection (the Stripe idempotency key is) — it just avoids two
 // simultaneous requests both reaching Stripe before either one's idempotency key would help.
 const inFlightCharges = new Set();
+const inFlightStripeSyncs = new Set();
 function beginInFlight(key, res) {
   if (inFlightCharges.has(key)) {
     res.status(409).json({ success:false, error:'A charge for this is already in progress', definitive:false });
@@ -1895,6 +1896,72 @@ app.patch('/api/stripe-accounts/:id', async (req, res) => {
     await pool.query(`UPDATE stripe_accounts SET ${updates.join(', ')} WHERE id=$${values.length-1} AND workspace_id=$${values.length}`, values);
     res.json({ success: true, name:identity.name });
   } catch(err) { res.status(500).json({ error: err.message }); }
+});
+app.post('/api/stripe-accounts/:id/sync', async (req, res) => {
+  const accountId = Number(req.params.id);
+  let lockAcquired = false;
+  try {
+    if (!requireOwnerOrAdmin(req, res)) return;
+    const account = await stripeAccounts.byId(accountId);
+    if (!account) return res.status(404).json({ error:'Stripe account not found' });
+    if (!ensureRowScope(req, res, { stripe_account_id:account.id, workspace_id:account.workspace_id })) return;
+    if (!account.secret_key || !String(account.secret_key).startsWith('sk_')) {
+      return res.status(400).json({ error:'This Stripe account does not have a valid secret key' });
+    }
+    if (inFlightStripeSyncs.has(account.id)) {
+      return res.status(409).json({ error:'This Stripe account is already syncing' });
+    }
+    inFlightStripeSyncs.add(account.id);
+    lockAcquired = true;
+
+    const stripe = new Stripe(account.secret_key);
+    const customerIds = new Set();
+    const errorSamples = [];
+    let subscriptionsFound = 0;
+    let subscriptionsSynced = 0;
+    let errors = 0;
+    let startingAfter = null;
+
+    do {
+      const page = await stripe.subscriptions.list({
+        status:'all',
+        limit:100,
+        ...(startingAfter ? { starting_after:startingAfter } : {})
+      });
+      for (const remote of page.data || []) {
+        subscriptionsFound++;
+        const customerId = typeof remote.customer === 'string' ? remote.customer : remote.customer?.id;
+        if (customerId) customerIds.add(customerId);
+        try {
+          await saveSubscriptionFromStripe(stripe, account, remote, 'account.sync');
+          subscriptionsSynced++;
+        } catch (err) {
+          errors++;
+          if (errorSamples.length < 10) {
+            errorSamples.push({ subscription_id:remote.id, error:err.message });
+          }
+        }
+      }
+      startingAfter = page.has_more && page.data?.length ? page.data[page.data.length - 1].id : null;
+    } while (startingAfter);
+
+    res.json({
+      success:errors === 0,
+      partial:errors > 0 && subscriptionsSynced > 0,
+      account_id:account.id,
+      account_name:account.name,
+      subscriptions_found:subscriptionsFound,
+      subscriptions_synced:subscriptionsSynced,
+      customers_found:customerIds.size,
+      errors,
+      error_samples:errorSamples
+    });
+  } catch (err) {
+    console.error('[stripe-account-sync] failed:', err.message);
+    res.status(500).json({ error:err.message });
+  } finally {
+    if (lockAcquired) inFlightStripeSyncs.delete(accountId);
+  }
 });
 app.patch('/api/stripe-accounts/:id/default', async (req, res) => {
   try {
