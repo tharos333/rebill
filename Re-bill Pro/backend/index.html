@@ -6502,11 +6502,11 @@ body.view-only-access #verification-debug-modal .modal-content{
       <col class="accounts-col-status">
       <col class="accounts-col-verification">
       <col class="accounts-col-embedded">
-      <col class="accounts-col-mode">
+      <col class="accounts-col-key">
       <col class="accounts-col-added">
       <col class="accounts-col-actions">
     </colgroup>
-    <thead><tr><th>Name</th><th>Status</th><th>Verification</th><th>Embedded</th><th>Mode</th><th>Added</th><th>Actions</th></tr></thead>
+    <thead><tr><th>Name</th><th>Status</th><th>Verification</th><th>Embedded</th><th>Key</th><th>Added</th><th>Actions</th></tr></thead>
     <tbody id="accounts-table"><tr><td colspan="7" class="empty">Loading...</td></tr></tbody>
   </table></div></div>
 </div>
@@ -9663,10 +9663,9 @@ async function loadAccounts(){
           var embedBadge=a.has_publishable_key?'<span class="badge badge-green">Ready</span>':'<span class="badge badge-amber">Add pk_ key</span>';
           var safeAccountName=escHtml(a.name||'—');
           var accountSearchValue=escHtml(String(a.name||'').toLowerCase());
-          var mode=String(a.mode||'Unknown');
           var addedDate=fmtDate(a.created_at);
           var addedTitle=a.created_at?new Date(a.created_at).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}):'Not available';
-          return '<tr data-account-search="'+accountSearchValue+'" style="'+rowBg+'"><td class="accounts-name-cell"><strong class="accounts-name-text" title="'+safeAccountName+'">'+safeAccountName+'</strong></td><td>'+statusBadge+defaultBadge+'</td><td>'+verificationHtml+'</td><td>'+embedBadge+'</td><td class="accounts-mode-cell">'+escHtml(mode)+'</td><td class="accounts-added-cell" title="'+addedTitle+'">'+addedDate+'</td><td><div class="'+actionClass+'">'+manageActions+'</div></td></tr>';
+          return '<tr data-account-search="'+accountSearchValue+'" style="'+rowBg+'"><td class="accounts-name-cell"><strong class="accounts-name-text" title="'+safeAccountName+'">'+safeAccountName+'</strong></td><td>'+statusBadge+defaultBadge+'</td><td>'+verificationHtml+'</td><td>'+embedBadge+'</td><td class="mono accounts-key-cell" style="font-size:12px;color:var(--muted);">'+(a.key_preview||'—')+'</td><td class="accounts-added-cell" title="'+addedTitle+'">'+addedDate+'</td><td><div class="'+actionClass+'">'+manageActions+'</div></td></tr>';
         }).join('');
         filterStripeAccounts();
       }
@@ -11618,7 +11617,7 @@ html.light #action-confirm-modal .modal-footer .btn-danger:hover {
   box-shadow: none !important;
 }
 
-/* Stripe Accounts table hierarchy: operational state first, account mode later */
+/* Stripe Accounts table hierarchy: operational state first, technical key later */
 #page-accounts .stripe-accounts-table{
   table-layout:fixed;
   min-width:1240px;
@@ -11634,7 +11633,7 @@ html.light #action-confirm-modal .modal-footer .btn-danger:hover {
 #page-accounts .verification-more{font-size:11px;color:var(--muted);font-weight:600;}
 #page-accounts .verification-empty{color:var(--muted);font-size:12px;font-weight:600;}
 #page-accounts .stripe-accounts-table .accounts-col-embedded{width:9%;}
-#page-accounts .stripe-accounts-table .accounts-col-mode{width:8%;}
+#page-accounts .stripe-accounts-table .accounts-col-key{width:8%;}
 #page-accounts .stripe-accounts-table .accounts-col-added{width:10%;}
 #page-accounts .stripe-accounts-table .accounts-col-actions{width:18%;}
 #page-accounts .stripe-accounts-table .accounts-added-cell{white-space:nowrap;color:var(--muted);font-size:12px;font-weight:500;}
@@ -11643,13 +11642,10 @@ html.light #action-confirm-modal .modal-footer .btn-danger:hover {
   padding-left:18px;
   padding-right:18px;
 }
-#page-accounts .stripe-accounts-table .accounts-mode-cell{
+#page-accounts .stripe-accounts-table .accounts-key-cell{
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
-  color:var(--muted);
-  font-size:12px;
-  font-weight:500;
 }
 #page-accounts .stripe-accounts-table th:nth-child(5),
 #page-accounts .stripe-accounts-table td:nth-child(5){
