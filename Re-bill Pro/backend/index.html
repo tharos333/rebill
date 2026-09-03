@@ -6495,7 +6495,7 @@ body.view-only-access #verification-debug-modal .modal-content{
     <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.5 9.9 13.5 8.1"/><path d="M10.5 14.1 13.5 15.9"/><circle cx="7" cy="12" r="4"/><circle cx="17" cy="6" r="4"/><circle cx="17" cy="18" r="4"/></svg><span>Stripe Accounts</span></h2><p>Manage multiple Stripe accounts</p></div>
     <button id="stripe-add-account-btn" class="btn btn-primary" onclick="openModal('add-account-modal')"><svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v10"/><path d="M3 8h10"/></svg><span>Add Account</span></button>
   </div>
-  <div class="search-bar"><input type="text" id="account-search" placeholder="Search by account name..." oninput="filterStripeAccounts()"></div>
+  <div class="search-bar"><input type="text" id="account-search" placeholder="Search by account name..." oninput="accountCurrentPage=1;filterStripeAccounts()"></div>
   <div class="card"><div class="scrollable"><table class="stripe-accounts-table">
     <colgroup>
       <col class="accounts-col-name">
@@ -6509,6 +6509,7 @@ body.view-only-access #verification-debug-modal .modal-content{
     <thead><tr><th>Name</th><th>Status</th><th>Verification</th><th>Embedded</th><th>Key</th><th>Added</th><th>Actions</th></tr></thead>
     <tbody id="accounts-table"><tr><td colspan="7" class="empty">Loading...</td></tr></tbody>
   </table></div></div>
+  <div id="account-pagination" style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap;"></div>
 </div>
 
 <!-- Webhook Logs -->
@@ -9617,23 +9618,41 @@ function applyStripeAccountsPageScopeUI(){
   if(addBtn)addBtn.style.display=canManageStripeAccounts()?'inline-flex':'none';
 }
 
+var accountCurrentPage=1;
+var ACCOUNTS_PER_PAGE=35;
+function renderStripeAccountPagination(total,totalPages){
+  var el=document.getElementById('account-pagination');
+  if(!el)return;
+  if(totalPages<=1){el.innerHTML='';return;}
+  var html='<span style="font-size:12px;color:var(--muted);">Page '+accountCurrentPage+' of '+totalPages+'</span>';
+  html+='<button class="btn btn-sm" onclick="accountCurrentPage=Math.max(1,accountCurrentPage-1);filterStripeAccounts();" '+(accountCurrentPage===1?'disabled':'')+'>← Prev</button>';
+  var start=Math.max(1,accountCurrentPage-3),end=Math.min(totalPages,accountCurrentPage+3);
+  for(var i=start;i<=end;i++){
+    var active=i===accountCurrentPage;
+    html+='<button class="btn btn-sm'+(active?' btn-primary':'')+'" onclick="accountCurrentPage='+i+';filterStripeAccounts();">'+i+'</button>';
+  }
+  html+='<button class="btn btn-sm" onclick="accountCurrentPage=Math.min('+totalPages+',accountCurrentPage+1);filterStripeAccounts();" '+(accountCurrentPage===totalPages?'disabled':'')+'> Next →</button>';
+  el.innerHTML=html;
+}
 function filterStripeAccounts(){
   var input=document.getElementById('account-search');
   var table=document.getElementById('accounts-table');
   if(!input||!table)return;
   var query=String(input.value||'').trim().toLowerCase();
   var rows=Array.from(table.querySelectorAll('tr[data-account-search]'));
-  var visible=0;
-  rows.forEach(function(row){
-    var matches=!query||String(row.getAttribute('data-account-search')||'').includes(query);
-    row.style.display=matches?'':'none';
-    if(matches)visible++;
-  });
+  var matches=rows.filter(function(row){return !query||String(row.getAttribute('data-account-search')||'').includes(query);});
+  var total=matches.length;
+  var totalPages=Math.max(1,Math.ceil(total/ACCOUNTS_PER_PAGE));
+  if(accountCurrentPage>totalPages)accountCurrentPage=totalPages;
+  var start=(accountCurrentPage-1)*ACCOUNTS_PER_PAGE;
+  var visibleRows=new Set(matches.slice(start,start+ACCOUNTS_PER_PAGE));
+  rows.forEach(function(row){row.style.display=visibleRows.has(row)?'':'none';});
   var empty=document.getElementById('accounts-search-empty');
   if(empty)empty.remove();
-  if(query&&rows.length&&!visible){
+  if(query&&rows.length&&!total){
     table.insertAdjacentHTML('beforeend','<tr id="accounts-search-empty"><td colspan="7" class="empty">No matching accounts</td></tr>');
   }
+  renderStripeAccountPagination(total,totalPages);
 }
 
 async function loadAccounts(){
@@ -9645,6 +9664,7 @@ async function loadAccounts(){
     if(tb){
       if(!list.length){
         tb.innerHTML='<tr><td colspan="7" class="empty">'+(usesSelectedStripeScope()?'No assigned Stripe accounts':'No accounts yet')+'</td></tr>';
+        renderStripeAccountPagination(0,1);
       } else {
         tb.innerHTML=list.map(function(a){
           var st=(a.account_status||a.status||'active').toLowerCase();
