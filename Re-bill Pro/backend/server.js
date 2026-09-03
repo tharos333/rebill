@@ -4290,6 +4290,16 @@ app.get('/api/debug/admins', async (req, res) => {
   res.json(results);
 });
 
+// Always serve the SPA shell fresh so a deployment cannot leave users on an old UI build.
+function sendAppIndex(res) {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  res.set('Surrogate-Control', 'no-store');
+  res.set('X-Subloop-App-Build', '20260903-stripe-actions-sync-1');
+  return res.sendFile(path.join(__dirname, 'index.html'));
+}
+
 // ── Webhook ───────────────────────────────────────────────────────────────────
 app.get('*', async (req, res) => {
   try {
@@ -4324,9 +4334,9 @@ app.get('*', async (req, res) => {
       const suffix=params.toString()?('?'+params.toString()):'';
       return res.redirect(302, SUBLOOP_LOGIN_ORIGIN + '/' + suffix);
     }
-    return res.sendFile(path.join(__dirname, 'index.html'));
+    return sendAppIndex(res);
   } catch (_err) {
-    return res.sendFile(path.join(__dirname, 'index.html'));
+    return sendAppIndex(res);
   }
 });
 
