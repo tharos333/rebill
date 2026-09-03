@@ -1735,7 +1735,11 @@ app.get('/api/stripe-accounts', async (req, res) => {
         secret_key,
         CASE WHEN COALESCE(publishable_key,'')<>'' THEN LEFT(publishable_key,12)||'...' ELSE NULL END as publishable_key_preview,
         COALESCE(publishable_key,'')<>'' AS has_publishable_key,
-        LEFT(secret_key,12)||'...' as key_preview
+        CASE
+          WHEN secret_key LIKE 'sk_live_%' THEN 'Live'
+          WHEN secret_key LIKE 'sk_test_%' THEN 'Test'
+          ELSE 'Unknown'
+        END AS mode
       FROM stripe_accounts
       WHERE id=ANY($1::int[])
       ORDER BY created_at DESC NULLS LAST, id DESC

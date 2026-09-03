@@ -6495,17 +6495,18 @@ body.view-only-access #verification-debug-modal .modal-content{
     <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.5 9.9 13.5 8.1"/><path d="M10.5 14.1 13.5 15.9"/><circle cx="7" cy="12" r="4"/><circle cx="17" cy="6" r="4"/><circle cx="17" cy="18" r="4"/></svg><span>Stripe Accounts</span></h2><p>Manage multiple Stripe accounts</p></div>
     <button id="stripe-add-account-btn" class="btn btn-primary" onclick="openModal('add-account-modal')"><svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v10"/><path d="M3 8h10"/></svg><span>Add Account</span></button>
   </div>
+  <div class="search-bar"><input type="text" id="account-search" placeholder="Search by account name..." oninput="filterStripeAccounts()"></div>
   <div class="card"><div class="scrollable"><table class="stripe-accounts-table">
     <colgroup>
       <col class="accounts-col-name">
       <col class="accounts-col-status">
       <col class="accounts-col-verification">
       <col class="accounts-col-embedded">
-      <col class="accounts-col-key">
+      <col class="accounts-col-mode">
       <col class="accounts-col-added">
       <col class="accounts-col-actions">
     </colgroup>
-    <thead><tr><th>Name</th><th>Status</th><th>Verification</th><th>Embedded</th><th>Key</th><th>Added</th><th>Actions</th></tr></thead>
+    <thead><tr><th>Name</th><th>Status</th><th>Verification</th><th>Embedded</th><th>Mode</th><th>Added</th><th>Actions</th></tr></thead>
     <tbody id="accounts-table"><tr><td colspan="7" class="empty">Loading...</td></tr></tbody>
   </table></div></div>
 </div>
@@ -9590,6 +9591,25 @@ function applyStripeAccountsPageScopeUI(){
   if(addBtn)addBtn.style.display=canManageStripeAccounts()?'inline-flex':'none';
 }
 
+function filterStripeAccounts(){
+  var input=document.getElementById('account-search');
+  var table=document.getElementById('accounts-table');
+  if(!input||!table)return;
+  var query=String(input.value||'').trim().toLowerCase();
+  var rows=Array.from(table.querySelectorAll('tr[data-account-search]'));
+  var visible=0;
+  rows.forEach(function(row){
+    var matches=!query||String(row.getAttribute('data-account-search')||'').includes(query);
+    row.style.display=matches?'':'none';
+    if(matches)visible++;
+  });
+  var empty=document.getElementById('accounts-search-empty');
+  if(empty)empty.remove();
+  if(query&&rows.length&&!visible){
+    table.insertAdjacentHTML('beforeend','<tr id="accounts-search-empty"><td colspan="7" class="empty">No matching accounts</td></tr>');
+  }
+}
+
 async function loadAccounts(){
   try{
     const allAccounts=await api('/api/stripe-accounts');
@@ -9642,10 +9662,15 @@ async function loadAccounts(){
           var actionClass=canManageStripeAccounts()?'actions accounts-actions':'actions accounts-actions readonly-allowed-actions';
           var embedBadge=a.has_publishable_key?'<span class="badge badge-green">Ready</span>':'<span class="badge badge-amber">Add pk_ key</span>';
           var safeAccountName=escHtml(a.name||'—');
+          var accountSearchValue=escHtml(String(a.name||'').toLowerCase());
+          var mode=String(a.mode||'Unknown');
+          var modeColor=mode==='Live'?'green':(mode==='Test'?'blue':'amber');
+          var modeBadge='<span class="badge badge-'+modeColor+' accounts-mode-badge">'+escHtml(mode)+'</span>';
           var addedDate=fmtDate(a.created_at);
           var addedTitle=a.created_at?new Date(a.created_at).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}):'Not available';
-          return '<tr style="'+rowBg+'"><td class="accounts-name-cell"><strong class="accounts-name-text" title="'+safeAccountName+'">'+safeAccountName+'</strong></td><td>'+statusBadge+defaultBadge+'</td><td>'+verificationHtml+'</td><td>'+embedBadge+'</td><td class="mono accounts-key-cell" style="font-size:12px;color:var(--muted);">'+(a.key_preview||'—')+'</td><td class="accounts-added-cell" title="'+addedTitle+'">'+addedDate+'</td><td><div class="'+actionClass+'">'+manageActions+'</div></td></tr>';
+          return '<tr data-account-search="'+accountSearchValue+'" style="'+rowBg+'"><td class="accounts-name-cell"><strong class="accounts-name-text" title="'+safeAccountName+'">'+safeAccountName+'</strong></td><td>'+statusBadge+defaultBadge+'</td><td>'+verificationHtml+'</td><td>'+embedBadge+'</td><td class="accounts-mode-cell">'+modeBadge+'</td><td class="accounts-added-cell" title="'+addedTitle+'">'+addedDate+'</td><td><div class="'+actionClass+'">'+manageActions+'</div></td></tr>';
         }).join('');
+        filterStripeAccounts();
       }
     }
     allStripeAccounts=list;
@@ -11595,7 +11620,7 @@ html.light #action-confirm-modal .modal-footer .btn-danger:hover {
   box-shadow: none !important;
 }
 
-/* Stripe Accounts table hierarchy: operational state first, technical key later */
+/* Stripe Accounts table hierarchy: operational state first, account mode later */
 #page-accounts .stripe-accounts-table{
   table-layout:fixed;
   min-width:1240px;
@@ -11611,7 +11636,7 @@ html.light #action-confirm-modal .modal-footer .btn-danger:hover {
 #page-accounts .verification-more{font-size:11px;color:var(--muted);font-weight:600;}
 #page-accounts .verification-empty{color:var(--muted);font-size:12px;font-weight:600;}
 #page-accounts .stripe-accounts-table .accounts-col-embedded{width:9%;}
-#page-accounts .stripe-accounts-table .accounts-col-key{width:8%;}
+#page-accounts .stripe-accounts-table .accounts-col-mode{width:8%;}
 #page-accounts .stripe-accounts-table .accounts-col-added{width:10%;}
 #page-accounts .stripe-accounts-table .accounts-col-actions{width:18%;}
 #page-accounts .stripe-accounts-table .accounts-added-cell{white-space:nowrap;color:var(--muted);font-size:12px;font-weight:500;}
@@ -11620,11 +11645,12 @@ html.light #action-confirm-modal .modal-footer .btn-danger:hover {
   padding-left:18px;
   padding-right:18px;
 }
-#page-accounts .stripe-accounts-table .accounts-key-cell{
+#page-accounts .stripe-accounts-table .accounts-mode-cell{
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
 }
+#page-accounts .stripe-accounts-table .accounts-mode-badge{min-width:42px;justify-content:center;}
 #page-accounts .stripe-accounts-table th:nth-child(5),
 #page-accounts .stripe-accounts-table td:nth-child(5){
   padding-right:6px;
