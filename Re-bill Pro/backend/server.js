@@ -1615,101 +1615,142 @@ function uniqueRequirements(items) {
     });
 }
 
-async function getStripeAccountDisplayStatus(accountRow) {
-  const base = {
-    account_status: 'closed',
-    account_status_label: 'closed',
+function classifyStripeAccountHealth(acc) {
+  const req = acc?.requirements || {};
+  const disabledReason = req.disabled_reason || null;
+  const disabledReasonKey = String(disabledReason || '').toLowerCase();
+  const chargesEnabled = !!acc?.charges_enabled;
+  const payoutsEnabled = !!acc?.payouts_enabled;
+  const currentlyDue = Array.isArray(req.currently_due) ? req.currently_due : [];
+  const pastDue = Array.isArray(req.past_due) ? req.past_due : [];
+  const eventuallyDue = Array.isArray(req.eventually_due) ? req.eventually_due : [];
+  const pendingVerification = Array.isArray(req.pending_verification) ? req.pending_verification : [];
+  const requirementDetails = uniqueRequirements([...pastDue, ...currentlyDue]);
+
+  const common = {
+    raw_requirements_currently_due: currentlyDue,
+    raw_requirements_past_due: pastDue,
+    raw_requirements_eventually_due: eventuallyDue,
+    raw_requirements_pending_verification: pendingVerification,
+    disabled_reason: disabledReason,
+    charges_enabled: chargesEnabled,
+    payouts_enabled: payoutsEnabled
+  };
+
+  if (acc?.deleted) {
+    return {
+      ...common,
+      account_status: 'closed',
+      account_status_label: 'closed',
+      account_status_reason: 'Stripe account closed',
+      verification_needed: false,
+      verification_details: ['Stripe account closed']
+    };
+  }
+
+  if (disabledReasonKey.includes('rejected')) {
+    return {
+      ...common,
+      account_status: 'rejected',
+      account_status_label: 'rejected',
+      account_status_reason: 'Stripe rejected this account',
+      verification_needed: false,
+      verification_details: ['Stripe rejected this account']
+    };
+  }
+
+  if (disabledReasonKey.includes('platform_paused')) {
+    const pausedDetail = !chargesEnabled && !payoutsEnabled
+      ? 'Payments & payouts paused'
+      : !chargesEnabled
+        ? 'Payments paused'
+        : !payoutsEnabled
+          ? 'Payouts paused'
+          : 'Account paused';
+
+    return {
+      ...common,
+      account_status: 'paused',
+      account_status_label: 'paused',
+      account_status_reason: pausedDetail,
+      verification_needed: false,
+      verification_details: [pausedDetail]
+    };
+  }
+
+  const needsAction =
+    !chargesEnabled ||
+    !payoutsEnabled ||
+    !!disabledReason ||
+    currentlyDue.length > 0 ||
+    pastDue.length > 0 ||
+    pendingVerification.length > 0;
+
+  if (needsAction) {
+    let verificationDetails = requirementDetails;
+
+    if (!verificationDetails.length) {
+      if (pendingVerification.length > 0 || disabledReasonKey.includes('pending_verification')) {
+        verificationDetails = ['Verification pending'];
+      } else if (disabledReasonKey.includes('under_review') || disabledReasonKey === 'listed') {
+        verificationDetails = ['Account under review'];
+      } else if (!chargesEnabled && !payoutsEnabled) {
+        verificationDetails = ['Payments & payouts unavailable'];
+      } else if (!chargesEnabled) {
+        verificationDetails = ['Payments unavailable'];
+      } else if (!payoutsEnabled) {
+        verificationDetails = ['Payouts unavailable'];
+      } else {
+        verificationDetails = ['Verification required'];
+      }
+    }
+
+    return {
+      ...common,
+      account_status: 'restricted',
+      account_status_label: 'restricted',
+      account_status_reason: verificationDetails[0],
+      verification_needed: true,
+      verification_details: verificationDetails
+    };
+  }
+
+  return {
+    ...common,
+    account_status: 'active',
+    account_status_label: 'active',
     account_status_reason: null,
     verification_needed: false,
-    verification_details: [],
+    verification_details: []
+  };
+}
+
+async function getStripeAccountDisplayStatus(accountRow) {
+  const connectionError = (message) => ({
+    account_status: 'connection_error',
+    account_status_label: 'connection error',
+    account_status_reason: message,
+    verification_needed: false,
+    verification_details: [message],
     raw_requirements_currently_due: [],
     raw_requirements_past_due: [],
     raw_requirements_eventually_due: [],
+    raw_requirements_pending_verification: [],
     disabled_reason: null,
     charges_enabled: false,
     payouts_enabled: false
-  };
+  });
 
   if (!accountRow.secret_key || !String(accountRow.secret_key).startsWith('sk_')) {
-    return {
-      ...base,
-      account_status_reason: 'Missing or invalid secret key',
-      verification_details: ['Missing or invalid secret key']
-    };
+    return connectionError('Missing or invalid secret key');
   }
 
   try {
     const stripe = new Stripe(accountRow.secret_key);
     const acc = await stripe.accounts.retrieve();
-
-    const req = acc?.requirements || {};
-    const disabledReason = req.disabled_reason || null;
-    const chargesEnabled = !!acc?.charges_enabled;
-    const payoutsEnabled = !!acc?.payouts_enabled;
-
-    const currentlyDue = Array.isArray(req.currently_due) ? req.currently_due : [];
-    const pastDue = Array.isArray(req.past_due) ? req.past_due : [];
-    const details = uniqueRequirements([...pastDue, ...currentlyDue]);
-
-    if (acc?.deleted) {
-      return {
-        ...base,
-        account_status_reason: 'Stripe account deleted or closed',
-        verification_details: ['Stripe account deleted or closed']
-      };
-    }
-
-    // Main rule:
-    // No action needed only when charges + payouts are enabled and Stripe has no requirements due now.
-    const needsAction =
-      !chargesEnabled ||
-      !payoutsEnabled ||
-      !!disabledReason ||
-      currentlyDue.length > 0 ||
-      pastDue.length > 0;
-
-    if (needsAction) {
-      const reason =
-        disabledReason ||
-        (!chargesEnabled && !payoutsEnabled ? 'Payments and payouts not enabled' :
-          !chargesEnabled ? 'Payments access disabled' :
-          !payoutsEnabled ? 'Payouts paused or disabled' :
-          details[0] || 'Verification required');
-
-      return {
-        account_status: 'restricted',
-        account_status_label: 'verification required',
-        account_status_reason: reason,
-        verification_needed: true,
-        verification_details: details.length ? details : [reason],
-        raw_requirements_currently_due: currentlyDue,
-        raw_requirements_past_due: pastDue,
-        raw_requirements_eventually_due: req.eventually_due || [],
-        disabled_reason: disabledReason,
-        charges_enabled: chargesEnabled,
-        payouts_enabled: payoutsEnabled
-      };
-    }
-
-    return {
-      account_status: 'active',
-      account_status_label: 'active',
-      account_status_reason: null,
-      verification_needed: false,
-      verification_details: [],
-      raw_requirements_currently_due: currentlyDue,
-      raw_requirements_past_due: pastDue,
-      raw_requirements_eventually_due: req.eventually_due || [],
-      disabled_reason: disabledReason,
-      charges_enabled: chargesEnabled,
-      payouts_enabled: payoutsEnabled
-    };
+    return classifyStripeAccountHealth(acc);
   } catch (err) {
-    return {
-      ...base,
-      account_status_reason: err?.message || 'Unable to verify Stripe account',
-      verification_details: [err?.message || 'Unable to verify Stripe account']
-    };
+    return connectionError(err?.message || 'Unable to connect to Stripe');
   }
 }
 
@@ -1822,7 +1863,7 @@ app.get('/api/stripe-accounts/:id/verification-debug', async (req, res) => {
       },
       persons_error,
       persons,
-      interpreted_status: await getStripeAccountDisplayStatus(account)
+      interpreted_status: classifyStripeAccountHealth(acc)
     };
 
     res.json(debug);
