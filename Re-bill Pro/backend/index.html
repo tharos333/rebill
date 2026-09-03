@@ -3,9 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
 <link rel="icon" type="image/png" href="https://i.ibb.co/6cnnDkWy/Blue-and-White-Minimalist-Professional-Brand-Logo-1.png">
 <title>Subloop Beta 1.0 — Manage Recurring Subscriptions</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -6107,7 +6104,7 @@ body.view-only-access #verification-debug-modal .modal-content{
     <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Customers</span></h2><p>Manage customers and payment methods</p></div>
     <div class="page-header-actions">
       <button class="btn view-write-only" onclick="window.location='/api/customers/export'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export CSV</button>
-      <button class="btn btn-primary view-write-only" onclick="openModal('add-customer-modal')"><svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v10"/><path d="M3 8h10"/></svg><span>Import Customer</span></button>
+      <button class="btn btn-primary view-write-only" onclick="openModal('add-customer-modal')"><svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v10"/><path d="M3 8h10"/></svg><span>Add Customer</span></button>
     </div>
   </div>
   <div class="pay-filter-bar" style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;">
@@ -6623,11 +6620,11 @@ body.view-only-access #verification-debug-modal .modal-content{
 <!-- Modals -->
 <div class="modal-bg" id="add-customer-modal">
   <div class="modal">
-    <h3>Import Stripe Customer</h3><p>Import an existing customer and saved card into Subloop.</p>
+    <h3>Add Stripe Customer</h3><p>Import a customer and saved card from Stripe.</p>
     <div class="form-group"><label>Stripe customer ID (cus_...)</label><input type="text" id="mc-stripe-id" placeholder="cus_xxx..."></div>
     <div class="form-group"><label>Stripe account</label><select id="mc-account"><option value="">Default</option></select></div>
     <div class="form-group"><label>Note (optional)</label><textarea id="mc-note" placeholder="Internal note..."></textarea></div>
-    <div class="modal-footer"><button class="btn" onclick="closeModal('add-customer-modal')">Cancel</button><button class="btn btn-primary" onclick="addCustomer()"><span>Import Customer</span></button></div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal('add-customer-modal')">Cancel</button><button class="btn btn-primary" onclick="addCustomer()"><span>Add Customer</span></button></div>
   </div>
 </div>
 <div class="modal-bg" id="add-account-modal">
@@ -8499,7 +8496,7 @@ function toggleSelectAll(){var cbs=document.querySelectorAll('.sub-checkbox');va
 function updateBulkBar(){var n=selectedSubs.size;var countEl=document.getElementById('bulk-count');if(countEl)countEl.textContent=n>0?n+' selected':'';['bulk-charge-btn','bulk-pause-btn','bulk-cancel-btn'].forEach(function(id){var el=document.getElementById(id);if(el){el.disabled=n===0;el.style.opacity=n===0?'0.4':'1';}});var cb=document.getElementById('select-all-checkbox');var total=document.querySelectorAll('.sub-checkbox').length;if(cb)cb.checked=n>0&&n===total;}
 function clearSelection(){selectedSubs.clear();document.querySelectorAll('.sub-checkbox').forEach(function(cb){cb.checked=false;});document.querySelectorAll('[id^="sub-row-"]').forEach(function(row){row.style.background='';});var cb=document.getElementById('select-all-checkbox');if(cb)cb.checked=false;updateBulkBar();}
 function selectedSubscriptionIdsByStatus(statuses){var allowed=new Set(statuses.map(function(v){return normalizeSubscriptionStatus(v);}));return Array.from(selectedSubs).filter(function(id){var sub=(allSubscriptions||[]).find(function(s){return Number(s.id)===Number(id);});return sub&&allowed.has(normalizeSubscriptionStatus(sub.status));});}
-function bulkCharge(){if(!selectedSubs.size)return;var ids=selectedSubscriptionIdsByStatus(['active']);var skipped=selectedSubs.size-ids.length;if(!ids.length){toast('Only Active subscriptions can be charged','error');return;}var count=ids.length;openAppActionConfirm({title:'Charge '+count+' subscription'+(count===1?'':'s')+'?',message:"This creates separate manual payments and does not change Stripe's scheduled renewal dates."+(skipped?' '+skipped+' inactive selection'+(skipped===1?' will':'s will')+' be skipped.':''),cancelText:'Go back',confirmText:'Charge now',danger:false},async function(){toast('Charging '+count+' subscription'+(count===1?'':'s')+'…');let ok=0,fail=0;for(const id of ids){const key='sub-charge-'+id;const attemptId=getOrCreateAttemptId(key);try{const r=await api('/api/subscriptions/'+id+'/charge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({attempt_id:attemptId})});clearAttemptId(key);if(r.success)ok++;else fail++;}catch(e){if(e&&e.definitive)clearAttemptId(key);fail++;}}toast('✓ '+ok+' charged'+(fail?' — '+fail+' failed':'')+(skipped?' — '+skipped+' skipped':''));exitBulkMode();loadStats();loadSubscriptions();});}
+function bulkCharge(){if(!selectedSubs.size)return;var ids=selectedSubscriptionIdsByStatus(['active']);var skipped=selectedSubs.size-ids.length;if(!ids.length){toast('Only Active subscriptions can be charged','error');return;}var count=ids.length;openAppActionConfirm({title:'Charge '+count+' subscription'+(count===1?'':'s')+'?',message:'Charge the selected active subscription'+(count===1?'':'s')+'.'+(skipped?' '+skipped+' inactive selection'+(skipped===1?' will':'s will')+' be skipped.':''),cancelText:'Go back',confirmText:'Charge now',danger:false},async function(){toast('Charging '+count+' subscription'+(count===1?'':'s')+'…');let ok=0,fail=0;for(const id of ids){const key='sub-charge-'+id;const attemptId=getOrCreateAttemptId(key);try{const r=await api('/api/subscriptions/'+id+'/charge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({attempt_id:attemptId})});clearAttemptId(key);if(r.success)ok++;else fail++;}catch(e){if(e&&e.definitive)clearAttemptId(key);fail++;}}toast('✓ '+ok+' charged'+(fail?' — '+fail+' failed':'')+(skipped?' — '+skipped+' skipped':''));exitBulkMode();loadStats();loadSubscriptions();});}
 function bulkPause(){
   if(!selectedSubs.size)return;
   var eligible=selectedSubscriptionIdsByStatus(['active']);
@@ -9075,18 +9072,7 @@ async function confirmAppAction(){
   try{await action();}catch(e){toast((e&&e.message)||'Could not complete action','error');}
 }
 
-function chargeNow(subId,btn){
-  if(blockViewOnlyAction())return;
-  if(btn&&btn.disabled)return;
-  openAppActionConfirm({
-    title:'Charge this subscription?',
-    message:"This creates a separate manual payment and does not change Stripe's scheduled renewal date.",
-    cancelText:'Go back',
-    confirmText:'Charge now',
-    danger:false
-  },function(){return executeSubscriptionCharge(subId,btn);});
-}
-async function executeSubscriptionCharge(subId,btn){if(btn)btn.disabled=true;const key='sub-charge-'+subId;const attemptId=getOrCreateAttemptId(key);toast('Charging…');try{const r=await api('/api/subscriptions/'+subId+'/charge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({attempt_id:attemptId})});clearAttemptId(key);if(r.success){toast('✓ Payment succeeded');loadUpcoming();loadStats();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){if(e&&e.definitive)clearAttemptId(key);toast((e&&e.message)||'Charge failed — check status before retrying','error');}finally{if(btn)btn.disabled=false;}}
+async function chargeNow(subId,btn){if(blockViewOnlyAction())return;if(btn&&btn.disabled)return;if(btn)btn.disabled=true;const key='sub-charge-'+subId;const attemptId=getOrCreateAttemptId(key);toast('Charging…');try{const r=await api('/api/subscriptions/'+subId+'/charge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({attempt_id:attemptId})});clearAttemptId(key);if(r.success){toast('✓ Payment succeeded');loadUpcoming();loadStats();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){if(e&&e.definitive)clearAttemptId(key);toast((e&&e.message)||'Charge failed — check status before retrying','error');}finally{if(btn)btn.disabled=false;}}
 function openPauseModal(subId){
   if(blockViewOnlyAction())return;
   var mode=document.getElementById('pause-mode');
@@ -9635,7 +9621,8 @@ async function loadAccounts(){
           }
           var manageActions='';
           if(canManageStripeAccounts()){
-            manageActions='<button class="btn btn-sm" onclick="syncStripeAccount('+a.id+',this)" title="Import and update existing subscriptions">Sync</button><button class="btn btn-sm" onclick="debugStripeAccount('+a.id+')" title="Check verification details">Check</button><button class="btn btn-sm accounts-more-btn" type="button" aria-label="More account actions" aria-expanded="false" onclick="event.stopPropagation();toggleStripeAccountMenu('+a.id+',this,'+(a.is_default?'true':'false')+')" title="More actions"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3" cy="8" r="1.25"/><circle cx="8" cy="8" r="1.25"/><circle cx="13" cy="8" r="1.25"/></svg></button>';
+            var defaultAction=a.is_default?'<button class="btn btn-sm" onclick="clearDefaultAccount()">Remove default</button>':'<button class="btn btn-sm" onclick="setDefaultAccount('+a.id+')">Set Default</button>';
+            manageActions=defaultAction+'<button class="btn btn-sm" onclick="debugStripeAccount('+a.id+')" title="Check verification details">Check</button><button class="btn btn-sm" onclick="openEditAcc('+a.id+')">Edit</button><button class="btn btn-sm btn-danger" onclick="deleteAccount('+a.id+')">Delete</button>';
           }else{
             manageActions='<button class="btn btn-sm" onclick="debugStripeAccount('+a.id+')" title="View verification details">View details</button>';
           }
@@ -9653,61 +9640,6 @@ async function loadAccounts(){
     const ls=document.getElementById('link-account');if(ls)ls.innerHTML='<option value="">Default</option>'+selectorOpts;
     const ms=document.getElementById('mc-account');if(ms)ms.innerHTML='<option value="">Default</option>'+selectorOpts;
   }catch(e){}
-}
-function closeStripeAccountMenu(){
-  var menu=document.getElementById('stripe-account-more-menu');
-  if(menu)menu.remove();
-  document.querySelectorAll('.accounts-more-btn[aria-expanded="true"]').forEach(function(btn){btn.setAttribute('aria-expanded','false');});
-}
-function toggleStripeAccountMenu(id,btn,isDefault){
-  var current=document.getElementById('stripe-account-more-menu');
-  if(current&&current.getAttribute('data-account-id')===String(id)){closeStripeAccountMenu();return;}
-  closeStripeAccountMenu();
-  var menu=document.createElement('div');
-  menu.id='stripe-account-more-menu';
-  menu.className='stripe-account-more-menu';
-  menu.setAttribute('data-account-id',String(id));
-  var defaultAction=isDefault
-    ? '<button type="button" onclick="closeStripeAccountMenu();clearDefaultAccount()">Remove default</button>'
-    : '<button type="button" onclick="closeStripeAccountMenu();setDefaultAccount('+id+')">Set as default</button>';
-  menu.innerHTML=defaultAction
-    +'<button type="button" onclick="closeStripeAccountMenu();openEditAcc('+id+')">Edit account</button>'
-    +'<button type="button" class="danger" onclick="closeStripeAccountMenu();deleteAccount('+id+')">Delete account</button>';
-  document.body.appendChild(menu);
-  btn.setAttribute('aria-expanded','true');
-  var rect=btn.getBoundingClientRect();
-  var menuRect=menu.getBoundingClientRect();
-  var left=Math.max(12,Math.min(rect.right-menuRect.width,window.innerWidth-menuRect.width-12));
-  var top=rect.bottom+6;
-  if(top+menuRect.height>window.innerHeight-12)top=Math.max(12,rect.top-menuRect.height-6);
-  menu.style.left=Math.round(left)+'px';
-  menu.style.top=Math.round(top)+'px';
-}
-document.addEventListener('click',function(e){
-  var menu=document.getElementById('stripe-account-more-menu');
-  if(menu&&!menu.contains(e.target))closeStripeAccountMenu();
-});
-window.addEventListener('scroll',closeStripeAccountMenu,true);
-window.addEventListener('resize',closeStripeAccountMenu);
-async function syncStripeAccount(id,btn){
-  if(blockViewOnlyAction())return;
-  if(btn&&btn.disabled)return;
-  var originalText=btn?btn.textContent:'Sync';
-  if(btn){btn.disabled=true;btn.textContent='Syncing…';}
-  toast('Syncing existing subscriptions…');
-  try{
-    var r=await api('/api/stripe-accounts/'+id+'/sync',{method:'POST'});
-    var subscriptionCount=Number(r.subscriptions_synced||0);
-    var customerCount=Number(r.customers_found||0);
-    var summary=subscriptionCount+' subscription'+(subscriptionCount===1?'':'s')+' synced · '+customerCount+' customer'+(customerCount===1?'':'s')+' found';
-    if(r.errors){toast(summary+' · '+r.errors+' error'+(r.errors===1?'':'s'),'error');}
-    else{toast('✓ '+summary);}
-    await Promise.all([loadAccounts(),loadCustomers(),loadSubscriptions(),loadStats()]);
-  }catch(e){
-    toast((e&&e.message)||'Could not sync this Stripe account','error');
-  }finally{
-    if(btn){btn.disabled=false;btn.textContent=originalText;}
-  }
 }
 async function loadPaymentLinkAccounts(){
   try{
@@ -11623,11 +11555,11 @@ html.light #action-confirm-modal .modal-footer .btn-danger:hover {
   table-layout:fixed;
   min-width:1240px;
 }
-#page-accounts .stripe-accounts-table .accounts-col-name{width:22%;}
+#page-accounts .stripe-accounts-table .accounts-col-name{width:20%;}
 #page-accounts .stripe-accounts-table .accounts-name-cell{overflow:hidden;}
 #page-accounts .stripe-accounts-table .accounts-name-text{display:block;max-width:30ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600;}
 #page-accounts .stripe-accounts-table .accounts-col-status{width:11%;}
-#page-accounts .stripe-accounts-table .accounts-col-verification{width:22%;}
+#page-accounts .stripe-accounts-table .accounts-col-verification{width:21%;}
 #page-accounts .verification-badge-stack{display:flex;flex-direction:column;align-items:flex-start;gap:4px;max-width:100%;}
 #page-accounts .verification-badge{max-width:100%;font-weight:600!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;justify-content:flex-start!important;}
 #page-accounts .verification-badge > span{font-weight:600!important;}
@@ -11636,7 +11568,7 @@ html.light #action-confirm-modal .modal-footer .btn-danger:hover {
 #page-accounts .stripe-accounts-table .accounts-col-embedded{width:9%;}
 #page-accounts .stripe-accounts-table .accounts-col-key{width:8%;}
 #page-accounts .stripe-accounts-table .accounts-col-added{width:10%;}
-#page-accounts .stripe-accounts-table .accounts-col-actions{width:18%;}
+#page-accounts .stripe-accounts-table .accounts-col-actions{width:21%;}
 #page-accounts .stripe-accounts-table .accounts-added-cell{white-space:nowrap;color:var(--muted);font-size:12px;font-weight:500;}
 #page-accounts .stripe-accounts-table th:nth-child(3),
 #page-accounts .stripe-accounts-table td:nth-child(3){
@@ -11667,45 +11599,4 @@ html.light #action-confirm-modal .modal-footer .btn-danger:hover {
   justify-content:flex-start;
   gap:5px;
 }
-#page-accounts .accounts-more-btn{
-  width:48px;
-  min-width:48px;
-  padding:4px 9px!important;
-  justify-content:center;
-}
-#page-accounts .accounts-more-btn svg{width:14px;height:14px;display:block;}
-.stripe-account-more-menu{
-  position:fixed;
-  z-index:1200;
-  width:172px;
-  padding:5px;
-  border:1px solid var(--border2);
-  border-radius:10px;
-  background:var(--surface);
-  box-shadow:0 14px 36px rgba(0,0,0,.34);
-}
-.stripe-account-more-menu button{
-  width:100%;
-  height:34px;
-  display:flex;
-  align-items:center;
-  padding:0 10px;
-  border:0;
-  border-radius:7px;
-  background:transparent;
-  color:var(--text);
-  font-family:var(--sans);
-  font-size:12px;
-  font-weight:600;
-  text-align:left;
-  cursor:pointer;
-}
-.stripe-account-more-menu button:hover{background:var(--surface2);}
-.stripe-account-more-menu button.danger{
-  margin-top:4px;
-  border-top:1px solid var(--border);
-  border-radius:0 0 7px 7px;
-  color:var(--red);
-}
-.stripe-account-more-menu button.danger:hover{background:var(--red-bg);}
 </style>
