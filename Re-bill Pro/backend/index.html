@@ -6634,11 +6634,11 @@ body.view-only-access #verification-debug-modal .modal-content{
       <div class="form-group"><label>Account type</label><select id="acc-type" onchange="updateStripeAccountNamePreview('acc')"><option value="Solo">Solo</option><option value="Business">Business</option></select></div>
       <div class="form-group"><label>Country code</label><input type="text" id="acc-country" maxlength="2" placeholder="FR" autocomplete="off" oninput="normalizeStripeCountryInput(this);updateStripeAccountNamePreview('acc')"></div>
     </div>
-    <div class="form-group"><label>Name</label><input type="text" id="acc-display-name" maxlength="80" placeholder="Murat KOCPINAR" autocomplete="off" oninput="updateStripeAccountNamePreview('acc')"></div>
+    <div class="form-group"><label>Account name</label><input type="text" id="acc-display-name" maxlength="80" placeholder="Murat KOCPINAR" autocomplete="off" oninput="updateStripeAccountNamePreview('acc')"></div>
     <div class="stripe-account-name-preview"><span class="stripe-account-name-preview-label">Saved as:</span><span class="stripe-account-name-preview-value" id="acc-name-preview">Stripe_Solo_CC_Name</span></div>
-    <div class="form-group"><label>Secret key (sk_live_...)</label><input type="password" id="acc-key" placeholder="sk_live_..."></div>
-    <div class="form-group"><label>Publishable key (pk_live_...) — required for embedded checkout</label><input type="text" id="acc-publishable" placeholder="pk_live_..."></div>
-    <div class="form-group"><label>Webhook secret (whsec_...) — optional</label><input type="text" id="acc-webhook" placeholder="whsec_..."></div>
+    <div class="form-group"><label>Secret key (required)</label><input type="password" id="acc-key" placeholder="sk_live_..." required></div>
+    <div class="form-group"><label>Publishable key (embedded checkout)</label><input type="text" id="acc-publishable" placeholder="pk_live_..."></div>
+    <div class="form-group"><label>Webhook secret (required)</label><input type="text" id="acc-webhook" placeholder="whsec_..." required></div>
     <div class="modal-footer"><button class="btn" onclick="closeModal('add-account-modal')">Cancel</button><button class="btn btn-primary" onclick="addAccount()">Save account</button></div>
   </div>
 </div>
@@ -6793,7 +6793,7 @@ body.view-only-access #verification-debug-modal .modal-content{
       <div class="form-group"><label>Account type</label><select id="edit-acc-type" onchange="updateStripeAccountNamePreview('edit-acc')"><option value="Solo">Solo</option><option value="Business">Business</option></select></div>
       <div class="form-group"><label>Country code</label><input type="text" id="edit-acc-country" maxlength="2" placeholder="FR" autocomplete="off" oninput="normalizeStripeCountryInput(this);updateStripeAccountNamePreview('edit-acc')"></div>
     </div>
-    <div class="form-group"><label>Name</label><input type="text" id="edit-acc-display-name" maxlength="80" placeholder="Murat KOCPINAR" autocomplete="off" oninput="updateStripeAccountNamePreview('edit-acc')"></div>
+    <div class="form-group"><label>Account name</label><input type="text" id="edit-acc-display-name" maxlength="80" placeholder="Murat KOCPINAR" autocomplete="off" oninput="updateStripeAccountNamePreview('edit-acc')"></div>
     <div class="stripe-account-name-preview"><span class="stripe-account-name-preview-label">Saved as:</span><span class="stripe-account-name-preview-value" id="edit-acc-name-preview">Stripe_Solo_CC_Name</span></div>
     <div class="form-group"><label>New secret key (sk_live_...)</label><input type="password" id="edit-acc-key" placeholder="Leave blank to keep existing key"></div>
     <div class="form-group"><label>Publishable key (pk_live_...)</label><input type="text" id="edit-acc-publishable" placeholder="Leave blank to keep existing key"></div>
@@ -9687,6 +9687,8 @@ async function addAccount(){
   var webhook=document.getElementById('acc-webhook').value.trim();
   if(identity.error){toast(identity.error,'error');return;}
   if(!key){toast('Secret key is required','error');return;}
+  if(!webhook){toast('Webhook secret is required','error');return;}
+  if(!webhook.startsWith('whsec_')){toast('Webhook secret must start with whsec_','error');return;}
   try{
     var r=await api('/api/stripe-accounts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_type:identity.account_type,country_code:identity.country_code,display_name:identity.display_name,secret_key:key,publishable_key:publishable||null,webhook_secret:webhook})});
     if(r.success){
@@ -10268,6 +10270,7 @@ async function saveEditAccount(){
   var errEl=document.getElementById('edit-acc-error');
   errEl.style.display='none';
   if(identity.error){errEl.textContent=identity.error;errEl.style.display='block';return;}
+  if(webhook&&!webhook.startsWith('whsec_')){errEl.textContent='Webhook secret must start with whsec_';errEl.style.display='block';return;}
   try{
     var r=await api('/api/stripe-accounts/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_type:identity.account_type,country_code:identity.country_code,display_name:identity.display_name,secret_key:key||null,publishable_key:publishable||null,webhook_secret:webhook||null})});
     if(r.success){toast('✓ Account updated');closeModal('edit-account-modal');loadAccounts();}

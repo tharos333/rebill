@@ -1868,7 +1868,10 @@ app.post('/api/stripe-accounts', async (req, res) => {
     if (identity.error) return res.status(400).json({ error: identity.error });
     if (!secret_key) return res.status(400).json({ error: 'Secret key is required' });
     if (publishable_key && !String(publishable_key).startsWith('pk_')) return res.status(400).json({ error: 'Publishable key must start with pk_' });
-    await stripeAccounts.create({ name:identity.name, secret_key, publishable_key, webhook_secret, workspace_id:req.currentUser.workspace_id });
+    const cleanWebhookSecret = String(webhook_secret || '').trim();
+    if (!cleanWebhookSecret) return res.status(400).json({ error: 'Webhook secret is required' });
+    if (!cleanWebhookSecret.startsWith('whsec_')) return res.status(400).json({ error: 'Webhook secret must start with whsec_' });
+    await stripeAccounts.create({ name:identity.name, secret_key, publishable_key, webhook_secret:cleanWebhookSecret, workspace_id:req.currentUser.workspace_id });
     res.json({ success: true, name:identity.name });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
@@ -1881,6 +1884,7 @@ app.patch('/api/stripe-accounts/:id', async (req, res) => {
     const identity = normalizeStripeAccountIdentity(req.body);
     if (identity.error) return res.status(400).json({ error: identity.error });
     if (publishable_key && !String(publishable_key).startsWith('pk_')) return res.status(400).json({ error: 'Publishable key must start with pk_' });
+    if (webhook_secret && String(webhook_secret).trim() && !String(webhook_secret).trim().startsWith('whsec_')) return res.status(400).json({ error: 'Webhook secret must start with whsec_' });
     const updates = ['name=$1'];
     const values = [identity.name];
     if (secret_key && secret_key.trim()) { values.push(secret_key.trim()); updates.push(`secret_key=$${values.length}`); }
