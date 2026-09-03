@@ -11639,13 +11639,15 @@ html.light #action-confirm-modal .modal-footer .btn-danger:hover {
 /* Stripe Accounts table hierarchy: operational state first, technical key later */
 #page-accounts .stripe-accounts-table{
   table-layout:fixed;
-  min-width:1240px;
+  min-width:1400px;
 }
 #page-accounts .stripe-accounts-table .accounts-col-name{width:22%;}
 #page-accounts .stripe-accounts-table .accounts-name-cell{overflow:hidden;}
 #page-accounts .stripe-accounts-table .accounts-name-text{display:block;max-width:30ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600;}
-#page-accounts .stripe-accounts-table .accounts-col-status{width:11%;}
-#page-accounts .stripe-accounts-table .accounts-col-verification{width:22%;}
+#page-accounts .stripe-accounts-table .accounts-col-status{width:14%;}
+#page-accounts .stripe-accounts-table th:nth-child(2),
+#page-accounts .stripe-accounts-table td:nth-child(2){padding-left:12px;padding-right:12px;white-space:nowrap;}
+#page-accounts .stripe-accounts-table .accounts-col-verification{width:19%;}
 #page-accounts .verification-badge-stack{display:flex;flex-direction:column;align-items:flex-start;gap:4px;max-width:100%;}
 #page-accounts .verification-badge{max-width:100%;font-weight:600!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;justify-content:flex-start!important;}
 #page-accounts .verification-badge > span{font-weight:600!important;}
