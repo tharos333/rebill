@@ -1938,6 +1938,57 @@ app.patch('/api/stripe-accounts/:id', async (req, res) => {
     res.json({ success: true, name:identity.name });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
+
+async function syncStripeCustomersForAccount(stripe, account) {
+  const result = {
+    customers_found: 0,
+    customers_synced: 0,
+    errors: 0,
+    error_samples: []
+  };
+  let startingAfter = null;
+
+  do {
+    const page = await stripe.customers.list({
+      limit: 100,
+      ...(startingAfter ? { starting_after: startingAfter } : {})
+    });
+
+    for (const remoteCustomer of page.data || []) {
+      result.customers_found++;
+      try {
+        if (!remoteCustomer?.id || remoteCustomer.deleted) {
+          throw new Error('Stripe customer is unavailable');
+        }
+        const preferredPaymentMethod = remoteCustomer.invoice_settings?.default_payment_method || null;
+        const localCustomer = await upsertStripeCustomer(
+          stripe,
+          account,
+          remoteCustomer.id,
+          preferredPaymentMethod
+        );
+        if (!localCustomer?.id) throw new Error('Customer could not be imported');
+        result.customers_synced++;
+      } catch (err) {
+        result.errors++;
+        if (result.error_samples.length < 10) {
+          result.error_samples.push({
+            object_type: 'customer',
+            object_id: remoteCustomer?.id || null,
+            error: err.message
+          });
+        }
+      }
+    }
+
+    startingAfter = page.has_more && page.data?.length
+      ? page.data[page.data.length - 1].id
+      : null;
+  } while (startingAfter);
+
+  return result;
+}
+
 app.post('/api/stripe-accounts/:id/sync', async (req, res) => {
   const accountId = Number(req.params.id);
   let lockAcquired = false;
@@ -1956,11 +2007,13 @@ app.post('/api/stripe-accounts/:id/sync', async (req, res) => {
     lockAcquired = true;
 
     const stripe = new Stripe(account.secret_key);
-    const customerIds = new Set();
-    const errorSamples = [];
+    const customerSync = await syncStripeCustomersForAccount(stripe, account);
+    const errorSamples = [...customerSync.error_samples];
+    const customersFound = customerSync.customers_found;
+    const customersSynced = customerSync.customers_synced;
     let subscriptionsFound = 0;
     let subscriptionsSynced = 0;
-    let errors = 0;
+    let errors = customerSync.errors;
     let startingAfter = null;
 
     do {
@@ -1971,15 +2024,18 @@ app.post('/api/stripe-accounts/:id/sync', async (req, res) => {
       });
       for (const remote of page.data || []) {
         subscriptionsFound++;
-        const customerId = typeof remote.customer === 'string' ? remote.customer : remote.customer?.id;
-        if (customerId) customerIds.add(customerId);
         try {
           await saveSubscriptionFromStripe(stripe, account, remote, 'account.sync');
           subscriptionsSynced++;
         } catch (err) {
           errors++;
           if (errorSamples.length < 10) {
-            errorSamples.push({ subscription_id:remote.id, error:err.message });
+            errorSamples.push({
+              object_type: 'subscription',
+              object_id: remote.id,
+              subscription_id: remote.id,
+              error: err.message
+            });
           }
         }
       }
@@ -1988,12 +2044,13 @@ app.post('/api/stripe-accounts/:id/sync', async (req, res) => {
 
     res.json({
       success:errors === 0,
-      partial:errors > 0 && subscriptionsSynced > 0,
+      partial:errors > 0 && (customersSynced > 0 || subscriptionsSynced > 0),
       account_id:account.id,
       account_name:account.name,
+      customers_found:customersFound,
+      customers_synced:customersSynced,
       subscriptions_found:subscriptionsFound,
       subscriptions_synced:subscriptionsSynced,
-      customers_found:customerIds.size,
       errors,
       error_samples:errorSamples
     });

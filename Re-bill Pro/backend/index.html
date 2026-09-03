@@ -9735,12 +9735,16 @@ async function syncStripeAccount(id,btn){
   if(btn&&btn.disabled)return;
   var originalText=btn?btn.textContent:'Sync';
   if(btn){btn.disabled=true;btn.textContent='Syncing…';}
-  toast('Syncing existing subscriptions…');
+  toast('Syncing customers and subscriptions…');
   try{
     var r=await api('/api/stripe-accounts/'+id+'/sync',{method:'POST'});
+    var customersFound=Number(r.customers_found||0);
+    var customersSynced=Number(r.customers_synced===undefined?customersFound:r.customers_synced);
+    var subscriptionsFound=Number(r.subscriptions_found||0);
     var subscriptionCount=Number(r.subscriptions_synced||0);
-    var customerCount=Number(r.customers_found||0);
-    var summary=subscriptionCount+' subscription'+(subscriptionCount===1?'':'s')+' synced · '+customerCount+' customer'+(customerCount===1?'':'s')+' found';
+    var customerSummary=(customersSynced===customersFound?customersSynced:(customersSynced+' of '+customersFound))+' customer'+(customersFound===1?'':'s')+' imported';
+    var subscriptionSummary=(subscriptionCount===subscriptionsFound?subscriptionCount:(subscriptionCount+' of '+subscriptionsFound))+' subscription'+(subscriptionsFound===1?'':'s')+' synced';
+    var summary=customerSummary+' · '+subscriptionSummary;
     if(r.errors){toast(summary+' · '+r.errors+' error'+(r.errors===1?'':'s'),'error');}
     else{toast('✓ '+summary);}
     await Promise.all([loadAccounts(),loadCustomers(),loadSubscriptions(),loadStats()]);
