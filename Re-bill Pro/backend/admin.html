@@ -611,7 +611,8 @@ function suspendLicense(id){ask('Suspend this license?','The customer workspace 
 async function reactivate(id){const d=await api('/licenses/'+id+'/reactivate',{method:'POST'});if(d.success){toast('License reactivated');loadLicenses()}else toast(d.error||'Could not reactivate',true);}
 function removeLicense(id){ask('Delete this empty license workspace?','A workspace with only its Owner login and no Stripe, customer, payment, or subscription data can be deleted. Workspaces with real data must be suspended instead.','Delete',async()=>{const d=await api('/licenses/'+id,{method:'DELETE'});if(d.success){toast('License deleted');loadLicenses()}else toast(d.error||'Could not delete',true)},true);}
 document.addEventListener('click',e=>{if(!e.target.closest('.more-wrap'))closeMoreMenus();});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeMoreMenus();const openModalEl=document.querySelector('.modal-bg.open');if(openModalEl)closeModal(openModalEl.id);else if(document.getElementById('license-drawer-bg').classList.contains('open'))closeLicenseDrawer();}});
+document.querySelectorAll('.modal-bg').forEach(modal=>modal.addEventListener('click',e=>{if(e.target===modal)closeModal(modal.id);}));
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeMoreMenus();const openModals=Array.from(document.querySelectorAll('.modal-bg.open'));const openModalEl=openModals[openModals.length-1];if(openModalEl)closeModal(openModalEl.id);else if(document.getElementById('license-drawer-bg').classList.contains('open'))closeLicenseDrawer();}});
 init();
 </script>
 </body></html>

@@ -10371,42 +10371,19 @@ async function saveEditAccess(){
   if(accountScope==='selected'&&!accountIds.length){errEl.textContent='Select at least one Stripe account';errEl.style.display='block';return;}
   try{var r=await api('/api/admin-users/'+id+'/permissions',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:role,permissions:permissions,account_scope:accountScope,allowed_account_ids:accountIds})});if(r.success){toast('✓ Access updated');closeModal('edit-access-modal');loadAdmins();}else{errEl.textContent=r.error||'Failed to update';errEl.style.display='block';}}catch(e){errEl.textContent='Server error';errEl.style.display='block';}
 }
-document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m&&m.id!=='payment-detail-modal'&&m.id!=='verification-debug-modal')closeModal(m.id);}));
-</script>
-
-<script>
-(function(){
-  function closeWhenBackdropClicked(modalId, closeFn){
-    var modal = document.getElementById(modalId);
-    if(!modal || modal.__backdropCloseBound) return;
-    modal.__backdropCloseBound = true;
-    modal.addEventListener('mousedown', function(e){
-      if(e.target === modal){
-        if(typeof closeFn === 'function') closeFn();
-      }
-    });
-  }
-
-  function setupDrawerBackdropClose(){
-    closeWhenBackdropClicked('payment-detail-modal', function(){
-      if(typeof closeModal === 'function') closeModal('payment-detail-modal');
-    });
-
-    closeWhenBackdropClicked('customer-detail-modal', function(){
-      if(typeof closeCustomerDrawer === 'function'){
-        closeCustomerDrawer();
-      }else if(typeof closeModal === 'function'){
-        closeModal('customer-detail-modal');
-      }
-    });
-  }
-
-  if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', setupDrawerBackdropClose);
-  }else{
-    setupDrawerBackdropClose();
-  }
-})();
+document.querySelectorAll('.modal-bg').forEach(function(modal){
+  modal.addEventListener('click',function(e){
+    if(e.target===modal)closeModal(modal.id);
+  });
+});
+document.addEventListener('keydown',function(e){
+  if(e.key!=='Escape')return;
+  var openModals=Array.from(document.querySelectorAll('.modal-bg.open'));
+  var topModal=openModals[openModals.length-1];
+  if(topModal){closeModal(topModal.id);return;}
+  var customerDrawer=document.getElementById('customer-detail-modal');
+  if(customerDrawer&&customerDrawer.classList.contains('open'))closeCustomerDrawer();
+});
 </script>
 
 </body>
