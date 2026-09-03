@@ -8496,7 +8496,7 @@ function toggleSelectAll(){var cbs=document.querySelectorAll('.sub-checkbox');va
 function updateBulkBar(){var n=selectedSubs.size;var countEl=document.getElementById('bulk-count');if(countEl)countEl.textContent=n>0?n+' selected':'';['bulk-charge-btn','bulk-pause-btn','bulk-cancel-btn'].forEach(function(id){var el=document.getElementById(id);if(el){el.disabled=n===0;el.style.opacity=n===0?'0.4':'1';}});var cb=document.getElementById('select-all-checkbox');var total=document.querySelectorAll('.sub-checkbox').length;if(cb)cb.checked=n>0&&n===total;}
 function clearSelection(){selectedSubs.clear();document.querySelectorAll('.sub-checkbox').forEach(function(cb){cb.checked=false;});document.querySelectorAll('[id^="sub-row-"]').forEach(function(row){row.style.background='';});var cb=document.getElementById('select-all-checkbox');if(cb)cb.checked=false;updateBulkBar();}
 function selectedSubscriptionIdsByStatus(statuses){var allowed=new Set(statuses.map(function(v){return normalizeSubscriptionStatus(v);}));return Array.from(selectedSubs).filter(function(id){var sub=(allSubscriptions||[]).find(function(s){return Number(s.id)===Number(id);});return sub&&allowed.has(normalizeSubscriptionStatus(sub.status));});}
-function bulkCharge(){if(!selectedSubs.size)return;var ids=selectedSubscriptionIdsByStatus(['active']);var skipped=selectedSubs.size-ids.length;if(!ids.length){toast('Only Active subscriptions can be charged','error');return;}var count=ids.length;openAppActionConfirm({title:'Charge '+count+' subscription'+(count===1?'':'s')+'?',message:"This creates separate manual payments and does not change Stripe's scheduled renewal dates."+(skipped?' '+skipped+' inactive selection'+(skipped===1?' will':'s will')+' be skipped.':''),cancelText:'Go back',confirmText:'Charge now',danger:false},async function(){toast('Charging '+count+' subscription'+(count===1?'':'s')+'…');let ok=0,fail=0;for(const id of ids){const key='sub-charge-'+id;const attemptId=getOrCreateAttemptId(key);try{const r=await api('/api/subscriptions/'+id+'/charge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({attempt_id:attemptId})});clearAttemptId(key);if(r.success)ok++;else fail++;}catch(e){if(e&&e.definitive)clearAttemptId(key);fail++;}}toast('✓ '+ok+' charged'+(fail?' — '+fail+' failed':'')+(skipped?' — '+skipped+' skipped':''));exitBulkMode();loadStats();loadSubscriptions();});}
+function bulkCharge(){if(!selectedSubs.size)return;var ids=selectedSubscriptionIdsByStatus(['active']);var skipped=selectedSubs.size-ids.length;if(!ids.length){toast('Only Active subscriptions can be charged','error');return;}var count=ids.length;openAppActionConfirm({title:'Charge '+count+' subscription'+(count===1?'':'s')+'?',message:'Charge the selected active subscription'+(count===1?'':'s')+'.'+(skipped?' '+skipped+' inactive selection'+(skipped===1?' will':'s will')+' be skipped.':''),cancelText:'Go back',confirmText:'Charge now',danger:false},async function(){toast('Charging '+count+' subscription'+(count===1?'':'s')+'…');let ok=0,fail=0;for(const id of ids){const key='sub-charge-'+id;const attemptId=getOrCreateAttemptId(key);try{const r=await api('/api/subscriptions/'+id+'/charge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({attempt_id:attemptId})});clearAttemptId(key);if(r.success)ok++;else fail++;}catch(e){if(e&&e.definitive)clearAttemptId(key);fail++;}}toast('✓ '+ok+' charged'+(fail?' — '+fail+' failed':'')+(skipped?' — '+skipped+' skipped':''));exitBulkMode();loadStats();loadSubscriptions();});}
 function bulkPause(){
   if(!selectedSubs.size)return;
   var eligible=selectedSubscriptionIdsByStatus(['active']);
@@ -9072,18 +9072,7 @@ async function confirmAppAction(){
   try{await action();}catch(e){toast((e&&e.message)||'Could not complete action','error');}
 }
 
-function chargeNow(subId,btn){
-  if(blockViewOnlyAction())return;
-  if(btn&&btn.disabled)return;
-  openAppActionConfirm({
-    title:'Charge this subscription?',
-    message:"This creates a separate manual payment and does not change Stripe's scheduled renewal date.",
-    cancelText:'Go back',
-    confirmText:'Charge now',
-    danger:false
-  },function(){return executeSubscriptionCharge(subId,btn);});
-}
-async function executeSubscriptionCharge(subId,btn){if(btn)btn.disabled=true;const key='sub-charge-'+subId;const attemptId=getOrCreateAttemptId(key);toast('Charging…');try{const r=await api('/api/subscriptions/'+subId+'/charge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({attempt_id:attemptId})});clearAttemptId(key);if(r.success){toast('✓ Payment succeeded');loadUpcoming();loadStats();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){if(e&&e.definitive)clearAttemptId(key);toast((e&&e.message)||'Charge failed — check status before retrying','error');}finally{if(btn)btn.disabled=false;}}
+async function chargeNow(subId,btn){if(blockViewOnlyAction())return;if(btn&&btn.disabled)return;if(btn)btn.disabled=true;const key='sub-charge-'+subId;const attemptId=getOrCreateAttemptId(key);toast('Charging…');try{const r=await api('/api/subscriptions/'+subId+'/charge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({attempt_id:attemptId})});clearAttemptId(key);if(r.success){toast('✓ Payment succeeded');loadUpcoming();loadStats();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){if(e&&e.definitive)clearAttemptId(key);toast((e&&e.message)||'Charge failed — check status before retrying','error');}finally{if(btn)btn.disabled=false;}}
 function openPauseModal(subId){
   if(blockViewOnlyAction())return;
   var mode=document.getElementById('pause-mode');
@@ -9633,7 +9622,7 @@ async function loadAccounts(){
           var manageActions='';
           if(canManageStripeAccounts()){
             var defaultAction=a.is_default?'<button class="btn btn-sm" onclick="clearDefaultAccount()">Remove default</button>':'<button class="btn btn-sm" onclick="setDefaultAccount('+a.id+')">Set Default</button>';
-            manageActions=defaultAction+'<button class="btn btn-sm" onclick="syncStripeAccount('+a.id+',this)" title="Import and update existing subscriptions">Sync</button><button class="btn btn-sm" onclick="debugStripeAccount('+a.id+')" title="Check verification details">Check</button><button class="btn btn-sm" onclick="openEditAcc('+a.id+')">Edit</button><button class="btn btn-sm btn-danger" onclick="deleteAccount('+a.id+')">Delete</button>';
+            manageActions=defaultAction+'<button class="btn btn-sm" onclick="debugStripeAccount('+a.id+')" title="Check verification details">Check</button><button class="btn btn-sm" onclick="openEditAcc('+a.id+')">Edit</button><button class="btn btn-sm btn-danger" onclick="deleteAccount('+a.id+')">Delete</button>';
           }else{
             manageActions='<button class="btn btn-sm" onclick="debugStripeAccount('+a.id+')" title="View verification details">View details</button>';
           }
@@ -9651,26 +9640,6 @@ async function loadAccounts(){
     const ls=document.getElementById('link-account');if(ls)ls.innerHTML='<option value="">Default</option>'+selectorOpts;
     const ms=document.getElementById('mc-account');if(ms)ms.innerHTML='<option value="">Default</option>'+selectorOpts;
   }catch(e){}
-}
-async function syncStripeAccount(id,btn){
-  if(blockViewOnlyAction())return;
-  if(btn&&btn.disabled)return;
-  var originalText=btn?btn.textContent:'Sync';
-  if(btn){btn.disabled=true;btn.textContent='Syncing…';}
-  toast('Syncing existing subscriptions…');
-  try{
-    var r=await api('/api/stripe-accounts/'+id+'/sync',{method:'POST'});
-    var subscriptionCount=Number(r.subscriptions_synced||0);
-    var customerCount=Number(r.customers_found||0);
-    var summary=subscriptionCount+' subscription'+(subscriptionCount===1?'':'s')+' synced · '+customerCount+' customer'+(customerCount===1?'':'s')+' found';
-    if(r.errors){toast(summary+' · '+r.errors+' error'+(r.errors===1?'':'s'),'error');}
-    else{toast('✓ '+summary);}
-    await Promise.all([loadAccounts(),loadCustomers(),loadSubscriptions(),loadStats()]);
-  }catch(e){
-    toast((e&&e.message)||'Could not sync this Stripe account','error');
-  }finally{
-    if(btn){btn.disabled=false;btn.textContent=originalText;}
-  }
 }
 async function loadPaymentLinkAccounts(){
   try{
@@ -11586,20 +11555,20 @@ html.light #action-confirm-modal .modal-footer .btn-danger:hover {
   table-layout:fixed;
   min-width:1240px;
 }
-#page-accounts .stripe-accounts-table .accounts-col-name{width:18%;}
+#page-accounts .stripe-accounts-table .accounts-col-name{width:20%;}
 #page-accounts .stripe-accounts-table .accounts-name-cell{overflow:hidden;}
 #page-accounts .stripe-accounts-table .accounts-name-text{display:block;max-width:30ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600;}
-#page-accounts .stripe-accounts-table .accounts-col-status{width:10%;}
-#page-accounts .stripe-accounts-table .accounts-col-verification{width:19%;}
+#page-accounts .stripe-accounts-table .accounts-col-status{width:11%;}
+#page-accounts .stripe-accounts-table .accounts-col-verification{width:21%;}
 #page-accounts .verification-badge-stack{display:flex;flex-direction:column;align-items:flex-start;gap:4px;max-width:100%;}
 #page-accounts .verification-badge{max-width:100%;font-weight:600!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;justify-content:flex-start!important;}
 #page-accounts .verification-badge > span{font-weight:600!important;}
 #page-accounts .verification-more{font-size:11px;color:var(--muted);font-weight:600;}
 #page-accounts .verification-empty{color:var(--muted);font-size:12px;font-weight:600;}
-#page-accounts .stripe-accounts-table .accounts-col-embedded{width:8%;}
+#page-accounts .stripe-accounts-table .accounts-col-embedded{width:9%;}
 #page-accounts .stripe-accounts-table .accounts-col-key{width:8%;}
-#page-accounts .stripe-accounts-table .accounts-col-added{width:9%;}
-#page-accounts .stripe-accounts-table .accounts-col-actions{width:28%;}
+#page-accounts .stripe-accounts-table .accounts-col-added{width:10%;}
+#page-accounts .stripe-accounts-table .accounts-col-actions{width:21%;}
 #page-accounts .stripe-accounts-table .accounts-added-cell{white-space:nowrap;color:var(--muted);font-size:12px;font-weight:500;}
 #page-accounts .stripe-accounts-table th:nth-child(3),
 #page-accounts .stripe-accounts-table td:nth-child(3){
