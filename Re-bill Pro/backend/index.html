@@ -9664,11 +9664,9 @@ async function loadAccounts(){
           var safeAccountName=escHtml(a.name||'—');
           var accountSearchValue=escHtml(String(a.name||'').toLowerCase());
           var mode=String(a.mode||'Unknown');
-          var modeColor=mode==='Live'?'green':(mode==='Test'?'blue':'amber');
-          var modeBadge='<span class="badge badge-'+modeColor+' accounts-mode-badge">'+escHtml(mode)+'</span>';
           var addedDate=fmtDate(a.created_at);
           var addedTitle=a.created_at?new Date(a.created_at).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}):'Not available';
-          return '<tr data-account-search="'+accountSearchValue+'" style="'+rowBg+'"><td class="accounts-name-cell"><strong class="accounts-name-text" title="'+safeAccountName+'">'+safeAccountName+'</strong></td><td>'+statusBadge+defaultBadge+'</td><td>'+verificationHtml+'</td><td>'+embedBadge+'</td><td class="accounts-mode-cell">'+modeBadge+'</td><td class="accounts-added-cell" title="'+addedTitle+'">'+addedDate+'</td><td><div class="'+actionClass+'">'+manageActions+'</div></td></tr>';
+          return '<tr data-account-search="'+accountSearchValue+'" style="'+rowBg+'"><td class="accounts-name-cell"><strong class="accounts-name-text" title="'+safeAccountName+'">'+safeAccountName+'</strong></td><td>'+statusBadge+defaultBadge+'</td><td>'+verificationHtml+'</td><td>'+embedBadge+'</td><td class="accounts-mode-cell">'+escHtml(mode)+'</td><td class="accounts-added-cell" title="'+addedTitle+'">'+addedDate+'</td><td><div class="'+actionClass+'">'+manageActions+'</div></td></tr>';
         }).join('');
         filterStripeAccounts();
       }
@@ -11649,8 +11647,10 @@ html.light #action-confirm-modal .modal-footer .btn-danger:hover {
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
+  color:var(--muted);
+  font-size:12px;
+  font-weight:500;
 }
-#page-accounts .stripe-accounts-table .accounts-mode-badge{min-width:42px;justify-content:center;}
 #page-accounts .stripe-accounts-table th:nth-child(5),
 #page-accounts .stripe-accounts-table td:nth-child(5){
   padding-right:6px;
