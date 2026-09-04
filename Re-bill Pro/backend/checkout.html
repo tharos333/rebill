@@ -32,6 +32,7 @@
     button:active:not(:disabled){transform:translateY(1px)}
     button:disabled{opacity:.55;cursor:not-allowed}
     #express-wrap{display:none;margin-bottom:18px}
+    #address-element{margin-bottom:16px}
     .divider{display:flex;align-items:center;gap:12px;color:#777787;font-size:11px;margin:17px 0}
     .divider:before,.divider:after{content:"";height:1px;background:var(--border);flex:1}
     #payment-element{min-height:120px;margin-bottom:18px}
@@ -70,22 +71,9 @@
 
         <form id="checkout-form">
           <h2 class="section-title">Customer details</h2>
-          <div class="form-row">
-            <div class="field"><label for="first-name">First name</label><input id="first-name" name="given-name" autocomplete="given-name" maxlength="100" required></div>
-            <div class="field"><label for="last-name">Last name</label><input id="last-name" name="family-name" autocomplete="family-name" maxlength="100" required></div>
-          </div>
+          <div id="address-element"></div>
           <div class="field"><label for="customer-email">Email address</label><input id="customer-email" name="email" type="email" autocomplete="email" maxlength="254" required></div>
           <div class="field"><label for="customer-phone">Phone <span class="optional">(optional)</span></label><input id="customer-phone" name="tel" type="tel" autocomplete="tel" maxlength="50"></div>
-          <div class="field"><label for="address-line1">Address</label><input id="address-line1" name="address-line1" autocomplete="address-line1" maxlength="200" required></div>
-          <div class="field"><label for="address-line2">Apartment or suite <span class="optional">(optional)</span></label><input id="address-line2" name="address-line2" autocomplete="address-line2" maxlength="200"></div>
-          <div class="form-row">
-            <div class="field"><label for="address-city">City</label><input id="address-city" name="address-level2" autocomplete="address-level2" maxlength="100" required></div>
-            <div class="field"><label for="address-postal">Postal code</label><input id="address-postal" name="postal-code" autocomplete="postal-code" maxlength="40" required></div>
-          </div>
-          <div class="form-row">
-            <div class="field"><label for="address-state">State / province <span class="optional">(optional)</span></label><input id="address-state" name="address-level1" autocomplete="address-level1" maxlength="100"></div>
-            <div class="field"><label for="address-country">Country</label><select id="address-country" name="country" autocomplete="country" required><option value="">Select country</option></select></div>
-          </div>
 
           <div class="section">
             <h2 class="section-title">Payment method</h2>
@@ -114,7 +102,7 @@
       'use strict';
       var pathParts=location.pathname.split('/').filter(Boolean);
       var slug=pathParts[0]==='pay' ? pathParts[1] : '';
-      var config=null,stripe=null,elements=null,paymentElement=null,expressElement=null,confirmationType='payment',processing=false;
+      var config=null,stripe=null,elements=null,addressElement=null,paymentElement=null,expressElement=null,confirmationType='payment',processing=false;
       var payButtonLabel='Pay securely';
       var loading=document.getElementById('loading');
       var checkoutContent=document.getElementById('checkout-content');
@@ -124,47 +112,32 @@
       var paymentMessage=document.getElementById('payment-message');
       var payButton=document.getElementById('pay-button');
       var expressWrap=document.getElementById('express-wrap');
+      document.querySelector('.powered span').textContent='Payments securely processed by';
 
       function showMessage(element,text,type){element.textContent=text||'';element.className='message'+(text?' '+(type||'error'):'');}
       function money(amount,currency){try{return new Intl.NumberFormat(undefined,{style:'currency',currency:String(currency||'usd').toUpperCase()}).format(Number(amount||0)/100);}catch(_err){return (Number(amount||0)/100).toFixed(2)+' '+String(currency||'usd').toUpperCase();}}
-      var countryCodes=('AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ NA NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW').split(' ');
-
-      function populateCountries(){
-        var select=document.getElementById('address-country');
-        var displayNames=null;
-        try{displayNames=new Intl.DisplayNames([navigator.language||'en'],{type:'region'});}catch(_err){}
-        var countries=countryCodes.map(function(code){return {code:code,label:displayNames?displayNames.of(code):code};});
-        countries.sort(function(a,b){return a.label.localeCompare(b.label);});
-        countries.forEach(function(country){var option=document.createElement('option');option.value=country.code;option.textContent=country.label;select.appendChild(option);});
-        var localeMatch=String(navigator.language||'').match(/[-_]([A-Za-z]{2})$/);
-        if(localeMatch&&countryCodes.indexOf(localeMatch[1].toUpperCase())>=0)select.value=localeMatch[1].toUpperCase();
-      }
       function randomReference(){if(window.crypto&&crypto.randomUUID)return crypto.randomUUID();return 'checkout-'+Date.now()+'-'+Math.random().toString(36).slice(2,12);}
       function referenceFor(email){var key='subloop_checkout_'+slug;try{var saved=JSON.parse(sessionStorage.getItem(key)||'null');if(saved&&saved.email===email&&saved.reference)return saved.reference;var reference=randomReference();sessionStorage.setItem(key,JSON.stringify({email:email,reference:reference}));return reference;}catch(_err){return randomReference();}}
       function clearReference(){try{sessionStorage.removeItem('subloop_checkout_'+slug);}catch(_err){}}
       function showComplete(){loading.style.display='none';checkoutContent.hidden=true;showMessage(errorMessage,'');complete.style.display='block';clearReference();}
       function setProcessing(active){processing=active;payButton.disabled=active;payButton.textContent=active?'Processing…':payButtonLabel;}
-      function addressFromForm(){
-        return {
-          line1:document.getElementById('address-line1').value.trim(),
-          line2:document.getElementById('address-line2').value.trim(),
-          city:document.getElementById('address-city').value.trim(),
-          postal_code:document.getElementById('address-postal').value.trim(),
-          state:document.getElementById('address-state').value.trim(),
-          country:document.getElementById('address-country').value
-        };
-      }
       function customerFromForm(){
-        var firstName=document.getElementById('first-name').value.trim();
-        var lastName=document.getElementById('last-name').value.trim();
-        return {
-          name:(firstName+' '+lastName).trim(),
-          first_name:firstName,
-          last_name:lastName,
-          email:document.getElementById('customer-email').value.trim().toLowerCase(),
-          phone:document.getElementById('customer-phone').value.trim()||null,
-          address:addressFromForm()
-        };
+        if(!addressElement)return Promise.reject(new Error('The address form is not ready. Please refresh the page.'));
+        return addressElement.getValue().then(function(result){
+          if(!result.complete)throw new Error('Please complete your name and billing address.');
+          var value=result.value||{};
+          var parsed=splitName(value.name);
+          var firstName=String(value.firstName||parsed.first||'').trim();
+          var lastName=String(value.lastName||parsed.last||'').trim();
+          return {
+            name:String(value.name||(firstName+' '+lastName)).trim(),
+            first_name:firstName,
+            last_name:lastName,
+            email:document.getElementById('customer-email').value.trim().toLowerCase(),
+            phone:document.getElementById('customer-phone').value.trim()||null,
+            address:value.address||{}
+          };
+        });
       }
       function splitName(name){
         var parts=String(name||'').trim().split(/\s+/).filter(Boolean);
@@ -172,15 +145,14 @@
       }
       function customerFromWallet(event){
         var details=event&&event.billingDetails?event.billingDetails:{};
-        var formCustomer=customerFromForm();
         var parsed=splitName(details.name);
         return {
-          name:details.name||formCustomer.name,
-          first_name:parsed.first||formCustomer.first_name,
-          last_name:parsed.last||formCustomer.last_name,
-          email:String(details.email||formCustomer.email||'').trim().toLowerCase(),
-          phone:details.phone||formCustomer.phone||null,
-          address:details.address||formCustomer.address
+          name:String(details.name||'').trim(),
+          first_name:parsed.first,
+          last_name:parsed.last,
+          email:String(details.email||'').trim().toLowerCase(),
+          phone:details.phone||document.getElementById('customer-phone').value.trim()||null,
+          address:details.address||{}
         };
       }
       function statusFromReturn(){
@@ -214,6 +186,8 @@
       }
       function prepareAndConfirm(customer){
         if(!customer.email||customer.email.indexOf('@')<1)throw new Error('A valid email address is required.');
+        if(!customer.name)throw new Error('Your name is required.');
+        if(!customer.address||!customer.address.line1||!customer.address.country)throw new Error('A complete billing address is required.');
         var billingDetails={name:customer.name,email:customer.email,address:customer.address};
         if(customer.phone)billingDetails.phone=customer.phone;
         return createSubscription(customer).then(function(result){return confirmSubscription(result,billingDetails);});
@@ -225,6 +199,8 @@
       function mountPaymentMethods(){
         var appearance={theme:'night',variables:{colorPrimary:'#f3f3f7',colorBackground:'#171720',colorText:'#f3f3f7',colorDanger:'#ff676d',borderRadius:'10px',fontFamily:'Inter, ui-sans-serif, system-ui, sans-serif'}};
         elements=stripe.elements({mode:'subscription',amount:Number(config.amount),currency:String(config.currency||'usd').toLowerCase(),appearance:appearance});
+        addressElement=elements.create('address',{mode:'billing',display:{name:'split'},fields:{phone:'never'}});
+        addressElement.mount('#address-element');
         expressElement=elements.create('expressCheckout',{
           emailRequired:true,
           billingAddressRequired:true,
@@ -253,7 +229,6 @@
         paymentElement.on('ready',function(){if(!processing)payButton.disabled=false;});
       }
 
-      populateCountries();
       fetch('/checkout/hosted/'+encodeURIComponent(slug)+'/config',{headers:{Accept:'application/json'}})
         .then(function(response){return response.json().then(function(body){if(!response.ok)throw new Error(body.error||'Checkout unavailable');return body;});})
         .then(function(body){
@@ -278,7 +253,8 @@
         if(!stripe||!elements||processing||payButton.disabled||!checkoutForm.reportValidity())return;
         setProcessing(true);
         elements.submit()
-          .then(function(result){if(result.error)throw result.error;return prepareAndConfirm(customerFromForm());})
+          .then(function(result){if(result.error)throw result.error;return customerFromForm();})
+          .then(function(customer){return prepareAndConfirm(customer);})
           .catch(function(error){showMessage(paymentMessage,error.message||'Your payment could not be completed.','error');setProcessing(false);});
       });
     })();
