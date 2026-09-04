@@ -3,9 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
 <link rel="icon" type="image/png" href="https://i.ibb.co/6cnnDkWy/Blue-and-White-Minimalist-Professional-Brand-Logo-1.png">
 <title>Subloop Beta 1.0 — Manage Recurring Subscriptions</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -229,27 +226,21 @@ select option{background:var(--surface2)}
 textarea{resize:vertical;min-height:60px}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
-.stripe-account-name-preview{display:flex;align-items:baseline;gap:5px;min-width:0;margin:-2px 0 12px;padding:9px 11px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-family:var(--mono);font-size:11px;line-height:1.4}
-.stripe-account-name-preview-label{flex:0 0 auto;color:var(--muted);font-size:10px;font-weight:500}
-.stripe-account-name-preview-value{min-width:0;color:var(--text);overflow-wrap:anywhere}
 .link-result{display:none;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:11px 14px;margin-top:12px}
 .link-result.visible{display:block}
 /* Migration result uses the same compact inline success/error treatment as the app */
 .migration-result-box{display:none;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;margin-top:10px;font-family:var(--mono);font-size:13px;line-height:1.4;color:var(--text);font-weight:400;letter-spacing:normal}
 .migration-result-box.visible{display:block}
 .migration-result-box.success{background:var(--green-bg);border-color:var(--green);color:var(--green)}
-.migration-result-box.error{background:var(--red-bg);border-color:var(--red);color:var(--red);font-size:12px}
-.migration-result-box .migration-result-title{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:13px;font-weight:400;letter-spacing:normal;line-height:1.25;margin-bottom:4px;color:inherit}
-.migration-result-box .migration-result-icon{display:block;width:14px;height:14px;flex:0 0 14px}
-#embed-status.embed-ready{display:flex;align-items:center;gap:5px}
-#embed-status.embed-ready .migration-result-icon{display:block;width:13px;height:13px;flex:0 0 13px}
+.migration-result-box.error{background:var(--red-bg);border-color:var(--red);color:var(--red);font-size:11px}
+.migration-result-box .migration-result-title{font-family:var(--mono);font-size:13px;font-weight:400;letter-spacing:normal;line-height:1.25;margin-bottom:4px;color:inherit}
 .migration-result-box .migration-result-detail{font-family:var(--mono);font-size:11px;font-weight:400;letter-spacing:normal;line-height:1.5;color:var(--muted)}
 /* Migration payment method uses the exact same card-brand icon treatment as Customers / Payments. */
-.migration-readonly-payment{width:100%;min-height:34px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:8px 11px;font-size:13px!important;font-family:var(--font-ui)!important;font-weight:600!important;letter-spacing:-.01em!important;display:flex;align-items:center;box-sizing:border-box}
+.migration-readonly-payment{width:100%;min-height:34px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:8px 11px;font-size:13px;font-family:var(--sans);display:flex;align-items:center;box-sizing:border-box}
 .migration-payment-method{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;vertical-align:middle}
-.migration-payment-method .payment-img{width:24px!important;height:16px!important;min-width:24px!important;max-width:24px!important;max-height:16px!important;object-fit:contain!important;display:block!important;flex:0 0 auto!important;border-radius:4px!important;overflow:hidden!important;clip-path:inset(0 round 4px)!important;background:transparent!important;border:none!important;box-shadow:none!important;filter:drop-shadow(0 4px 10px rgba(0,0,0,.28))!important}
+.migration-payment-method .payment-img{width:24px!important;height:16px!important;min-width:24px!important;max-width:24px!important;object-fit:contain!important;flex:0 0 auto!important}
 .migration-payment-method .migration-payment-label{font-family:var(--mono);font-size:11px;font-weight:400;color:inherit;letter-spacing:normal}
-.migration-readonly-payment .migration-payment-label{font-family:var(--font-ui)!important;font-size:13px!important;font-weight:600!important;letter-spacing:-.01em!important;color:var(--text)!important}
+.migration-readonly-payment .migration-payment-label{font-family:var(--sans);font-size:13px;color:var(--text)}
 .link-url{font-family:var(--mono);font-size:12px;color:var(--accent);word-break:break-all}
 #toast{position:fixed;bottom:20px;right:20px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:10px 15px;font-size:13px;font-family:var(--mono);z-index:9999;transform:translateY(80px);opacity:0;transition:all 0.25s}
 #toast.show{transform:translateY(0);opacity:1}
@@ -6107,7 +6098,7 @@ body.view-only-access #verification-debug-modal .modal-content{
     <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Customers</span></h2><p>Manage customers and payment methods</p></div>
     <div class="page-header-actions">
       <button class="btn view-write-only" onclick="window.location='/api/customers/export'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export CSV</button>
-      <button class="btn btn-primary view-write-only" onclick="openModal('add-customer-modal')"><svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v10"/><path d="M3 8h10"/></svg><span>Import Customer</span></button>
+      <button class="btn btn-primary view-write-only" onclick="openModal('add-customer-modal')"><svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v10"/><path d="M3 8h10"/></svg><span>Add Customer</span></button>
     </div>
   </div>
   <div class="pay-filter-bar" style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;">
@@ -6120,7 +6111,7 @@ body.view-only-access #verification-debug-modal .modal-content{
     <div class="pay-filter-divider" style="width:1px;height:28px;background:#2A2A38;margin:0 2px;"></div>
     <!-- Stripe account dropdown -->
     <div style="position:relative;display:flex;align-items:center;">
-      <select id="customer-account-filter" class="pay-filter-select" onchange="customerCurrentPage=1;filterCustomers();" style="padding:6px 32px 6px 12px;font-size:12px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#F5F5F7;cursor:pointer;appearance:none;-webkit-appearance:none;min-width:180px;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">
+      <select id="customer-account-filter" class="pay-filter-select" onchange="filterCustomers();" style="padding:6px 32px 6px 12px;font-size:12px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#F5F5F7;cursor:pointer;appearance:none;-webkit-appearance:none;min-width:180px;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);">
         <option value="">All Stripe Accounts</option>
       </select>
       <svg style="position:absolute;right:10px;pointer-events:none;color:#8B8B99;" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
@@ -6128,7 +6119,7 @@ body.view-only-access #verification-debug-modal .modal-content{
     <!-- Search -->
     <div style="position:relative;display:flex;align-items:center;flex:1;min-width:210px;">
       <svg style="position:absolute;left:10px;color:#8B8B99;flex-shrink:0;" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input id="customer-search" class="pay-filter-input" type="text" placeholder="Search by name, email or card..." oninput="customerCurrentPage=1;filterCustomers();" style="width:100%;padding:6px 42px 6px 32px;font-size:12px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#F5F5F7;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);outline:none;transition:border-color 0.18s,box-shadow 0.18s;" onfocus="this.style.borderColor='#6D5EF8';this.style.boxShadow='0 0 0 3px rgba(109,94,248,0.18),inset 0 1px 0 rgba(255,255,255,0.04)';" onblur="this.style.borderColor='#2A2A38';this.style.boxShadow='inset 0 1px 0 rgba(255,255,255,0.04)';">
+      <input id="customer-search" class="pay-filter-input" type="text" placeholder="Search by name, email or card..." oninput="filterCustomers();" style="width:100%;padding:6px 42px 6px 32px;font-size:12px;border-radius:12px;border:1px solid #2A2A38;background:#14141d;color:#F5F5F7;font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);outline:none;transition:border-color 0.18s,box-shadow 0.18s;" onfocus="this.style.borderColor='#6D5EF8';this.style.boxShadow='0 0 0 3px rgba(109,94,248,0.18),inset 0 1px 0 rgba(255,255,255,0.04)';" onblur="this.style.borderColor='#2A2A38';this.style.boxShadow='inset 0 1px 0 rgba(255,255,255,0.04)';">
       <span class="pay-filter-kbd" style="position:absolute;right:10px;font-size:10px;color:#8B8B99;background:#14141d;border:1px solid #2A2A38;border-radius:4px;padding:1px 5px;pointer-events:none;">⌘K</span>
     </div>
     <!-- Advanced customer filters -->
@@ -6233,15 +6224,14 @@ body.view-only-access #verification-debug-modal .modal-content{
       </div>
     </div>
   </div>
-  <div class="search-bar"><input type="text" id="sub-search" placeholder="Search by name or email..." oninput="subCurrentPage=1;filterSubscriptions()"></div>
+  <div class="search-bar"><input type="text" id="sub-search" placeholder="Search by name or email..." oninput="filterSubscriptions()"></div>
   <div class="card"><div class="scrollable"><table>
     <thead><tr>
-      <th id="bulk-cb-header" style="width:36px;display:none;"><input type="checkbox" id="select-all-checkbox" onchange="toggleSelectAll()" title="Select subscriptions on this page" aria-label="Select subscriptions on this page" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;"></th>
+      <th id="bulk-cb-header" style="width:36px;display:none;"><input type="checkbox" id="select-all-checkbox" onchange="toggleSelectAll()" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;"></th>
       <th>Customer</th><th>Amount</th><th>Interval</th><th>Next billing</th><th>Status</th><th class="view-write-only">Actions</th>
     </tr></thead>
     <tbody id="subscriptions-table"><tr><td colspan="7" class="empty">Loading...</td></tr></tbody>
   </table></div></div>
-  <div id="subscription-pagination" style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap;"></div>
 </div>
 
 <!-- Payments -->
@@ -6496,7 +6486,6 @@ body.view-only-access #verification-debug-modal .modal-content{
     <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.5 9.9 13.5 8.1"/><path d="M10.5 14.1 13.5 15.9"/><circle cx="7" cy="12" r="4"/><circle cx="17" cy="6" r="4"/><circle cx="17" cy="18" r="4"/></svg><span>Stripe Accounts</span></h2><p>Manage multiple Stripe accounts</p></div>
     <button id="stripe-add-account-btn" class="btn btn-primary" onclick="openModal('add-account-modal')"><svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v10"/><path d="M3 8h10"/></svg><span>Add Account</span></button>
   </div>
-  <div class="search-bar"><input type="text" id="account-search" placeholder="Search by account name..." oninput="accountCurrentPage=1;filterStripeAccounts()"></div>
   <div class="card"><div class="scrollable"><table class="stripe-accounts-table">
     <colgroup>
       <col class="accounts-col-name">
@@ -6510,7 +6499,6 @@ body.view-only-access #verification-debug-modal .modal-content{
     <thead><tr><th>Name</th><th>Status</th><th>Verification</th><th>Embedded</th><th>Key</th><th>Added</th><th>Actions</th></tr></thead>
     <tbody id="accounts-table"><tr><td colspan="7" class="empty">Loading...</td></tr></tbody>
   </table></div></div>
-  <div id="account-pagination" style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap;"></div>
 </div>
 
 <!-- Webhook Logs -->
@@ -6600,7 +6588,7 @@ body.view-only-access #verification-debug-modal .modal-content{
         <div class="form-group"><label>Currency</label><select id="invoice-currency"><option value="usd">USD</option><option value="eur">EUR</option><option value="gbp">GBP</option><option value="cad">CAD</option><option value="aud">AUD</option><option value="nzd">NZD</option></select></div>
       </div>
       <div class="form-group"><label>Description</label><input type="text" id="invoice-desc" placeholder="Manual invoice - November" value="Manual invoice"></div>
-      <button class="btn btn-primary" onclick="sendManualInvoice(this)">Charge Customer</button>
+      <button class="btn btn-primary" onclick="sendManualInvoice()">Charge Customer</button>
       <div id="invoice-result" style="display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:13px;font-family:var(--mono);"></div>
     </div>
   </div>
@@ -6626,25 +6614,20 @@ body.view-only-access #verification-debug-modal .modal-content{
 <!-- Modals -->
 <div class="modal-bg" id="add-customer-modal">
   <div class="modal">
-    <h3>Import Stripe Customer</h3><p>Import an existing customer and saved card into Subloop.</p>
+    <h3>Add Stripe Customer</h3><p>Enter the real Stripe customer ID. Subloop will retrieve the customer and reusable saved payment method directly from Stripe.</p>
     <div class="form-group"><label>Stripe customer ID (cus_...)</label><input type="text" id="mc-stripe-id" placeholder="cus_xxx..."></div>
     <div class="form-group"><label>Stripe account</label><select id="mc-account"><option value="">Default</option></select></div>
     <div class="form-group"><label>Note (optional)</label><textarea id="mc-note" placeholder="Internal note..."></textarea></div>
-    <div class="modal-footer"><button class="btn" onclick="closeModal('add-customer-modal')">Cancel</button><button class="btn btn-primary" onclick="addCustomer()"><span>Import Customer</span></button></div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal('add-customer-modal')">Cancel</button><button class="btn btn-primary" onclick="addCustomer()"><svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v10"/><path d="M3 8h10"/></svg><span>Add Customer</span></button></div>
   </div>
 </div>
 <div class="modal-bg" id="add-account-modal">
   <div class="modal">
     <h3>Add Stripe Account</h3><p>Connect a new Stripe account</p>
-    <div class="form-row">
-      <div class="form-group"><label>Account type</label><select id="acc-type" onchange="updateStripeAccountNamePreview('acc')"><option value="Solo">Solo</option><option value="Business">Business</option></select></div>
-      <div class="form-group"><label>Country code</label><input type="text" id="acc-country" maxlength="2" placeholder="FR" autocomplete="off" oninput="normalizeStripeCountryInput(this);updateStripeAccountNamePreview('acc')"></div>
-    </div>
-    <div class="form-group"><label>Account name</label><input type="text" id="acc-display-name" maxlength="80" placeholder="Murat KOCPINAR" autocomplete="off" oninput="updateStripeAccountNamePreview('acc')"></div>
-    <div class="stripe-account-name-preview"><span class="stripe-account-name-preview-label">Saved as:</span><span class="stripe-account-name-preview-value" id="acc-name-preview">Stripe_Solo_CC_Name</span></div>
-    <div class="form-group"><label>Secret key (required)</label><input type="password" id="acc-key" placeholder="sk_live_..." required></div>
-    <div class="form-group"><label>Publishable key (embedded checkout)</label><input type="text" id="acc-publishable" placeholder="pk_live_..."></div>
-    <div class="form-group"><label>Webhook secret (required)</label><input type="text" id="acc-webhook" placeholder="whsec_..." required></div>
+    <div class="form-group"><label>Account name</label><input type="text" id="acc-name" placeholder="My Store"></div>
+    <div class="form-group"><label>Secret key (sk_live_...)</label><input type="password" id="acc-key" placeholder="sk_live_..."></div>
+    <div class="form-group"><label>Publishable key (pk_live_...) — required for embedded checkout</label><input type="text" id="acc-publishable" placeholder="pk_live_..."></div>
+    <div class="form-group"><label>Webhook secret (whsec_...) — optional</label><input type="text" id="acc-webhook" placeholder="whsec_..."></div>
     <div class="modal-footer"><button class="btn" onclick="closeModal('add-account-modal')">Cancel</button><button class="btn btn-primary" onclick="addAccount()">Save account</button></div>
   </div>
 </div>
@@ -6682,7 +6665,7 @@ body.view-only-access #verification-debug-modal .modal-content{
 <div class="modal-bg" id="migration-modal">
   <div class="modal">
     <h3>Migrate Subscription</h3>
-    <p>Copy the customer and card in Stripe, then verify the destination.</p>
+    <p>Move this subscription to another connected Stripe account. Copy the customer and payment method in Stripe first, then verify the destination account below.</p>
     <input type="hidden" id="migration-sub-id">
     <div class="form-row">
       <div class="form-group"><label>Source account</label><input id="migration-source-account" type="text" readonly value="—"></div>
@@ -6696,7 +6679,7 @@ body.view-only-access #verification-debug-modal .modal-content{
     <div class="form-group"><label>Destination customer ID</label><input id="migration-destination-customer" type="text" placeholder="cus_..."></div>
     <div class="form-group" id="migration-live-amount-wrap" style="display:none;">
       <label id="migration-live-amount-label">Verification amount</label>
-      <input id="migration-live-amount" type="number" inputmode="decimal" min="0.50" step="0.01" placeholder="5.00" oninput="updateMigrationLiveChargeButton()">
+      <input id="migration-live-amount" type="number" inputmode="decimal" min="0.50" max="1000" step="0.01" placeholder="5.00" oninput="updateMigrationLiveChargeButton()">
     </div>
     <div id="migration-result" class="migration-result-box"></div>
     <div class="modal-footer" style="align-items:center;">
@@ -6728,14 +6711,14 @@ body.view-only-access #verification-debug-modal .modal-content{
     <div class="form-row"><div class="form-group"><label>Amount</label><input type="number" id="invoice-modal-amount" placeholder="29.00" step="0.01" min="0.50"></div><div class="form-group"><label>Currency</label><select id="invoice-modal-currency"><option value="usd">USD</option><option value="eur">EUR</option><option value="gbp">GBP</option><option value="cad">CAD</option><option value="aud">AUD</option><option value="nzd">NZD</option></select></div></div>
     <div class="form-group"><label>Description</label><input type="text" id="invoice-modal-desc" value="Manual invoice"></div>
     <div id="invoice-modal-result" style="display:none;margin-top:10px;padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);"></div>
-    <div class="modal-footer"><button class="btn" onclick="closeModal('invoice-modal')">Cancel</button><button class="btn btn-primary" onclick="sendInvoiceFromModal(this)">Charge</button></div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal('invoice-modal')">Cancel</button><button class="btn btn-primary" onclick="sendInvoiceFromModal()">Charge</button></div>
   </div>
 </div>
 <div class="modal-bg" id="add-admin-modal">
   <div class="modal admin-access-modal">
     <div class="admin-access-head">
       <h3>Add user</h3>
-      <p>Choose what this user can access.</p>
+      <p>Control which data and Stripe accounts this user can access</p>
     </div>
     <div class="admin-access-body">
       <div class="form-row">
@@ -6774,7 +6757,7 @@ body.view-only-access #verification-debug-modal .modal-content{
         </div>
         <div id="perms-list" class="permission-choice-grid"></div>
       </div>
-      <div id="admin-analyst-note" class="analyst-note" style="display:none;">View-only users can see selected sections and accounts but cannot make changes.</div>
+      <div id="admin-analyst-note" class="analyst-note" style="display:none;">View-only users can open selected sections and assigned-account data only. Add, edit, retry, export and billing actions are disabled.</div>
     </div>
     <div class="modal-footer admin-access-footer">
       <button class="btn" onclick="closeModal('add-admin-modal')">Cancel</button>
@@ -6795,12 +6778,7 @@ body.view-only-access #verification-debug-modal .modal-content{
     <h3>Edit Stripe Account</h3>
     <p>Update the account name or credentials</p>
     <input type="hidden" id="edit-acc-id">
-    <div class="form-row">
-      <div class="form-group"><label>Account type</label><select id="edit-acc-type" onchange="updateStripeAccountNamePreview('edit-acc')"><option value="Solo">Solo</option><option value="Business">Business</option></select></div>
-      <div class="form-group"><label>Country code</label><input type="text" id="edit-acc-country" maxlength="2" placeholder="FR" autocomplete="off" oninput="normalizeStripeCountryInput(this);updateStripeAccountNamePreview('edit-acc')"></div>
-    </div>
-    <div class="form-group"><label>Account name</label><input type="text" id="edit-acc-display-name" maxlength="80" placeholder="Murat KOCPINAR" autocomplete="off" oninput="updateStripeAccountNamePreview('edit-acc')"></div>
-    <div class="stripe-account-name-preview"><span class="stripe-account-name-preview-label">Saved as:</span><span class="stripe-account-name-preview-value" id="edit-acc-name-preview">Stripe_Solo_CC_Name</span></div>
+    <div class="form-group"><label>Account name</label><input type="text" id="edit-acc-name" placeholder="My Store"></div>
     <div class="form-group"><label>New secret key (sk_live_...)</label><input type="password" id="edit-acc-key" placeholder="Leave blank to keep existing key"></div>
     <div class="form-group"><label>Publishable key (pk_live_...)</label><input type="text" id="edit-acc-publishable" placeholder="Leave blank to keep existing key"></div>
     <div class="form-group"><label>Webhook secret (whsec_...)</label><input type="text" id="edit-acc-webhook" placeholder="Leave blank to keep existing secret"></div>
@@ -6816,7 +6794,7 @@ body.view-only-access #verification-debug-modal .modal-content{
   <div class="modal admin-access-modal">
     <div class="admin-access-head">
       <h3>Edit access</h3>
-      <p id="edit-access-subtitle">Update this user’s access.</p>
+      <p id="edit-access-subtitle">Update role, sections and Stripe account access</p>
     </div>
     <div class="admin-access-body">
       <input type="hidden" id="edit-access-id">
@@ -6848,7 +6826,7 @@ body.view-only-access #verification-debug-modal .modal-content{
         <div class="access-section-header"><div><div id="edit-perms-title" class="access-section-title">Visible sections</div><div id="edit-perms-subtitle" class="access-section-subtitle">Choose which sections this user can view</div></div><div class="access-actions"><button class="btn btn-sm" onclick="selectAllEditPerms()" type="button">Select all</button><button class="btn btn-sm" onclick="clearAllEditPerms()" type="button">Clear</button></div></div>
         <div id="edit-perms-list" class="permission-choice-grid"></div>
       </div>
-      <div id="edit-analyst-note" class="analyst-note" style="display:none;">View-only users can see selected sections and accounts but cannot make changes.</div>
+      <div id="edit-analyst-note" class="analyst-note" style="display:none;">View-only users can open selected sections and assigned-account data only. Add, edit, retry, export and billing actions are disabled.</div>
       <div id="edit-access-error" style="display:none;background:var(--red-bg);border:1px solid var(--red);color:var(--red);border-radius:8px;padding:10px 14px;font-size:12px;font-family:var(--mono);margin-top:12px;"></div>
     </div>
     <div class="modal-footer admin-access-footer">
@@ -6911,7 +6889,7 @@ body.view-only-access #verification-debug-modal .modal-content{
 <div class="modal-bg" id="admin-login-activity-modal">
   <div class="modal" style="width:560px;max-width:calc(100vw - 32px);">
     <h3 id="admin-login-activity-title">Login activity</h3>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:16px;">Recent sign-in activity for this user.</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:16px;">Security history for this user only.</p>
     <div class="scrollable" style="max-height:300px;">
       <table>
         <thead><tr><th>IP Address</th><th>Result</th><th>Time</th></tr></thead>
@@ -6925,7 +6903,7 @@ body.view-only-access #verification-debug-modal .modal-content{
 <div class="modal-bg" id="verification-debug-modal">
   <div class="modal" style="width:760px;max-width:96vw;max-height:88vh;overflow:auto;">
     <h3>Stripe Account Check</h3>
-    <p>Check payments, payouts, and required actions.</p>
+    <p>Simple check for payment access, payout access, and required Stripe actions.</p>
     <div id="verification-debug-summary" style="font-size:13px;color:var(--text);font-family:var(--sans);margin-bottom:12px;line-height:1.5;"></div>
     <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin:8px 0 6px;">Technical details</div>
     <pre id="verification-debug-output" style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:12px;max-height:260px;overflow:auto;font-size:11px;line-height:1.45;color:var(--text);white-space:pre-wrap;"></pre>
@@ -7358,49 +7336,25 @@ function badge(s){
   if (raw==='trialing'||raw==='paused') cls='blue';
 
   const icon = badgeIcon(raw);
-  return '<span class="badge badge-'+cls+(icon?' has-status-icon':'')+'"><span>'+escHtml(badgeLabel(raw))+'</span>'+icon+'</span>';
+  return '<span class="badge badge-'+cls+(icon?' has-status-icon':'')+'"><span>'+badgeLabel(raw)+'</span>'+icon+'</span>';
 }
 async function api(path,opts){
   opts=opts||{};opts.headers=opts.headers||{};
   var token=localStorage.getItem('subloop_token');if(token)opts.headers['Authorization']='Bearer '+token;
   opts.credentials=opts.credentials||'include';
-  let r;
-  try{ r=await fetch(path,opts); }
-  catch(networkErr){
-    const e=new Error((networkErr&&networkErr.message)||'Network error — no response received');
-    e.definitive=false; // no response reached at all — ambiguous, safe to reuse an attempt_id
-    throw e;
-  }
+  const r=await fetch(path,opts);
   var payload=null;try{payload=await r.json();}catch(e){}
-  if(r.status===401){forceLogout();const e=new Error((payload&&payload.error)||'Authentication required');e.definitive=true;throw e;}
+  if(r.status===401){forceLogout();throw new Error((payload&&payload.error)||'Authentication required');}
   if(r.status===403&&payload&&payload.license_status){
     clearLocalAccessState();
     const status=String(payload.license_status||'inactive');
     fetch('/api/auth/logout',{method:'POST',credentials:'include'}).catch(function(){}).finally(function(){
       if(isSubloopAppHost()||isSubloopLoginHost())window.location.replace(SUBLOOP_LOGIN_ORIGIN+'/?access='+encodeURIComponent(status));
     });
-    const e=new Error(payload.error||'Subloop access is not active');e.definitive=true;throw e;
+    throw new Error(payload.error||'Subloop access is not active');
   }
-  if(!r.ok){
-    const e=new Error((payload&&payload.error)||('HTTP '+r.status));
-    // Trust an explicit backend signal on whether Stripe's result is known. Absent/unrecognized -> ambiguous (safer default).
-    e.definitive=(payload&&typeof payload.definitive==='boolean')?payload.definitive:false;
-    throw e;
-  }
+  if(!r.ok)throw new Error((payload&&payload.error)||('HTTP '+r.status));
   return payload||{};
-}
-function getOrCreateAttemptId(key){
-  const skey='subloop_attempt_'+key;
-  let v=null;
-  try{ v=sessionStorage.getItem(skey); }catch(e){}
-  if(!v){
-    v=(crypto&&crypto.randomUUID)?crypto.randomUUID():('attempt-'+Date.now()+'-'+Math.random().toString(36).slice(2));
-    try{ sessionStorage.setItem(skey,v); }catch(e){}
-  }
-  return v;
-}
-function clearAttemptId(key){
-  try{ sessionStorage.removeItem('subloop_attempt_'+key); }catch(e){}
 }
 function toast(msg,type){const t=document.getElementById('toast');t.textContent=msg;t.className='show '+(type||'success');setTimeout(()=>t.className='',2800);}
 function hasOpenBlockingOverlay(){
@@ -7456,12 +7410,11 @@ function paymentDrawerCardBadge(brand,last4){
   var labels={visa:'Visa',mastercard:'Mastercard',amex:'American Express',discover:'Discover',diners:'Diners Club',jcb:'JCB',unionpay:'UnionPay',cartes_bancaires:'Cartes Bancaires',dankort:'Dankort',elo:'Elo',hipercard:'Hipercard',maestro:'Maestro',uatp:'UATP',vpay:'V Pay'};
   var src=icons[b]?'/icons/'+icons[b]:null;
   var label=labels[b]||((b||'card').replace(/_/g,' ').replace(/\w/g,function(c){return c.toUpperCase();}));
-  var safeLabel=escHtml(label);
-  var img=src?'<img src="'+src+'" class="payment-img" alt="'+safeLabel+'" title="'+safeLabel+'">'
-    :'<div class="payment-badge-fallback" title="'+safeLabel+'">'+escHtml((b||'card').slice(0,4).toUpperCase())+'</div>';
-  var brandName=brand?'<span class="payment-brand-name">'+safeLabel+'</span>':'';
+  var img=src?'<img src="'+src+'" class="payment-img" alt="'+label+'" title="'+label+'">'
+    :'<div class="payment-badge-fallback" title="'+label+'">'+((b||'card').slice(0,4).toUpperCase())+'</div>';
+  var brandName=brand?'<span class="payment-brand-name">'+label+'</span>':'';
   var dots=last4?'<span class="payment-dots">••••</span>':'';
-  var num=last4?'<span class="payment-last4">'+escHtml(last4)+'</span>':'';
+  var num=last4?'<span class="payment-last4">'+last4+'</span>':'';
   return '<div class="payment-card drawer-payment-card">'+brandName+img+dots+num+'</div>';
 }
 
@@ -7496,11 +7449,10 @@ function cardBadge(brand,last4){
   var labels={visa:'Visa',mastercard:'Mastercard',amex:'American Express',discover:'Discover',diners:'Diners Club',jcb:'JCB',unionpay:'UnionPay',cartes_bancaires:'Cartes Bancaires',dankort:'Dankort',elo:'Elo',hipercard:'Hipercard',maestro:'Maestro',uatp:'UATP',vpay:'V Pay'};
   var src=icons[b]?'/icons/'+icons[b]:null;
   var label=labels[b]||((b||'card').replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();}));
-  var safeLabel=escHtml(label);
-  var img=src?'<img src="'+src+'" class="payment-img" alt="'+safeLabel+'" title="'+safeLabel+'">'
-    :'<div class="payment-badge-fallback" title="'+safeLabel+'">'+escHtml((b||'card').slice(0,4).toUpperCase())+'</div>';
+  var img=src?'<img src="'+src+'" class="payment-img" alt="'+label+'" title="'+label+'">'
+    :'<div class="payment-badge-fallback" title="'+label+'">'+((b||'card').slice(0,4).toUpperCase())+'</div>';
   var dots=last4?'<span class="payment-dots">••••</span>':'';
-  var num=last4?'<span class="payment-last4">'+escHtml(last4)+'</span>':'';
+  var num=last4?'<span class="payment-last4">'+last4+'</span>':'';
   return '<div class="payment-card">'+img+dots+num+'</div>'; 
 }
 
@@ -7513,8 +7465,7 @@ function stripeMethodIcon(key){
   key=normalizeStripeMethodKey(key);
   var icons={apple_pay:'apple-pay.svg',google_pay:'google-pay.svg',amazon_pay:'amazon-pay.svg',link:'link.svg',klarna:'klarna.svg',visa:'visa.svg',mastercard:'mastercard.svg',amex:'american-express.svg'};
   var labels={apple_pay:'Apple Pay',google_pay:'Google Pay',amazon_pay:'Amazon Pay',link:'Link',klarna:'Klarna',visa:'Visa',mastercard:'Mastercard',amex:'American Express'};
-  var label=escHtml(labels[key]||key);
-  return icons[key]?'<img src="/icons/'+icons[key]+'" class="payment-img" alt="'+label+'" title="'+label+'">':'';
+  return icons[key]?'<img src="/icons/'+icons[key]+'" class="payment-img" alt="'+(labels[key]||key)+'" title="'+(labels[key]||key)+'">':'';
 }
 function paymentMethodDisplay(p,drawer){
   var wallet=normalizeStripeMethodKey(p&&p.wallet_type);
@@ -7525,7 +7476,7 @@ function paymentMethodDisplay(p,drawer){
   if(wallet==='apple_pay'||wallet==='google_pay'||wallet==='link'){
     var walletImg=stripeMethodIcon(wallet);
     var networkImg=stripeMethodIcon(p.card_brand);
-    var digits=p.card_last4?'<span class="payment-dots">••••</span><span class="payment-last4">'+escHtml(p.card_last4)+'</span>':'';
+    var digits=p.card_last4?'<span class="payment-dots">••••</span><span class="payment-last4">'+p.card_last4+'</span>':'';
     if(drawer){
       var walletCardName=(p.card_brand&&cardLabels[normalizeStripeMethodKey(p.card_brand)])?(' / '+cardLabels[normalizeStripeMethodKey(p.card_brand)]):'';
       return '<div class="'+cls+'"><span class="payment-brand-name">'+walletLabels[wallet]+walletCardName+'</span>'+walletImg+networkImg+digits+'</div>';
@@ -7536,7 +7487,7 @@ function paymentMethodDisplay(p,drawer){
   if(type==='amazon_pay'){
     var amazonImg=stripeMethodIcon('amazon_pay');
     var amazonNetworkImg=stripeMethodIcon(p.card_brand);
-    var amazonDigits=p.card_last4?'<span class="payment-dots">••••</span><span class="payment-last4">'+escHtml(p.card_last4)+'</span>':'';
+    var amazonDigits=p.card_last4?'<span class="payment-dots">••••</span><span class="payment-last4">'+p.card_last4+'</span>':'';
     if(drawer){
       var amazonCardName=(p.card_brand&&cardLabels[normalizeStripeMethodKey(p.card_brand)])?(' / '+cardLabels[normalizeStripeMethodKey(p.card_brand)]):'';
       return '<div class="'+cls+'"><span class="payment-brand-name">Amazon Pay'+amazonCardName+'</span>'+amazonImg+amazonNetworkImg+amazonDigits+'</div>';
@@ -7651,19 +7602,6 @@ function toggleNotifications(e){
   if(menu)menu.classList.toggle('open');
 }
 function escHtml(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
-function renderTableLoadError(tableId,colspan,retryFn,message){
-  var table=document.getElementById(tableId);
-  if(!table)return;
-  var fn=/^[A-Za-z_$][\w$]*$/.test(String(retryFn||''))?String(retryFn):'';
-  var button=fn?'<button class="btn btn-sm" onclick="'+fn+'()" style="margin-left:8px;">Retry</button>':'';
-  table.innerHTML='<tr><td colspan="'+Number(colspan||1)+'" class="empty" style="color:var(--red);">'+escHtml(message||'Could not load data.')+button+'</td></tr>';
-}
-function renderPanelLoadError(containerId,retryFn,message){
-  var container=document.getElementById(containerId);
-  if(!container)return;
-  var fn=/^[A-Za-z_$][\w$]*$/.test(String(retryFn||''))?String(retryFn):'';
-  container.innerHTML='<div class="empty" style="color:var(--red);">'+escHtml(message||'Could not load data.')+(fn?' <button class="btn btn-sm" onclick="'+fn+'()" style="margin-left:8px;">Retry</button>':'')+'</div>';
-}
 function goToActivityFromNotifications(){
   var menu=document.getElementById('notification-menu');
   if(menu)menu.classList.remove('open');
@@ -7750,7 +7688,7 @@ async function loadChart(){
     let html='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">';
     cards.forEach(c=>{html+='<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;"><div style="font-size:10px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">'+c.label+'</div><div style="font-size:18px;font-weight:700;letter-spacing:-0.5px;margin-bottom:3px;">'+c.value+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);">'+c.sub+'</div></div>';});
     html+='</div>';wrap.innerHTML=html;
-  }catch(e){renderPanelLoadError('revenue-summary','loadChart','Could not load revenue overview.');}
+  }catch(e){}
 }
 async function loadUpcoming(){
   try{
@@ -7759,11 +7697,11 @@ async function loadUpcoming(){
     var canManageSubs=canManageOperationalSection('subscriptions');
     if(!subs.length){tb.innerHTML='<tr><td colspan="'+(canManageSubs?5:4)+'" class="empty">No upcoming active subscription charges.</td></tr>';return;}
     tb.innerHTML=subs.slice(0,10).map(function(s){
-      var row='<tr><td><div class="customer-cell"><div class="avatar">'+escHtml(initials(s.name))+'</div><div><div class="customer-name">'+escHtml(s.name||'—')+'</div><div class="customer-email">'+escHtml(s.email||'')+'</div></div></div></td><td class="mono">'+fmt(s.amount,s.currency)+'</td><td class="mono">'+fmtDate(s.next_billing_date)+'</td><td>'+(String(s.status||'').toLowerCase()==='paused'?badge(s.status).replace('class="badge ','class="badge dashboard-upcoming-paused '):badge(s.status))+'</td>';
-      if(canManageSubs)row+='<td><div class="actions">'+(s.status==='active'?'<button class="btn btn-sm" onclick="chargeNow('+s.id+',this)">Charge</button>':'')+(s.status==='active'?'<button class="btn btn-sm btn-danger" onclick="openPauseModal('+s.id+')">Pause</button>':'')+(String(s.status||'').toLowerCase()==='paused'?'<button class="btn btn-sm" onclick="setSubStatus('+s.id+',\'active\')">Resume</button>':'')+'</div></td>';
+      var row='<tr><td><div class="customer-cell"><div class="avatar">'+initials(s.name)+'</div><div><div class="customer-name">'+(s.name||'—')+'</div><div class="customer-email">'+(s.email||'')+'</div></div></div></td><td class="mono">'+fmt(s.amount,s.currency)+'</td><td class="mono">'+fmtDate(s.next_billing_date)+'</td><td>'+(String(s.status||'').toLowerCase()==='paused'?badge(s.status).replace('class="badge ','class="badge dashboard-upcoming-paused '):badge(s.status))+'</td>';
+      if(canManageSubs)row+='<td><div class="actions">'+(s.status==='active'?'<button class="btn btn-sm" onclick="chargeNow('+s.id+')">Charge</button>':'')+(s.status==='active'?'<button class="btn btn-sm btn-danger" onclick="openPauseModal('+s.id+')">Pause</button>':'')+(String(s.status||'').toLowerCase()==='paused'?'<button class="btn btn-sm" onclick="setSubStatus('+s.id+',\'active\')">Resume</button>':'')+'</div></td>';
       return row+'</tr>';
     }).join('');
-  }catch(e){renderTableLoadError('upcoming-table',5,'loadUpcoming','Could not load upcoming subscriptions.');}
+  }catch(e){}
 }
 async function loadRecentPayments(){
   try{
@@ -7774,13 +7712,13 @@ async function loadRecentPayments(){
       var rowBg=(p.status==='failed'||isGhost)?'background:rgba(248,113,113,0.04);':'';
       var avatarHtml=isGhost
         ?'<div class="avatar" style="background:rgba(248,113,113,0.15);border-color:rgba(248,113,113,0.4);color:var(--red);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>'
-        :'<div class="avatar">'+escHtml(initials(p.name))+'</div>';
+        :'<div class="avatar">'+initials(p.name)+'</div>';
       var customerHtml=isGhost
         ?'<div class="customer-name" style="color:var(--red);">No profile</div><div class="customer-email">External payment · no email collected</div>'
-        :'<div class="customer-name">'+escHtml(p.name||'—')+'</div><div class="customer-email">'+escHtml(p.email||'')+'</div>';
+        :'<div class="customer-name">'+(p.name||'—')+'</div><div class="customer-email">'+(p.email||'')+'</div>';
       return '<tr style="'+rowBg+'"><td><div class="customer-cell">'+avatarHtml+'<div>'+customerHtml+'</div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+paymentMethodDisplay(p,false)+'</td><td>'+badge(p.status)+'</td><td class="mono">'+fmtDate(p.created_at)+'</td></tr>';
     }).join('');
-  }catch(e){renderTableLoadError('recent-payments-table',5,'loadRecentPayments','Could not load recent payments.');}
+  }catch(e){}
 }
 async function loadActivity(){
   try{
@@ -7827,9 +7765,9 @@ async function loadActivity(){
     }
     wrap.innerHTML=list.map(function(a){
       var dotColor=activityDotColor(a);
-      return '<div class="activity-item"><div class="activity-dot" style="background:'+dotColor+'"></div><div style="flex:1;"><div style="font-size:13px;font-weight:550;">'+escHtml(a.description||'Activity update')+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;font-weight:400;">'+fmtTime(a.created_at)+'</div></div></div>';
+      return '<div class="activity-item"><div class="activity-dot" style="background:'+dotColor+'"></div><div style="flex:1;"><div style="font-size:13px;font-weight:550;">'+a.description+'</div><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;font-weight:400;">'+fmtTime(a.created_at)+'</div></div></div>';
     }).join('');
-  }catch(e){renderPanelLoadError('activity-list','loadActivity','Could not load activity.');}
+  }catch(e){}
 }
 async function loadCustomers(){
   try{
@@ -7842,31 +7780,22 @@ async function loadCustomers(){
     var selectedCustomerAccount=customerAccountSelect ? customerAccountSelect.value : '';
     if(customerAccountSelect){
       var seenAccounts=new Set();
-      customerAccountSelect.innerHTML='';
-      var allAccountsOption=document.createElement('option');
-      allAccountsOption.value='';
-      allAccountsOption.textContent='All Stripe Accounts';
-      customerAccountSelect.appendChild(allAccountsOption);
+      var accountOptions='<option value="">All Stripe Accounts</option>';
       allCustomers.forEach(function(c){
         var accountName=c.account_name||'';
         if(accountName&&!seenAccounts.has(accountName)){
           seenAccounts.add(accountName);
-          var accountOption=document.createElement('option');
-          accountOption.value=accountName;
-          accountOption.textContent=accountName;
-          customerAccountSelect.appendChild(accountOption);
+          accountOptions+='<option value="'+accountName+'">'+accountName+'</option>';
         }
       });
+      customerAccountSelect.innerHTML=accountOptions;
       if(selectedCustomerAccount && seenAccounts.has(selectedCustomerAccount)){
         customerAccountSelect.value=selectedCustomerAccount;
       }
     }
     updateCustomerPrimaryButtons();
     filterCustomers();
-  }catch(e){
-    renderTableLoadError('customers-table',9,'loadCustomers','Could not load customers.');
-    var customerPagination=document.getElementById('customer-pagination');if(customerPagination)customerPagination.innerHTML='';
-  }
+  }catch(e){}
 }
 
 function customerCountryName(countryCode){
@@ -7942,9 +7871,9 @@ function renderCustomers(list){
     return `<tr style="cursor:pointer;" onclick="openCustomerDrawer(${c.id})">
       <td>
         <div class="customer-cell">
-          <div class="avatar">${escHtml(initials(c.name))}</div>
+          <div class="avatar">${initials(c.name)}</div>
           <div>
-            <div class="customer-name table-customer-name" style="font-size:13px;" title="${escHtml(c.name||'—')}">${escHtml(c.name||'—')}</div>
+            <div class="customer-name table-customer-name" style="font-size:13px;" title="${c.name||'—'}">${c.name||'—'}</div>
           </div>
         </div>
       </td>
@@ -7952,7 +7881,7 @@ function renderCustomers(list){
       <td style="font-size:12px;color:var(--muted);" title="${escapeCustomerHtml(c.account_name||'—')}">${escapeCustomerHtml(tableAccountDisplayName(c.account_name))}</td>
       <td class="customer-country-cell">${escapeCustomerHtml(customerCountryFullLabel(c.primary_card_country||c.card_country))}</td>
       <td>${badge(displayStatus)}</td>
-      <td style="font-size:12px;color:var(--muted);font-family:var(--mono);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(c.note||'—')}</td>
+      <td style="font-size:12px;color:var(--muted);font-family:var(--mono);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.note||'—'}</td>
       <td class="mono" style="font-size:12px;white-space:nowrap;" title="${dateTitle}">${dateLabel}</td>
       <td class="mono">${formatCustomerCurrencyTotals(c)}</td>
       ${isViewer?'':`<td>
@@ -7987,7 +7916,6 @@ function updateCustomerPrimaryButtons(){
   });
 }
 function setCustomerPrimaryFilter(filter){
-  customerCurrentPage=1;
   customerPrimaryFilter=filter;
   updateCustomerPrimaryButtons();
   filterCustomers();
@@ -8191,13 +8119,11 @@ function toggleCustomerCustomDate(){
   if(custom)custom.style.display=visible?'block':'none';
 }
 function applyAdvancedCustomerFilters(){
-  customerCurrentPage=1;
   filterCustomers();
   var popup=document.getElementById('customer-advanced-filters');
   if(popup)popup.classList.remove('open');
 }
 function clearAdvancedCustomerFilters(){
-  customerCurrentPage=1;
   ['customer-filter-status','customer-filter-method','customer-filter-activity','customer-filter-date'].forEach(function(id){
     var el=document.getElementById(id); if(el)el.value='';
   });
@@ -8243,31 +8169,7 @@ window.addEventListener('pageshow',function(){
   resetPaymentFiltersOnRefresh();
 });
 
-var subCurrentPage=1;
-var SUBSCRIPTIONS_PER_PAGE=35;
-async function loadSubscriptions(){
-  try{
-    allSubscriptions=await api('/api/subscriptions');
-    filterSubscriptions();
-  }catch(e){
-    renderTableLoadError('subscriptions-table',7,'loadSubscriptions','Could not load subscriptions.');
-    var pagination=document.getElementById('subscription-pagination');if(pagination)pagination.innerHTML='';
-  }
-}
-function renderSubscriptionPagination(total,totalPages){
-  var el=document.getElementById('subscription-pagination');
-  if(!el)return;
-  if(totalPages<=1){el.innerHTML='';return;}
-  var html='<span style="font-size:12px;color:var(--muted);">Page '+subCurrentPage+' of '+totalPages+'</span>';
-  html+='<button class="btn btn-sm" onclick="subCurrentPage=Math.max(1,subCurrentPage-1);filterSubscriptions();" '+(subCurrentPage===1?'disabled':'')+'>← Prev</button>';
-  var start=Math.max(1,subCurrentPage-3),end=Math.min(totalPages,subCurrentPage+3);
-  for(var i=start;i<=end;i++){
-    var active=i===subCurrentPage;
-    html+='<button class="btn btn-sm'+(active?' btn-primary':'')+'" onclick="subCurrentPage='+i+';filterSubscriptions();">'+i+'</button>';
-  }
-  html+='<button class="btn btn-sm" onclick="subCurrentPage=Math.min('+totalPages+',subCurrentPage+1);filterSubscriptions();" '+(subCurrentPage===totalPages?'disabled':'')+'> Next →</button>';
-  el.innerHTML=html;
-}
+async function loadSubscriptions(){try{allSubscriptions=await api('/api/subscriptions');renderSubscriptions(allSubscriptions);}catch(e){}}
 function renderSubscriptions(list){
   var tb=document.getElementById('subscriptions-table');
   var isViewer=isViewOnlyAccess();
@@ -8281,7 +8183,7 @@ function renderSubscriptions(list){
     var isCanceling=subStatus==='canceling'||subStatus==='cancelling';
     var resumeBtn=subStatus==='paused'?'<button class="btn btn-sm" onclick="resumeSub('+s.id+')">Resume</button>':'';
     var reactivateBtn=isCanceling?'<button class="btn btn-sm btn-success" onclick="reactivateSub('+s.id+')">Reactivate</button>':'';
-    var chargeBtn=subStatus==='active'?'<button class="btn btn-sm" onclick="chargeNow('+s.id+',this)">Charge</button>':'';
+    var chargeBtn=subStatus==='active'?'<button class="btn btn-sm" onclick="chargeNow('+s.id+')">Charge</button>':'';
     var pauseBtn=subStatus==='active'?'<button class="btn btn-sm btn-danger" onclick="openPauseModal('+s.id+')">Pause</button>':'';
     var retryBtn='';
     var cancelBtn=(!isCanceled&&!isCanceling)?'<button class="btn btn-sm btn-danger" onclick="cancelSub('+s.id+')">Cancel</button>':'';
@@ -8293,7 +8195,7 @@ function renderSubscriptions(list){
     var cancelEnd=isCanceling?'<br><span style="font-size:10px;color:var(--amber);">Ends '+fmtDate(s.next_billing_date)+'</span>':'';
     var row='<tr id="sub-row-'+s.id+'" style="'+bg+'">';
     if(!isViewer)row+='<td style="width:36px;display:'+cbDisplay+';"><input type="checkbox" class="sub-checkbox" data-id="'+s.id+'" '+cbChecked+' onchange="toggleSubSelect('+s.id+')" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;"></td>';
-    row+='<td><div class="customer-cell"><div class="avatar">'+escHtml(initials(s.name))+'</div><div><div class="customer-name">'+escHtml(s.name||'—')+'</div><div class="customer-email">'+escHtml(s.email||'')+'</div></div></div></td><td class="mono">'+fmt(s.amount,s.currency)+'</td><td class="mono">'+(Number(s.interval_days)||30)+' days</td><td class="mono">'+fmtDate(s.next_billing_date)+resumeDate+cancelEnd+'</td><td>'+badge(s.status)+dunningBadge+'</td>';
+    row+='<td><div class="customer-cell"><div class="avatar">'+initials(s.name)+'</div><div><div class="customer-name">'+(s.name||'—')+'</div><div class="customer-email">'+(s.email||'')+'</div></div></div></td><td class="mono">'+fmt(s.amount,s.currency)+'</td><td class="mono">'+(s.interval_days||30)+' days</td><td class="mono">'+fmtDate(s.next_billing_date)+resumeDate+cancelEnd+'</td><td>'+badge(s.status)+dunningBadge+'</td>';
     if(!isViewer)row+='<td><div class="actions">'+chargeBtn+editSpan+migrateBtn+pauseBtn+resumeBtn+reactivateBtn+retryBtn+cancelBtn+cancelNowBtn+'</div></td>';
     rows.push(row+'</tr>');
   });
@@ -8335,10 +8237,6 @@ function setMigrationResult(html,state){
   if(state==='success'||state==='error')box.classList.add(state);
   box.innerHTML=html;
 }
-function migrationResultIcon(type){
-  if(type==='success')return '<svg class="migration-result-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9"/></svg>';
-  return '';
-}
 async function openMigrationModal(subId){
   if(blockViewOnlyAction())return;
   if(!['owner','admin'].includes(getCurrentRole())){toast('Owner or admin access required','error');return;}
@@ -8368,59 +8266,21 @@ async function openMigrationModal(subId){
     document.getElementById('migration-destination-customer').value=data.customer?.stripe_customer_id||'';
     var select=document.getElementById('migration-destination-account');
     var sourceAccountId=Number(data.source_account&&data.source_account.id);
-    /* Preserve Stripe Accounts page order (newest added first). Real account selectors show Default first; filter bars are intentionally unchanged. */
+    /* Use the exact same account feed as the Stripe Accounts page, then enforce its newest-added-first order. */
     var destinations=stripeAccountList.filter(function(a){return Number(a.id)!==sourceAccountId;});
-    var workspaceDefault=stripeAccountList.find(function(a){return !!a.is_default;}) || (stripeAccountList.length?stripeAccountList[stripeAccountList.length-1]:null);
-    var defaultIsValid=!!workspaceDefault && Number(workspaceDefault.id)!==sourceAccountId;
-    if(destinations.length){
-      var destinationOptions=[];
-      if(workspaceDefault){
-        if(defaultIsValid) destinationOptions.push('<option value="'+workspaceDefault.id+'">Default</option>');
-        else destinationOptions.push('<option value="" disabled>Default (source account)</option>');
-      }else{
-        destinationOptions.push('<option value="" disabled>Default</option>');
-      }
-      destinations.forEach(function(a){
-        if(defaultIsValid && Number(a.id)===Number(workspaceDefault.id))return;
-        destinationOptions.push('<option value="'+a.id+'">'+escHtml(a.name)+'</option>');
-      });
-      select.innerHTML=destinationOptions.join('');
-    }else{
-      select.innerHTML='<option value="">No other Stripe account available</option>';
-    }
+    destinations.sort(function(a,b){
+      var aTime=Date.parse(a.created_at||'')||0;
+      var bTime=Date.parse(b.created_at||'')||0;
+      if(bTime!==aTime)return bTime-aTime;
+      return Number(b.id||0)-Number(a.id||0);
+    });
+    select.innerHTML=destinations.length?destinations.map(function(a){return '<option value="'+a.id+'">'+escHtml(a.name)+'</option>';}).join(''):'<option value="">No other Stripe account available</option>';
     document.getElementById('migration-check-btn').disabled=!destinations.length;
     if(!destinations.length)setMigrationResult('Add a second Stripe account to Subloop before testing a migration.','error');
-    return true;
   }catch(e){
     document.getElementById('migration-check-btn').disabled=true;
     setMigrationResult(escHtml(e.message||'Unable to load migration details'),'error');
-    return false;
   }
-}
-async function retryMigrationVerification(paymentId,btn){
-  if(blockViewOnlyAction())return;
-  if(!['owner','admin'].includes(getCurrentRole())){toast('Owner or admin access required','error');return;}
-  if(btn&&btn.disabled)return;
-  if(btn)btn.disabled=true;
-  try{
-    var context=await api('/api/payments/'+paymentId+'/migration-retry-context');
-    closeModal('payment-detail-modal');
-    var loaded=await openMigrationModal(context.subscription_id);
-    if(!loaded)return;
-    var select=document.getElementById('migration-destination-account');
-    var destinationId=String(context.destination_stripe_account_id||'');
-    var option=select&&Array.from(select.options).find(function(item){return String(item.value)===destinationId;});
-    if(!option){setMigrationResult('The original destination Stripe account is not available for this migration.','error');return;}
-    select.value=destinationId;
-    document.getElementById('migration-destination-customer').value=context.destination_customer_id||'';
-    await checkMigrationDestination();
-    if(currentMigrationCheck&&currentMigrationCheck.livemode){
-      var amountInput=document.getElementById('migration-live-amount');
-      var amountMajor=Number(context.amount||0)/100;
-      if(amountInput&&Number.isFinite(amountMajor)&&amountMajor>=0.50){amountInput.value=amountMajor.toFixed(2);updateMigrationLiveChargeButton();}
-    }
-  }catch(e){toast((e&&e.message)||'Could not reopen this migration verification','error');}
-  finally{if(btn)btn.disabled=false;}
 }
 async function checkMigrationDestination(){
   var subId=Number(document.getElementById('migration-sub-id').value);
@@ -8435,10 +8295,10 @@ async function checkMigrationDestination(){
     var r=await api('/api/migrations/check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subscription_id:subId,destination_stripe_account_id:accountId,destination_customer_id:customerId})});
     currentMigrationCheck={subscription_id:subId,destination_stripe_account_id:accountId,destination_customer_id:customerId,currency:r.subscription?.currency||'usd',livemode:!!r.livemode,can_live_charge:!!r.can_live_charge};
     var lines=[];
-    lines.push('<div class="migration-result-title">'+(r.ready?migrationResultIcon('success')+'<span>Destination verified</span>':'<span>Destination not verified</span>')+'</div>');
+    lines.push('<div class="migration-result-title">'+(r.ready?'✓ Destination verified':'Destination not verified')+'</div>');
     lines.push('<div class="migration-result-detail">');
-    lines.push('Source: '+escHtml(r.source_account.name)+' · '+escHtml(migrationCardLabel(r.source_payment_method))+'<br>');
-    lines.push('Destination: '+escHtml(r.destination_account.name)+' · '+escHtml(migrationCardLabel(r.destination_payment_method))+'<br>');
+    lines.push('Source: '+escHtml(r.source_account.name)+' · '+migrationCardHtml(r.source_payment_method)+'<br>');
+    lines.push('Destination: '+escHtml(r.destination_account.name)+' · '+migrationCardHtml(r.destination_payment_method)+'<br>');
     lines.push('Mode: '+(r.livemode?'Live':'Test')+' · Customer: '+escHtml(r.destination_customer.id));
     if(r.warnings&&r.warnings.length)lines.push('<br>'+r.warnings.map(escHtml).join('<br>'));
     lines.push('</div>');
@@ -8473,7 +8333,7 @@ async function testMigrationCharge(){
     if(r.success){setMigrationResult('<div class="migration-result-title">Test charge succeeded</div><div class="migration-result-detail">Stripe B accepted the migrated saved card. PaymentIntent: '+escHtml(r.payment_intent_id||'—')+'</div>','success');toast('✓ Destination card verified');}
     else setMigrationResult(escHtml(r.error||'Test charge failed'),'error');
   }catch(e){setMigrationResult(escHtml(e.message||'Test charge failed'),'error');toast(e.message||'Test charge failed','error');}
-  finally{btn.disabled=false;btn.textContent='Verify card';if(typeof loadPayments==='function'){try{await loadPayments();}catch(_e){}}}
+  finally{btn.disabled=false;btn.textContent='Verify card';}
 }
 function migrationVerificationRequestId(){
   try{if(window.crypto&&typeof window.crypto.randomUUID==='function')return window.crypto.randomUUID();}catch(_e){}
@@ -8486,26 +8346,13 @@ function migrationLiveAmount(){
   return Math.round(value*100)/100;
 }
 function migrationLiveAmountLabel(amount){
-  var n=Number(amount);
-  if(!Number.isFinite(n))return '$0.00';
-  var abs=Math.abs(n);
-  if(abs>=1000000){
-    var millions=n/1000000;
-    var m=Math.round(millions*100)/100;
-    return '$'+String(m).replace(/\.0+$|(?<=\.[0-9])0+$/,'')+'M';
-  }
-  if(abs>=10000){
-    var thousands=n/1000;
-    var k=Math.round(thousands*10)/10;
-    return '$'+String(k).replace(/\.0$/,'')+'K';
-  }
-  return '$'+n.toFixed(2);
+  return '$'+Number(amount).toFixed(2);
 }
 function updateMigrationLiveChargeButton(){
   var btn=document.getElementById('migration-test-btn');
   if(!btn||btn.dataset.mode!=='live')return;
   var amount=migrationLiveAmount();
-  var valid=amount!==null&&amount>=0.50;
+  var valid=amount!==null&&amount>=0.50&&amount<=1000;
   btn.disabled=!valid;
   btn.textContent=valid?'Verify charge '+migrationLiveAmountLabel(amount):'Enter amount';
 }
@@ -8513,11 +8360,11 @@ function chargeMigrationLiveVerification(){
   if(!currentMigrationCheck||!currentMigrationCheck.livemode){setMigrationResult('Verify the destination first.','error');return;}
   if(String(currentMigrationCheck.currency||'').toLowerCase()!=='usd'){setMigrationResult('Live verification charging is currently available only for USD subscriptions.','error');return;}
   var amount=migrationLiveAmount();
-  if(amount===null||amount<0.50){setMigrationResult('Enter a verification amount of at least $0.50.','error');return;}
+  if(amount===null||amount<0.50||amount>1000){setMigrationResult('Enter a verification amount between $0.50 and $1,000.00.','error');return;}
   var amountLabel=migrationLiveAmountLabel(amount);
   openAppActionConfirm({
     title:'Verify '+amountLabel+' charge on destination?',
-    message:'A real '+amountLabel+' USD charge will be made on the destination. The source subscription will not change.',
+    message:'This is a real '+amountLabel+' USD verification charge on the destination account. The source subscription will remain unchanged.',
     cancelText:'Cancel',
     confirmText:'Verify charge '+amountLabel,
     danger:false
@@ -8540,31 +8387,20 @@ function chargeMigrationLiveVerification(){
       toast(e.message||'Verification failed','error');
     }finally{
       if(btn){btn.disabled=false;updateMigrationLiveChargeButton();}
-      if(typeof loadPayments==='function'){try{await loadPayments();}catch(_e){}}
     }
   });
 }
 
 
-function filterSubscriptions(){
-  var q=String(document.getElementById('sub-search')?.value||'').toLowerCase();
-  var filtered=(allSubscriptions||[]).filter(function(s){return String(s.name||'').toLowerCase().includes(q)||String(s.email||'').toLowerCase().includes(q);});
-  var total=filtered.length;
-  var totalPages=Math.max(1,Math.ceil(total/SUBSCRIPTIONS_PER_PAGE));
-  if(subCurrentPage>totalPages)subCurrentPage=totalPages;
-  var start=(subCurrentPage-1)*SUBSCRIPTIONS_PER_PAGE;
-  renderSubscriptions(filtered.slice(start,start+SUBSCRIPTIONS_PER_PAGE));
-  renderSubscriptionPagination(total,totalPages);
-  updateBulkBar();
-}
-function enterBulkMode(){bulkMode=true;selectedSubs.clear();document.getElementById('sub-default-btn').style.display='none';document.getElementById('sub-bulk-btns').style.display='flex';document.getElementById('bulk-cb-header').style.display='table-cell';filterSubscriptions();}
-function exitBulkMode(){bulkMode=false;selectedSubs.clear();document.getElementById('sub-default-btn').style.display='block';document.getElementById('sub-bulk-btns').style.display='none';document.getElementById('bulk-cb-header').style.display='none';var cb=document.getElementById('select-all-checkbox');if(cb){cb.checked=false;cb.indeterminate=false;}filterSubscriptions();}
+function filterSubscriptions(){const q=document.getElementById('sub-search').value.toLowerCase();renderSubscriptions(allSubscriptions.filter(s=>(s.name||'').toLowerCase().includes(q)||(s.email||'').toLowerCase().includes(q)));}
+function enterBulkMode(){bulkMode=true;selectedSubs.clear();document.getElementById('sub-default-btn').style.display='none';document.getElementById('sub-bulk-btns').style.display='flex';document.getElementById('bulk-cb-header').style.display='table-cell';renderSubscriptions(allSubscriptions);updateBulkBar();}
+function exitBulkMode(){bulkMode=false;selectedSubs.clear();document.getElementById('sub-default-btn').style.display='block';document.getElementById('sub-bulk-btns').style.display='none';document.getElementById('bulk-cb-header').style.display='none';var cb=document.getElementById('select-all-checkbox');if(cb)cb.checked=false;renderSubscriptions(allSubscriptions);}
 function toggleSubSelect(id){if(selectedSubs.has(id))selectedSubs.delete(id);else selectedSubs.add(id);var row=document.getElementById('sub-row-'+id);if(row)row.style.background=selectedSubs.has(id)?'var(--accent-glow)':'';updateBulkBar();}
-function toggleSelectAll(){var cbs=Array.from(document.querySelectorAll('.sub-checkbox'));var allChecked=cbs.length>0&&cbs.every(function(cb){return selectedSubs.has(parseInt(cb.dataset.id));});cbs.forEach(function(cb){var id=parseInt(cb.dataset.id);if(allChecked)selectedSubs.delete(id);else selectedSubs.add(id);cb.checked=!allChecked;var row=document.getElementById('sub-row-'+cb.dataset.id);if(row)row.style.background=(!allChecked)?'var(--accent-glow)':'';});updateBulkBar();}
-function updateBulkBar(){var n=selectedSubs.size;var countEl=document.getElementById('bulk-count');if(countEl)countEl.textContent=n>0?n+' selected':'';['bulk-charge-btn','bulk-pause-btn','bulk-cancel-btn'].forEach(function(id){var el=document.getElementById(id);if(el){el.disabled=n===0;el.style.opacity=n===0?'0.4':'1';}});var cb=document.getElementById('select-all-checkbox');var visible=Array.from(document.querySelectorAll('.sub-checkbox'));var selectedVisible=visible.filter(function(item){return selectedSubs.has(parseInt(item.dataset.id));}).length;if(cb){cb.checked=visible.length>0&&selectedVisible===visible.length;cb.indeterminate=selectedVisible>0&&selectedVisible<visible.length;}}
+function toggleSelectAll(){var cbs=document.querySelectorAll('.sub-checkbox');var allChecked=selectedSubs.size===cbs.length&&cbs.length>0;selectedSubs.clear();if(!allChecked){cbs.forEach(function(cb){selectedSubs.add(parseInt(cb.dataset.id));});}cbs.forEach(function(cb){cb.checked=!allChecked;var row=document.getElementById('sub-row-'+cb.dataset.id);if(row)row.style.background=(!allChecked)?'var(--accent-glow)':'';});updateBulkBar();}
+function updateBulkBar(){var n=selectedSubs.size;var countEl=document.getElementById('bulk-count');if(countEl)countEl.textContent=n>0?n+' selected':'';['bulk-charge-btn','bulk-pause-btn','bulk-cancel-btn'].forEach(function(id){var el=document.getElementById(id);if(el){el.disabled=n===0;el.style.opacity=n===0?'0.4':'1';}});var cb=document.getElementById('select-all-checkbox');var total=document.querySelectorAll('.sub-checkbox').length;if(cb)cb.checked=n>0&&n===total;}
 function clearSelection(){selectedSubs.clear();document.querySelectorAll('.sub-checkbox').forEach(function(cb){cb.checked=false;});document.querySelectorAll('[id^="sub-row-"]').forEach(function(row){row.style.background='';});var cb=document.getElementById('select-all-checkbox');if(cb)cb.checked=false;updateBulkBar();}
 function selectedSubscriptionIdsByStatus(statuses){var allowed=new Set(statuses.map(function(v){return normalizeSubscriptionStatus(v);}));return Array.from(selectedSubs).filter(function(id){var sub=(allSubscriptions||[]).find(function(s){return Number(s.id)===Number(id);});return sub&&allowed.has(normalizeSubscriptionStatus(sub.status));});}
-function bulkCharge(){if(!selectedSubs.size)return;var ids=selectedSubscriptionIdsByStatus(['active']);var skipped=selectedSubs.size-ids.length;if(!ids.length){toast('Only Active subscriptions can be charged','error');return;}var count=ids.length;openAppActionConfirm({title:'Charge '+count+' subscription'+(count===1?'':'s')+'?',message:"This creates separate manual payments and does not change Stripe's scheduled renewal dates."+(skipped?' '+skipped+' inactive selection'+(skipped===1?' will':'s will')+' be skipped.':''),cancelText:'Go back',confirmText:'Charge now',danger:false},async function(){toast('Charging '+count+' subscription'+(count===1?'':'s')+'…');let ok=0,fail=0;for(const id of ids){const key='sub-charge-'+id;const attemptId=getOrCreateAttemptId(key);try{const r=await api('/api/subscriptions/'+id+'/charge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({attempt_id:attemptId})});clearAttemptId(key);if(r.success)ok++;else fail++;}catch(e){if(e&&e.definitive)clearAttemptId(key);fail++;}}toast('✓ '+ok+' charged'+(fail?' — '+fail+' failed':'')+(skipped?' — '+skipped+' skipped':''));exitBulkMode();loadStats();loadSubscriptions();});}
+function bulkCharge(){if(!selectedSubs.size)return;var ids=selectedSubscriptionIdsByStatus(['active']);var skipped=selectedSubs.size-ids.length;if(!ids.length){toast('Only Active subscriptions can be charged','error');return;}var count=ids.length;openAppActionConfirm({title:'Charge '+count+' subscription'+(count===1?'':'s')+'?',message:'Subloop will attempt a manual recurring card payment for the '+count+' Active subscription'+(count===1?'':'s')+'.'+(skipped?' '+skipped+' selected subscription'+(skipped===1?' is':'s are')+' not Active and will be skipped.':''),cancelText:'Go back',confirmText:'Charge now',danger:false},async function(){toast('Charging '+count+' subscription'+(count===1?'':'s')+'…');let ok=0,fail=0;for(const id of ids){try{const r=await api('/api/subscriptions/'+id+'/charge',{method:'POST'});if(r.success)ok++;else fail++;}catch(e){fail++;}}toast('✓ '+ok+' charged'+(fail?' — '+fail+' failed':'')+(skipped?' — '+skipped+' skipped':''));exitBulkMode();loadStats();loadSubscriptions();});}
 function bulkPause(){
   if(!selectedSubs.size)return;
   var eligible=selectedSubscriptionIdsByStatus(['active']);
@@ -8582,41 +8418,18 @@ function bulkPause(){
   if(id)id.value='';
   if(date)date.value='';
   if(title)title.textContent='Pause '+count+' subscriptions?';
-  if(message)message.textContent='Billing will stop for the selected subscriptions until resumed.';
+  if(message)message.textContent='Billing will be paused for all selected subscriptions until they are resumed.';
   if(cancel)cancel.textContent='Keep active';
   if(submit){submit.textContent='Pause subscriptions';submit.className='btn btn-danger';}
   openModal('pause-modal');
 }
-async function bulkCancel(){
-  if(!selectedSubs.size)return;
-  var ids=Array.from(selectedSubs).filter(function(id){
-    var sub=(allSubscriptions||[]).find(function(item){return Number(item.id)===Number(id);});
-    return sub&&!['canceled','canceling'].includes(normalizeSubscriptionStatus(sub.status));
-  });
-  var skipped=selectedSubs.size-ids.length;
-  if(!ids.length){toast('Selected subscriptions are already canceled or canceling','error');return;}
-  var count=ids.length;
-  openAppActionConfirm({title:'Schedule '+count+' cancellation'+(count===1?'':'s')+'?',message:'Billing continues until period end. You can reactivate before then.'+(skipped?' '+skipped+' selection'+(skipped===1?' will':'s will')+' be skipped.':''),cancelText:'Keep active',confirmText:'Cancel at period end'},async function(){
-    var ok=0,fail=0;
-    for(const id of ids){
-      try{
-        var result=await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'canceling'})});
-        if(result&&result.success===false)fail++;else ok++;
-      }catch(e){fail++;}
-    }
-    var summary=ok+' scheduled'+(fail?' — '+fail+' failed':'')+(skipped?' — '+skipped+' skipped':'');
-    toast((ok?'✓ ':'')+summary,ok?'success':'error');
-    exitBulkMode();
-    loadSubscriptions();
-    loadStats();
-  });
-}
+async function bulkCancel(){if(!selectedSubs.size)return;var count=selectedSubs.size;openAppActionConfirm({title:'Schedule '+count+' cancellations?',message:'These subscriptions will stay active until the end of their current paid periods and can be reactivated before they end.',cancelText:'Keep active',confirmText:'Cancel at period end'},async function(){for(const id of selectedSubs){await api('/api/subscriptions/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'canceling'})}).catch(()=>{});}toast('✓ '+count+' scheduled to cancel');exitBulkMode();loadSubscriptions();loadStats();});}
 function showEditAmount(subId,currentAmount){const container=document.getElementById('edit-'+subId);if(!container)return;const dollars=(currentAmount/100).toFixed(2);container.innerHTML='<div style="display:inline-flex;align-items:center;gap:4px;"><input type="number" id="new-amount-'+subId+'" value="'+dollars+'" step="0.01" min="0.50" style="width:75px;padding:3px 6px;font-size:12px;"><button class="btn btn-sm btn-primary" onclick="saveAmount('+subId+')">Save</button><button class="btn btn-sm" onclick="loadSubscriptions()">✕</button></div>';document.getElementById('new-amount-'+subId).focus();}
 async function saveAmount(subId){const input=document.getElementById('new-amount-'+subId);if(!input)return;const newCents=Math.round(parseFloat(input.value)*100);if(isNaN(newCents)||newCents<50){toast('Minimum amount is 0.50 in the subscription currency','error');return;}const r=await api('/api/subscriptions/'+subId+'/amount',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:newCents})});if(r.success){toast('✓ Amount updated');loadSubscriptions();}else toast('Error','error');}
 function compactPayAccountName(accountName){
   var full=String(accountName||'').trim();
   if(!full)return 'All Stripe Accounts';
-  return full.replace(/^Stripe_(?:Solo|Business)_/i,'');
+  return full.replace(/^Stripe_Solo_/i,'');
 }
 function preparePayAccountOptionsExpanded(){
   var sel=document.getElementById('pay-account-filter');
@@ -8665,10 +8478,7 @@ async function loadPayments(){
     buildExtraPaymentStatusButtons();
     toggleCustomDate();
     filterPayments();
-  }catch(e){
-    renderTableLoadError('payments-table',9,'loadPayments','Could not load payments.');
-    var paymentPagination=document.getElementById('pay-pagination');if(paymentPagination)paymentPagination.innerHTML='';
-  }
+  }catch(e){}
 }
 function renderPaymentSummary(list){var total=list.filter(p=>p.status==='succeeded').reduce((s,p)=>s+(parseInt(p.amount)||0),0);var success=list.filter(p=>p.status==='succeeded').length;var failed=list.filter(p=>p.status==='failed').length;var te=document.getElementById('pay-total');if(te)te.textContent=fmt(total);var se=document.getElementById('pay-success-count');if(se)se.textContent=success;var fe=document.getElementById('pay-fail-count');if(fe)fe.textContent=failed;var re=document.getElementById('pay-retry-count');if(re)re.textContent=failed;}
 var payCurrentPage=1;
@@ -8896,7 +8706,7 @@ function paymentRecoveryAdvice(reason){
 function tableAccountDisplayName(accountName){
   var full=String(accountName||'').trim();
   if(!full)return '—';
-  var compact=full.replace(/^Stripe_(?:Solo|Business)_/i,'');
+  var compact=full.replace(/^Stripe_Solo_/i,'');
   var match=compact.match(/^([A-Za-z]{2,3})_(.+)$/);
   if(match){
     return match[1].toUpperCase()+'_'+match[2].replace(/_/g,' ');
@@ -8905,27 +8715,24 @@ function tableAccountDisplayName(accountName){
 }
 function renderPayments(list){
   var isViewer=localStorage.getItem('subloop_readonly')==='1';
-  var canManageMigration=['owner','admin'].includes(getCurrentRole());
   var tb=document.getElementById('payments-table');
   if(!list.length){tb.innerHTML='<tr><td colspan="'+(isViewer?8:9)+'" class="empty">No payments found</td></tr>';return;}
   tb.innerHTML=list.map(function(p){
     var isGhost=((p.email||'').toLowerCase().endsWith('@stripe.local')||(p.name||'').startsWith('pi_')||(p.name||'').startsWith('external_'));
-    var paymentOrigin=String(p.payment_origin||'').toLowerCase();
     var shortReason=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'';
-    var reasonHtml=shortReason?'<div style="font-size:12px;color:var(--red);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+escHtml(p.failure_reason)+'">'+escHtml(shortReason)+'</div>':'<span style="color:var(--muted);font-size:12px;">—</span>';
+    var reasonHtml=shortReason?'<div style="font-size:12px;color:var(--red);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+p.failure_reason+'">'+shortReason+'</div>':'<span style="color:var(--muted);font-size:12px;">—</span>';
     var refHtml=isViewer?buildRefReadOnlyCell(p.stripe_payment_intent):buildRefCell(p.stripe_payment_intent);
     var actions='<div style="display:flex;gap:4px;align-items:center;">';
-    if(!isViewer&&p.status==='failed'&&!isGhost&&paymentOrigin!=='migration_verification')actions+='<button class="btn btn-sm btn-success" onclick="event.stopPropagation();retryPayment('+p.id+',this)">Retry</button>';
-    if(!isViewer&&canManageMigration&&p.status==='failed'&&!isGhost&&paymentOrigin==='migration_verification')actions+='<button class="btn btn-sm btn-success" onclick="event.stopPropagation();retryMigrationVerification('+p.id+',this)">Retry</button>';
-    if(!isViewer)actions+='<button class="btn btn-sm payment-note-btn" onclick="event.stopPropagation();openPaymentNote('+p.id+')" title="'+escHtml(p.note||'Add note')+'">'+(p.note?'<svg class="payment-note-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/></svg><span>Note</span>':'Note')+'</button>';
+    if(!isViewer&&p.status==='failed'&&!isGhost)actions+='<button class="btn btn-sm btn-success" onclick="event.stopPropagation();retryPayment('+p.id+')">Retry</button>';
+    if(!isViewer)actions+='<button class="btn btn-sm payment-note-btn" onclick="event.stopPropagation();openPaymentNote('+p.id+')" title="'+(p.note||'Add note')+'">'+(p.note?'<svg class="payment-note-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/></svg><span>Note</span>':'Note')+'</button>';
     actions+='</div>';
     var rowBg=(p.status==='failed'||isGhost)?'background:rgba(248,113,113,0.04);':'';
     var avatarHtml=isGhost
       ?'<div class="avatar" style="background:rgba(248,113,113,0.15);border-color:rgba(248,113,113,0.4);color:var(--red);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>'
-      :'<div class="avatar">'+escHtml(initials(p.name))+'</div>';
+      :'<div class="avatar">'+initials(p.name)+'</div>';
     var customerHtml=isGhost
       ?'<div class="customer-name" style="font-size:13px;color:var(--red);">No profile</div>'
-      :'<div class="customer-name table-customer-name payment-table-customer-name" style="font-size:13px;" title="'+escHtml(p.name||'—')+'">'+escHtml(p.name||'—')+'</div>';
+      :'<div class="customer-name table-customer-name payment-table-customer-name" style="font-size:13px;" title="'+(p.name||'—')+'">'+(p.name||'—')+'</div>';
     var pJson=encodeURIComponent(JSON.stringify(p));
     return '<tr style="'+rowBg+'cursor:pointer;" onclick="openPaymentModal(decodePaymentData(this))" data-payment="'+pJson+'"><td><div class="customer-cell">'+avatarHtml+'<div>'+customerHtml+'</div></div></td><td class="mono">'+fmt(p.amount,p.currency)+'</td><td>'+paymentMethodDisplay(p,false)+'</td><td class="payment-account-cell" title="'+escHtml(p.account_name||'—')+'">'+escHtml(tableAccountDisplayName(p.account_name))+'</td><td>'+badge(p.status)+'</td><td>'+reasonHtml+'</td><td class="mono" style="font-size:12px;white-space:nowrap;">'+fmtDate(p.created_at)+'</td><td>'+refHtml+'</td>'+(isViewer?'':'<td>'+actions+'</td>')+'</tr>';
   }).join('');
@@ -8945,7 +8752,6 @@ function paymentTypeLabel(p){
   if(origin==='subscription_renewal')return 'Subscription renewal';
   if(origin==='subscription_initial'||origin==='subscription')return 'Subscription card payment';
   if(origin==='one_time')return 'One-time card payment';
-  if(origin==='migration_verification')return 'Migration verification';
   if(p.subscription_id&&!p.stripe_invoice_id)return 'Recurring card payment';
   if(p.subscription_id||p.stripe_invoice_id)return 'Subscription card payment';
   return 'One-time card payment';
@@ -8987,8 +8793,6 @@ function renderPaymentDetailModal(p, syncing){
   if(!p||!p.id)return;
   var isGhost=((p.email||'').toLowerCase().endsWith('@stripe.local')||(p.name||'').startsWith('pi_')||(p.name||'').startsWith('external_'));
   var isViewer=localStorage.getItem('subloop_readonly')==='1';
-  var canManageMigration=['owner','admin'].includes(getCurrentRole());
-  var paymentOrigin=String(p.payment_origin||'').toLowerCase();
   var fullReason=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'';
   var isFailed=p.status==='failed', isSucceeded=p.status==='succeeded', isPaymentNeeded=badgeLabel(p.status)==='Payment needed', isCanceled=badgeLabel(p.status)==='Canceled';
   var isRedState=isFailed||isCanceled;
@@ -9085,8 +8889,7 @@ function renderPaymentDetailModal(p, syncing){
   h+='</div></section>';
 
   h+='</div>';
-  if(!isViewer&&isFailed&&!isGhost&&paymentOrigin!=='migration_verification'){h+='<div class="pd-fixed-actions"><button class="pd-retry-btn" onclick="var _b=this;closeModal(\'payment-detail-modal\');retryPayment('+p.id+',_b)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg><span>Retry payment</span></button></div>';}
-  if(!isViewer&&canManageMigration&&isFailed&&!isGhost&&paymentOrigin==='migration_verification'){h+='<div class="pd-fixed-actions"><button class="pd-retry-btn" onclick="retryMigrationVerification('+p.id+',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg><span>Retry verification</span></button></div>';}
+  if(!isViewer&&isFailed&&!isGhost){h+='<div class="pd-fixed-actions"><button class="pd-retry-btn" onclick="closeModal(\'payment-detail-modal\');retryPayment('+p.id+')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg><span>Retry payment</span></button></div>';}
   h+='</div></div>';
   document.getElementById('payment-detail-body').innerHTML=h;
   bindDrawerScrollFades(document.querySelector('#payment-detail-modal .pd-drawer-scroll-body'));
@@ -9119,8 +8922,8 @@ function openPaymentModal(p){
     }).catch(function(){renderPaymentDetailModal(p,false);});
   }
 }
-async function retryPayment(id,btn){if(blockViewOnlyAction())return;if(btn&&btn.disabled)return;if(btn)btn.disabled=true;const key='retry-'+id;const attemptId=getOrCreateAttemptId(key);toast('Retrying…');try{const r=await api('/api/payments/'+id+'/retry',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({attempt_id:attemptId})});clearAttemptId(key);if(r.success){toast('✓ Succeeded — payment recovered');loadPayments();loadStats();loadRecovery();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){if(e&&e.definitive)clearAttemptId(key);toast((e&&e.message)||'Error — check status before retrying','error');}finally{if(btn)btn.disabled=false;}}
-async function loadWebhooks(){try{const list=await api('/api/webhook-logs');const tb=document.getElementById('webhook-table');if(!list.length){tb.innerHTML='<tr><td colspan="4" class="empty">No webhook events yet</td></tr>';return;}tb.innerHTML=list.map(w=>'<tr><td class="mono" style="font-size:12px;">'+escHtml(w.event_type||'—')+'</td><td style="font-size:12px;color:var(--muted);">'+escHtml(w.account_name||'—')+'</td><td>'+badge(w.status||'ok').replace('Succeeded','Processed').replace('Success','Processed')+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+fmtTime(w.created_at)+'</td></tr>').join('');}catch(e){renderTableLoadError('webhook-table',4,'loadWebhooks','Could not load webhook events.');}}
+async function retryPayment(id){if(blockViewOnlyAction())return;toast('Retrying…');try{const r=await api('/api/payments/'+id+'/retry',{method:'POST'});if(r.success){toast('✓ Succeeded — payment recovered');loadPayments();loadStats();loadRecovery();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){toast('Error','error');}}
+async function loadWebhooks(){try{const list=await api('/api/webhook-logs');const tb=document.getElementById('webhook-table');if(!list.length){tb.innerHTML='<tr><td colspan="4" class="empty">No webhook events yet</td></tr>';return;}tb.innerHTML=list.map(w=>'<tr><td class="mono" style="font-size:12px;">'+w.event_type+'</td><td style="font-size:12px;color:var(--muted);">'+(w.account_name||'—')+'</td><td>'+badge(w.status||'ok').replace('Succeeded','Processed').replace('Success','Processed')+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+fmtTime(w.created_at)+'</td></tr>').join('');}catch(e){}}
 async function loadSettings(){try{appSettings=await api('/api/settings');var autoResume=document.getElementById('setting-auto-resume');var proration=document.getElementById('setting-proration');var webhookLogs=document.getElementById('setting-webhook-logs');if(autoResume)autoResume.checked=appSettings.pause_auto_resume==='true';if(proration)proration.checked=appSettings.proration_enabled==='true';if(webhookLogs)webhookLogs.checked=appSettings.webhook_logs_enabled==='true';}catch(e){}}
 async function saveSetting(key,value){await api('/api/settings',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({key,value:String(value)})});appSettings[key]=String(value);toast('✓ Setting saved');}
 async function loadSecurity(){
@@ -9128,14 +8931,14 @@ async function loadSecurity(){
     const status=await api('/api/security/2fa/status');update2FAView(status.enabled);
     const history=await api('/api/security/login-history');const tb=document.getElementById('login-history-table');
     if(!history.length){tb.innerHTML='<tr><td colspan="3" class="empty">No login activity recorded for this user</td></tr>';return;}
-    tb.innerHTML=history.map(function(h){return '<tr><td class="mono" style="font-size:12px;">'+escHtml(h.ip||'unknown')+'</td><td>'+(h.success?'<span class="badge badge-green admin-login-result-badge">Success</span>':'<span class="badge badge-red admin-login-result-badge">Failed</span>')+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+fmtTime(h.created_at)+'</td></tr>';}).join('');
-  }catch(e){renderTableLoadError('login-history-table',3,'loadSecurity','Could not load security history.');}
+    tb.innerHTML=history.map(function(h){return '<tr><td class="mono" style="font-size:12px;">'+(h.ip||'unknown')+'</td><td>'+(h.success?'<span class="badge badge-green admin-login-result-badge">Success</span>':'<span class="badge badge-red admin-login-result-badge">Failed</span>')+'</td><td class="mono" style="font-size:11px;color:var(--muted);">'+fmtTime(h.created_at)+'</td></tr>';}).join('');
+  }catch(e){}
 }
 function update2FAView(enabled){const badge2fa=document.getElementById('2fa-badge');badge2fa.className='badge '+(enabled?'badge-green':'badge-red');badge2fa.textContent=enabled?'Enabled':'Disabled';document.getElementById('2fa-disabled-view').style.display=enabled?'none':'block';document.getElementById('2fa-setup-view').style.display='none';document.getElementById('2fa-enabled-view').style.display=enabled?'block':'none';}
 async function setup2FA(){try{const r=await api('/api/security/2fa/setup',{method:'POST'});document.getElementById('2fa-qr').src=r.qrCode;document.getElementById('2fa-disabled-view').style.display='none';document.getElementById('2fa-setup-view').style.display='block';}catch(e){toast('Error setting up 2FA','error');}}
 async function confirm2FA(){const token=document.getElementById('2fa-verify-code').value;if(token.length!==6){toast('Enter 6-digit code','error');return;}try{const r=await api('/api/security/2fa/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});if(r.success){toast('✓ 2FA enabled!');update2FAView(true);}else toast('Invalid code','error');}catch(e){toast('Error','error');}}
 function cancel2FASetup(){document.getElementById('2fa-setup-view').style.display='none';document.getElementById('2fa-disabled-view').style.display='block';}
-function disable2FA(){openAppActionConfirm({title:'Disable two-factor authentication?',message:'Sign-in codes will no longer be required.',cancelText:'Keep 2FA',confirmText:'Disable 2FA'},async function(){await api('/api/security/2fa/disable',{method:'POST'});toast('2FA disabled');update2FAView(false);});}
+function disable2FA(){openAppActionConfirm({title:'Disable two-factor authentication?',message:'Your account will no longer require a verification code at sign in.',cancelText:'Keep 2FA',confirmText:'Disable 2FA'},async function(){await api('/api/security/2fa/disable',{method:'POST'});toast('2FA disabled');update2FAView(false);});}
 let pendingAppActionConfirm=null;
 function openAppActionConfirm(options,onConfirm){
   options=options||{};
@@ -9166,18 +8969,7 @@ async function confirmAppAction(){
   try{await action();}catch(e){toast((e&&e.message)||'Could not complete action','error');}
 }
 
-function chargeNow(subId,btn){
-  if(blockViewOnlyAction())return;
-  if(btn&&btn.disabled)return;
-  openAppActionConfirm({
-    title:'Charge this subscription?',
-    message:"This creates a separate manual payment and does not change Stripe's scheduled renewal date.",
-    cancelText:'Go back',
-    confirmText:'Charge now',
-    danger:false
-  },function(){return executeSubscriptionCharge(subId,btn);});
-}
-async function executeSubscriptionCharge(subId,btn){if(btn)btn.disabled=true;const key='sub-charge-'+subId;const attemptId=getOrCreateAttemptId(key);toast('Charging…');try{const r=await api('/api/subscriptions/'+subId+'/charge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({attempt_id:attemptId})});clearAttemptId(key);if(r.success){toast('✓ Payment succeeded');loadUpcoming();loadStats();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){if(e&&e.definitive)clearAttemptId(key);toast((e&&e.message)||'Charge failed — check status before retrying','error');}finally{if(btn)btn.disabled=false;}}
+async function chargeNow(subId){if(blockViewOnlyAction())return;toast('Charging…');try{const r=await api('/api/subscriptions/'+subId+'/charge',{method:'POST'});if(r.success){toast('✓ Payment succeeded');loadUpcoming();loadStats();}else toast('✗ '+(r.error||'Failed'),'error');}catch(e){toast((e&&e.message)||'Charge failed','error');}}
 function openPauseModal(subId){
   if(blockViewOnlyAction())return;
   var mode=document.getElementById('pause-mode');
@@ -9248,7 +9040,7 @@ function cancelSub(id){
   if(blockViewOnlyAction())return;
   openAppActionConfirm({
     title:'Schedule cancellation?',
-    message:'Billing continues until period end. You can reactivate before then.',
+    message:'The subscription will stay active until the end of the current paid period. You can reactivate it any time before it ends.',
     cancelText:'Keep active',
     confirmText:'Cancel at period end'
   },function(){return setSubStatus(id,'canceling');});
@@ -9257,7 +9049,7 @@ function cancelSubNow(id){
   if(blockViewOnlyAction())return;
   openAppActionConfirm({
     title:'Cancel subscription now?',
-    message:'This ends the Stripe subscription immediately and cannot be undone.',
+    message:'This immediately ends the current Stripe subscription. This action cannot be undone or reactivated.',
     cancelText:'Keep active',
     confirmText:'Cancel now'
   },function(){return setSubStatus(id,'cancelled');});
@@ -9560,7 +9352,7 @@ async function cancelCustomerSubscriptions(id){
   if(blockViewOnlyAction())return;
   openAppActionConfirm({
     title:'Schedule all cancellations?',
-    message:'Billing continues until period end. You can reactivate before then.',
+    message:'All active subscriptions for this customer will stay active until the end of their current paid periods. You can reactivate them before they end.',
     cancelText:'Keep active',
     confirmText:'Cancel at period end'
   },function(){return setCustStatus(id,'canceling');});
@@ -9569,7 +9361,7 @@ async function reactivateCustomerSubscriptions(id){
   if(blockViewOnlyAction())return;
   openAppActionConfirm({
     title:'Reactivate subscriptions?',
-    message:'Remove the scheduled cancellation and continue billing.',
+    message:'Subscriptions scheduled to cancel will return to Active and continue billing normally.',
     cancelText:'Not now',
     confirmText:'Reactivate all',
     danger:false
@@ -9579,7 +9371,7 @@ async function cancelCustomerSubscriptionsNow(id){
   if(blockViewOnlyAction())return;
   openAppActionConfirm({
     title:'Cancel all subscriptions now?',
-    message:'This ends all current Stripe subscriptions immediately and cannot be undone.',
+    message:'This immediately ends the customer’s current Stripe subscriptions. This action cannot be undone or reactivated.',
     cancelText:'Keep active',
     confirmText:'Cancel all now'
   },function(){return setCustStatus(id,'cancelled');});
@@ -9594,7 +9386,7 @@ function openNoteModal(id,note){if(blockViewOnlyAction())return;document.getElem
 async function saveNote(){const id=document.getElementById('note-customer-id').value,note=document.getElementById('note-text').value;await api('/api/customers/'+id+'/note',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({note})});toast('✓ Note saved');closeModal('note-modal');loadCustomers();}
 async function createPaymentLink(){
   const btn=document.getElementById('create-link-btn');btn.textContent='Creating…';btn.disabled=true;
-  try{const r=await api('/api/payment-links',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:document.getElementById('link-name').value,amount:Math.round(parseFloat(document.getElementById('link-amount').value)*100),currency:document.getElementById('link-currency').value,interval_days:parseInt(document.getElementById('link-interval').value),stripe_account_id:document.getElementById('link-account').value||null})});if(r.url){currentLink=r.url;currentEmbedToken=r.embed_token||null;document.getElementById('link-url').textContent=r.url;document.getElementById('embed-token').textContent=currentEmbedToken||'Not generated';var status=document.getElementById('embed-status');if(status){status.classList.toggle('embed-ready',!!r.embed_ready);status.innerHTML=r.embed_ready?migrationResultIcon('success')+'<span>Ready for Payment Element</span>':'⚠ Add the matching pk_ publishable key in Stripe Accounts to enable embedded checkout';status.style.color=r.embed_ready?'var(--green)':'var(--amber)';}document.getElementById('link-result').classList.add('visible');toast('✓ Link + embed token created');}else toast('Error: '+(r.error||'Unknown'),'error');}catch(e){toast('Server error','error');}
+  try{const r=await api('/api/payment-links',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:document.getElementById('link-name').value,amount:Math.round(parseFloat(document.getElementById('link-amount').value)*100),currency:document.getElementById('link-currency').value,interval_days:parseInt(document.getElementById('link-interval').value),stripe_account_id:document.getElementById('link-account').value||null})});if(r.url){currentLink=r.url;currentEmbedToken=r.embed_token||null;document.getElementById('link-url').textContent=r.url;document.getElementById('embed-token').textContent=currentEmbedToken||'Not generated';var status=document.getElementById('embed-status');if(status){status.textContent=r.embed_ready?'✓ Ready for Payment Element':'⚠ Add the matching pk_ publishable key in Stripe Accounts to enable embedded checkout';status.style.color=r.embed_ready?'var(--green)':'var(--amber)';}document.getElementById('link-result').classList.add('visible');toast('✓ Link + embed token created');}else toast('Error: '+(r.error||'Unknown'),'error');}catch(e){toast('Server error','error');}
   btn.textContent='Generate Payment Link';btn.disabled=false;
 }
 function copyLink(){if(!currentLink)return;navigator.clipboard.writeText(currentLink);toast('Copied!');}
@@ -9619,8 +9411,7 @@ async function debugStripeAccount(id){
 
     var payOk=(data.stripe_account&&data.stripe_account.charges_enabled)===true;
     var payoutOk=(data.stripe_account&&data.stripe_account.payouts_enabled)===true;
-    var statusText=stripeAccountStatusLabel(status.account_status,status.account_status_label);
-    var statusTone=stripeAccountStatusTone(status.account_status);
+    var statusText=(status.account_status_label||status.account_status||'—');
     var details=(status.verification_details||[]);
     var dueNow=(req.currently_due||[]).concat(req.past_due||[]);
     var actionText=details.length ? details.join(', ') : (dueNow.length ? dueNow.join(', ') : 'No action needed');
@@ -9632,7 +9423,7 @@ async function debugStripeAccount(id){
       + '</div>'
       + '<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:10px;margin-bottom:10px;">'
       + '<div style="color:var(--muted);font-size:11px;font-family:var(--mono);text-transform:uppercase;">Account status</div>'
-      + '<div style="font-weight:700;color:var(--'+statusTone+');">'+statusText+'</div>'
+      + '<div style="font-weight:700;color:'+(status.account_status==='active'?'var(--green)':'var(--amber)')+';">'+statusText+'</div>'
       + '</div>'
       + '<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:10px;">'
       + '<div style="color:var(--muted);font-size:11px;font-family:var(--mono);text-transform:uppercase;">Action needed</div>'
@@ -9656,31 +9447,6 @@ function copyVerificationDebug(){
   }else fallbackCopy(txt);
 }
 
-
-function stripeAccountStatusLabel(status,label){
-  var key=String(label||status||'').toLowerCase().replace(/\s+/g,'_');
-  var labels={
-    active:'Active',
-    restricted:'Restricted',
-    paused:'Paused',
-    rejected:'Rejected',
-    closed:'Closed',
-    connection_error:'Connection error',
-    verification:'Restricted',
-    verification_required:'Restricted',
-    payment_required:'Payment required',
-    payment_needed:'Payment needed',
-    cancelled:'Canceled',
-    canceled:'Canceled'
-  };
-  return labels[key]||label||status||'—';
-}
-function stripeAccountStatusTone(status){
-  var key=String(status||'').toLowerCase();
-  if(key==='active')return 'green';
-  if(key==='restricted'||key==='verification'||key==='paused')return 'amber';
-  return 'red';
-}
 
 function currentStripeAccountScope(){
   return localStorage.getItem('subloop_account_scope')||'all';
@@ -9707,43 +9473,6 @@ function applyStripeAccountsPageScopeUI(){
   if(addBtn)addBtn.style.display=canManageStripeAccounts()?'inline-flex':'none';
 }
 
-var accountCurrentPage=1;
-var ACCOUNTS_PER_PAGE=35;
-function renderStripeAccountPagination(total,totalPages){
-  var el=document.getElementById('account-pagination');
-  if(!el)return;
-  if(totalPages<=1){el.innerHTML='';return;}
-  var html='<span style="font-size:12px;color:var(--muted);">Page '+accountCurrentPage+' of '+totalPages+'</span>';
-  html+='<button class="btn btn-sm" onclick="accountCurrentPage=Math.max(1,accountCurrentPage-1);filterStripeAccounts();" '+(accountCurrentPage===1?'disabled':'')+'>← Prev</button>';
-  var start=Math.max(1,accountCurrentPage-3),end=Math.min(totalPages,accountCurrentPage+3);
-  for(var i=start;i<=end;i++){
-    var active=i===accountCurrentPage;
-    html+='<button class="btn btn-sm'+(active?' btn-primary':'')+'" onclick="accountCurrentPage='+i+';filterStripeAccounts();">'+i+'</button>';
-  }
-  html+='<button class="btn btn-sm" onclick="accountCurrentPage=Math.min('+totalPages+',accountCurrentPage+1);filterStripeAccounts();" '+(accountCurrentPage===totalPages?'disabled':'')+'> Next →</button>';
-  el.innerHTML=html;
-}
-function filterStripeAccounts(){
-  var input=document.getElementById('account-search');
-  var table=document.getElementById('accounts-table');
-  if(!input||!table)return;
-  var query=String(input.value||'').trim().toLowerCase();
-  var rows=Array.from(table.querySelectorAll('tr[data-account-search]'));
-  var matches=rows.filter(function(row){return !query||String(row.getAttribute('data-account-search')||'').includes(query);});
-  var total=matches.length;
-  var totalPages=Math.max(1,Math.ceil(total/ACCOUNTS_PER_PAGE));
-  if(accountCurrentPage>totalPages)accountCurrentPage=totalPages;
-  var start=(accountCurrentPage-1)*ACCOUNTS_PER_PAGE;
-  var visibleRows=new Set(matches.slice(start,start+ACCOUNTS_PER_PAGE));
-  rows.forEach(function(row){row.style.display=visibleRows.has(row)?'':'none';});
-  var empty=document.getElementById('accounts-search-empty');
-  if(empty)empty.remove();
-  if(query&&rows.length&&!total){
-    table.insertAdjacentHTML('beforeend','<tr id="accounts-search-empty"><td colspan="7" class="empty">No matching accounts</td></tr>');
-  }
-  renderStripeAccountPagination(total,totalPages);
-}
-
 async function loadAccounts(){
   try{
     const allAccounts=await api('/api/stripe-accounts');
@@ -9753,17 +9482,22 @@ async function loadAccounts(){
     if(tb){
       if(!list.length){
         tb.innerHTML='<tr><td colspan="7" class="empty">'+(usesSelectedStripeScope()?'No assigned Stripe accounts':'No accounts yet')+'</td></tr>';
-        renderStripeAccountPagination(0,1);
       } else {
         tb.innerHTML=list.map(function(a){
           var st=(a.account_status||a.status||'active').toLowerCase();
-          var label=stripeAccountStatusLabel(st,a.account_status_label||st);
-          var color=stripeAccountStatusTone(st);
-          var rowBg=color==='amber'?'background:rgba(251,191,36,0.04);':(color==='red'?'background:rgba(248,113,113,0.035);':'');
+          var label=(a.account_status_label||st);
+          var labelLower=String(label||'').toLowerCase();
+          if(labelLower==='active') label='Active';
+          if(labelLower==='verification required') label='Verification required';
+          if(labelLower==='payment required') label='Payment required';
+          if(labelLower==='payment needed') label='Payment needed';
+          if(labelLower==='cancelled'||labelLower==='canceled') label='Canceled';
+          var color=st==='active'?'green':((st==='restricted'||st==='verification')?'amber':'red');
+          var rowBg=(st==='restricted'||st==='verification')?'background:rgba(251,191,36,0.04);':'';
           var details=Array.isArray(a.verification_details)?a.verification_details:[];
-          var reason=escHtml(a.account_status_reason||'');
+          var reason=a.account_status_reason?String(a.account_status_reason).replace(/"/g,'&quot;'):'';
           var statusIcon='';
-          var statusBadge='<span class="badge badge-'+color+(statusIcon?' has-status-icon':'')+'" title="'+reason+'"><span>'+escHtml(label)+'</span>'+statusIcon+'</span>';
+          var statusBadge='<span class="badge badge-'+color+(statusIcon?' has-status-icon':'')+'" title="'+reason+'"><span>'+label+'</span>'+statusIcon+'</span>';
           var defaultBadge=a.is_default?'<span class="badge badge-blue" style="margin-left:6px;">default</span>':'';
           var verificationHtml='';
           if(st==='active'&&!details.length){
@@ -9771,171 +9505,58 @@ async function loadAccounts(){
           } else if(details.length){
             verificationHtml='<div class="verification-badge-stack">'
               + details.slice(0,3).map(function(d){
-                var safe=escHtml(d);
-                return '<span class="badge badge-'+color+' verification-badge" title="'+safe+'">'+safe+'</span>';
+                var safe=String(d).replace(/"/g,'&quot;');
+                return '<span class="badge badge-amber verification-badge" title="'+safe+'">'+d+'</span>';
               }).join('')
               + (details.length>3?'<span class="verification-more">+'+(details.length-3)+' more</span>':'')
               + '</div>';
           } else if(reason){
-            verificationHtml='<span class="badge badge-'+color+' verification-badge" title="'+reason+'">'+reason+'</span>';
+            var verificationColor=(st==='restricted'||st==='verification')?'amber':(st==='active'?'green':'red');
+            verificationHtml='<span class="badge badge-'+verificationColor+' verification-badge" title="'+reason+'">'+reason+'</span>';
           } else {
             verificationHtml='<span class="verification-empty">—</span>';
           }
           var manageActions='';
           if(canManageStripeAccounts()){
-            manageActions='<button class="btn btn-sm" onclick="syncStripeAccount('+a.id+',this)" title="Import and update existing subscriptions">Sync</button><button class="btn btn-sm" onclick="debugStripeAccount('+a.id+')" title="Check verification details">Check</button><button class="btn btn-sm accounts-more-btn" type="button" aria-label="More account actions" aria-expanded="false" onclick="event.stopPropagation();toggleStripeAccountMenu('+a.id+',this,'+(a.is_default?'true':'false')+')" title="More actions"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3" cy="8" r="1.25"/><circle cx="8" cy="8" r="1.25"/><circle cx="13" cy="8" r="1.25"/></svg></button>';
+            var defaultAction=a.is_default?'<button class="btn btn-sm" onclick="clearDefaultAccount()">Remove default</button>':'<button class="btn btn-sm" onclick="setDefaultAccount('+a.id+')">Set Default</button>';
+            manageActions=defaultAction+'<button class="btn btn-sm" onclick="debugStripeAccount('+a.id+')" title="Check verification details">Check</button><button class="btn btn-sm" onclick="openEditAcc('+a.id+')">Edit</button><button class="btn btn-sm btn-danger" onclick="deleteAccount('+a.id+')">Delete</button>';
           }else{
             manageActions='<button class="btn btn-sm" onclick="debugStripeAccount('+a.id+')" title="View verification details">View details</button>';
           }
           var actionClass=canManageStripeAccounts()?'actions accounts-actions':'actions accounts-actions readonly-allowed-actions';
           var embedBadge=a.has_publishable_key?'<span class="badge badge-green">Ready</span>':'<span class="badge badge-amber">Add pk_ key</span>';
           var safeAccountName=escHtml(a.name||'—');
-          var accountSearchValue=escHtml(String(a.name||'').toLowerCase());
           var addedDate=fmtDate(a.created_at);
           var addedTitle=a.created_at?new Date(a.created_at).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}):'Not available';
-          return '<tr data-account-search="'+accountSearchValue+'" style="'+rowBg+'"><td class="accounts-name-cell"><strong class="accounts-name-text" title="'+safeAccountName+'">'+safeAccountName+'</strong></td><td>'+statusBadge+defaultBadge+'</td><td>'+verificationHtml+'</td><td>'+embedBadge+'</td><td class="mono accounts-key-cell" style="font-size:12px;color:var(--muted);">'+escHtml(a.key_preview||'—')+'</td><td class="accounts-added-cell" title="'+escHtml(addedTitle)+'">'+escHtml(addedDate)+'</td><td><div class="'+actionClass+'">'+manageActions+'</div></td></tr>';
+          return '<tr style="'+rowBg+'"><td class="accounts-name-cell"><strong class="accounts-name-text" title="'+safeAccountName+'">'+safeAccountName+'</strong></td><td>'+statusBadge+defaultBadge+'</td><td>'+verificationHtml+'</td><td>'+embedBadge+'</td><td class="mono accounts-key-cell" style="font-size:12px;color:var(--muted);">'+(a.key_preview||'—')+'</td><td class="accounts-added-cell" title="'+addedTitle+'">'+addedDate+'</td><td><div class="'+actionClass+'">'+manageActions+'</div></td></tr>';
         }).join('');
-        filterStripeAccounts();
       }
     }
     allStripeAccounts=list;
-    const selectorOpts=list.map(a=>'<option value="'+a.id+'">'+escHtml(a.name)+'</option>').join('');
-    const ls=document.getElementById('link-account');if(ls)ls.innerHTML='<option value="">Default</option>'+selectorOpts;
-    const ms=document.getElementById('mc-account');if(ms)ms.innerHTML='<option value="">Default</option>'+selectorOpts;
-  }catch(e){
-    renderTableLoadError('accounts-table',7,'loadAccounts','Could not load Stripe accounts.');
-    renderStripeAccountPagination(0,1);
-  }
-}
-function closeStripeAccountMenu(){
-  var menu=document.getElementById('stripe-account-more-menu');
-  if(menu)menu.remove();
-  document.querySelectorAll('.accounts-more-btn[aria-expanded="true"]').forEach(function(btn){btn.setAttribute('aria-expanded','false');});
-}
-function toggleStripeAccountMenu(id,btn,isDefault){
-  var current=document.getElementById('stripe-account-more-menu');
-  if(current&&current.getAttribute('data-account-id')===String(id)){closeStripeAccountMenu();return;}
-  closeStripeAccountMenu();
-  var menu=document.createElement('div');
-  menu.id='stripe-account-more-menu';
-  menu.className='stripe-account-more-menu';
-  menu.setAttribute('data-account-id',String(id));
-  var defaultAction=isDefault
-    ? '<button type="button" onclick="closeStripeAccountMenu();clearDefaultAccount()">Remove default</button>'
-    : '<button type="button" onclick="closeStripeAccountMenu();setDefaultAccount('+id+')">Set as default</button>';
-  menu.innerHTML=defaultAction
-    +'<button type="button" onclick="closeStripeAccountMenu();openEditAcc('+id+')">Edit account</button>'
-    +'<button type="button" class="danger" onclick="closeStripeAccountMenu();deleteAccount('+id+')">Delete account</button>';
-  document.body.appendChild(menu);
-  btn.setAttribute('aria-expanded','true');
-  var rect=btn.getBoundingClientRect();
-  var menuRect=menu.getBoundingClientRect();
-  var left=Math.max(12,Math.min(rect.right-menuRect.width,window.innerWidth-menuRect.width-12));
-  var top=rect.bottom+6;
-  if(top+menuRect.height>window.innerHeight-12)top=Math.max(12,rect.top-menuRect.height-6);
-  menu.style.left=Math.round(left)+'px';
-  menu.style.top=Math.round(top)+'px';
-}
-document.addEventListener('click',function(e){
-  var menu=document.getElementById('stripe-account-more-menu');
-  if(menu&&!menu.contains(e.target))closeStripeAccountMenu();
-});
-window.addEventListener('scroll',closeStripeAccountMenu,true);
-window.addEventListener('resize',closeStripeAccountMenu);
-async function syncStripeAccount(id,btn){
-  if(blockViewOnlyAction())return;
-  if(btn&&btn.disabled)return;
-  var originalText=btn?btn.textContent:'Sync';
-  if(btn){btn.disabled=true;btn.textContent='Syncing…';}
-  toast('Syncing customers and subscriptions…');
-  try{
-    var r=await api('/api/stripe-accounts/'+id+'/sync',{method:'POST'});
-    var customersFound=Number(r.customers_found||0);
-    var customersSynced=Number(r.customers_synced===undefined?customersFound:r.customers_synced);
-    var subscriptionsFound=Number(r.subscriptions_found||0);
-    var subscriptionCount=Number(r.subscriptions_synced||0);
-    var customerSummary=(customersSynced===customersFound?customersSynced:(customersSynced+' of '+customersFound))+' customer'+(customersFound===1?'':'s')+' imported';
-    var subscriptionSummary=(subscriptionCount===subscriptionsFound?subscriptionCount:(subscriptionCount+' of '+subscriptionsFound))+' subscription'+(subscriptionsFound===1?'':'s')+' synced';
-    var summary=customerSummary+' · '+subscriptionSummary;
-    if(r.errors){toast(summary+' · '+r.errors+' error'+(r.errors===1?'':'s'),'error');}
-    else{toast('✓ '+summary);}
-    await Promise.all([loadAccounts(),loadCustomers(),loadSubscriptions(),loadStats()]);
-  }catch(e){
-    toast((e&&e.message)||'Could not sync this Stripe account','error');
-  }finally{
-    if(btn){btn.disabled=false;btn.textContent=originalText;}
-  }
+    const opts=list.map(a=>'<option value="'+a.id+'"'+(a.is_default?' selected':'')+'>'+a.name+'</option>').join('');
+    const ls=document.getElementById('link-account');if(ls)ls.innerHTML=opts||'<option value="">No accounts</option>';
+    const ms=document.getElementById('mc-account');if(ms)ms.innerHTML='<option value="">Default</option>'+opts;
+  }catch(e){}
 }
 async function loadPaymentLinkAccounts(){
   try{
     var list=await api('/api/payment-link-accounts');
     var select=document.getElementById('link-account');if(!select)return;
-    var options=(list||[]).map(function(a){return '<option value="'+a.id+'">'+escHtml(a.name)+'</option>';}).join('');
-    select.innerHTML='<option value="">Default</option>'+options;
-  }catch(e){var select=document.getElementById('link-account');if(select)select.innerHTML='<option value="">Default</option>';}
+    var options=(list||[]).map(function(a){return '<option value="'+a.id+'"'+(a.is_default?' selected':'')+'>'+a.name+'</option>';}).join('');
+    select.innerHTML=options||'<option value="">No permitted Stripe accounts</option>';
+  }catch(e){var select=document.getElementById('link-account');if(select)select.innerHTML='<option value="">No permitted Stripe accounts</option>';}
 }
 function configurePaymentLinksAccessUI(){
   var canManageTemplates=getCurrentRole()==='owner'||getCurrentRole()==='admin';
   var builder=document.getElementById('template-builder-row');if(builder)builder.style.display=canManageTemplates?'flex':'none';
 }
-function normalizeStripeCountryInput(input){
-  if(!input)return;
-  input.value=String(input.value||'').toUpperCase().replace(/[^A-Z]/g,'').slice(0,2);
-}
-function parseStripeAccountName(name){
-  var raw=String(name||'').trim();
-  var match=raw.match(/^Stripe_(Solo|Business)_([A-Za-z]{2})_(.+)$/i);
-  if(!match)return {account_type:'Solo',country_code:'',display_name:raw};
-  return {account_type:match[1].toLowerCase()==='business'?'Business':'Solo',country_code:match[2].toUpperCase(),display_name:match[3].trim()};
-}
-function stripeAccountIdentity(prefix){
-  var type=String((document.getElementById(prefix+'-type')||{}).value||'').trim();
-  var country=String((document.getElementById(prefix+'-country')||{}).value||'').trim().toUpperCase();
-  var displayName=String((document.getElementById(prefix+'-display-name')||{}).value||'').replace(/\s+/g,' ').trim();
-  if(type!=='Solo'&&type!=='Business')return {error:'Choose Solo or Business'};
-  if(!/^[A-Z]{2}$/.test(country))return {error:'Enter a two-letter country code, such as FR or CA'};
-  if(!displayName)return {error:'Name is required'};
-  if(displayName.length>80)return {error:'Name must be 80 characters or fewer'};
-  return {account_type:type,country_code:country,display_name:displayName,name:'Stripe_'+type+'_'+country+'_'+displayName};
-}
-function updateStripeAccountNamePreview(prefix){
-  var type=String((document.getElementById(prefix+'-type')||{}).value||'Solo');
-  var country=String((document.getElementById(prefix+'-country')||{}).value||'').trim().toUpperCase();
-  var displayName=String((document.getElementById(prefix+'-display-name')||{}).value||'').replace(/\s+/g,' ').trim();
-  var preview=document.getElementById(prefix+'-name-preview');
-  if(preview)preview.textContent='Stripe_'+(type==='Business'?'Business':'Solo')+'_'+(/^[A-Z]{2}$/.test(country)?country:'CC')+'_'+(displayName||'Name');
-}
-async function addAccount(){
-  var identity=stripeAccountIdentity('acc');
-  var key=document.getElementById('acc-key').value.trim();
-  var publishable=document.getElementById('acc-publishable').value.trim();
-  var webhook=document.getElementById('acc-webhook').value.trim();
-  if(identity.error){toast(identity.error,'error');return;}
-  if(!key){toast('Secret key is required','error');return;}
-  if(!webhook){toast('Webhook secret is required','error');return;}
-  if(!webhook.startsWith('whsec_')){toast('Webhook secret must start with whsec_','error');return;}
-  try{
-    var r=await api('/api/stripe-accounts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_type:identity.account_type,country_code:identity.country_code,display_name:identity.display_name,secret_key:key,publishable_key:publishable||null,webhook_secret:webhook})});
-    if(r.success){
-      toast('✓ Account added');
-      closeModal('add-account-modal');
-      document.getElementById('acc-type').value='Solo';
-      document.getElementById('acc-country').value='';
-      document.getElementById('acc-display-name').value='';
-      document.getElementById('acc-key').value='';
-      document.getElementById('acc-publishable').value='';
-      document.getElementById('acc-webhook').value='';
-      updateStripeAccountNamePreview('acc');
-      loadAccounts();
-    }else toast('Error: '+(r.error||'Failed'),'error');
-  }catch(e){toast((e&&e.message)||'Could not add Stripe account','error');}
-}
+async function addAccount(){const name=document.getElementById('acc-name').value.trim(),key=document.getElementById('acc-key').value.trim(),publishable=document.getElementById('acc-publishable').value.trim(),webhook=document.getElementById('acc-webhook').value.trim();if(!name||!key){toast('Name and key required','error');return;}const r=await api('/api/stripe-accounts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,secret_key:key,publishable_key:publishable||null,webhook_secret:webhook})});if(r.success){toast('✓ Account added');closeModal('add-account-modal');document.getElementById('acc-name').value='';document.getElementById('acc-key').value='';document.getElementById('acc-publishable').value='';document.getElementById('acc-webhook').value='';loadAccounts();}else toast('Error: '+(r.error||'Failed'),'error');}
 async function setDefaultAccount(id){var r=await api('/api/stripe-accounts/'+id+'/default',{method:'PATCH'});if(r.success){toast('✓ Default updated');loadAccounts();}else toast('Error: '+(r.error||'Failed'),'error');}
 function clearDefaultAccount(){openAppActionConfirm({title:'Remove default Stripe account?',message:'No Stripe account will be selected as the default after this change.',cancelText:'Keep default',confirmText:'Remove default'},async function(){var r=await api('/api/stripe-accounts/default/clear',{method:'PATCH'});if(r.success){toast('✓ Default removed');loadAccounts();}else toast('Error: '+(r.error||'Failed'),'error');});}
 function deleteAccount(id){
   openAppActionConfirm({
     title:'Delete Stripe account?',
-    message:'This removes the Stripe account from Subloop and cannot be undone.',
+    message:'This will remove the Stripe account from Subloop. This action cannot be undone.',
     cancelText:'Keep account',
     confirmText:'Delete account'
   },async function(){
@@ -9945,15 +9566,15 @@ function deleteAccount(id){
   });
 }
 async function loadForecast(){try{const d=await api('/api/forecast');document.getElementById('forecast-30').textContent=fmt(d.forecast30||0);document.getElementById('forecast-60').textContent=fmt(d.forecast60||0);document.getElementById('forecast-90').textContent=fmt(d.forecast90||0);}catch(e){}}
-async function loadExpiry(){try{var days=document.getElementById('expiry-days')?document.getElementById('expiry-days').value:30;var list=await api('/api/expiring-cards?days='+days);var tb=document.getElementById('expiry-table');if(!list.length){tb.innerHTML='<tr><td colspan="5" class="empty">No expiring cards in this period</td></tr>';return;}var now=new Date();tb.innerHTML=list.map(function(c){var expMonth=String(c.card_exp_month||'?').padStart(2,'0');var expYear=String(c.card_exp_year||'?');var yr=parseInt(c.card_exp_year)||9999;var mo=parseInt(c.card_exp_month)||12;var isExpired=yr<now.getFullYear()||(yr===now.getFullYear()&&mo<=now.getMonth()+1);var color=isExpired?'var(--red)':'var(--amber)';return '<tr><td><div class="customer-cell"><div class="avatar">'+escHtml(initials(c.name))+'</div><div><div class="customer-name">'+escHtml(c.name||'—')+'</div><div class="customer-email">'+escHtml(c.email||'')+'</div></div></div></td><td>'+cardBadge(c.card_brand,c.card_last4)+'</td><td><span style="color:'+color+';font-family:var(--mono);font-weight:600;">'+escHtml(expMonth)+'/'+escHtml(expYear)+'</span></td><td class="mono">'+fmtDate(c.next_billing_date)+'</td><td><button class="btn btn-sm" onclick="openPortal('+c.id+')">Update card ↗</button></td></tr>';}).join('');}catch(e){renderTableLoadError('expiry-table',5,'loadExpiry','Could not load expiring cards.');}}
+async function loadExpiry(){try{var days=document.getElementById('expiry-days')?document.getElementById('expiry-days').value:30;var list=await api('/api/expiring-cards?days='+days);var tb=document.getElementById('expiry-table');if(!list.length){tb.innerHTML='<tr><td colspan="5" class="empty">No expiring cards in this period</td></tr>';return;}var now=new Date();tb.innerHTML=list.map(function(c){var expMonth=String(c.card_exp_month||'?').padStart(2,'0');var expYear=String(c.card_exp_year||'?');var yr=parseInt(c.card_exp_year)||9999;var mo=parseInt(c.card_exp_month)||12;var isExpired=yr<now.getFullYear()||(yr===now.getFullYear()&&mo<=now.getMonth()+1);var color=isExpired?'var(--red)':'var(--amber)';return '<tr><td><div class="customer-cell"><div class="avatar">'+initials(c.name)+'</div><div><div class="customer-name">'+(c.name||'—')+'</div><div class="customer-email">'+(c.email||'')+'</div></div></div></td><td>'+cardBadge(c.card_brand,c.card_last4)+'</td><td><span style="color:'+color+';font-family:var(--mono);font-weight:600;">'+expMonth+'/'+expYear+'</span></td><td class="mono">'+fmtDate(c.next_billing_date)+'</td><td><button class="btn btn-sm" onclick="openPortal('+c.id+')">Update card ↗</button></td></tr>';}).join('');}catch(e){}}
 function formatPaymentCount(value){
   var count=Number(value||0);
   return count+' '+(count===1?'payment':'payments');
 }
 async function loadSummary(){try{const d=await api('/api/daily-summary');document.getElementById('sum-rev-today').textContent=fmt(parseInt(d.revenue_today)||0);document.getElementById('sum-pay-today').textContent=formatPaymentCount(d.payments_today);document.getElementById('sum-fail-today').textContent=d.failed_today||0;document.getElementById('sum-rev-7d').textContent=fmt(parseInt(d.revenue_7d)||0);document.getElementById('sum-pay-7d').textContent=formatPaymentCount(d.payments_7d);document.getElementById('sum-rev-month').textContent=fmt(parseInt(d.revenue_month)||0);document.getElementById('sum-pay-month').textContent=formatPaymentCount(d.payments_month);document.getElementById('sum-active').textContent=d.active_total||0;document.getElementById('sum-new-7d').textContent='+'+(d.new_7d||0)+' this week';document.getElementById('sum-cust-today').textContent=d.new_today||0;}catch(e){}}
-async function sendManualInvoice(btn){if(blockViewOnlyAction())return;if(btn&&btn.disabled)return;const custId=document.getElementById('invoice-customer-id').value.trim();const amount=Math.round(parseFloat(document.getElementById('invoice-amount').value)*100);const currency=document.getElementById('invoice-currency').value;const desc=document.getElementById('invoice-desc').value;const result=document.getElementById('invoice-result');if(!custId||!amount||!currency){toast('Fill in customer, amount, and currency','error');return;}if(btn)btn.disabled=true;const key='once-'+custId+'-'+amount+'-'+String(currency).toLowerCase()+'-'+encodeURIComponent(desc||'Manual invoice');const attemptId=getOrCreateAttemptId(key);try{const r=await api('/api/customers/'+encodeURIComponent(custId)+'/charge-once',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount,currency,description:desc,attempt_id:attemptId})});clearAttemptId(key);result.style.display='block';if(r.success){result.style.background='var(--green-bg)';result.style.color='var(--green)';result.style.border='1px solid var(--green)';result.textContent='✓ Payment succeeded in '+currency.toUpperCase()+'!';}else{result.style.background='var(--red-bg)';result.style.color='var(--red)';result.style.border='1px solid var(--red)';result.textContent='✗ '+(r.error||'Failed');}}catch(e){if(e&&e.definitive)clearAttemptId(key);toast((e&&e.message)||'Charge failed — check status before retrying','error');}finally{if(btn)btn.disabled=false;}}
+async function sendManualInvoice(){if(blockViewOnlyAction())return;const custId=document.getElementById('invoice-customer-id').value.trim();const amount=Math.round(parseFloat(document.getElementById('invoice-amount').value)*100);const currency=document.getElementById('invoice-currency').value;const desc=document.getElementById('invoice-desc').value;const result=document.getElementById('invoice-result');if(!custId||!amount||!currency){toast('Fill in customer, amount, and currency','error');return;}try{const r=await api('/api/customers/'+encodeURIComponent(custId)+'/charge-once',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount,currency,description:desc})});result.style.display='block';if(r.success){result.style.background='var(--green-bg)';result.style.color='var(--green)';result.style.border='1px solid var(--green)';result.textContent='✓ Payment succeeded in '+currency.toUpperCase()+'!';}else{result.style.background='var(--red-bg)';result.style.color='var(--red)';result.style.border='1px solid var(--red)';result.textContent='✗ '+(r.error||'Failed');}}catch(e){toast((e&&e.message)||'Charge failed','error');}}
 function openInvoiceModal(customerId,currency){document.getElementById('invoice-modal-customer-id').value=customerId;document.getElementById('invoice-modal-amount').value='';document.getElementById('invoice-modal-desc').value='Manual invoice';var cur=document.getElementById('invoice-modal-currency');if(cur)cur.value=/^[a-z]{3}$/i.test(String(currency||''))?String(currency).toLowerCase():'usd';document.getElementById('invoice-modal-result').style.display='none';openModal('invoice-modal');}
-async function sendInvoiceFromModal(btn){if(btn&&btn.disabled)return;const customerId=document.getElementById('invoice-modal-customer-id').value;const amount=Math.round(parseFloat(document.getElementById('invoice-modal-amount').value)*100);const currency=document.getElementById('invoice-modal-currency').value;const desc=document.getElementById('invoice-modal-desc').value;const result=document.getElementById('invoice-modal-result');if(!amount||amount<50){toast('Minimum amount is 0.50 '+currency.toUpperCase(),'error');return;}if(btn)btn.disabled=true;const key='once-'+customerId+'-'+amount+'-'+String(currency).toLowerCase()+'-'+encodeURIComponent(desc||'Manual invoice');const attemptId=getOrCreateAttemptId(key);try{const r=await api('/api/customers/'+encodeURIComponent(customerId)+'/charge-once',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount,currency,description:desc,attempt_id:attemptId})});clearAttemptId(key);result.style.display='block';if(r.success){result.style.cssText='background:var(--green-bg);color:var(--green);border:1px solid var(--green);padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);';result.textContent='✓ Charged successfully in '+currency.toUpperCase()+'!';toast('✓ One-time payment succeeded');}else{result.style.cssText='background:var(--red-bg);color:var(--red);border:1px solid var(--red);padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);';result.textContent='✗ '+(r.error||'Failed');toast('Failed','error');}}catch(e){if(e&&e.definitive)clearAttemptId(key);toast((e&&e.message)||'Charge failed — check status before retrying','error');}finally{if(btn)btn.disabled=false;}}
+async function sendInvoiceFromModal(){const customerId=document.getElementById('invoice-modal-customer-id').value;const amount=Math.round(parseFloat(document.getElementById('invoice-modal-amount').value)*100);const currency=document.getElementById('invoice-modal-currency').value;const desc=document.getElementById('invoice-modal-desc').value;const result=document.getElementById('invoice-modal-result');if(!amount||amount<50){toast('Minimum amount is 0.50 '+currency.toUpperCase(),'error');return;}try{const r=await api('/api/customers/'+encodeURIComponent(customerId)+'/charge-once',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount,currency,description:desc})});result.style.display='block';if(r.success){result.style.cssText='background:var(--green-bg);color:var(--green);border:1px solid var(--green);padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);';result.textContent='✓ Charged successfully in '+currency.toUpperCase()+'!';toast('✓ One-time payment succeeded');}else{result.style.cssText='background:var(--red-bg);color:var(--red);border:1px solid var(--red);padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);';result.textContent='✗ '+(r.error||'Failed');toast('Failed','error');}}catch(e){toast((e&&e.message)||'Charge failed','error');}}
 async function loadAdmins(){
   var tb=document.getElementById('admins-table');if(!tb)return;
   tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:28px;color:var(--muted);font-size:13px;font-family:var(--mono);">Loading...</td></tr>';
@@ -10185,7 +9806,7 @@ async function loadAdminUserSecurity(id){
 function resetAdminUser2FA(){
   if(!currentAdminDetailUserId)return;
   var userId=currentAdminDetailUserId;
-  openAppActionConfirm({title:'Reset two-factor authentication?',message:'This user must set up 2FA again.',cancelText:'Keep 2FA',confirmText:'Reset 2FA'},async function(){
+  openAppActionConfirm({title:'Reset two-factor authentication?',message:'This user will need to set up two-factor authentication again the next time it is required.',cancelText:'Keep 2FA',confirmText:'Reset 2FA'},async function(){
     try{
       await api('/api/admin-users/'+userId+'/security/reset-2fa',{method:'POST'});
       toast('✓ 2FA reset');
@@ -10210,7 +9831,7 @@ function removeAdminAccessFromDetails(){
   if(!canManageAccessUser(user)){toast('You cannot remove this user access','error');return;}
   var userId=user.id;
   var username=user.username||'this user';
-  openAppActionConfirm({title:'Remove access for '+username+'?',message:'This user will lose access to Subloop.',cancelText:'Keep access',confirmText:'Remove access'},async function(){
+  openAppActionConfirm({title:'Remove access for '+username+'?',message:'This user will no longer be able to log in or access assigned Stripe accounts.',cancelText:'Keep access',confirmText:'Remove access'},async function(){
     try{
       var result=await api('/api/admin-users/'+userId,{method:'DELETE'});
       if(result.success){
@@ -10263,7 +9884,7 @@ function deleteAdmin(id){
   if(!canManageAccessUser(target)){toast('You cannot remove this user access','error');return;}
   openAppActionConfirm({
     title:'Remove user access?',
-    message:'This user will lose access to Subloop.',
+    message:'This user will lose access to Subloop. You can add them again later if needed.',
     cancelText:'Keep access',
     confirmText:'Remove access'
   },async function(){
@@ -10330,56 +9951,16 @@ function globalSearch(q){
       if(!total){var empty=document.createElement('div');empty.style.cssText='padding:16px;text-align:center;font-size:13px;color:var(--muted);font-family:var(--mono);';empty.textContent='No results found';res.appendChild(empty);openGlobalSearch();return;}
       function addSection(title,items,renderFn){if(!items.length)return;var hdr=document.createElement('div');hdr.className='gs-section-title';hdr.textContent=title;res.appendChild(hdr);items.forEach(function(item){res.appendChild(renderFn(item));});}
       function makeRow(content,onclick){var row=document.createElement('div');row.className='gs-row';row.innerHTML=content;row.addEventListener('click',function(){onclick();var input=document.getElementById('global-search-input');if(input)input.value='';closeGlobalSearch();});return row;}
-      addSection('Customers',data.customers,function(c){return makeRow('<div style="display:flex;align-items:center;min-width:0;"><div style="min-width:0;flex:1;"><div class="gs-name">'+escHtml(c.name||'—')+'</div><div class="gs-sub">'+escHtml(c.email||'')+'</div></div></div>',function(){globalSearchNavigate('customers','customer-search',c.name||c.email||'',typeof filterCustomers==='function'?filterCustomers:null);});});
-      addSection('Payments',data.payments,function(p){return makeRow('<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;"><div class="gs-name" style="flex:1;">'+escHtml(p.name||'—')+'</div><div style="display:flex;gap:8px;align-items:center;flex-shrink:0;"><span class="gs-amount">'+escHtml(fmt(p.amount,p.currency))+'</span>'+badge(p.status)+'</div></div>',function(){globalSearchNavigate('payments','pay-search',p.name||p.email||p.stripe_payment_intent||'',typeof filterPayments==='function'?function(){payCurrentPage=1;filterPayments();}:null);});});
-      addSection('Subscriptions',data.subscriptions,function(s){return makeRow('<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;"><div class="gs-name" style="flex:1;">'+escHtml(s.name||'—')+'</div><div style="display:flex;gap:8px;align-items:center;flex-shrink:0;"><span class="gs-amount">'+escHtml(fmt(s.amount,s.currency))+'</span>'+badge(s.status)+'</div></div>',function(){globalSearchNavigate('subscriptions','sub-search',s.name||s.email||'',typeof filterSubscriptions==='function'?filterSubscriptions:null);});});
+      addSection('Customers',data.customers,function(c){return makeRow('<div style="display:flex;align-items:center;min-width:0;"><div style="min-width:0;flex:1;"><div class="gs-name">'+(c.name||'—')+'</div><div class="gs-sub">'+(c.email||'')+'</div></div></div>',function(){globalSearchNavigate('customers','customer-search',c.name||c.email||'',typeof filterCustomers==='function'?filterCustomers:null);});});
+      addSection('Payments',data.payments,function(p){return makeRow('<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;"><div class="gs-name" style="flex:1;">'+(p.name||'—')+'</div><div style="display:flex;gap:8px;align-items:center;flex-shrink:0;"><span class="gs-amount">'+fmt(p.amount,p.currency)+'</span>'+badge(p.status)+'</div></div>',function(){globalSearchNavigate('payments','pay-search',p.name||p.email||p.stripe_payment_intent||'',typeof filterPayments==='function'?function(){payCurrentPage=1;filterPayments();}:null);});});
+      addSection('Subscriptions',data.subscriptions,function(s){return makeRow('<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;"><div class="gs-name" style="flex:1;">'+(s.name||'—')+'</div><div style="display:flex;gap:8px;align-items:center;flex-shrink:0;"><span class="gs-amount">'+fmt(s.amount,s.currency)+'</span>'+badge(s.status)+'</div></div>',function(){globalSearchNavigate('subscriptions','sub-search',s.name||s.email||'',typeof filterSubscriptions==='function'?filterSubscriptions:null);});});
       openGlobalSearch();
     }catch(e){closeGlobalSearch();}
   },300);
 }
 document.addEventListener('click',function(e){if(!e.target.closest('#global-search-wrap')){closeGlobalSearch();}});
 window.addEventListener('blur',closeGlobalSearch);
-async function loadTemplates(){
-  try{
-    var list=await api('/api/plan-templates');
-    var el=document.getElementById('templates-list');
-    var count=document.getElementById('template-count');
-    if(!el)return;
-    if(count)count.textContent='('+list.length+')';
-    el.innerHTML='';
-    if(!list.length){
-      var empty=document.createElement('span');
-      empty.style.cssText='font-size:12px;color:var(--muted);font-family:var(--mono);';
-      empty.textContent='No templates yet — save one below';
-      el.appendChild(empty);
-      return;
-    }
-    list.forEach(function(t){
-      var chip=document.createElement('div');
-      chip.style.cssText='display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:5px 10px;cursor:pointer;';
-      chip.addEventListener('click',function(){applyTemplate(t.amount,t.currency,t.interval_days,t.name);});
-      var name=document.createElement('span');
-      name.style.cssText='font-size:12px;font-weight:500;';
-      name.textContent=t.name;
-      var price=document.createElement('span');
-      price.style.cssText='font-size:11px;color:var(--muted);font-family:var(--mono);';
-      price.textContent=fmt(t.amount,t.currency)+'/'+t.interval_days+'d';
-      var canManageTemplates=getCurrentRole()==='owner'||getCurrentRole()==='admin';
-      chip.appendChild(name);
-      chip.appendChild(price);
-      if(canManageTemplates){
-        var del=document.createElement('button');
-        del.style.cssText='background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:0 2px;line-height:1;';
-        del.textContent='✕';
-        del.addEventListener('click',function(e){e.stopPropagation();deleteTemplate(t.id);});
-        chip.appendChild(del);
-      }
-      el.appendChild(chip);
-    });
-  }catch(e){
-    renderPanelLoadError('templates-list','loadTemplates','Could not load plan templates.');
-  }
-}
+async function loadTemplates(){try{var list=await api('/api/plan-templates');var el=document.getElementById('templates-list');var count=document.getElementById('template-count');if(!el)return;if(count)count.textContent='('+list.length+')';el.innerHTML='';if(!list.length){var empty=document.createElement('span');empty.style.cssText='font-size:12px;color:var(--muted);font-family:var(--mono);';empty.textContent='No templates yet — save one below';el.appendChild(empty);return;}list.forEach(function(t){var chip=document.createElement('div');chip.style.cssText='display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:5px 10px;cursor:pointer;';chip.addEventListener('click',function(){applyTemplate(t.amount,t.currency,t.interval_days,t.name);});var name=document.createElement('span');name.style.cssText='font-size:12px;font-weight:500;';name.textContent=t.name;var price=document.createElement('span');price.style.cssText='font-size:11px;color:var(--muted);font-family:var(--mono);';price.textContent=fmt(t.amount,t.currency)+'/'+t.interval_days+'d';var canManageTemplates=getCurrentRole()==='owner'||getCurrentRole()==='admin';chip.appendChild(name);chip.appendChild(price);if(canManageTemplates){var del=document.createElement('button');del.style.cssText='background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:0 2px;line-height:1;';del.textContent='✕';del.addEventListener('click',function(e){e.stopPropagation();deleteTemplate(t.id);});chip.appendChild(del);}el.appendChild(chip);});}catch(e){}}
 function applyTemplate(amount,currency,interval,name){document.getElementById('link-name').value=name;document.getElementById('link-amount').value=(amount/100).toFixed(2);document.getElementById('link-currency').value=currency;document.getElementById('link-interval').value=String(interval);toast('✓ Template applied');}
 async function saveTemplate(){var name=document.getElementById('tmpl-name').value.trim();var amount=Math.round(parseFloat(document.getElementById('tmpl-amount').value)*100);var interval=document.getElementById('tmpl-interval').value;if(!name||!amount){toast('Fill in name and amount','error');return;}await api('/api/plan-templates',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,amount,currency:'usd',interval_days:parseInt(interval)})});toast('✓ Template saved');document.getElementById('tmpl-name').value='';document.getElementById('tmpl-amount').value='';loadTemplates();}
 async function deleteTemplate(id){await api('/api/plan-templates/'+id,{method:'DELETE'});toast('Template deleted');loadTemplates();}
@@ -10508,18 +10089,14 @@ async function loadRecovery(){try{var d=await api('/api/recovery-rate');var rf=d
 async function openPaymentNote(id){if(blockViewOnlyAction())return;document.getElementById('payment-note-id').value=id;document.getElementById('payment-note-text').value='Loading...';openModal('payment-note-modal');try{var list=await api('/api/payments');var p=list.find(function(x){return x.id===id;});document.getElementById('payment-note-text').value=p&&p.note?p.note:'';}catch(e){document.getElementById('payment-note-text').value='';}}
 async function savePaymentNote(){var id=document.getElementById('payment-note-id').value;var note=document.getElementById('payment-note-text').value;await api('/api/payments/'+id+'/note',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({note})});toast('✓ Note saved');closeModal('payment-note-modal');loadPayments();}
 var _refStore={};var _refIdx=0;
-function buildRefReadOnlyCell(pi){if(!pi)return '—';var short=pi.slice(0,8)+'...'+pi.slice(-4);return '<span class="mono" style="font-size:11px;color:var(--muted);display:inline-block;min-width:96px;" title="'+escHtml(pi)+'">'+escHtml(short)+'</span>';}
-function buildRefCell(pi){if(!pi)return '—';var short=pi.slice(0,8)+'...'+pi.slice(-4);var key='ref_'+(++_refIdx);_refStore[key]=pi;return '<div style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;"><span class="mono" style="font-size:11px;color:var(--muted);display:inline-block;min-width:96px;">'+escHtml(short)+'</span><button class="btn btn-sm" style="padding:1px 5px;font-size:10px;" onclick="event.stopPropagation();copyStoredRef(this.dataset.k)" data-k="'+key+'">Copy</button></div>';}
+function buildRefReadOnlyCell(pi){if(!pi)return '—';var short=pi.slice(0,8)+'...'+pi.slice(-4);return '<span class="mono" style="font-size:11px;color:var(--muted);display:inline-block;min-width:96px;" title="'+escHtml(pi)+'">'+short+'</span>';}
+function buildRefCell(pi){if(!pi)return '—';var short=pi.slice(0,8)+'...'+pi.slice(-4);var key='ref_'+(++_refIdx);_refStore[key]=pi;return '<div style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;"><span class="mono" style="font-size:11px;color:var(--muted);display:inline-block;min-width:96px;">'+short+'</span><button class="btn btn-sm" style="padding:1px 5px;font-size:10px;" onclick="event.stopPropagation();copyStoredRef(this.dataset.k)" data-k="'+key+'">Copy</button></div>';}
 function copyStoredRef(keyOrEl){var key=typeof keyOrEl==='string'?keyOrEl:keyOrEl.dataset.k;var val=_refStore[key];if(!val)return;if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(val).then(function(){toast('Copied!');}).catch(function(){fallbackCopy(val);});}else{fallbackCopy(val);}}
 function fallbackCopy(text){var ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;left:-9999px;top:-9999px;';document.body.appendChild(ta);ta.select();try{document.execCommand('copy');toast('Copied!');}catch(e){toast('Copy failed','error');}document.body.removeChild(ta);}
 function openEditAcc(id){
   var a=(allStripeAccounts||[]).find(function(x){return x.id===id;});
-  var identity=parseStripeAccountName(a?a.name:'');
   document.getElementById('edit-acc-id').value=id;
-  document.getElementById('edit-acc-type').value=identity.account_type;
-  document.getElementById('edit-acc-country').value=identity.country_code;
-  document.getElementById('edit-acc-display-name').value=identity.display_name;
-  updateStripeAccountNamePreview('edit-acc');
+  document.getElementById('edit-acc-name').value=a?a.name:'';
   document.getElementById('edit-acc-key').value='';
   document.getElementById('edit-acc-publishable').value='';
   document.getElementById('edit-acc-webhook').value='';
@@ -10528,19 +10105,14 @@ function openEditAcc(id){
 }
 async function saveEditAccount(){
   var id=document.getElementById('edit-acc-id').value;
-  var identity=stripeAccountIdentity('edit-acc');
+  var name=document.getElementById('edit-acc-name').value.trim();
   var key=document.getElementById('edit-acc-key').value.trim();
   var publishable=document.getElementById('edit-acc-publishable').value.trim();
   var webhook=document.getElementById('edit-acc-webhook').value.trim();
   var errEl=document.getElementById('edit-acc-error');
   errEl.style.display='none';
-  if(identity.error){errEl.textContent=identity.error;errEl.style.display='block';return;}
-  if(webhook&&!webhook.startsWith('whsec_')){errEl.textContent='Webhook secret must start with whsec_';errEl.style.display='block';return;}
-  try{
-    var r=await api('/api/stripe-accounts/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_type:identity.account_type,country_code:identity.country_code,display_name:identity.display_name,secret_key:key||null,publishable_key:publishable||null,webhook_secret:webhook||null})});
-    if(r.success){toast('✓ Account updated');closeModal('edit-account-modal');loadAccounts();}
-    else{errEl.textContent=r.error||'Update failed';errEl.style.display='block';}
-  }catch(e){errEl.textContent=(e&&e.message)||'Could not update Stripe account';errEl.style.display='block';}
+  if(!name){errEl.textContent='Account name is required';errEl.style.display='block';return;}
+  try{var r=await api('/api/stripe-accounts/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,secret_key:key||null,publishable_key:publishable||null,webhook_secret:webhook||null})});if(r.success){toast('✓ Account updated');closeModal('edit-account-modal');loadAccounts();}else{errEl.textContent=r.error||'Update failed';errEl.style.display='block';}}catch(e){errEl.textContent='Server error';errEl.style.display='block';}
 }
 function toggleSettingsNav(){var sub=document.getElementById('settings-subnav');var chev=document.getElementById('settings-chevron');var open=sub.style.display==='none';sub.style.display=open?'block':'none';if(chev)chev.style.transform=open?'rotate(180deg)':'rotate(0deg)';}
 function expandSettingsIfNeeded(name){var settingsPages=['admins','settings','security','webhooks'];if(settingsPages.includes(name)){var sub=document.getElementById('settings-subnav');var chev=document.getElementById('settings-chevron');if(sub&&sub.style.display==='none'){sub.style.display='block';if(chev)chev.style.transform='rotate(180deg)';}}}
@@ -10568,19 +10140,42 @@ async function saveEditAccess(){
   if(accountScope==='selected'&&!accountIds.length){errEl.textContent='Select at least one Stripe account';errEl.style.display='block';return;}
   try{var r=await api('/api/admin-users/'+id+'/permissions',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:role,permissions:permissions,account_scope:accountScope,allowed_account_ids:accountIds})});if(r.success){toast('✓ Access updated');closeModal('edit-access-modal');loadAdmins();}else{errEl.textContent=r.error||'Failed to update';errEl.style.display='block';}}catch(e){errEl.textContent='Server error';errEl.style.display='block';}
 }
-document.querySelectorAll('.modal-bg').forEach(function(modal){
-  modal.addEventListener('click',function(e){
-    if(e.target===modal)closeModal(modal.id);
-  });
-});
-document.addEventListener('keydown',function(e){
-  if(e.key!=='Escape')return;
-  var openModals=Array.from(document.querySelectorAll('.modal-bg.open'));
-  var topModal=openModals[openModals.length-1];
-  if(topModal){closeModal(topModal.id);return;}
-  var customerDrawer=document.getElementById('customer-detail-modal');
-  if(customerDrawer&&customerDrawer.classList.contains('open'))closeCustomerDrawer();
-});
+document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m&&m.id!=='payment-detail-modal'&&m.id!=='verification-debug-modal')closeModal(m.id);}));
+</script>
+
+<script>
+(function(){
+  function closeWhenBackdropClicked(modalId, closeFn){
+    var modal = document.getElementById(modalId);
+    if(!modal || modal.__backdropCloseBound) return;
+    modal.__backdropCloseBound = true;
+    modal.addEventListener('mousedown', function(e){
+      if(e.target === modal){
+        if(typeof closeFn === 'function') closeFn();
+      }
+    });
+  }
+
+  function setupDrawerBackdropClose(){
+    closeWhenBackdropClicked('payment-detail-modal', function(){
+      if(typeof closeModal === 'function') closeModal('payment-detail-modal');
+    });
+
+    closeWhenBackdropClicked('customer-detail-modal', function(){
+      if(typeof closeCustomerDrawer === 'function'){
+        closeCustomerDrawer();
+      }else if(typeof closeModal === 'function'){
+        closeModal('customer-detail-modal');
+      }
+    });
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', setupDrawerBackdropClose);
+  }else{
+    setupDrawerBackdropClose();
+  }
+})();
 </script>
 
 </body>
@@ -11795,15 +11390,13 @@ html.light #action-confirm-modal .modal-footer .btn-danger:hover {
 /* Stripe Accounts table hierarchy: operational state first, technical key later */
 #page-accounts .stripe-accounts-table{
   table-layout:fixed;
-  min-width:1400px;
+  min-width:1240px;
 }
-#page-accounts .stripe-accounts-table .accounts-col-name{width:22%;}
+#page-accounts .stripe-accounts-table .accounts-col-name{width:20%;}
 #page-accounts .stripe-accounts-table .accounts-name-cell{overflow:hidden;}
 #page-accounts .stripe-accounts-table .accounts-name-text{display:block;max-width:30ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600;}
-#page-accounts .stripe-accounts-table .accounts-col-status{width:14%;}
-#page-accounts .stripe-accounts-table th:nth-child(2),
-#page-accounts .stripe-accounts-table td:nth-child(2){padding-left:12px;padding-right:12px;white-space:nowrap;}
-#page-accounts .stripe-accounts-table .accounts-col-verification{width:19%;}
+#page-accounts .stripe-accounts-table .accounts-col-status{width:11%;}
+#page-accounts .stripe-accounts-table .accounts-col-verification{width:21%;}
 #page-accounts .verification-badge-stack{display:flex;flex-direction:column;align-items:flex-start;gap:4px;max-width:100%;}
 #page-accounts .verification-badge{max-width:100%;font-weight:600!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;justify-content:flex-start!important;}
 #page-accounts .verification-badge > span{font-weight:600!important;}
@@ -11812,7 +11405,7 @@ html.light #action-confirm-modal .modal-footer .btn-danger:hover {
 #page-accounts .stripe-accounts-table .accounts-col-embedded{width:9%;}
 #page-accounts .stripe-accounts-table .accounts-col-key{width:8%;}
 #page-accounts .stripe-accounts-table .accounts-col-added{width:10%;}
-#page-accounts .stripe-accounts-table .accounts-col-actions{width:18%;}
+#page-accounts .stripe-accounts-table .accounts-col-actions{width:21%;}
 #page-accounts .stripe-accounts-table .accounts-added-cell{white-space:nowrap;color:var(--muted);font-size:12px;font-weight:500;}
 #page-accounts .stripe-accounts-table th:nth-child(3),
 #page-accounts .stripe-accounts-table td:nth-child(3){
@@ -11843,45 +11436,4 @@ html.light #action-confirm-modal .modal-footer .btn-danger:hover {
   justify-content:flex-start;
   gap:5px;
 }
-#page-accounts .accounts-more-btn{
-  width:37px;
-  min-width:37px;
-  padding:4px 9px!important;
-  justify-content:center;
-}
-#page-accounts .accounts-more-btn svg{width:14px;height:14px;display:block;}
-.stripe-account-more-menu{
-  position:fixed;
-  z-index:1200;
-  width:172px;
-  padding:5px;
-  border:1px solid var(--border2);
-  border-radius:10px;
-  background:var(--surface);
-  box-shadow:0 14px 36px rgba(0,0,0,.34);
-}
-.stripe-account-more-menu button{
-  width:100%;
-  height:34px;
-  display:flex;
-  align-items:center;
-  padding:0 10px;
-  border:0;
-  border-radius:7px;
-  background:transparent;
-  color:var(--text);
-  font-family:var(--sans);
-  font-size:12px;
-  font-weight:600;
-  text-align:left;
-  cursor:pointer;
-}
-.stripe-account-more-menu button:hover{background:var(--surface2);}
-.stripe-account-more-menu button.danger{
-  margin-top:4px;
-  border-top:1px solid var(--border);
-  border-radius:0 0 7px 7px;
-  color:var(--red);
-}
-.stripe-account-more-menu button.danger:hover{background:var(--red-bg);}
 </style>

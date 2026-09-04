@@ -287,23 +287,6 @@ async function ensureWebhookColumns() {
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS was_failed BOOLEAN DEFAULT false').catch(()=>{});
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS recovered_at TIMESTAMPTZ').catch(()=>{});
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_origin TEXT').catch(()=>{});
-  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS stripe_account_id INT REFERENCES stripe_accounts(id)').catch(()=>{});
-  await pool.query(`UPDATE payments p SET stripe_account_id=c.stripe_account_id FROM customers c WHERE p.customer_id=c.id AND p.stripe_account_id IS NULL`).catch(()=>{});
-  // Stripe risk/outcome diagnostics, captured from charge.outcome and last_payment_error for
-  // distinguishing issuer declines from Radar/Stripe-level blocks without guessing from message text.
-  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS risk_level TEXT').catch(()=>{});
-  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS risk_score INT').catch(()=>{});
-  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS outcome_type TEXT').catch(()=>{});
-  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS outcome_reason TEXT').catch(()=>{});
-  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS advice_code TEXT').catch(()=>{});
-  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS network_decline_code TEXT').catch(()=>{});
-  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS network_advice_code TEXT').catch(()=>{});
-  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS network_status TEXT').catch(()=>{});
-  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS last_error_code TEXT').catch(()=>{});
-  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS last_error_decline_code TEXT').catch(()=>{});
-  // Client-generated attempt id, stored for reconciling a charge attempt across ambiguous
-  // network failures/retries with the exact Stripe idempotency key that was used.
-  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS subloop_attempt_id TEXT').catch(()=>{});
   await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT').catch(()=>{});
   await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_price_id TEXT').catch(()=>{});
   await pool.query('ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS stripe_invoice_id TEXT').catch(()=>{});
@@ -922,51 +905,6 @@ function paymentOriginFromStripeContext(pi, invoice, hasSubscription) {
   return 'one_time';
 }
 
-// Derives a stable Stripe idempotency key from a client-supplied attempt_id, scoped to the
-// specific resource being charged. Same attempt_id (same click, including its network retries)
-// -> same key -> Stripe dedupes. A new click generates a new attempt_id client-side -> new key.
-function idemKeyFromAttempt(prefix, attemptId) {
-  const clean = String(attemptId || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 100);
-  const safeAttempt = clean || crypto.randomUUID(); // fallback for older clients without attempt_id yet
-  return crypto.createHash('sha256').update(`${prefix}-${safeAttempt}`).digest('hex');
-}
-
-// Supplemental in-process guard against the same resource being charged twice concurrently.
-// This is not the durable protection (the Stripe idempotency key is) — it just avoids two
-// simultaneous requests both reaching Stripe before either one's idempotency key would help.
-const inFlightCharges = new Set();
-const inFlightStripeSyncs = new Set();
-function beginInFlight(key, res) {
-  if (inFlightCharges.has(key)) {
-    res.status(409).json({ success:false, error:'A charge for this is already in progress', definitive:false });
-    return false;
-  }
-  inFlightCharges.add(key);
-  return true;
-}
-function endInFlight(key) { inFlightCharges.delete(key); }
-
-// Checks whether Stripe's last known result for this payment means an immediate automatic
-// retry should be refused. Returns a user-facing reason string, or null if retrying is fine.
-function retryBlockReason(p) {
-  const declineCode = p.last_error_decline_code || null;
-  const errorCode = p.last_error_code || null;
-  const advice = p.advice_code || null;
-  if (declineCode === 'authentication_required' || errorCode === 'authentication_required') {
-    return 'This payment requires customer authentication and cannot be retried off-session automatically.';
-  }
-  if (advice === 'do_not_try_again') {
-    return 'Stripe advises not retrying this payment.' + (p.failure_reason ? ' ' + p.failure_reason : '');
-  }
-  if (advice === 'try_again_later') {
-    return 'Stripe advises waiting before retrying this payment.';
-  }
-  if (advice === 'confirm_card_data') {
-    return 'The card details may need to be re-confirmed with the customer before retrying.';
-  }
-  return null;
-}
-
 async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null, fallbackCustomer = {}) {
   await ensureWebhookColumns();
   if (!pi?.id && typeof pi === 'string') pi = await stripe.paymentIntents.retrieve(pi, { expand: ['latest_charge', 'payment_method', 'invoice'] });
@@ -1026,28 +964,9 @@ async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null, f
   const amount = pi.amount_received || financials.amount || pi.amount || 0;
   const currency = pi.currency || financials.currency || 'usd';
 
-  // Risk/outcome diagnostics live on the Charge object (pi.latest_charge.outcome), not the
-  // PaymentIntent itself. Only trust these fields when latest_charge was actually expanded to
-  // an object (see the retrieve() call above) — a bare charge ID string carries no outcome data.
-  const chargeObj = pi.latest_charge && typeof pi.latest_charge === 'object' ? pi.latest_charge : null;
-  const outcome = chargeObj?.outcome || null;
-  const diagnostics = {
-    risk_level: outcome?.risk_level || null,
-    risk_score: Number.isFinite(outcome?.risk_score) ? outcome.risk_score : null,
-    outcome_type: outcome?.type || null,
-    outcome_reason: outcome?.reason || null,
-    advice_code: outcome?.advice_code || null,
-    network_decline_code: outcome?.network_decline_code || null,
-    network_advice_code: outcome?.network_advice_code || null,
-    network_status: outcome?.network_status || null,
-    last_error_code: pi.last_payment_error?.code || null,
-    last_error_decline_code: pi.last_payment_error?.decline_code || null,
-    subloop_attempt_id: pi.metadata?.subloop_attempt_id || null
-  };
-
   const existingPayment = await pool.query('SELECT id, status, was_failed, recovered_at FROM payments WHERE stripe_payment_intent=$1', [pi.id]);
   if (existingPayment.rows[0]) {
-    await pool.query(`UPDATE payments SET customer_id=$1, stripe_account_id=$21, subscription_id=COALESCE($2,subscription_id), amount=$3, currency=$4, status=$5, failure_reason=$6,
+    await pool.query(`UPDATE payments SET customer_id=$1, subscription_id=COALESCE($2,subscription_id), amount=$3, currency=$4, status=$5, failure_reason=$6,
       stripe_invoice_id=COALESCE($7,stripe_invoice_id), card_brand=COALESCE($8,card_brand), card_last4=COALESCE($9,card_last4),
       card_exp_month=COALESCE($10,card_exp_month), card_exp_year=COALESCE($11,card_exp_year), card_country=COALESCE($12,card_country), card_funding=COALESCE($13,card_funding),
       stripe_fee=COALESCE($14,stripe_fee), net_amount=COALESCE($15,net_amount), balance_transaction_id=COALESCE($16,balance_transaction_id), financial_currency=COALESCE($17,financial_currency),
@@ -1055,35 +974,21 @@ async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null, f
       recovered_at=CASE WHEN $18='succeeded' AND (COALESCE(was_failed,false) OR status='failed') THEN COALESCE(recovered_at,NOW()) ELSE recovered_at END,
       payment_origin=COALESCE($19,payment_origin)
       WHERE id=$20`,
-      [localCustomer.id, localSubId, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency, status, paymentOrigin, existingPayment.rows[0].id, usedAccount.id]);
+      [localCustomer.id, localSubId, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency, status, paymentOrigin, existingPayment.rows[0].id]);
     await pool.query(`UPDATE payments SET payment_method_type=COALESCE($1,payment_method_type), wallet_type=COALESCE($2,wallet_type), wallet_checked=TRUE WHERE id=$3`,
       [cardDetails.payment_method_type, cardDetails.wallet_type, existingPayment.rows[0].id]).catch(()=>{});
-    await pool.query(`UPDATE payments SET risk_level=COALESCE($1,risk_level), risk_score=COALESCE($2,risk_score), outcome_type=COALESCE($3,outcome_type),
-      outcome_reason=COALESCE($4,outcome_reason), advice_code=COALESCE($5,advice_code), network_decline_code=COALESCE($6,network_decline_code),
-      network_advice_code=COALESCE($7,network_advice_code), network_status=COALESCE($8,network_status), last_error_code=COALESCE($9,last_error_code),
-      last_error_decline_code=COALESCE($10,last_error_decline_code), subloop_attempt_id=COALESCE($11,subloop_attempt_id) WHERE id=$12`,
-      [diagnostics.risk_level, diagnostics.risk_score, diagnostics.outcome_type, diagnostics.outcome_reason, diagnostics.advice_code,
-       diagnostics.network_decline_code, diagnostics.network_advice_code, diagnostics.network_status, diagnostics.last_error_code,
-       diagnostics.last_error_decline_code, diagnostics.subloop_attempt_id, existingPayment.rows[0].id]).catch(e=>console.error('[payment] diagnostics update failed:', e.message));
     await syncFirstPaymentEligibility(localCustomer.id, localSubId, status).catch(e => console.error('[payment] eligibility sync failed:', e.message));
     console.log('[external-import] updated payment:', pi.id, 'customer:', localCustomer.email, 'method:', cardDetails.payment_method_type || '-', 'wallet:', cardDetails.wallet_type || '-');
     return existingPayment.rows[0].id;
   }
 
   const ins = await pool.query(
-    `INSERT INTO payments (customer_id,stripe_account_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,stripe_invoice_id,card_brand,card_last4,card_exp_month,card_exp_year,card_country,card_funding,stripe_fee,net_amount,balance_transaction_id,financial_currency,was_failed,payment_origin)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21) RETURNING id`,
-    [localCustomer.id, usedAccount.id, localSubId, pi.id, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency, status==='failed', paymentOrigin]
+    `INSERT INTO payments (customer_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,stripe_invoice_id,card_brand,card_last4,card_exp_month,card_exp_year,card_country,card_funding,stripe_fee,net_amount,balance_transaction_id,financial_currency,was_failed,payment_origin)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20) RETURNING id`,
+    [localCustomer.id, localSubId, pi.id, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency, status==='failed', paymentOrigin]
   );
   await pool.query(`UPDATE payments SET payment_method_type=COALESCE($1,payment_method_type), wallet_type=COALESCE($2,wallet_type), wallet_checked=TRUE WHERE id=$3`,
     [cardDetails.payment_method_type, cardDetails.wallet_type, ins.rows[0].id]).catch(()=>{});
-  await pool.query(`UPDATE payments SET risk_level=COALESCE($1,risk_level), risk_score=COALESCE($2,risk_score), outcome_type=COALESCE($3,outcome_type),
-    outcome_reason=COALESCE($4,outcome_reason), advice_code=COALESCE($5,advice_code), network_decline_code=COALESCE($6,network_decline_code),
-    network_advice_code=COALESCE($7,network_advice_code), network_status=COALESCE($8,network_status), last_error_code=COALESCE($9,last_error_code),
-    last_error_decline_code=COALESCE($10,last_error_decline_code), subloop_attempt_id=COALESCE($11,subloop_attempt_id) WHERE id=$12`,
-    [diagnostics.risk_level, diagnostics.risk_score, diagnostics.outcome_type, diagnostics.outcome_reason, diagnostics.advice_code,
-     diagnostics.network_decline_code, diagnostics.network_advice_code, diagnostics.network_status, diagnostics.last_error_code,
-     diagnostics.last_error_decline_code, diagnostics.subloop_attempt_id, ins.rows[0].id]).catch(e=>console.error('[payment] diagnostics insert-update failed:', e.message));
   await syncFirstPaymentEligibility(localCustomer.id, localSubId, status).catch(e => console.error('[payment] eligibility sync failed:', e.message));
   console.log('[external-import] saved payment:', pi.id, 'row id:', ins.rows[0].id, 'customer:', localCustomer.email, 'method:', cardDetails.payment_method_type || '-', 'wallet:', cardDetails.wallet_type || '-');
   await activityLog.add('payment', `Payment ${status} for ${localCustomer.email}`, localCustomer.id, amount).catch(()=>{});
@@ -1615,142 +1520,101 @@ function uniqueRequirements(items) {
     });
 }
 
-function classifyStripeAccountHealth(acc) {
-  const req = acc?.requirements || {};
-  const disabledReason = req.disabled_reason || null;
-  const disabledReasonKey = String(disabledReason || '').toLowerCase();
-  const chargesEnabled = !!acc?.charges_enabled;
-  const payoutsEnabled = !!acc?.payouts_enabled;
-  const currentlyDue = Array.isArray(req.currently_due) ? req.currently_due : [];
-  const pastDue = Array.isArray(req.past_due) ? req.past_due : [];
-  const eventuallyDue = Array.isArray(req.eventually_due) ? req.eventually_due : [];
-  const pendingVerification = Array.isArray(req.pending_verification) ? req.pending_verification : [];
-  const requirementDetails = uniqueRequirements([...pastDue, ...currentlyDue]);
-
-  const common = {
-    raw_requirements_currently_due: currentlyDue,
-    raw_requirements_past_due: pastDue,
-    raw_requirements_eventually_due: eventuallyDue,
-    raw_requirements_pending_verification: pendingVerification,
-    disabled_reason: disabledReason,
-    charges_enabled: chargesEnabled,
-    payouts_enabled: payoutsEnabled
-  };
-
-  if (acc?.deleted) {
-    return {
-      ...common,
-      account_status: 'closed',
-      account_status_label: 'closed',
-      account_status_reason: 'Stripe account closed',
-      verification_needed: false,
-      verification_details: ['Stripe account closed']
-    };
-  }
-
-  if (disabledReasonKey.includes('rejected')) {
-    return {
-      ...common,
-      account_status: 'rejected',
-      account_status_label: 'rejected',
-      account_status_reason: 'Stripe rejected this account',
-      verification_needed: false,
-      verification_details: ['Stripe rejected this account']
-    };
-  }
-
-  if (disabledReasonKey.includes('platform_paused')) {
-    const pausedDetail = !chargesEnabled && !payoutsEnabled
-      ? 'Payments & payouts paused'
-      : !chargesEnabled
-        ? 'Payments paused'
-        : !payoutsEnabled
-          ? 'Payouts paused'
-          : 'Account paused';
-
-    return {
-      ...common,
-      account_status: 'paused',
-      account_status_label: 'paused',
-      account_status_reason: pausedDetail,
-      verification_needed: false,
-      verification_details: [pausedDetail]
-    };
-  }
-
-  const needsAction =
-    !chargesEnabled ||
-    !payoutsEnabled ||
-    !!disabledReason ||
-    currentlyDue.length > 0 ||
-    pastDue.length > 0 ||
-    pendingVerification.length > 0;
-
-  if (needsAction) {
-    let verificationDetails = requirementDetails;
-
-    if (!verificationDetails.length) {
-      if (pendingVerification.length > 0 || disabledReasonKey.includes('pending_verification')) {
-        verificationDetails = ['Verification pending'];
-      } else if (disabledReasonKey.includes('under_review') || disabledReasonKey === 'listed') {
-        verificationDetails = ['Account under review'];
-      } else if (!chargesEnabled && !payoutsEnabled) {
-        verificationDetails = ['Payments & payouts unavailable'];
-      } else if (!chargesEnabled) {
-        verificationDetails = ['Payments unavailable'];
-      } else if (!payoutsEnabled) {
-        verificationDetails = ['Payouts unavailable'];
-      } else {
-        verificationDetails = ['Verification required'];
-      }
-    }
-
-    return {
-      ...common,
-      account_status: 'restricted',
-      account_status_label: 'restricted',
-      account_status_reason: verificationDetails[0],
-      verification_needed: true,
-      verification_details: verificationDetails
-    };
-  }
-
-  return {
-    ...common,
-    account_status: 'active',
-    account_status_label: 'active',
+async function getStripeAccountDisplayStatus(accountRow) {
+  const base = {
+    account_status: 'closed',
+    account_status_label: 'closed',
     account_status_reason: null,
     verification_needed: false,
-    verification_details: []
-  };
-}
-
-async function getStripeAccountDisplayStatus(accountRow) {
-  const connectionError = (message) => ({
-    account_status: 'connection_error',
-    account_status_label: 'connection error',
-    account_status_reason: message,
-    verification_needed: false,
-    verification_details: [message],
+    verification_details: [],
     raw_requirements_currently_due: [],
     raw_requirements_past_due: [],
     raw_requirements_eventually_due: [],
-    raw_requirements_pending_verification: [],
     disabled_reason: null,
     charges_enabled: false,
     payouts_enabled: false
-  });
+  };
 
   if (!accountRow.secret_key || !String(accountRow.secret_key).startsWith('sk_')) {
-    return connectionError('Missing or invalid secret key');
+    return {
+      ...base,
+      account_status_reason: 'Missing or invalid secret key',
+      verification_details: ['Missing or invalid secret key']
+    };
   }
 
   try {
     const stripe = new Stripe(accountRow.secret_key);
     const acc = await stripe.accounts.retrieve();
-    return classifyStripeAccountHealth(acc);
+
+    const req = acc?.requirements || {};
+    const disabledReason = req.disabled_reason || null;
+    const chargesEnabled = !!acc?.charges_enabled;
+    const payoutsEnabled = !!acc?.payouts_enabled;
+
+    const currentlyDue = Array.isArray(req.currently_due) ? req.currently_due : [];
+    const pastDue = Array.isArray(req.past_due) ? req.past_due : [];
+    const details = uniqueRequirements([...pastDue, ...currentlyDue]);
+
+    if (acc?.deleted) {
+      return {
+        ...base,
+        account_status_reason: 'Stripe account deleted or closed',
+        verification_details: ['Stripe account deleted or closed']
+      };
+    }
+
+    // Main rule:
+    // No action needed only when charges + payouts are enabled and Stripe has no requirements due now.
+    const needsAction =
+      !chargesEnabled ||
+      !payoutsEnabled ||
+      !!disabledReason ||
+      currentlyDue.length > 0 ||
+      pastDue.length > 0;
+
+    if (needsAction) {
+      const reason =
+        disabledReason ||
+        (!chargesEnabled && !payoutsEnabled ? 'Payments and payouts not enabled' :
+          !chargesEnabled ? 'Payments access disabled' :
+          !payoutsEnabled ? 'Payouts paused or disabled' :
+          details[0] || 'Verification required');
+
+      return {
+        account_status: 'restricted',
+        account_status_label: 'verification required',
+        account_status_reason: reason,
+        verification_needed: true,
+        verification_details: details.length ? details : [reason],
+        raw_requirements_currently_due: currentlyDue,
+        raw_requirements_past_due: pastDue,
+        raw_requirements_eventually_due: req.eventually_due || [],
+        disabled_reason: disabledReason,
+        charges_enabled: chargesEnabled,
+        payouts_enabled: payoutsEnabled
+      };
+    }
+
+    return {
+      account_status: 'active',
+      account_status_label: 'active',
+      account_status_reason: null,
+      verification_needed: false,
+      verification_details: [],
+      raw_requirements_currently_due: currentlyDue,
+      raw_requirements_past_due: pastDue,
+      raw_requirements_eventually_due: req.eventually_due || [],
+      disabled_reason: disabledReason,
+      charges_enabled: chargesEnabled,
+      payouts_enabled: payoutsEnabled
+    };
   } catch (err) {
-    return connectionError(err?.message || 'Unable to connect to Stripe');
+    return {
+      ...base,
+      account_status_reason: err?.message || 'Unable to verify Stripe account',
+      verification_details: [err?.message || 'Unable to verify Stripe account']
+    };
   }
 }
 
@@ -1758,7 +1622,7 @@ async function getStripeAccountDisplayStatus(accountRow) {
 app.get('/api/payment-link-accounts', async (req, res) => {
   try {
     const ids = scopedAccountIds(req);
-    const r = await pool.query('SELECT id, name, is_default FROM stripe_accounts WHERE id=ANY($1::int[]) ORDER BY created_at DESC NULLS LAST, id DESC',[ids]);
+    const r = await pool.query('SELECT id, name, is_default FROM stripe_accounts WHERE id=ANY($1::int[]) ORDER BY created_at DESC, id DESC',[ids]);
     res.json(r.rows);
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
@@ -1779,7 +1643,7 @@ app.get('/api/stripe-accounts', async (req, res) => {
         LEFT(secret_key,12)||'...' as key_preview
       FROM stripe_accounts
       WHERE id=ANY($1::int[])
-      ORDER BY created_at DESC NULLS LAST, id DESC
+      ORDER BY created_at DESC, id DESC
     `,[ids]);
 
     const accounts = await Promise.all(r.rows.map(async (account) => {
@@ -1863,7 +1727,7 @@ app.get('/api/stripe-accounts/:id/verification-debug', async (req, res) => {
       },
       persons_error,
       persons,
-      interpreted_status: classifyStripeAccountHealth(acc)
+      interpreted_status: await getStripeAccountDisplayStatus(account)
     };
 
     res.json(debug);
@@ -1873,48 +1737,13 @@ app.get('/api/stripe-accounts/:id/verification-debug', async (req, res) => {
   }
 });
 
-function normalizeStripeAccountIdentity(body = {}) {
-  let accountType = String(body.account_type || '').trim().toLowerCase();
-  let countryCode = String(body.country_code || '').trim().toUpperCase();
-  let displayName = String(body.display_name || '').replace(/\s+/g, ' ').trim();
-  const hasStructuredIdentity = !!(accountType || countryCode || displayName);
-
-  // Backward compatibility for an older client that already sends a canonical name.
-  if (!hasStructuredIdentity) {
-    const canonical = String(body.name || '').trim().match(/^Stripe_(Solo|Business)_([A-Za-z]{2})_(.+)$/i);
-    if (canonical) {
-      accountType = canonical[1].toLowerCase();
-      countryCode = canonical[2].toUpperCase();
-      displayName = canonical[3].replace(/\s+/g, ' ').trim();
-    }
-  }
-
-  const normalizedType = accountType === 'solo' ? 'Solo' : (accountType === 'business' ? 'Business' : null);
-  if (!normalizedType) return { error: 'Account type must be Solo or Business' };
-  if (!/^[A-Z]{2}$/.test(countryCode)) return { error: 'Country code must contain two letters, such as FR or CA' };
-  if (!displayName) return { error: 'Account name is required' };
-  if (displayName.length > 80) return { error: 'Account name must be 80 characters or fewer' };
-
-  return {
-    account_type: normalizedType,
-    country_code: countryCode,
-    display_name: displayName,
-    name: `Stripe_${normalizedType}_${countryCode}_${displayName}`
-  };
-}
-
 app.post('/api/stripe-accounts', async (req, res) => {
   try {
-    const { secret_key, publishable_key, webhook_secret } = req.body;
-    const identity = normalizeStripeAccountIdentity(req.body);
-    if (identity.error) return res.status(400).json({ error: identity.error });
-    if (!secret_key) return res.status(400).json({ error: 'Secret key is required' });
+    const { name, secret_key, publishable_key, webhook_secret } = req.body;
+    if (!name || !secret_key) return res.status(400).json({ error: 'Name and secret key required' });
     if (publishable_key && !String(publishable_key).startsWith('pk_')) return res.status(400).json({ error: 'Publishable key must start with pk_' });
-    const cleanWebhookSecret = String(webhook_secret || '').trim();
-    if (!cleanWebhookSecret) return res.status(400).json({ error: 'Webhook secret is required' });
-    if (!cleanWebhookSecret.startsWith('whsec_')) return res.status(400).json({ error: 'Webhook secret must start with whsec_' });
-    await stripeAccounts.create({ name:identity.name, secret_key, publishable_key, webhook_secret:cleanWebhookSecret, workspace_id:req.currentUser.workspace_id });
-    res.json({ success: true, name:identity.name });
+    await stripeAccounts.create({ name, secret_key, publishable_key, webhook_secret, workspace_id:req.currentUser.workspace_id });
+    res.json({ success: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.patch('/api/stripe-accounts/:id', async (req, res) => {
@@ -1922,144 +1751,19 @@ app.patch('/api/stripe-accounts/:id', async (req, res) => {
     const account = await stripeAccounts.byId(req.params.id);
     if (!account) return res.status(404).json({ error:'Stripe account not found' });
     if (!ensureRowScope(req,res,{ stripe_account_id:account.id, workspace_id:account.workspace_id })) return;
-    const { secret_key, publishable_key, webhook_secret } = req.body;
-    const identity = normalizeStripeAccountIdentity(req.body);
-    if (identity.error) return res.status(400).json({ error: identity.error });
+    const { name, secret_key, publishable_key, webhook_secret } = req.body;
+    if (!name) return res.status(400).json({ error: 'Name is required' });
     if (publishable_key && !String(publishable_key).startsWith('pk_')) return res.status(400).json({ error: 'Publishable key must start with pk_' });
-    if (webhook_secret && String(webhook_secret).trim() && !String(webhook_secret).trim().startsWith('whsec_')) return res.status(400).json({ error: 'Webhook secret must start with whsec_' });
     const updates = ['name=$1'];
-    const values = [identity.name];
+    const values = [name];
     if (secret_key && secret_key.trim()) { values.push(secret_key.trim()); updates.push(`secret_key=$${values.length}`); }
     if (publishable_key && publishable_key.trim()) { values.push(publishable_key.trim()); updates.push(`publishable_key=$${values.length}`); }
     if (webhook_secret && webhook_secret.trim()) { values.push(webhook_secret.trim()); updates.push(`webhook_secret=$${values.length}`); }
     values.push(req.params.id);
     values.push(req.currentUser.workspace_id);
     await pool.query(`UPDATE stripe_accounts SET ${updates.join(', ')} WHERE id=$${values.length-1} AND workspace_id=$${values.length}`, values);
-    res.json({ success: true, name:identity.name });
+    res.json({ success: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
-});
-
-async function syncStripeCustomersForAccount(stripe, account) {
-  const result = {
-    customers_found: 0,
-    customers_synced: 0,
-    errors: 0,
-    error_samples: []
-  };
-  let startingAfter = null;
-
-  do {
-    const page = await stripe.customers.list({
-      limit: 100,
-      ...(startingAfter ? { starting_after: startingAfter } : {})
-    });
-
-    for (const remoteCustomer of page.data || []) {
-      result.customers_found++;
-      try {
-        if (!remoteCustomer?.id || remoteCustomer.deleted) {
-          throw new Error('Stripe customer is unavailable');
-        }
-        const preferredPaymentMethod = remoteCustomer.invoice_settings?.default_payment_method || null;
-        const localCustomer = await upsertStripeCustomer(
-          stripe,
-          account,
-          remoteCustomer.id,
-          preferredPaymentMethod
-        );
-        if (!localCustomer?.id) throw new Error('Customer could not be imported');
-        result.customers_synced++;
-      } catch (err) {
-        result.errors++;
-        if (result.error_samples.length < 10) {
-          result.error_samples.push({
-            object_type: 'customer',
-            object_id: remoteCustomer?.id || null,
-            error: err.message
-          });
-        }
-      }
-    }
-
-    startingAfter = page.has_more && page.data?.length
-      ? page.data[page.data.length - 1].id
-      : null;
-  } while (startingAfter);
-
-  return result;
-}
-
-app.post('/api/stripe-accounts/:id/sync', async (req, res) => {
-  const accountId = Number(req.params.id);
-  let lockAcquired = false;
-  try {
-    if (!requireOwnerOrAdmin(req, res)) return;
-    const account = await stripeAccounts.byId(accountId);
-    if (!account) return res.status(404).json({ error:'Stripe account not found' });
-    if (!ensureRowScope(req, res, { stripe_account_id:account.id, workspace_id:account.workspace_id })) return;
-    if (!account.secret_key || !String(account.secret_key).startsWith('sk_')) {
-      return res.status(400).json({ error:'This Stripe account does not have a valid secret key' });
-    }
-    if (inFlightStripeSyncs.has(account.id)) {
-      return res.status(409).json({ error:'This Stripe account is already syncing' });
-    }
-    inFlightStripeSyncs.add(account.id);
-    lockAcquired = true;
-
-    const stripe = new Stripe(account.secret_key);
-    const customerSync = await syncStripeCustomersForAccount(stripe, account);
-    const errorSamples = [...customerSync.error_samples];
-    const customersFound = customerSync.customers_found;
-    const customersSynced = customerSync.customers_synced;
-    let subscriptionsFound = 0;
-    let subscriptionsSynced = 0;
-    let errors = customerSync.errors;
-    let startingAfter = null;
-
-    do {
-      const page = await stripe.subscriptions.list({
-        status:'all',
-        limit:100,
-        ...(startingAfter ? { starting_after:startingAfter } : {})
-      });
-      for (const remote of page.data || []) {
-        subscriptionsFound++;
-        try {
-          await saveSubscriptionFromStripe(stripe, account, remote, 'account.sync');
-          subscriptionsSynced++;
-        } catch (err) {
-          errors++;
-          if (errorSamples.length < 10) {
-            errorSamples.push({
-              object_type: 'subscription',
-              object_id: remote.id,
-              subscription_id: remote.id,
-              error: err.message
-            });
-          }
-        }
-      }
-      startingAfter = page.has_more && page.data?.length ? page.data[page.data.length - 1].id : null;
-    } while (startingAfter);
-
-    res.json({
-      success:errors === 0,
-      partial:errors > 0 && (customersSynced > 0 || subscriptionsSynced > 0),
-      account_id:account.id,
-      account_name:account.name,
-      customers_found:customersFound,
-      customers_synced:customersSynced,
-      subscriptions_found:subscriptionsFound,
-      subscriptions_synced:subscriptionsSynced,
-      errors,
-      error_samples:errorSamples
-    });
-  } catch (err) {
-    console.error('[stripe-account-sync] failed:', err.message);
-    res.status(500).json({ error:err.message });
-  } finally {
-    if (lockAcquired) inFlightStripeSyncs.delete(accountId);
-  }
 });
 app.patch('/api/stripe-accounts/:id/default', async (req, res) => {
   try {
@@ -2374,49 +2078,39 @@ app.post('/api/customers/:id/portal', async (req, res) => {
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.post('/api/customers/:id/charge-once', async (req, res) => {
-  const inFlightKey = 'charge-once-' + req.params.id;
-  if (!beginInFlight(inFlightKey, res)) return;
   try {
     const { amount, description, currency } = req.body;
-    const attemptId = String(req.body?.attempt_id || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 100) || null;
-    if (!Number.isInteger(Number(amount)) || Number(amount) <= 0) return res.status(400).json({ error: 'A positive amount is required', definitive:true });
-    if (!currency || !/^[a-zA-Z]{3}$/.test(String(currency))) return res.status(400).json({ error: 'Currency is required for a one-time charge', definitive:true });
+    if (!Number.isInteger(Number(amount)) || Number(amount) <= 0) return res.status(400).json({ error: 'A positive amount is required' });
+    if (!currency || !/^[a-zA-Z]{3}$/.test(String(currency))) return res.status(400).json({ error: 'Currency is required for a one-time charge' });
     const chargeCurrency = String(currency).toLowerCase();
     const identifier = String(req.params.id || '').trim();
     const c = identifier.startsWith('cus_') ? await customers.byStripeId(identifier,scopedAccountIds(req)) : await customers.byId(identifier);
-    if (!c) return res.status(404).json({ error: 'Customer not found', definitive:true });
+    if (!c) return res.status(404).json({ error: 'Customer not found' });
     if (!ensureRowScope(req, res, c)) return;
-    if (!String(c.stripe_customer_id || '').startsWith('cus_')) return res.status(400).json({ error: 'A real Stripe customer is required for a one-time charge', definitive:true });
+    if (!String(c.stripe_customer_id || '').startsWith('cus_')) return res.status(400).json({ error: 'A real Stripe customer is required for a one-time charge' });
     const acc = await stripeAccounts.byId(c.stripe_account_id);
-    if (!acc?.secret_key) return res.status(400).json({ error: 'Stripe account secret key not found', definitive:true });
+    if (!acc?.secret_key) return res.status(400).json({ error: 'Stripe account secret key not found' });
     const stripe = require('stripe')(acc.secret_key);
     const pm = await resolveBestPaymentMethod(stripe, c.stripe_customer_id, { localPaymentMethodId: c.stripe_payment_method });
-    if (!pm) return res.status(400).json({ error: 'No usable saved card found for this customer', definitive:true });
+    if (!pm) return res.status(400).json({ error: 'No usable saved card found for this customer' });
     await syncLocalPaymentMethod(c.id, pm);
-    const chargeDescription = description || 'Manual invoice';
-    const idemKey = idemKeyFromAttempt(`subloop-once-${c.id}-${pm.id}-${Number(amount)}-${chargeCurrency}-${chargeDescription}`, attemptId);
     try {
-      const pi = await stripe.paymentIntents.create({ amount: Number(amount), currency: chargeCurrency, customer: c.stripe_customer_id, payment_method: pm.id, confirm: true, description: chargeDescription, off_session: true, metadata: { subloop_payment_origin: 'one_time', subloop_attempt_id: attemptId || '' } }, { idempotencyKey: idemKey });
+      const pi = await stripe.paymentIntents.create({ amount: Number(amount), currency: chargeCurrency, customer: c.stripe_customer_id, payment_method: pm.id, confirm: true, description: description||'Manual invoice', off_session: true, metadata: { subloop_payment_origin: 'one_time' } });
       await savePaymentIntent(stripe, acc, pi, pi.status==='succeeded'?'succeeded':pi.status, { email:c.email, name:c.name }).catch(async () => {
         await payments.insert({ customer_id: c.id, subscription_id: null, stripe_payment_intent: pi.id, amount: Number(amount), currency: chargeCurrency, status: pi.status==='succeeded'?'succeeded':'failed', failure_reason: null, payment_origin: 'one_time' });
       });
       await reconcileCustomerLifecycle(c.id, pi.status==='succeeded'?{oneTimeSuccess:true}:{}).catch(()=>{});
-      return res.json({ success: pi.status==='succeeded', status: pi.status, definitive:true });
+      return res.json({ success: pi.status==='succeeded', status: pi.status });
     } catch(chargeErr) {
       const failedPi = chargeErr?.payment_intent || chargeErr?.raw?.payment_intent || null;
       if (failedPi?.id) {
         await savePaymentIntent(stripe, acc, failedPi, 'failed', { email:c.email, name:c.name }).catch(()=>{});
         await reconcileCustomerLifecycle(c.id).catch(()=>{});
-        return res.status(402).json({ success:false, status:'failed', error:chargeErr.message, definitive:true });
+        return res.status(402).json({ success:false, status:'failed', error:chargeErr.message });
       }
       throw chargeErr;
     }
-  } catch(err) {
-    // Unexpected/DB-level failure — ambiguous whether Stripe already processed the charge.
-    res.status(500).json({ error: err.message, definitive:false });
-  } finally {
-    endInFlight(inFlightKey);
-  }
+  } catch(err) { res.status(500).json({ error: err.message }); }
 });
 app.get('/api/customers/export', async (req, res) => {
   try {
@@ -2486,7 +2180,7 @@ app.get('/api/migrations/subscription/:id', async (req, res) => {
       localPaymentMethodId: row.stripe_payment_method || null
     });
     const ids = scopedAccountIds(req).filter(id => Number(id) !== Number(sourceAccount.id));
-    const destinations = ids.length ? (await pool.query('SELECT id,name,created_at FROM stripe_accounts WHERE id=ANY($1::int[]) AND workspace_id=$2 ORDER BY created_at DESC NULLS LAST, id DESC',[ids,req.currentUser.workspace_id])).rows : [];
+    const destinations = ids.length ? (await pool.query('SELECT id,name,created_at FROM stripe_accounts WHERE id=ANY($1::int[]) AND workspace_id=$2 ORDER BY created_at DESC, id DESC',[ids,req.currentUser.workspace_id])).rows : [];
     res.json({
       subscription:{ id:row.id, stripe_subscription_id:row.stripe_subscription_id || null, amount:row.amount, currency:row.currency, interval_days:row.interval_days, next_billing_date:row.next_billing_date },
       customer:{ id:row.customer_id, name:row.name, email:row.email, stripe_customer_id:row.stripe_customer_id },
@@ -2496,142 +2190,6 @@ app.get('/api/migrations/subscription/:id', async (req, res) => {
     });
   } catch(err) { console.error('[migration-details]',err.message); res.status(500).json({ error:err.message }); }
 });
-function migrationPaymentStatus(pi) {
-  if (pi?.status === 'succeeded') return 'succeeded';
-  if (pi?.last_payment_error || pi?.status === 'requires_payment_method' || pi?.status === 'canceled') return 'failed';
-  return pi?.status || 'failed';
-}
-
-// Migration verification payments need an explicit Stripe-B customer association.
-// A copied Stripe customer can have the same cus_ ID on Stripe A and Stripe B, so
-// routing these attempts through the generic importer can associate them ambiguously.
-async function ensureMigrationDestinationLocalCustomer(stripe, destination, destinationCustomerId, cardDetails = {}, paymentMethodId = null) {
-  const stripeCustomer = await stripe.customers.retrieve(destinationCustomerId);
-  if (!stripeCustomer || stripeCustomer.deleted) throw new Error('Destination Stripe customer has been deleted');
-  const email = cleanEmail(stripeCustomer.email) || `${destinationCustomerId}@stripe.local`;
-  const name = stripeCustomer.name || stripeCustomer.email || destinationCustomerId;
-
-  const r = await pool.query(`
-    INSERT INTO customers (
-      email,name,stripe_customer_id,stripe_payment_method,stripe_account_id,
-      card_brand,card_last4,card_exp_month,card_exp_year,status,workspace_id
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'active',$10)
-    ON CONFLICT (stripe_account_id,stripe_customer_id) DO UPDATE SET
-      email=EXCLUDED.email,
-      name=EXCLUDED.name,
-      stripe_payment_method=COALESCE(EXCLUDED.stripe_payment_method,customers.stripe_payment_method),
-      card_brand=COALESCE(EXCLUDED.card_brand,customers.card_brand),
-      card_last4=COALESCE(EXCLUDED.card_last4,customers.card_last4),
-      card_exp_month=COALESCE(EXCLUDED.card_exp_month,customers.card_exp_month),
-      card_exp_year=COALESCE(EXCLUDED.card_exp_year,customers.card_exp_year),
-      workspace_id=EXCLUDED.workspace_id
-    RETURNING id,email,name
-  `, [
-    email, name, destinationCustomerId, paymentMethodId || null, destination.id,
-    cardDetails.brand || null, cardDetails.last4 || null, cardDetails.exp_month || null,
-    cardDetails.exp_year || null, destination.workspace_id || null
-  ]);
-  return r.rows[0];
-}
-
-async function persistMigrationVerificationPayment(stripe, destination, destinationCustomerId, pi, forcedStatus = null, localCustomerIdOverride = null) {
-  await ensureWebhookColumns();
-  if (typeof pi === 'string') pi = await stripe.paymentIntents.retrieve(pi, { expand:['latest_charge','payment_method'] });
-  if (!pi?.id) throw new Error('Stripe did not return a PaymentIntent to save');
-
-  try {
-    const fullPi = await stripe.paymentIntents.retrieve(pi.id, { expand:['latest_charge','payment_method'] });
-    pi = { ...pi, ...fullPi, latest_charge:fullPi.latest_charge || pi.latest_charge, payment_method:fullPi.payment_method || pi.payment_method };
-  } catch (e) {
-    console.log('[migration-payment-save] could not expand PaymentIntent:', e.message);
-  }
-
-  const cardDetails = await getCardDetailsFromPaymentIntent(stripe, pi);
-  const paymentMethodId = typeof pi.payment_method === 'string' ? pi.payment_method : pi.payment_method?.id || null;
-
-  // IMPORTANT: the migration verification payment belongs to Stripe B, but the
-  // subscription/customer record already exists locally under Stripe A. Payments now
-  // carry their own stripe_account_id, so we can keep the original customer identity
-  // while unambiguously recording the payment under the destination Stripe account.
-  let localCustomer = null;
-  const overrideId = Number(localCustomerIdOverride);
-  if (Number.isInteger(overrideId)) {
-    const local = await pool.query('SELECT id,email,name,workspace_id FROM customers WHERE id=$1 AND workspace_id=$2 LIMIT 1', [overrideId, destination.workspace_id]);
-    localCustomer = local.rows[0] || null;
-  }
-  if (!localCustomer) {
-    localCustomer = await ensureMigrationDestinationLocalCustomer(stripe, destination, destinationCustomerId, cardDetails, paymentMethodId);
-  }
-  if (!localCustomer?.id) throw new Error('Could not resolve the local customer for this migration payment');
-
-  const status = forcedStatus || migrationPaymentStatus(pi);
-  const failureReason = pi.last_payment_error?.message || pi.cancellation_reason || null;
-  const financials = await getFinancialsFromPaymentIntent(stripe, pi);
-  const amount = Number.isFinite(Number(pi.amount)) ? Number(pi.amount) : (financials.amount || pi.amount_received || 0);
-  const currency = pi.currency || financials.currency || 'usd';
-  const createdAt = Number.isFinite(Number(pi.created)) ? new Date(Number(pi.created) * 1000) : new Date();
-
-  const existing = await pool.query('SELECT id,status,was_failed,recovered_at FROM payments WHERE stripe_payment_intent=$1', [pi.id]);
-  let paymentId;
-  if (existing.rows[0]) {
-    paymentId = existing.rows[0].id;
-    await pool.query(`UPDATE payments SET
-      customer_id=$1, stripe_account_id=$2, subscription_id=NULL, amount=$3, currency=$4, status=$5, failure_reason=$6,
-      card_brand=COALESCE($7,card_brand), card_last4=COALESCE($8,card_last4),
-      card_exp_month=COALESCE($9,card_exp_month), card_exp_year=COALESCE($10,card_exp_year),
-      card_country=COALESCE($11,card_country), card_funding=COALESCE($12,card_funding),
-      payment_method_type=COALESCE($13,payment_method_type), wallet_type=COALESCE($14,wallet_type), wallet_checked=TRUE,
-      stripe_fee=COALESCE($15,stripe_fee), net_amount=COALESCE($16,net_amount),
-      balance_transaction_id=COALESCE($17,balance_transaction_id), financial_currency=COALESCE($18,financial_currency),
-      was_failed=COALESCE(was_failed,false) OR $5='failed',
-      recovered_at=CASE WHEN $5='succeeded' AND (COALESCE(was_failed,false) OR status='failed') THEN COALESCE(recovered_at,NOW()) ELSE recovered_at END,
-      payment_origin='migration_verification'
-      WHERE id=$19`, [
-        localCustomer.id, destination.id, amount, currency, status, failureReason,
-        cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year,
-        cardDetails.country, cardDetails.funding, cardDetails.payment_method_type, cardDetails.wallet_type,
-        financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency,
-        paymentId
-      ]);
-  } else {
-    const ins = await pool.query(`INSERT INTO payments (
-      customer_id,stripe_account_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,
-      card_brand,card_last4,card_exp_month,card_exp_year,card_country,card_funding,
-      payment_method_type,wallet_type,wallet_checked,stripe_fee,net_amount,balance_transaction_id,
-      financial_currency,was_failed,payment_origin,created_at
-    ) VALUES ($1,$2,NULL,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,TRUE,$16,$17,$18,$19,$20,'migration_verification',$21)
-    RETURNING id`, [
-      localCustomer.id, destination.id, pi.id, amount, currency, status, failureReason,
-      cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year,
-      cardDetails.country, cardDetails.funding, cardDetails.payment_method_type, cardDetails.wallet_type,
-      financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency,
-      status === 'failed', createdAt
-    ]);
-    paymentId = ins.rows[0].id;
-  }
-
-  console.log('[migration-payment-save] saved:', pi.id, 'payment:', paymentId, 'destination account:', destination.id, 'customer:', destinationCustomerId, 'status:', status);
-  return paymentId;
-}
-
-async function syncMigrationVerificationHistory(stripe, destination, destinationCustomerId, localCustomerId = null) {
-  try {
-    const list = await stripe.paymentIntents.list({ customer: destinationCustomerId, limit: 100 });
-    for (const pi of (list.data || [])) {
-      const isMigrationVerification = pi?.metadata?.subloop_migration_verification === 'true'
-        || pi?.metadata?.subloop_migration_test === 'true'
-        || String(pi?.description || '').toLowerCase().includes('subloop stripe migration verification')
-        || String(pi?.description || '').toLowerCase().includes('subloop migration test');
-      if (!isMigrationVerification) continue;
-      await persistMigrationVerificationPayment(stripe, destination, destinationCustomerId, pi, migrationPaymentStatus(pi), localCustomerId).catch((saveErr) => {
-        console.error('[migration-history-sync] could not save PaymentIntent', pi?.id || '-', saveErr.message);
-      });
-    }
-  } catch (err) {
-    console.error('[migration-history-sync]', err.message);
-  }
-}
-
 app.post('/api/migrations/check', async (req, res) => {
   try {
     const ctx = await migrationContext(req, res, req.body.subscription_id); if (!ctx) return;
@@ -2649,11 +2207,6 @@ app.post('/api/migrations/check', async (req, res) => {
     ]);
     if (sourceCustomer?.deleted) return res.status(400).json({ error:'Source Stripe customer has been deleted' });
     if (destinationCustomer?.deleted) return res.status(400).json({ error:'Destination Stripe customer has been deleted' });
-
-    // Backfill any migration verification attempts Stripe already has for this copied
-    // destination customer. This recovers attempts created before direct saving was added.
-    await syncMigrationVerificationHistory(destStripe, destination, destinationCustomerId, row.customer_id);
-
     const sameMode = !!sourceCustomer.livemode === !!destinationCustomer.livemode;
     const warnings = [];
     if (!sameMode) warnings.push('Source and destination are not in the same Stripe mode.');
@@ -2680,18 +2233,13 @@ app.post('/api/migrations/check', async (req, res) => {
   }
 });
 app.post('/api/migrations/test-charge', async (req, res) => {
-  let stripe = null;
-  let destination = null;
-  let destinationCustomerId = '';
-  let localCustomerId = null;
   try {
     const ctx = await migrationContext(req, res, req.body.subscription_id); if (!ctx) return;
     const { row, sourceAccount } = ctx;
-    localCustomerId = row.customer_id;
-    destination = await migrationDestinationAccount(req, res, sourceAccount.id, req.body.destination_stripe_account_id); if (!destination) return;
-    destinationCustomerId = String(req.body.destination_customer_id || '').trim();
+    const destination = await migrationDestinationAccount(req, res, sourceAccount.id, req.body.destination_stripe_account_id); if (!destination) return;
+    const destinationCustomerId = String(req.body.destination_customer_id || '').trim();
     if (!/^cus_[A-Za-z0-9]+$/.test(destinationCustomerId)) return res.status(400).json({ error:'A valid destination customer ID (cus_...) is required' });
-    stripe = new Stripe(destination.secret_key);
+    const stripe = new Stripe(destination.secret_key);
     const customer = await stripe.customers.retrieve(destinationCustomerId);
     if (customer?.deleted) return res.status(400).json({ error:'Destination Stripe customer has been deleted' });
     if (customer.livemode) return res.status(400).json({ error:'Test card is available only when the destination Stripe account is in test mode' });
@@ -2709,39 +2257,24 @@ app.post('/api/migrations/test-charge', async (req, res) => {
       description:'Subloop migration test',
       metadata:{ subloop_migration_test:'true', source_subscription_id:String(row.id), source_stripe_subscription_id:String(row.stripe_subscription_id || '') }
     });
-    await persistMigrationVerificationPayment(stripe, destination, destinationCustomerId, pi, migrationPaymentStatus(pi), localCustomerId).catch((saveErr) => {
-      console.error('[migration-test-charge] could not save PaymentIntent:', saveErr.message);
-    });
     res.json({ success:pi.status==='succeeded', status:pi.status, payment_intent_id:pi.id, amount:pi.amount, currency:pi.currency });
   } catch(err) {
     console.error('[migration-test-charge]',err.message);
-    const failedPi = err?.payment_intent || err?.raw?.payment_intent || null;
-    if (stripe && destination && failedPi) {
-      await persistMigrationVerificationPayment(stripe, destination, destinationCustomerId, failedPi, 'failed', localCustomerId).catch((saveErr) => {
-        console.error('[migration-test-charge] could not save failed PaymentIntent:', saveErr.message);
-      });
-    }
     res.status(err.statusCode || 402).json({ success:false, error:err.message });
   }
 });
 
 
 app.post('/api/migrations/live-verification-charge', async (req, res) => {
-  let stripe = null;
-  let destination = null;
-  let destinationCustomerId = '';
-  let localCustomerId = null;
-  let requestId = '';
   try {
     const ctx = await migrationContext(req, res, req.body.subscription_id); if (!ctx) return;
     const { row, sourceAccount } = ctx;
-    localCustomerId = row.customer_id;
-    destination = await migrationDestinationAccount(req, res, sourceAccount.id, req.body.destination_stripe_account_id); if (!destination) return;
-    destinationCustomerId = String(req.body.destination_customer_id || '').trim();
+    const destination = await migrationDestinationAccount(req, res, sourceAccount.id, req.body.destination_stripe_account_id); if (!destination) return;
+    const destinationCustomerId = String(req.body.destination_customer_id || '').trim();
     if (!/^cus_[A-Za-z0-9]+$/.test(destinationCustomerId)) return res.status(400).json({ error:'A valid destination customer ID (cus_...) is required' });
     const currency = String(row.currency || '').toLowerCase();
     if (currency !== 'usd') return res.status(400).json({ error:'Live verification charging is currently available only for USD subscriptions' });
-    stripe = new Stripe(destination.secret_key);
+    const stripe = new Stripe(destination.secret_key);
     const customer = await stripe.customers.retrieve(destinationCustomerId);
     if (customer?.deleted) return res.status(400).json({ error:'Destination Stripe customer has been deleted' });
     if (!customer.livemode) return res.status(400).json({ error:'Live verification charge is available only on a live Stripe destination account' });
@@ -2749,11 +2282,10 @@ app.post('/api/migrations/live-verification-charge', async (req, res) => {
     const pm = pmInfo.paymentMethod;
     if (!pm) return res.status(400).json({ error:'No reusable saved card is attached to the destination customer' });
     const amountMajor = Number(req.body.amount);
-    if (!Number.isFinite(amountMajor) || amountMajor < 0.50) return res.status(400).json({ error:'Verification amount must be at least $0.50' });
+    if (!Number.isFinite(amountMajor) || amountMajor < 0.50 || amountMajor > 1000) return res.status(400).json({ error:'Verification amount must be between $0.50 and $1,000.00' });
     const amountMinor = Math.round(amountMajor * 100);
-    if (!Number.isSafeInteger(amountMinor)) return res.status(400).json({ error:'Verification amount is too large to process safely' });
     if (Math.abs((amountMinor / 100) - amountMajor) > 0.000001) return res.status(400).json({ error:'Verification amount can have at most 2 decimal places' });
-    requestId = String(req.body.request_id || '').replace(/[^A-Za-z0-9_-]/g,'').slice(0,80);
+    const requestId = String(req.body.request_id || '').replace(/[^A-Za-z0-9_-]/g,'').slice(0,80);
     if (!requestId) return res.status(400).json({ error:'Verification request ID is required' });
     const pi = await stripe.paymentIntents.create({
       amount:amountMinor,
@@ -2768,52 +2300,16 @@ app.post('/api/migrations/live-verification-charge', async (req, res) => {
         source_subscription_id:String(row.id),
         source_stripe_subscription_id:String(row.stripe_subscription_id || ''),
         source_stripe_account_id:String(sourceAccount.id),
-        destination_stripe_account_id:String(destination.id),
-        subloop_migration_request_id:requestId
+        destination_stripe_account_id:String(destination.id)
       }
     }, { idempotencyKey:'subloop-migration-verify-'+requestId });
-
-    // Save immediately so migration verification payments appear in Subloop even if
-    // the destination Stripe account webhook is missing or delayed. savePaymentIntent
-    // upserts by Stripe PaymentIntent ID, so a later webhook updates the same row.
-    let subloopPaymentId = null;
-    try {
-      subloopPaymentId = await persistMigrationVerificationPayment(stripe, destination, destinationCustomerId, pi, migrationPaymentStatus(pi), localCustomerId);
-    } catch (saveErr) {
-      console.error('[migration-live-verification-charge] could not save PaymentIntent:', saveErr.message);
-    }
-
-    res.json({ success:pi.status==='succeeded', status:pi.status, payment_intent_id:pi.id, amount:pi.amount, currency:pi.currency, subloop_payment_id:subloopPaymentId, subloop_saved:!!subloopPaymentId });
+    res.json({ success:pi.status==='succeeded', status:pi.status, payment_intent_id:pi.id, amount:pi.amount, currency:pi.currency });
   } catch(err) {
     console.error('[migration-live-verification-charge]',err.message);
-
-    // Stripe can return a failed PaymentIntent inside a 402 error. Persist that too,
-    // so blocked/declined verification attempts show on the Subloop Payments page.
-    let failedPi = err?.payment_intent || err?.raw?.payment_intent || null;
-    // Some Stripe card/Radar errors don't expose payment_intent on the thrown error even
-    // though Stripe created the transaction. Recover it deterministically by the request
-    // metadata so every Stripe-B migration attempt can still be written to Payments.
-    if (!failedPi && stripe && destinationCustomerId && requestId) {
-      try {
-        const recent = await stripe.paymentIntents.list({ customer:destinationCustomerId, limit:20 });
-        failedPi = (recent.data || []).find((candidate) => candidate?.metadata?.subloop_migration_request_id === requestId) || null;
-      } catch (lookupErr) {
-        console.error('[migration-live-verification-charge] could not recover failed PaymentIntent:', lookupErr.message);
-      }
-    }
-    let subloopPaymentId = null;
-    if (stripe && destination && failedPi) {
-      try {
-        subloopPaymentId = await persistMigrationVerificationPayment(stripe, destination, destinationCustomerId, failedPi, 'failed', localCustomerId);
-      } catch (saveErr) {
-        console.error('[migration-live-verification-charge] could not save failed PaymentIntent:', saveErr.message);
-      }
-    }
-
     const message = err?.code === 'authentication_required'
       ? 'The card requires customer authentication (3DS), so the off-session verification charge could not complete.'
       : err.message;
-    res.status(err.statusCode || 402).json({ success:false, error:message, payment_intent_id:failedPi?.id || null, subloop_payment_id:subloopPaymentId, subloop_saved:!!subloopPaymentId });
+    res.status(err.statusCode || 402).json({ success:false, error:message });
   }
 });
 
@@ -2933,25 +2429,21 @@ app.patch('/api/subscriptions/:id/amount', async (req, res) => {
   }
 });
 app.post('/api/subscriptions/:id/charge', async (req, res) => {
-  const inFlightKey = 'sub-charge-' + req.params.id;
-  if (!beginInFlight(inFlightKey, res)) return;
   try {
-    const attemptId = String(req.body?.attempt_id || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 100) || null;
     const sub = await scopedSubscription(req, res, req.params.id);
     if (!sub) return;
-    if (normalizeSubStatus(sub.status) !== 'active') return res.status(409).json({ success:false, error:'Manual recurring charges are allowed only on an Active subscription', definitive:true });
+    if (normalizeSubStatus(sub.status) !== 'active') return res.status(409).json({ success:false, error:'Manual recurring charges are allowed only on an Active subscription' });
     const c = await customers.byId(sub.customer_id);
-    if (!String(c?.stripe_customer_id || '').startsWith('cus_')) return res.status(400).json({ success:false, error:'A valid Stripe customer is required', definitive:true });
+    if (!String(c?.stripe_customer_id || '').startsWith('cus_')) return res.status(400).json({ success:false, error:'A valid Stripe customer is required' });
     const acc = await stripeAccounts.byId(c.stripe_account_id);
-    if (!acc?.secret_key) return res.status(400).json({ success:false, error:'Stripe account secret key not found', definitive:true });
+    if (!acc?.secret_key) return res.status(400).json({ success:false, error:'Stripe account secret key not found' });
     const stripe = new Stripe(acc.secret_key);
     const pm = await resolveBestPaymentMethod(stripe, c.stripe_customer_id, {
       subscriptionId: sub.stripe_subscription_id || null,
       localPaymentMethodId: c.stripe_payment_method
     });
-    if (!pm) return res.status(400).json({ success:false, error:'No reusable saved card attached to this Stripe customer', definitive:true });
+    if (!pm) return res.status(400).json({ success:false, error:'No reusable saved card attached to this Stripe customer' });
     await syncLocalPaymentMethod(c.id, pm);
-    const idemKey = idemKeyFromAttempt('subloop-sub-charge-' + sub.id, attemptId);
     try {
       const pi = await stripe.paymentIntents.create({
         amount: sub.amount,
@@ -2960,29 +2452,17 @@ app.post('/api/subscriptions/:id/charge', async (req, res) => {
         payment_method: pm.id,
         off_session: true,
         confirm: true,
-        metadata: { subloop_payment_origin:'recurring_manual', subloop_subscription_id:String(sub.id), subloop_attempt_id: attemptId || '' }
-      }, { idempotencyKey: idemKey });
+        metadata: { subloop_payment_origin:'recurring_manual', subloop_subscription_id:String(sub.id) }
+      });
       await savePaymentIntent(stripe, acc, pi, pi.status === 'succeeded' ? 'succeeded' : pi.status);
       await activityLog.add('charge', `Manual recurring charge of ${(sub.amount/100).toFixed(2)} ${String(sub.currency||'').toUpperCase()} for ${c.email}`, c.id, sub.amount);
       // Deliberately do NOT alter next_billing_date: Stripe Billing owns the renewal schedule.
-      res.json({ success:pi.status==='succeeded', status:pi.status, paymentIntentId:pi.id, renewal_date_unchanged:true, definitive:true });
+      res.json({ success:pi.status==='succeeded', status:pi.status, paymentIntentId:pi.id, renewal_date_unchanged:true });
     } catch(chargeErr) {
-      const failedPi = chargeErr?.payment_intent || chargeErr?.raw?.payment_intent || null;
-      if (failedPi?.id) {
-        await savePaymentIntent(stripe, acc, failedPi, 'failed').catch(()=>{});
-        // Stripe attached a PaymentIntent, so the decline/authentication result is known.
-        return res.status(402).json({ success:false, error:chargeErr.message, definitive:true });
-      }
-      // Connection, Stripe API, or local persistence failures can be ambiguous. Preserve the
-      // attempt_id so the next click reuses the same Stripe idempotency key.
-      throw chargeErr;
+      if (chargeErr?.payment_intent) await savePaymentIntent(stripe, acc, chargeErr.payment_intent, 'failed').catch(()=>{});
+      return res.status(402).json({ success:false, error:chargeErr.message });
     }
-  } catch(err) {
-    // Unexpected/DB-level failure — we don't know if Stripe already processed the charge. Ambiguous.
-    res.status(500).json({ success:false, error:err.message, definitive:false });
-  } finally {
-    endInFlight(inFlightKey);
-  }
+  } catch(err) { res.status(500).json({ success:false, error:err.message }); }
 });
 app.delete('/api/subscriptions/:id', async (req, res) => {
   try {
@@ -3000,85 +2480,13 @@ app.delete('/api/subscriptions/:id', async (req, res) => {
 
 // ── Payments ──────────────────────────────────────────────────────────────────
 app.get('/api/payments', async (req, res) => { try { const list=await payments.recent(1000,req.currentUser.workspace_id); res.json(list.filter(p => rowWithinScope(req,p))); } catch(err) { res.status(500).json({ error: err.message }); } });
-app.get('/api/payments/:id/migration-retry-context', async (req, res) => {
-  try {
-    if (!requireOwnerOrAdmin(req, res)) return;
-    const r = await pool.query(`SELECT p.*, c.workspace_id
-      FROM payments p JOIN customers c ON c.id=p.customer_id WHERE p.id=$1`, [req.params.id]);
-    const payment = r.rows[0];
-    if (!payment) return res.status(404).json({ error:'Payment not found' });
-    if (!ensureRowScope(req, res, { stripe_account_id:payment.stripe_account_id, workspace_id:payment.workspace_id })) return;
-    if (String(payment.payment_origin || '').toLowerCase() !== 'migration_verification') {
-      return res.status(400).json({ error:'This is not a migration verification payment' });
-    }
-    if (normalizeSubStatus(payment.status) !== 'failed') {
-      return res.status(409).json({ error:'Only failed migration verification payments can be retried' });
-    }
-    if (!payment.stripe_payment_intent) {
-      return res.status(409).json({ error:'This migration payment has no Stripe PaymentIntent reference' });
-    }
-
-    const destination = await stripeAccounts.byId(payment.stripe_account_id);
-    if (!destination?.secret_key || Number(destination.workspace_id) !== Number(req.currentUser.workspace_id)) {
-      return res.status(404).json({ error:'Destination Stripe account is no longer available' });
-    }
-    const stripe = new Stripe(destination.secret_key);
-    const pi = await stripe.paymentIntents.retrieve(payment.stripe_payment_intent, { expand:['latest_charge'] });
-    const destinationCustomerId = typeof pi.customer === 'string' ? pi.customer : pi.customer?.id || '';
-    const sourceSubscriptionId = Number(pi.metadata?.source_subscription_id);
-    if (!Number.isInteger(sourceSubscriptionId)) {
-      return res.status(409).json({ error:'This older migration payment does not contain its source subscription. Start from Migrate Subscription instead.' });
-    }
-    if (!/^cus_[A-Za-z0-9]+$/.test(destinationCustomerId)) {
-      return res.status(409).json({ error:'The destination Stripe customer could not be identified' });
-    }
-
-    const charge = pi.latest_charge && typeof pi.latest_charge === 'object' ? pi.latest_charge : null;
-    const retryAdvice = {
-      last_error_decline_code:pi.last_payment_error?.decline_code || null,
-      last_error_code:pi.last_payment_error?.code || null,
-      advice_code:charge?.outcome?.advice_code || null,
-      failure_reason:payment.failure_reason || pi.last_payment_error?.message || null
-    };
-    const blockReason = retryBlockReason(retryAdvice);
-    const authenticationRequired = retryAdvice.last_error_decline_code === 'authentication_required'
-      || retryAdvice.last_error_code === 'authentication_required';
-    const retryWarning = !authenticationRequired && retryAdvice.advice_code === 'try_again_later'
-      ? blockReason
-      : null;
-    if (blockReason && !retryWarning) return res.status(409).json({ error:blockReason });
-
-    const ctx = await migrationContext(req, res, sourceSubscriptionId);
-    if (!ctx) return;
-    if (Number(ctx.row.customer_id) !== Number(payment.customer_id)) {
-      return res.status(409).json({ error:'The migration source no longer matches this payment' });
-    }
-    if (Number(ctx.sourceAccount.id) === Number(destination.id)) {
-      return res.status(409).json({ error:'The original destination is now the source Stripe account' });
-    }
-
-    res.json({
-      payment_id:payment.id,
-      subscription_id:ctx.row.id,
-      destination_stripe_account_id:destination.id,
-      destination_account_name:destination.name,
-      destination_customer_id:destinationCustomerId,
-      amount:payment.amount,
-      currency:payment.currency || pi.currency || 'usd',
-      retry_warning:retryWarning
-    });
-  } catch(err) {
-    console.error('[migration-retry-context]', err.message);
-    res.status(err.statusCode || 500).json({ error:err.message });
-  }
-});
 app.get('/api/payments/:id/financials', async (req, res) => {
   try {
     await ensureWebhookColumns();
-    const r = await pool.query(`SELECT p.*, COALESCE(p.stripe_account_id,c.stripe_account_id) AS stripe_account_id, sa.secret_key, sa.name AS account_name
+    const r = await pool.query(`SELECT p.*, c.stripe_account_id, sa.secret_key, sa.name AS account_name
       FROM payments p
       JOIN customers c ON c.id=p.customer_id
-      LEFT JOIN stripe_accounts sa ON sa.id=COALESCE(p.stripe_account_id,c.stripe_account_id)
+      LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id
       WHERE p.id=$1`, [req.params.id]);
     const payment = r.rows[0];
     if (!payment) return res.status(404).json({ error: 'Payment not found' });
@@ -3124,7 +2532,7 @@ app.get('/api/payments/:id/financials', async (req, res) => {
     await pool.query(`UPDATE payments SET payment_method_type=COALESCE($1,payment_method_type), wallet_type=COALESCE($2,wallet_type), wallet_checked=TRUE WHERE id=$3`,
       [cardDetails.payment_method_type, cardDetails.wallet_type, payment.id]).catch(()=>{});
     const updated = await pool.query(`SELECT p.*, c.email, c.name, COALESCE(p.card_brand,c.card_brand) AS card_brand, COALESCE(p.card_last4,c.card_last4) AS card_last4, sa.name AS account_name
-      FROM payments p JOIN customers c ON c.id=p.customer_id LEFT JOIN stripe_accounts sa ON sa.id=COALESCE(p.stripe_account_id,c.stripe_account_id) WHERE p.id=$1`, [payment.id]);
+      FROM payments p JOIN customers c ON c.id=p.customer_id LEFT JOIN stripe_accounts sa ON sa.id=c.stripe_account_id WHERE p.id=$1`, [payment.id]);
     res.json(updated.rows[0] || payment);
   } catch(err) {
     console.error('[payment-financials] ERROR:', err.message);
@@ -3132,56 +2540,38 @@ app.get('/api/payments/:id/financials', async (req, res) => {
   }
 });
 app.post('/api/payments/:id/retry', async (req, res) => {
-  const inFlightKey = 'payment-retry-' + req.params.id;
-  if (!beginInFlight(inFlightKey, res)) return;
   try {
-    const attemptId = String(req.body?.attempt_id || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 100) || null;
     await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS retry_of_payment_id INT REFERENCES payments(id)').catch(()=>{});
-    const r = await pool.query(`SELECT p.*, c.stripe_customer_id, c.stripe_payment_method, COALESCE(p.stripe_account_id,c.stripe_account_id) AS stripe_account_id, c.email, c.name, s.stripe_subscription_id
+    const r = await pool.query(`SELECT p.*, c.stripe_customer_id, c.stripe_payment_method, c.stripe_account_id, c.email, c.name, s.stripe_subscription_id
       FROM payments p
       JOIN customers c ON c.id=p.customer_id
       LEFT JOIN subscriptions s ON s.id=p.subscription_id
       WHERE p.id=$1`, [req.params.id]);
     const p = r.rows[0];
-    if (!p) return res.status(404).json({ error:'Not found', definitive:true });
+    if (!p) return res.status(404).json({ error:'Not found' });
     if (!ensureRowScope(req,res,p)) return;
-    if (String(p.payment_origin || '').toLowerCase() === 'migration_verification') return res.status(400).json({ error:'Migration verification payments cannot be retried from Payments', definitive:true });
-    if (normalizeSubStatus(p.status) !== 'failed') return res.status(400).json({ error:'Only failed payments can be retried', definitive:true });
-    const blockReason = retryBlockReason(p);
-    if (blockReason) return res.status(409).json({ success:false, error:blockReason, definitive:true });
+    if (normalizeSubStatus(p.status) !== 'failed') return res.status(400).json({ error:'Only failed payments can be retried' });
     const acc = await stripeAccounts.byId(p.stripe_account_id);
-    if (!acc?.secret_key) return res.status(400).json({ error:'Stripe account secret key not found', definitive:true });
+    if (!acc?.secret_key) return res.status(400).json({ error:'Stripe account secret key not found' });
     const stripe = new Stripe(acc.secret_key);
     const pm = await resolveBestPaymentMethod(stripe, p.stripe_customer_id, {
       subscriptionId:p.stripe_subscription_id || null,
       localPaymentMethodId:p.stripe_payment_method
     });
-    if (!pm) return res.status(400).json({ error:'No reusable saved card attached to this Stripe customer', definitive:true });
+    if (!pm) return res.status(400).json({ error:'No reusable saved card attached to this Stripe customer' });
     await syncLocalPaymentMethod(p.customer_id, pm);
 
     let invoiceId = p.stripe_invoice_id || null;
     if (!invoiceId && p.stripe_payment_intent) {
-      try {
-        const originalPi = await stripe.paymentIntents.retrieve(p.stripe_payment_intent, { expand:['invoice'] });
-        invoiceId = typeof originalPi?.invoice === 'string' ? originalPi.invoice : originalPi?.invoice?.id || null;
-      } catch(lookupErr) {
-        // No new payment was attempted. Do not guess that this is standalone and accidentally
-        // create a disconnected PaymentIntent when the Stripe invoice lookup is unavailable.
-        return res.status(502).json({ success:false, error:'Could not verify the original payment invoice. No retry charge was created.', definitive:true });
-      }
+      const originalPi = await stripe.paymentIntents.retrieve(p.stripe_payment_intent, { expand:['invoice'] }).catch(()=>null);
+      invoiceId = typeof originalPi?.invoice === 'string' ? originalPi.invoice : originalPi?.invoice?.id || null;
     }
 
-    const paymentOrigin = String(p.payment_origin || '').toLowerCase();
-    const isStripeBillingPayment = ['subscription','subscription_initial','subscription_renewal'].includes(paymentOrigin);
-    if (isStripeBillingPayment && !invoiceId) {
-      return res.status(409).json({ success:false, error:'The Stripe invoice for this subscription payment could not be identified. No retry charge was created.', definitive:true });
-    }
-
-    // Any Stripe invoice failure must retry/pay the actual invoice. Creating a separate
-    // PaymentIntent would leave that invoice unpaid (and a Billing subscription past due).
-    if (invoiceId) {
+    // Stripe subscription failures must retry/pay the actual invoice. Creating a separate
+    // PaymentIntent would leave Stripe Billing's invoice unpaid and the subscription past due.
+    if (invoiceId && (p.subscription_id || p.stripe_subscription_id)) {
       const invoice = await stripe.invoices.retrieve(invoiceId, { expand:['subscription','payment_intent'] });
-      if (invoice.status === 'paid') return res.status(409).json({ error:'This Stripe invoice is already paid', definitive:true });
+      if (invoice.status === 'paid') return res.status(409).json({ error:'This Stripe invoice is already paid' });
       const originalPiId = p.stripe_payment_intent || (typeof invoice.payment_intent === 'string' ? invoice.payment_intent : invoice.payment_intent?.id || null);
 
       // Preserve the original failed attempt as Failed. The successful invoice retry gets its own
@@ -3189,9 +2579,8 @@ app.post('/api/payments/:id/retry', async (req, res) => {
       if (originalPiId && p.stripe_payment_intent === originalPiId) {
         await pool.query('UPDATE payments SET stripe_payment_intent=NULL WHERE id=$1', [p.id]);
       }
-      const invoicePayIdemKey = idemKeyFromAttempt('subloop-invoice-pay-' + invoiceId, attemptId);
       try {
-        const paidInvoice = await stripe.invoices.pay(invoiceId, { payment_method:pm.id }, { idempotencyKey: invoicePayIdemKey });
+        const paidInvoice = await stripe.invoices.pay(invoiceId, { payment_method:pm.id });
         const retryPiId = typeof paidInvoice.payment_intent === 'string' ? paidInvoice.payment_intent : paidInvoice.payment_intent?.id || originalPiId;
         let newPaymentId = null;
         if (retryPiId) {
@@ -3205,49 +2594,34 @@ app.post('/api/payments/:id/retry', async (req, res) => {
         if (newPaymentId && Number(newPaymentId) !== Number(p.id)) await pool.query('UPDATE payments SET retry_of_payment_id=$1 WHERE id=$2', [p.id, newPaymentId]);
         await reconcileCustomerLifecycle(p.customer_id).catch(()=>{});
         await activityLog.add('retry', `Retried Stripe invoice for ${p.name}: ${paidInvoice.status}`, p.customer_id, p.amount);
-        return res.json({ success:paidInvoice.status==='paid', status:paidInvoice.status, invoice_id:invoiceId, retry_of_payment_id:p.id, payment_id:newPaymentId, definitive:true });
+        return res.json({ success:paidInvoice.status==='paid', status:paidInvoice.status, invoice_id:invoiceId, retry_of_payment_id:p.id, payment_id:newPaymentId });
       } catch(invoiceErr) {
         if (originalPiId) await pool.query('UPDATE payments SET stripe_payment_intent=$1 WHERE id=$2 AND stripe_payment_intent IS NULL', [originalPiId,p.id]).catch(()=>{});
-        const failedPi = invoiceErr?.payment_intent || invoiceErr?.raw?.payment_intent || null;
-        if (failedPi?.id) {
-          const paymentId = await savePaymentIntent(stripe, acc, failedPi, 'failed').catch(()=>null);
-          if (paymentId && Number(paymentId) !== Number(p.id)) await pool.query('UPDATE payments SET retry_of_payment_id=$1 WHERE id=$2', [p.id,paymentId]).catch(()=>{});
-          return res.status(402).json({ success:false, error:invoiceErr.message, invoice_id:invoiceId, retry_of_payment_id:p.id, payment_id:paymentId, definitive:true });
-        }
         throw invoiceErr;
       }
     }
 
     // Standalone one-time/manual-recurring retry: no Stripe Billing invoice exists to pay.
     const retryOrigin = p.subscription_id ? 'recurring_manual' : 'one_time';
-    const retryMetadata = { subloop_payment_origin:retryOrigin, subloop_attempt_id: attemptId || '' };
+    const retryMetadata = { subloop_payment_origin:retryOrigin };
     if (p.subscription_id) retryMetadata.subloop_subscription_id = String(p.subscription_id);
-    const retryIdemKey = idemKeyFromAttempt('subloop-retry-' + p.id, attemptId);
     try {
-      const pi = await stripe.paymentIntents.create({ amount:p.amount, currency:p.currency||'usd', customer:p.stripe_customer_id, payment_method:pm.id, confirm:true, off_session:true, metadata:retryMetadata }, { idempotencyKey: retryIdemKey });
+      const pi = await stripe.paymentIntents.create({ amount:p.amount, currency:p.currency||'usd', customer:p.stripe_customer_id, payment_method:pm.id, confirm:true, off_session:true, metadata:retryMetadata });
       const status = pi.status==='succeeded' ? 'succeeded' : pi.status;
       const paymentId = await savePaymentIntent(stripe, acc, pi, status);
       if (paymentId) await pool.query('UPDATE payments SET retry_of_payment_id=$1 WHERE id=$2', [p.id,paymentId]);
       await activityLog.add('retry', `Retried payment for ${p.name}: ${status}`, p.customer_id, p.amount);
-      return res.json({ success:status==='succeeded', status, retry_of_payment_id:p.id, payment_id:paymentId, definitive:true });
+      return res.json({ success:status==='succeeded', status, retry_of_payment_id:p.id, payment_id:paymentId });
     } catch(retryErr) {
-      const failedPi = retryErr?.payment_intent || retryErr?.raw?.payment_intent || null;
-      if (failedPi?.id) {
-        const paymentId = await savePaymentIntent(stripe, acc, failedPi, 'failed').catch(()=>null);
+      if (retryErr?.payment_intent) {
+        const paymentId = await savePaymentIntent(stripe, acc, retryErr.payment_intent, 'failed').catch(()=>null);
         if (paymentId) await pool.query('UPDATE payments SET retry_of_payment_id=$1 WHERE id=$2', [p.id,paymentId]).catch(()=>{});
-        // Stripe attached a PaymentIntent, so the decline/authentication result is known.
-        return res.status(402).json({ success:false, error:retryErr.message, definitive:true });
       }
-      // Do not clear the attempt_id when Stripe may have processed the request but no result
-      // reached Subloop, or when local persistence failed after Stripe accepted it.
-      throw retryErr;
+      return res.status(402).json({ success:false, error:retryErr.message });
     }
   } catch(err) {
     console.error('[payment-retry] failed:', err.message);
-    // Unexpected/DB-level failure — ambiguous whether Stripe already processed it.
-    res.status(500).json({ error:err.message, definitive:false });
-  } finally {
-    endInFlight(inFlightKey);
+    res.status(500).json({ error:err.message });
   }
 });
 app.patch('/api/payments/:id/note', async (req, res) => {
@@ -4388,16 +3762,6 @@ app.get('/api/debug/admins', async (req, res) => {
   res.json(results);
 });
 
-// Always serve the SPA shell fresh so a deployment cannot leave users on an old UI build.
-function sendAppIndex(res) {
-  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-  res.set('Pragma', 'no-cache');
-  res.set('Expires', '0');
-  res.set('Surrogate-Control', 'no-store');
-  res.set('X-Subloop-App-Build', '20260903-stripe-actions-sync-1');
-  return res.sendFile(path.join(__dirname, 'index.html'));
-}
-
 // ── Webhook ───────────────────────────────────────────────────────────────────
 app.get('*', async (req, res) => {
   try {
@@ -4432,9 +3796,9 @@ app.get('*', async (req, res) => {
       const suffix=params.toString()?('?'+params.toString()):'';
       return res.redirect(302, SUBLOOP_LOGIN_ORIGIN + '/' + suffix);
     }
-    return sendAppIndex(res);
+    return res.sendFile(path.join(__dirname, 'index.html'));
   } catch (_err) {
-    return sendAppIndex(res);
+    return res.sendFile(path.join(__dirname, 'index.html'));
   }
 });
 
