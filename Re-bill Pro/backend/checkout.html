@@ -12,12 +12,12 @@
     html,body{min-height:100%;margin:0;background:radial-gradient(circle at 18% 2%,rgba(104,91,255,.14),transparent 34%),var(--bg);color:var(--text);font-family:var(--sans)}
     body{display:grid;place-items:center;padding:32px 18px}
     main{width:min(100%,520px);margin:auto}
+    .checkout-summary{text-align:center;margin-bottom:22px}
     .card{width:100%;background:rgba(17,17,24,.97);border:1px solid var(--border);border-radius:18px;padding:26px;box-shadow:0 24px 70px rgba(0,0,0,.32)}
-    .merchant{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:18px}
+    .merchant{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:14px}
     .merchant-icon{width:34px;height:34px;border:1px solid #343442;border-radius:50%;display:grid;place-items:center;background:var(--panel2);color:#c8c7d3}
     .merchant-name{font-size:16px;font-weight:700;letter-spacing:-.01em;overflow-wrap:anywhere}
-    .amount-title{text-align:center;font-size:23px;font-weight:750;letter-spacing:-.025em;margin:0 0 22px}
-    #checkout-form{border-top:1px solid var(--border);padding-top:22px}
+    .amount-title{text-align:center;font-size:23px;font-weight:750;letter-spacing:-.025em;margin:0}
     .section-title{font-size:15px;font-weight:700;margin:0 0 16px}
     .section{border-top:1px solid var(--border);padding-top:22px;margin-top:7px}
     label{display:block;font-size:14px;font-weight:400;letter-spacing:0;text-transform:none;color:var(--text);margin:0 0 8px}
@@ -46,29 +46,34 @@
     .check{width:50px;height:50px;border-radius:50%;display:grid;place-items:center;margin:0 auto 18px;background:rgba(0,207,122,.11);color:var(--green);border:1px solid rgba(0,207,122,.25)}
     .complete h2{font-size:21px;margin:0 0 8px}
     .complete p{color:var(--muted);font-size:13px;line-height:1.55;margin:0}
-    .powered{display:flex;align-items:center;justify-content:center;gap:6px;color:#737383;font-size:11px;margin-top:18px}
+    .powered{display:flex;align-items:center;justify-content:center;gap:7px;color:#737383;font-size:11px;margin-top:18px;white-space:nowrap}
     .stripe-logo{display:block;width:38px;height:auto;opacity:1}
-    @media(max-width:560px){body{display:block;padding:18px 12px}.card{padding:21px;border-radius:16px}.form-row{grid-template-columns:1fr;gap:0}.amount-title{font-size:21px}}
+    .powered-divider{width:1px;height:16px;background:#353540;margin:0 5px}
+    .powered a{color:#9292a2;text-decoration:none;transition:color .16s}
+    .powered a:hover{color:var(--text);text-decoration:underline}
+    @media(max-width:560px){body{display:block;padding:18px 12px}.checkout-summary{margin-bottom:18px}.card{padding:21px;border-radius:16px}.form-row{grid-template-columns:1fr;gap:0}.amount-title{font-size:21px}.powered{gap:6px;font-size:10px}.powered-divider{margin:0 2px}}
   </style>
 </head>
 <body>
   <main>
+    <div class="checkout-summary" id="checkout-summary" hidden>
+      <div class="merchant">
+        <span class="merchant-icon" aria-hidden="true">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9.5 4.5 4h15L21 9.5"/><path d="M5 13v7h14v-7"/><path d="M9 20v-5h6v5"/>
+            <path d="M3 9.5a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/>
+          </svg>
+        </span>
+        <span class="merchant-name" id="shop-name">Shop</span>
+      </div>
+      <h1 class="amount-title">Payment of <span id="payment-amount"></span></h1>
+    </div>
+
     <section class="card" id="checkout-card">
       <div id="loading" class="loading"><span class="spinner"></span>Loading secure payment…</div>
       <div id="error-message" class="message"></div>
 
       <div id="checkout-content" hidden>
-        <div class="merchant">
-          <span class="merchant-icon" aria-hidden="true">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 9.5 4.5 4h15L21 9.5"/><path d="M5 13v7h14v-7"/><path d="M9 20v-5h6v5"/>
-              <path d="M3 9.5a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/>
-            </svg>
-          </span>
-          <span class="merchant-name" id="shop-name">Shop</span>
-        </div>
-        <h1 class="amount-title">Payment of <span id="payment-amount"></span></h1>
-
         <form id="checkout-form">
           <h2 class="section-title">Customer details</h2>
           <div id="address-element"></div>
@@ -112,7 +117,9 @@
       var paymentMessage=document.getElementById('payment-message');
       var payButton=document.getElementById('pay-button');
       var expressWrap=document.getElementById('express-wrap');
+      var checkoutSummary=document.getElementById('checkout-summary');
       document.querySelector('.powered span').textContent='Payments securely processed by';
+      document.querySelector('.powered').insertAdjacentHTML('beforeend','<span class="powered-divider" aria-hidden="true"></span><a href="https://stripe.com/legal/end-users" target="_blank" rel="noopener noreferrer">Terms</a><a href="https://stripe.com/privacy" target="_blank" rel="noopener noreferrer">Privacy</a>');
 
       function showMessage(element,text,type){element.textContent=text||'';element.className='message'+(text?' '+(type||'error'):'');}
       function money(amount,currency){try{return new Intl.NumberFormat(undefined,{style:'currency',currency:String(currency||'usd').toUpperCase()}).format(Number(amount||0)/100);}catch(_err){return (Number(amount||0)/100).toFixed(2)+' '+String(currency||'usd').toUpperCase();}}
@@ -242,6 +249,7 @@
           payButtonLabel='Pay '+amountLabel;
           payButton.textContent=payButtonLabel;
           loading.style.display='none';
+          checkoutSummary.hidden=false;
           checkoutContent.hidden=false;
           return statusFromReturn().then(function(done){if(!done)mountPaymentMethods();});
         })
