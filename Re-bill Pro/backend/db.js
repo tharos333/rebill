@@ -140,6 +140,20 @@ async function init() {
       updated_at TIMESTAMPTZ DEFAULT NOW(),
       UNIQUE(plan_token_hash, checkout_reference)
     );
+    CREATE TABLE IF NOT EXISTS hosted_checkout_links (
+      id BIGSERIAL PRIMARY KEY,
+      slug TEXT UNIQUE NOT NULL,
+      workspace_id INT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+      stripe_account_id INT NOT NULL REFERENCES stripe_accounts(id) ON DELETE CASCADE,
+      stripe_price_id TEXT NOT NULL,
+      stripe_payment_link_id TEXT,
+      stripe_payment_link_url TEXT,
+      active BOOLEAN NOT NULL DEFAULT true,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS hosted_checkout_links_workspace_idx ON hosted_checkout_links(workspace_id,created_at DESC);
+    CREATE INDEX IF NOT EXISTS hosted_checkout_links_account_idx ON hosted_checkout_links(stripe_account_id);
     CREATE TABLE IF NOT EXISTS customers (
       id SERIAL PRIMARY KEY,
       email TEXT NOT NULL,

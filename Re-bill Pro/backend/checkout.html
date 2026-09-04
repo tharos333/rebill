@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <title>Secure checkout · Subloop</title>
+  <script src="https://js.stripe.com/v3/"></script>
+  <style>
+    :root{--bg:#09090f;--panel:#111118;--panel2:#171720;--border:#292936;--text:#f3f3f7;--muted:#9292a2;--accent:#685bff;--accent2:#7b70ff;--green:#00cf7a;--red:#ff676d;--sans:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    *{box-sizing:border-box}
+    html,body{min-height:100%;margin:0;background:radial-gradient(circle at 18% 2%,rgba(104,91,255,.14),transparent 34%),var(--bg);color:var(--text);font-family:var(--sans)}
+    body{display:flex;flex-direction:column}
+    .topbar{height:68px;display:flex;align-items:center;padding:0 28px;border-bottom:1px solid rgba(255,255,255,.07);background:rgba(9,9,15,.82);backdrop-filter:blur(14px)}
+    .logo{width:126px;height:auto;display:block}
+    main{width:min(980px,calc(100% - 36px));margin:auto;display:grid;grid-template-columns:minmax(0,1fr) minmax(380px,440px);gap:70px;align-items:center;padding:52px 0 70px}
+    .summary{padding:12px 0}
+    .eyebrow{font-size:12px;letter-spacing:.13em;text-transform:uppercase;color:#aaa9ba;font-weight:700;margin-bottom:18px}
+    h1{font-size:36px;line-height:1.14;letter-spacing:-.035em;margin:0 0 14px;overflow-wrap:anywhere}
+    .price{font-size:27px;font-weight:750;letter-spacing:-.02em;margin:24px 0 10px}
+    .interval{font-size:14px;color:var(--muted);font-weight:500}
+    .secure{display:flex;gap:10px;align-items:flex-start;margin-top:38px;color:var(--muted);font-size:13px;line-height:1.5;max-width:390px}
+    .secure svg{flex:0 0 auto;color:var(--green);margin-top:1px}
+    .card{background:rgba(17,17,24,.97);border:1px solid var(--border);border-radius:18px;padding:26px;box-shadow:0 24px 70px rgba(0,0,0,.32)}
+    .card-title{font-size:19px;font-weight:700;margin:0 0 5px}
+    .card-sub{font-size:13px;color:var(--muted);margin:0 0 22px;line-height:1.45}
+    label{display:block;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#aaa9ba;margin:0 0 8px}
+    input{width:100%;height:46px;border:1px solid #343442;border-radius:10px;background:var(--panel2);color:var(--text);padding:0 13px;font:500 14px var(--sans);outline:none;transition:border-color .16s,box-shadow .16s}
+    input:focus{border-color:#6e63ff;box-shadow:0 0 0 3px rgba(104,91,255,.15)}
+    .field{margin-bottom:16px}
+    button{width:100%;height:46px;border:0;border-radius:10px;background:var(--accent);color:white;font:700 14px var(--sans);cursor:pointer;transition:background .16s,transform .08s,opacity .16s}
+    button:hover:not(:disabled){background:var(--accent2)}
+    button:active:not(:disabled){transform:translateY(1px)}
+    button:disabled{opacity:.55;cursor:not-allowed}
+    #payment-step{display:none}
+    #payment-element{min-height:120px;margin-bottom:18px}
+    .back{width:auto;height:auto;background:none;padding:0;color:#aaa9ba;font-size:12px;margin:0 0 18px;text-align:left}
+    .back:hover:not(:disabled){background:none;color:white}
+    .message{display:none;border-radius:10px;padding:12px 13px;font-size:13px;line-height:1.45;margin-bottom:16px}
+    .message.error{display:block;background:rgba(255,103,109,.09);border:1px solid rgba(255,103,109,.28);color:#ff9ca0}
+    .message.success{display:block;background:rgba(0,207,122,.08);border:1px solid rgba(0,207,122,.25);color:#62e7ad}
+    .loading{min-height:250px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px}
+    .spinner{width:18px;height:18px;border:2px solid #343442;border-top-color:var(--accent2);border-radius:50%;animation:spin .7s linear infinite;margin-right:9px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .complete{text-align:center;padding:32px 8px 26px;display:none}
+    .check{width:50px;height:50px;border-radius:50%;display:grid;place-items:center;margin:0 auto 18px;background:rgba(0,207,122,.11);color:var(--green);border:1px solid rgba(0,207,122,.25)}
+    .complete h2{font-size:21px;margin:0 0 8px}
+    .complete p{color:var(--muted);font-size:13px;line-height:1.55;margin:0}
+    .powered{text-align:center;color:#737383;font-size:11px;margin-top:18px}
+    .powered strong{color:#aaa9ba;font-weight:650}
+    @media(max-width:760px){.topbar{height:62px;padding:0 20px}.logo{width:118px}main{width:min(100% - 28px,480px);display:block;padding:32px 0 46px}.summary{padding:0 4px 28px}h1{font-size:27px}.price{font-size:23px;margin-top:18px}.secure{display:none}.card{padding:22px;border-radius:16px}}
+  </style>
+</head>
+<body>
+  <header class="topbar"><img class="logo" src="/icons/platform-admin-logo.png" alt="Subloop"></header>
+  <main>
+    <section class="summary" aria-live="polite">
+      <div class="eyebrow">Secure subscription</div>
+      <h1 id="product-name">Loading checkout…</h1>
+      <div class="price" id="price">—</div>
+      <div class="interval" id="interval">Recurring payment</div>
+      <div class="secure">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>
+        <span>Your payment details are encrypted and processed securely by Stripe. Subloop never stores your full card number.</span>
+      </div>
+    </section>
+
+    <section class="card" id="checkout-card">
+      <div id="loading" class="loading"><span class="spinner"></span>Loading secure checkout…</div>
+      <div id="error-message" class="message"></div>
+
+      <form id="customer-step" hidden>
+        <h2 class="card-title">Your information</h2>
+        <p class="card-sub">Enter the details associated with this subscription.</p>
+        <div class="field"><label for="customer-name">Full name</label><input id="customer-name" name="name" autocomplete="name" maxlength="200" required></div>
+        <div class="field"><label for="customer-email">Email address</label><input id="customer-email" name="email" type="email" autocomplete="email" maxlength="254" required></div>
+        <button id="continue-button" type="submit">Continue to payment</button>
+      </form>
+
+      <form id="payment-step">
+        <button type="button" class="back" id="back-button">← Change customer information</button>
+        <h2 class="card-title">Payment details</h2>
+        <p class="card-sub">Complete your subscription using a secure card payment.</p>
+        <div id="payment-message" class="message"></div>
+        <div id="payment-element"></div>
+        <button id="pay-button" type="submit" disabled>Subscribe securely</button>
+      </form>
+
+      <div id="complete" class="complete">
+        <div class="check"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m5 12 4 4L19 6"/></svg></div>
+        <h2>Payment successful</h2>
+        <p>Your subscription has been created. A confirmation will be sent by the merchant.</p>
+      </div>
+      <div class="powered">Powered securely by <strong>Stripe</strong></div>
+    </section>
+  </main>
+
+  <script>
+    (function(){
+      'use strict';
+      var pathParts=location.pathname.split('/').filter(Boolean);
+      var slug=pathParts[0]==='pay' ? pathParts[1] : '';
+      var config=null,stripe=null,elements=null,confirmationType='payment';
+      var loading=document.getElementById('loading');
+      var customerStep=document.getElementById('customer-step');
+      var paymentStep=document.getElementById('payment-step');
+      var complete=document.getElementById('complete');
+      var errorMessage=document.getElementById('error-message');
+      var paymentMessage=document.getElementById('payment-message');
+      var continueButton=document.getElementById('continue-button');
+      var payButton=document.getElementById('pay-button');
+
+      function showMessage(element,text,type){element.textContent=text||'';element.className='message'+(text?' '+(type||'error'):'');}
+      function money(amount,currency){try{return new Intl.NumberFormat(undefined,{style:'currency',currency:String(currency||'usd').toUpperCase()}).format(Number(amount||0)/100);}catch(_err){return (Number(amount||0)/100).toFixed(2)+' '+String(currency||'usd').toUpperCase();}}
+      function intervalText(interval,count){count=Number(count||1);var unit=String(interval||'month');if(count===1)return 'Billed every '+unit;return 'Billed every '+count+' '+unit+'s';}
+      function randomReference(){if(window.crypto&&crypto.randomUUID)return crypto.randomUUID();return 'checkout-'+Date.now()+'-'+Math.random().toString(36).slice(2,12);}
+      function referenceFor(email){var key='subloop_checkout_'+slug;try{var saved=JSON.parse(sessionStorage.getItem(key)||'null');if(saved&&saved.email===email&&saved.reference)return saved.reference;var reference=randomReference();sessionStorage.setItem(key,JSON.stringify({email:email,reference:reference}));return reference;}catch(_err){return randomReference();}}
+      function clearReference(){try{sessionStorage.removeItem('subloop_checkout_'+slug);}catch(_err){}}
+      function showComplete(){loading.style.display='none';customerStep.hidden=true;paymentStep.style.display='none';showMessage(errorMessage,'');complete.style.display='block';clearReference();}
+      function statusFromReturn(){
+        var params=new URLSearchParams(location.search);
+        var paymentSecret=params.get('payment_intent_client_secret');
+        var setupSecret=params.get('setup_intent_client_secret');
+        if(!stripe||(!paymentSecret&&!setupSecret))return Promise.resolve(false);
+        var request=paymentSecret?stripe.retrievePaymentIntent(paymentSecret):stripe.retrieveSetupIntent(setupSecret);
+        return request.then(function(result){
+          var intent=result.paymentIntent||result.setupIntent;
+          if(intent&&['succeeded','processing'].indexOf(intent.status)>=0){showComplete();return true;}
+          if(intent&&intent.status==='requires_payment_method')showMessage(errorMessage,'The payment was not completed. Please try another card.','error');
+          return false;
+        }).catch(function(){return false;});
+      }
+
+      fetch('/checkout/hosted/'+encodeURIComponent(slug)+'/config',{headers:{Accept:'application/json'}})
+        .then(function(response){return response.json().then(function(body){if(!response.ok)throw new Error(body.error||'Checkout unavailable');return body;});})
+        .then(function(body){
+          config=body;
+          if(!window.Stripe)throw new Error('Secure payment form could not load. Please refresh the page.');
+          stripe=Stripe(config.publishableKey);
+          document.getElementById('product-name').textContent=config.productName||'Subscription';
+          document.getElementById('price').textContent=money(config.amount,config.currency);
+          document.getElementById('interval').textContent=intervalText(config.interval,config.intervalCount);
+          loading.style.display='none';customerStep.hidden=false;
+          return statusFromReturn();
+        })
+        .catch(function(error){loading.style.display='none';document.getElementById('product-name').textContent='Checkout unavailable';showMessage(errorMessage,error.message||'This checkout link is unavailable.','error');});
+
+      customerStep.addEventListener('submit',function(event){
+        event.preventDefault();showMessage(errorMessage,'');
+        if(!customerStep.reportValidity()||!config||!stripe)return;
+        var name=document.getElementById('customer-name').value.trim();
+        var email=document.getElementById('customer-email').value.trim().toLowerCase();
+        continueButton.disabled=true;continueButton.textContent='Preparing payment…';
+        fetch('/checkout/create-subscription',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({token:config.embedToken,checkout_reference:referenceFor(email),customer:{name:name,email:email}})})
+          .then(function(response){return response.json().then(function(body){if(!response.ok)throw new Error(body.error||'Could not prepare payment');return body;});})
+          .then(function(result){
+            if(!result.clientSecret||result.type==='none')throw new Error('Stripe did not return a payment confirmation. Please contact the merchant.');
+            confirmationType=result.type||'payment';
+            elements=stripe.elements({clientSecret:result.clientSecret,appearance:{theme:'night',variables:{colorPrimary:'#685bff',colorBackground:'#171720',colorText:'#f3f3f7',colorDanger:'#ff676d',borderRadius:'10px',fontFamily:'Inter, ui-sans-serif, system-ui, sans-serif'}}});
+            var paymentElement=elements.create('payment',{layout:'tabs'});
+            paymentElement.mount('#payment-element');
+            paymentElement.on('ready',function(){payButton.disabled=false;});
+            customerStep.hidden=true;paymentStep.style.display='block';
+          })
+          .catch(function(error){showMessage(errorMessage,error.message||'Could not prepare payment.','error');})
+          .finally(function(){continueButton.disabled=false;continueButton.textContent='Continue to payment';});
+      });
+
+      document.getElementById('back-button').addEventListener('click',function(){if(payButton.disabled)return;paymentStep.style.display='none';customerStep.hidden=false;});
+      paymentStep.addEventListener('submit',function(event){
+        event.preventDefault();if(!stripe||!elements||payButton.disabled)return;
+        showMessage(paymentMessage,'');payButton.disabled=true;payButton.textContent='Processing…';
+        var confirmParams={return_url:location.origin+location.pathname+'?complete=1'};
+        var request=confirmationType==='setup'
+          ? stripe.confirmSetup({elements:elements,confirmParams:confirmParams,redirect:'if_required'})
+          : stripe.confirmPayment({elements:elements,confirmParams:confirmParams,redirect:'if_required'});
+        request.then(function(result){if(result.error)throw result.error;showComplete();}).catch(function(error){showMessage(paymentMessage,error.message||'Your payment could not be completed.','error');payButton.disabled=false;payButton.textContent='Subscribe securely';});
+      });
+    })();
+  </script>
+</body>
+</html>
