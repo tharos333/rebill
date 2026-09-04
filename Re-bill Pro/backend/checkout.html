@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <title>Secure payment</title>
+  <script src="https://js.stripe.com/v3/"></script>
+  <style>
+    :root{--bg:#09090f;--panel:#111118;--panel2:#171720;--border:#292936;--text:#f3f3f7;--muted:#9292a2;--accent:#685bff;--accent2:#7b70ff;--green:#00cf7a;--red:#ff676d;--sans:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    *{box-sizing:border-box}
+    html,body{min-height:100%;margin:0;background:radial-gradient(circle at 18% 2%,rgba(104,91,255,.14),transparent 34%),var(--bg);color:var(--text);font-family:var(--sans)}
+    body{display:grid;place-items:center;padding:32px 18px}
+    main{width:min(100%,520px);margin:auto}
+    .card{width:100%;background:rgba(17,17,24,.97);border:1px solid var(--border);border-radius:18px;padding:26px;box-shadow:0 24px 70px rgba(0,0,0,.32)}
+    .merchant{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:18px}
+    .merchant-icon{width:34px;height:34px;border:1px solid #343442;border-radius:50%;display:grid;place-items:center;background:var(--panel2);color:#c8c7d3}
+    .merchant-name{font-size:16px;font-weight:700;letter-spacing:-.01em;overflow-wrap:anywhere}
+    .amount-title{text-align:center;font-size:23px;font-weight:750;letter-spacing:-.025em;margin:0 0 26px}
+    .section-title{font-size:15px;font-weight:700;margin:0 0 16px}
+    .section{border-top:1px solid var(--border);padding-top:22px;margin-top:7px}
+    label{display:block;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#aaa9ba;margin:0 0 8px}
+    input,select{width:100%;height:46px;border:1px solid #343442;border-radius:10px;background:var(--panel2);color:var(--text);padding:0 13px;font:500 14px var(--sans);outline:none;transition:border-color .16s,box-shadow .16s}
+    select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,#9292a2 50%),linear-gradient(135deg,#9292a2 50%,transparent 50%);background-position:calc(100% - 17px) 19px,calc(100% - 12px) 19px;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:34px}
+    input:focus,select:focus{border-color:#6e63ff;box-shadow:0 0 0 3px rgba(104,91,255,.15)}
+    .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .field{margin-bottom:16px}
+    .optional{font-size:10px;color:#777787;letter-spacing:0;text-transform:none;font-weight:600}
+    button{width:100%;height:46px;border:0;border-radius:10px;background:var(--accent);color:white;font:700 14px var(--sans);cursor:pointer;transition:background .16s,transform .08s,opacity .16s}
+    button:hover:not(:disabled){background:var(--accent2)}
+    button:active:not(:disabled){transform:translateY(1px)}
+    button:disabled{opacity:.55;cursor:not-allowed}
+    #express-wrap{display:none;margin-bottom:18px}
+    .divider{display:flex;align-items:center;gap:12px;color:#777787;font-size:11px;margin:17px 0}
+    .divider:before,.divider:after{content:"";height:1px;background:var(--border);flex:1}
+    #payment-element{min-height:120px;margin-bottom:18px}
+    .message{display:none;border-radius:10px;padding:12px 13px;font-size:13px;line-height:1.45;margin-bottom:16px}
+    .message.error{display:block;background:rgba(255,103,109,.09);border:1px solid rgba(255,103,109,.28);color:#ff9ca0}
+    .message.success{display:block;background:rgba(0,207,122,.08);border:1px solid rgba(0,207,122,.25);color:#62e7ad}
+    .loading{min-height:250px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px}
+    .spinner{width:18px;height:18px;border:2px solid #343442;border-top-color:var(--accent2);border-radius:50%;animation:spin .7s linear infinite;margin-right:9px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .complete{text-align:center;padding:32px 8px 26px;display:none}
+    .check{width:50px;height:50px;border-radius:50%;display:grid;place-items:center;margin:0 auto 18px;background:rgba(0,207,122,.11);color:var(--green);border:1px solid rgba(0,207,122,.25)}
+    .complete h2{font-size:21px;margin:0 0 8px}
+    .complete p{color:var(--muted);font-size:13px;line-height:1.55;margin:0}
+    .powered{display:flex;align-items:center;justify-content:center;gap:6px;color:#737383;font-size:11px;margin-top:18px}
+    .stripe-logo{display:block;width:43px;height:auto;opacity:.78}
+    @media(max-width:560px){body{display:block;padding:18px 12px}.card{padding:21px;border-radius:16px}.form-row{grid-template-columns:1fr;gap:0}.amount-title{font-size:21px}}
+  </style>
+</head>
+<body>
+  <main>
+    <section class="card" id="checkout-card">
+      <div id="loading" class="loading"><span class="spinner"></span>Loading secure payment…</div>
+      <div id="error-message" class="message"></div>
+
+      <div id="checkout-content" hidden>
+        <div class="merchant">
+          <span class="merchant-icon" aria-hidden="true">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 9.5 4.5 4h15L21 9.5"/><path d="M5 13v7h14v-7"/><path d="M9 20v-5h6v5"/>
+              <path d="M3 9.5a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/>
+            </svg>
+          </span>
+          <span class="merchant-name" id="shop-name">Shop</span>
+        </div>
+        <h1 class="amount-title">Payment of <span id="payment-amount"></span></h1>
+
+        <form id="checkout-form">
+          <h2 class="section-title">Customer details</h2>
+          <div class="form-row">
+            <div class="field"><label for="first-name">First name</label><input id="first-name" name="given-name" autocomplete="given-name" maxlength="100" required></div>
+            <div class="field"><label for="last-name">Last name</label><input id="last-name" name="family-name" autocomplete="family-name" maxlength="100" required></div>
+          </div>
+          <div class="field"><label for="customer-email">Email address</label><input id="customer-email" name="email" type="email" autocomplete="email" maxlength="254" required></div>
+          <div class="field"><label for="customer-phone">Phone <span class="optional">(optional)</span></label><input id="customer-phone" name="tel" type="tel" autocomplete="tel" maxlength="50"></div>
+          <div class="field"><label for="address-line1">Address</label><input id="address-line1" name="address-line1" autocomplete="address-line1" maxlength="200" required></div>
+          <div class="field"><label for="address-line2">Apartment or suite <span class="optional">(optional)</span></label><input id="address-line2" name="address-line2" autocomplete="address-line2" maxlength="200"></div>
+          <div class="form-row">
+            <div class="field"><label for="address-city">City</label><input id="address-city" name="address-level2" autocomplete="address-level2" maxlength="100" required></div>
+            <div class="field"><label for="address-postal">Postal code</label><input id="address-postal" name="postal-code" autocomplete="postal-code" maxlength="40" required></div>
+          </div>
+          <div class="form-row">
+            <div class="field"><label for="address-state">State / province <span class="optional">(optional)</span></label><input id="address-state" name="address-level1" autocomplete="address-level1" maxlength="100"></div>
+            <div class="field"><label for="address-country">Country</label><select id="address-country" name="country" autocomplete="country" required><option value="">Select country</option></select></div>
+          </div>
+
+          <div class="section">
+            <h2 class="section-title">Payment method</h2>
+            <div id="express-wrap">
+              <div id="express-checkout-element"></div>
+              <div class="divider">Or pay another way</div>
+            </div>
+            <div id="payment-message" class="message"></div>
+            <div id="payment-element"></div>
+            <button id="pay-button" type="submit" disabled>Pay securely</button>
+          </div>
+        </form>
+      </div>
+
+      <div id="complete" class="complete">
+        <div class="check"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m5 12 4 4L19 6"/></svg></div>
+        <h2>Payment successful</h2>
+        <p>Your payment was completed successfully.</p>
+      </div>
+      <div class="powered"><span>Powered securely by</span><img class="stripe-logo" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAA3sAAAFgCAMAAAA1nZCgAAAACXBIWXMAAAsTAAALEwEAmpwYAAABm1BMVEVHcEz////+/v7////////////////////////9/f3////////////////////////////////////////////////////////////////////////8/Pz////////////////////+/v7////////////////+/v7////////////////////////////////////////////+/v7////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////+/v7////////////+/v7////////+/v7////////////////////////////////////////////////////////////////////////////+/v7////////////////////////+/v7////////////////////////+/v7////////+/v7////////////////////////9/f3+/v6JaYGGAAAAhnRSTlMAilr4nzsFuPvGVjzUm5FyzqVrlAeAc2MkNrCpAcMP71EJA4YL+o8i4UEcXE/ml9Bv3m3LYL4w6sEejKPYFPFUmUqnEdu0PuR8TSl29SY4Lg1eyEgWjaxGe2ad5aqCH7qiiYMa2SxEaHnAsmQxWH/c99L9F4j96+muvMa17vQ0KtW3JyCH7APUkKUAABrCSURBVHja7J3rW9PKFoeLVGAXapHK3QrIzSLKTdxFEQ8XFQRBt4iiD9vbw0XRjQpH2IKKPjrpn31Uqgds2iZZazKT9Pd+2B+2Dysr0/VmJpPJJBAAfiFeEe4r+7O1ZHO3K9i7hPYAwA16B0UaYxVoFwCkEvoqMrDZiNYBQBaVIiuTaCEAZFAtchJBKwHAzaKwxCW0FACsFAiL3EdbAcCIsEyyAa0FABejwhZFaDEAWCgVNnmKNgOAgRvCNutoNQDI1AgHnES7AUBFOALtBgCRQmfu9aDlACCxJRyygrYDgMBT4Rg0HgCu3+ztvdiA1gPAMZME90Qp2g8ABd0eRp0AKOr20PEBoKjbEztoQQAccZ3o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" alt="Stripe"></div>
+    </section>
+  </main>
+
+  <script>
+    (function(){
+      'use strict';
+      var pathParts=location.pathname.split('/').filter(Boolean);
+      var slug=pathParts[0]==='pay' ? pathParts[1] : '';
+      var config=null,stripe=null,elements=null,paymentElement=null,expressElement=null,confirmationType='payment',processing=false;
+      var payButtonLabel='Pay securely';
+      var loading=document.getElementById('loading');
+      var checkoutContent=document.getElementById('checkout-content');
+      var checkoutForm=document.getElementById('checkout-form');
+      var complete=document.getElementById('complete');
+      var errorMessage=document.getElementById('error-message');
+      var paymentMessage=document.getElementById('payment-message');
+      var payButton=document.getElementById('pay-button');
+      var expressWrap=document.getElementById('express-wrap');
+
+      function showMessage(element,text,type){element.textContent=text||'';element.className='message'+(text?' '+(type||'error'):'');}
+      function money(amount,currency){try{return new Intl.NumberFormat(undefined,{style:'currency',currency:String(currency||'usd').toUpperCase()}).format(Number(amount||0)/100);}catch(_err){return (Number(amount||0)/100).toFixed(2)+' '+String(currency||'usd').toUpperCase();}}
+      var countryCodes=('AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ NA NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW').split(' ');
+
+      function populateCountries(){
+        var select=document.getElementById('address-country');
+        var displayNames=null;
+        try{displayNames=new Intl.DisplayNames([navigator.language||'en'],{type:'region'});}catch(_err){}
+        var countries=countryCodes.map(function(code){return {code:code,label:displayNames?displayNames.of(code):code};});
+        countries.sort(function(a,b){return a.label.localeCompare(b.label);});
+        countries.forEach(function(country){var option=document.createElement('option');option.value=country.code;option.textContent=country.label;select.appendChild(option);});
+        var localeMatch=String(navigator.language||'').match(/[-_]([A-Za-z]{2})$/);
+        if(localeMatch&&countryCodes.indexOf(localeMatch[1].toUpperCase())>=0)select.value=localeMatch[1].toUpperCase();
+      }
+      function randomReference(){if(window.crypto&&crypto.randomUUID)return crypto.randomUUID();return 'checkout-'+Date.now()+'-'+Math.random().toString(36).slice(2,12);}
+      function referenceFor(email){var key='subloop_checkout_'+slug;try{var saved=JSON.parse(sessionStorage.getItem(key)||'null');if(saved&&saved.email===email&&saved.reference)return saved.reference;var reference=randomReference();sessionStorage.setItem(key,JSON.stringify({email:email,reference:reference}));return reference;}catch(_err){return randomReference();}}
+      function clearReference(){try{sessionStorage.removeItem('subloop_checkout_'+slug);}catch(_err){}}
+      function showComplete(){loading.style.display='none';checkoutContent.hidden=true;showMessage(errorMessage,'');complete.style.display='block';clearReference();}
+      function setProcessing(active){processing=active;payButton.disabled=active;payButton.textContent=active?'Processing…':payButtonLabel;}
+      function addressFromForm(){
+        return {
+          line1:document.getElementById('address-line1').value.trim(),
+          line2:document.getElementById('address-line2').value.trim(),
+          city:document.getElementById('address-city').value.trim(),
+          postal_code:document.getElementById('address-postal').value.trim(),
+          state:document.getElementById('address-state').value.trim(),
+          country:document.getElementById('address-country').value
+        };
+      }
+      function customerFromForm(){
+        var firstName=document.getElementById('first-name').value.trim();
+        var lastName=document.getElementById('last-name').value.trim();
+        return {
+          name:(firstName+' '+lastName).trim(),
+          first_name:firstName,
+          last_name:lastName,
+          email:document.getElementById('customer-email').value.trim().toLowerCase(),
+          phone:document.getElementById('customer-phone').value.trim()||null,
+          address:addressFromForm()
+        };
+      }
+      function splitName(name){
+        var parts=String(name||'').trim().split(/\s+/).filter(Boolean);
+        return {first:parts.shift()||'',last:parts.join(' ')||''};
+      }
+      function customerFromWallet(event){
+        var details=event&&event.billingDetails?event.billingDetails:{};
+        var formCustomer=customerFromForm();
+        var parsed=splitName(details.name);
+        return {
+          name:details.name||formCustomer.name,
+          first_name:parsed.first||formCustomer.first_name,
+          last_name:parsed.last||formCustomer.last_name,
+          email:String(details.email||formCustomer.email||'').trim().toLowerCase(),
+          phone:details.phone||formCustomer.phone||null,
+          address:details.address||formCustomer.address
+        };
+      }
+      function statusFromReturn(){
+        var params=new URLSearchParams(location.search);
+        var paymentSecret=params.get('payment_intent_client_secret');
+        var setupSecret=params.get('setup_intent_client_secret');
+        if(!stripe||(!paymentSecret&&!setupSecret))return Promise.resolve(false);
+        var request=paymentSecret?stripe.retrievePaymentIntent(paymentSecret):stripe.retrieveSetupIntent(setupSecret);
+        return request.then(function(result){
+          var intent=result.paymentIntent||result.setupIntent;
+          if(intent&&['succeeded','processing'].indexOf(intent.status)>=0){showComplete();return true;}
+          if(intent&&intent.status==='requires_payment_method')showMessage(errorMessage,'The payment was not completed. Please try another payment method.','error');
+          return false;
+        }).catch(function(){return false;});
+      }
+      function createSubscription(customer){
+        return fetch('/checkout/create-subscription',{
+          method:'POST',
+          headers:{'Content-Type':'application/json',Accept:'application/json'},
+          body:JSON.stringify({token:config.embedToken,checkout_reference:referenceFor(customer.email),hosted_checkout:true,customer:customer})
+        }).then(function(response){return response.json().then(function(body){if(!response.ok)throw new Error(body.error||'Could not prepare payment');return body;});});
+      }
+      function confirmSubscription(result,billingDetails){
+        if(!result.clientSecret||result.type==='none')throw new Error('Stripe did not return a payment confirmation. Please contact the merchant.');
+        confirmationType=result.type||'payment';
+        var confirmParams={return_url:location.origin+location.pathname+'?complete=1',payment_method_data:{billing_details:billingDetails}};
+        var request=confirmationType==='setup'
+          ? stripe.confirmSetup({elements:elements,clientSecret:result.clientSecret,confirmParams:confirmParams,redirect:'if_required'})
+          : stripe.confirmPayment({elements:elements,clientSecret:result.clientSecret,confirmParams:confirmParams,redirect:'if_required'});
+        return request.then(function(confirmResult){if(confirmResult.error)throw confirmResult.error;showComplete();});
+      }
+      function prepareAndConfirm(customer){
+        if(!customer.email||customer.email.indexOf('@')<1)throw new Error('A valid email address is required.');
+        var billingDetails={name:customer.name,email:customer.email,address:customer.address};
+        if(customer.phone)billingDetails.phone=customer.phone;
+        return createSubscription(customer).then(function(result){return confirmSubscription(result,billingDetails);});
+      }
+      function showExpressMethods(methods){
+        var hasMethods=methods&&Object.keys(methods).some(function(key){return !!methods[key];});
+        expressWrap.style.display=hasMethods?'block':'none';
+      }
+      function mountPaymentMethods(){
+        var appearance={theme:'night',variables:{colorPrimary:'#685bff',colorBackground:'#171720',colorText:'#f3f3f7',colorDanger:'#ff676d',borderRadius:'10px',fontFamily:'Inter, ui-sans-serif, system-ui, sans-serif'}};
+        elements=stripe.elements({mode:'subscription',amount:Number(config.amount),currency:String(config.currency||'usd').toLowerCase(),appearance:appearance});
+        expressElement=elements.create('expressCheckout',{
+          emailRequired:true,
+          billingAddressRequired:true,
+          business:{name:config.shopName||'Shop'},
+          lineItems:[{name:'Payment',amount:Number(config.amount)}],
+          buttonHeight:46,
+          layout:{maxColumns:2,maxRows:2,overflow:'auto'}
+        });
+        expressElement.mount('#express-checkout-element');
+        expressElement.on('ready',function(event){showExpressMethods(event&&event.availablePaymentMethods);});
+        expressElement.on('availablepaymentmethodschange',function(event){showExpressMethods(event&&event.paymentMethods);});
+        expressElement.on('confirm',function(event){
+          if(processing)return;
+          showMessage(paymentMessage,'');
+          setProcessing(true);
+          var customer=customerFromWallet(event);
+          prepareAndConfirm(customer).catch(function(error){showMessage(paymentMessage,error.message||'Your payment could not be completed.','error');setProcessing(false);});
+        });
+
+        paymentElement=elements.create('payment',{
+          layout:'accordion',
+          terms:{card:'never'},
+          fields:{billingDetails:{name:'never',email:'never',phone:'never',address:'never'}}
+        });
+        paymentElement.mount('#payment-element');
+        paymentElement.on('ready',function(){if(!processing)payButton.disabled=false;});
+      }
+
+      populateCountries();
+      fetch('/checkout/hosted/'+encodeURIComponent(slug)+'/config',{headers:{Accept:'application/json'}})
+        .then(function(response){return response.json().then(function(body){if(!response.ok)throw new Error(body.error||'Checkout unavailable');return body;});})
+        .then(function(body){
+          config=body;
+          if(!window.Stripe)throw new Error('Secure payment form could not load. Please refresh the page.');
+          stripe=Stripe(config.publishableKey);
+          var amountLabel=money(config.amount,config.currency);
+          document.getElementById('shop-name').textContent=config.shopName||'Shop';
+          document.getElementById('payment-amount').textContent=amountLabel;
+          document.title='Payment of '+amountLabel+' · '+(config.shopName||'Shop');
+          payButtonLabel='Pay '+amountLabel;
+          payButton.textContent=payButtonLabel;
+          loading.style.display='none';
+          checkoutContent.hidden=false;
+          return statusFromReturn().then(function(done){if(!done)mountPaymentMethods();});
+        })
+        .catch(function(error){loading.style.display='none';showMessage(errorMessage,error.message||'This checkout link is unavailable.','error');});
+
+      checkoutForm.addEventListener('submit',function(event){
+        event.preventDefault();
+        showMessage(paymentMessage,'');
+        if(!stripe||!elements||processing||payButton.disabled||!checkoutForm.reportValidity())return;
+        setProcessing(true);
+        elements.submit()
+          .then(function(result){if(result.error)throw result.error;return prepareAndConfirm(customerFromForm());})
+          .catch(function(error){showMessage(paymentMessage,error.message||'Your payment could not be completed.','error');setProcessing(false);});
+      });
+    })();
+  </script>
+</body>
+</html>

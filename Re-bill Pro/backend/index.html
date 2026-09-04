@@ -6377,7 +6377,8 @@ body.view-only-access #verification-debug-modal .modal-content{
   <div id="payment-link-create-card" class="card" style="max-width:500px;">
     <div class="card-header"><h3>Create Payment Link</h3></div>
     <div style="padding:18px;">
-      <div class="form-group"><label>Product name</label><input type="text" id="link-name" value="Monthly Subscription"></div>
+      <div class="form-group"><label>Shop name</label><input type="text" id="link-shop-name" placeholder="Example Store" maxlength="100" required></div>
+      <div class="form-group"><label>Payment description <span style="color:var(--muted);font-weight:400;">(Stripe link)</span></label><input type="text" id="link-name" value="Payment" maxlength="120"></div>
       <div class="form-row">
         <div class="form-group"><label>Amount ($)</label><input type="number" id="link-amount" value="29" min="0.50" step="0.01"></div>
         <div class="form-group"><label>Currency</label><select id="link-currency"><option value="usd">USD</option><option value="eur">EUR</option><option value="gbp">GBP</option><option value="mad">MAD</option></select></div>
@@ -6393,12 +6394,26 @@ body.view-only-access #verification-debug-modal .modal-content{
             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
             <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
           </svg>
-          <span>Hosted link created</span>
+          <span>Subloop checkout</span>
         </div>
         <div class="link-url" id="link-url"></div>
         <div style="display:flex;gap:8px;margin-top:10px;">
-          <button class="btn btn-sm" onclick="copyLink()">Copy hosted link</button>
+          <button class="btn btn-sm" onclick="copyLink()">Copy Subloop link</button>
           <button class="btn btn-sm btn-primary" onclick="openLink()">Open ↗</button>
+        </div>
+        <div style="border-top:1px solid var(--border2);margin:14px 0 10px;padding-top:12px;">
+          <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;display:flex;align-items:center;gap:7px;">
+            <svg width="13.5" height="13.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto;">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+            </svg>
+            <span>Stripe checkout</span>
+          </div>
+          <div class="link-url" id="stripe-link-url"></div>
+          <div style="display:flex;gap:8px;margin-top:10px;">
+            <button class="btn btn-sm" onclick="copyStripeLink()">Copy Stripe link</button>
+            <button class="btn btn-sm" onclick="openStripeLink()">Open ↗</button>
+          </div>
         </div>
         <div style="border-top:1px solid var(--border2);margin:14px 0 10px;padding-top:12px;">
           <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;display:flex;align-items:center;gap:7px;">
@@ -6938,7 +6953,7 @@ body.view-only-access #verification-debug-modal .modal-content{
 
 <div id="toast"></div>
 <script>
-let currentLink=null,currentEmbedToken=null,allCustomers=[],allSubscriptions=[],allPayments=[],allStripeAccounts=[],allAdminUsers=[],allLicenses=[],appSettings={},selectedSubs=new Set(),currentRevPeriod='all',bulkMode=false;
+let currentLink=null,currentStripeLink=null,currentEmbedToken=null,allCustomers=[],allSubscriptions=[],allPayments=[],allStripeAccounts=[],allAdminUsers=[],allLicenses=[],appSettings={},selectedSubs=new Set(),currentRevPeriod='all',bulkMode=false;
 const SUBLOOP_LOGIN_ORIGIN='https://subloop.space';
 const SUBLOOP_APP_ORIGIN='https://app.subloop.space';
 const PAGE_ROUTES={
@@ -9593,12 +9608,18 @@ async function addCustomer(){
 function openNoteModal(id,note){if(blockViewOnlyAction())return;document.getElementById('note-customer-id').value=id;document.getElementById('note-text').value=decodeURIComponent(note);openModal('note-modal');}
 async function saveNote(){const id=document.getElementById('note-customer-id').value,note=document.getElementById('note-text').value;await api('/api/customers/'+id+'/note',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({note})});toast('✓ Note saved');closeModal('note-modal');loadCustomers();}
 async function createPaymentLink(){
+  const shopName=document.getElementById('link-shop-name').value.trim();
+  const amount=Math.round(parseFloat(document.getElementById('link-amount').value)*100);
+  if(!shopName){toast('Shop name is required','error');document.getElementById('link-shop-name').focus();return;}
+  if(!Number.isFinite(amount)||amount<50){toast('Enter a valid amount','error');document.getElementById('link-amount').focus();return;}
   const btn=document.getElementById('create-link-btn');btn.textContent='Creating…';btn.disabled=true;
-  try{const r=await api('/api/payment-links',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:document.getElementById('link-name').value,amount:Math.round(parseFloat(document.getElementById('link-amount').value)*100),currency:document.getElementById('link-currency').value,interval_days:parseInt(document.getElementById('link-interval').value),stripe_account_id:document.getElementById('link-account').value||null})});if(r.url){currentLink=r.url;currentEmbedToken=r.embed_token||null;document.getElementById('link-url').textContent=r.url;document.getElementById('embed-token').textContent=currentEmbedToken||'Not generated';var status=document.getElementById('embed-status');if(status){status.classList.toggle('embed-ready',!!r.embed_ready);status.innerHTML=r.embed_ready?migrationResultIcon('success')+'<span>Ready for Payment Element</span>':'⚠ Add the matching pk_ publishable key in Stripe Accounts to enable embedded checkout';status.style.color=r.embed_ready?'var(--green)':'var(--amber)';}document.getElementById('link-result').classList.add('visible');toast('✓ Link + embed token created');}else toast('Error: '+(r.error||'Unknown'),'error');}catch(e){toast('Server error','error');}
+  try{const r=await api('/api/payment-links',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({shop_name:shopName,name:document.getElementById('link-name').value.trim()||'Payment',amount:amount,currency:document.getElementById('link-currency').value,interval_days:parseInt(document.getElementById('link-interval').value),stripe_account_id:document.getElementById('link-account').value||null})});if(r.url){currentLink=r.hosted_url||r.url;currentStripeLink=r.stripe_url||null;currentEmbedToken=r.embed_token||null;document.getElementById('link-url').textContent=currentLink;document.getElementById('stripe-link-url').textContent=currentStripeLink||'Not available';document.getElementById('embed-token').textContent=currentEmbedToken||'Not generated';var status=document.getElementById('embed-status');if(status){status.classList.toggle('embed-ready',!!r.embed_ready);status.innerHTML=r.embed_ready?migrationResultIcon('success')+'<span>Ready for Payment Element</span>':'⚠ Add the matching pk_ publishable key in Stripe Accounts to enable embedded checkout';status.style.color=r.embed_ready?'var(--green)':'var(--amber)';}document.getElementById('link-result').classList.add('visible');toast('✓ Subloop + Stripe links created');}else toast('Error: '+(r.error||'Unknown'),'error');}catch(e){toast((e&&e.message)||'Server error','error');}
   btn.textContent='Generate Payment Link';btn.disabled=false;
 }
 function copyLink(){if(!currentLink)return;navigator.clipboard.writeText(currentLink);toast('Copied!');}
 function openLink(){if(currentLink)window.open(currentLink,'_blank');}
+function copyStripeLink(){if(!currentStripeLink){toast('No Stripe link available','error');return;}navigator.clipboard.writeText(currentStripeLink);toast('Stripe link copied!');}
+function openStripeLink(){if(currentStripeLink)window.open(currentStripeLink,'_blank');}
 function copyEmbedToken(){if(!currentEmbedToken){toast('No embed token yet','error');return;}navigator.clipboard.writeText(currentEmbedToken);toast('Embed token copied!');}
 function copyEmbedConfigUrl(){if(!currentEmbedToken){toast('No embed token yet','error');return;}navigator.clipboard.writeText(location.origin+'/checkout/config?token='+encodeURIComponent(currentEmbedToken));toast('Config URL copied!');}
 

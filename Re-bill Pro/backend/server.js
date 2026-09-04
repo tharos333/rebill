@@ -15,6 +15,7 @@ const { initScheduler } = require('./scheduler');
 const SUBLOOP_AUTH_SECRET = process.env.SUBLOOP_AUTH_SECRET || crypto.randomBytes(48).toString('hex');
 const SUBLOOP_LOGIN_ORIGIN = String(process.env.SUBLOOP_LOGIN_ORIGIN || 'https://subloop.space').replace(/\/$/, '');
 const SUBLOOP_APP_ORIGIN = String(process.env.SUBLOOP_APP_ORIGIN || 'https://app.subloop.space').replace(/\/$/, '');
+const SUBLOOP_CHECKOUT_ORIGIN = String(process.env.SUBLOOP_CHECKOUT_ORIGIN || SUBLOOP_APP_ORIGIN).replace(/\/$/, '');
 const SUBLOOP_LOGIN_HOST = new URL(SUBLOOP_LOGIN_ORIGIN).hostname.toLowerCase();
 const SUBLOOP_APP_HOST = new URL(SUBLOOP_APP_ORIGIN).hostname.toLowerCase();
 const SUBLOOP_COOKIE_DOMAIN = process.env.SUBLOOP_COOKIE_DOMAIN || '.subloop.space';
@@ -1210,6 +1211,50 @@ async function resolveEmbeddedPlan(token) {
   return { plan, account, stripe, price };
 }
 
+function validHostedCheckoutSlug(value) {
+  const slug = String(value || '').trim();
+  return /^[A-Za-z0-9_-]{10,40}$/.test(slug) ? slug : null;
+}
+
+async function createHostedCheckoutLink({ workspaceId, accountId, priceId, paymentLinkId, paymentLinkUrl, shopName }) {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const slug = crypto.randomBytes(9).toString('base64url');
+    const inserted = await pool.query(
+      `INSERT INTO hosted_checkout_links
+       (slug,workspace_id,stripe_account_id,stripe_price_id,stripe_payment_link_id,stripe_payment_link_url,shop_name)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
+       ON CONFLICT (slug) DO NOTHING
+       RETURNING slug`,
+      [slug, workspaceId, accountId, priceId, paymentLinkId || null, paymentLinkUrl || null, shopName]
+    );
+    if (inserted.rows[0]?.slug) return inserted.rows[0].slug;
+  }
+  throw new Error('Could not generate a unique hosted checkout link');
+}
+
+async function resolveHostedCheckoutLink(rawSlug) {
+  const slug = validHostedCheckoutSlug(rawSlug);
+  if (!slug) throw Object.assign(new Error('Invalid checkout link'), { statusCode: 404 });
+  const result = await pool.query(
+    `SELECT slug,workspace_id,stripe_account_id,stripe_price_id,stripe_payment_link_url,shop_name
+     FROM hosted_checkout_links
+     WHERE slug=$1 AND active=true
+     LIMIT 1`,
+    [slug]
+  );
+  const hosted = result.rows[0];
+  if (!hosted) throw Object.assign(new Error('This checkout link is unavailable'), { statusCode: 404 });
+  const embedToken = await signCheckoutPlan({
+    account_id: Number(hosted.stripe_account_id),
+    price_id: hosted.stripe_price_id
+  });
+  const plan = await resolveEmbeddedPlan(embedToken);
+  if (Number(plan.account.workspace_id) !== Number(hosted.workspace_id)) {
+    throw Object.assign(new Error('This checkout link is unavailable'), { statusCode: 404 });
+  }
+  return { hosted, embedToken, ...plan };
+}
+
 function subscriptionClientSecret(subscription) {
   if (subscription?.pending_setup_intent) {
     const si = subscription.pending_setup_intent;
@@ -1227,7 +1272,14 @@ const CHECKOUT_ALLOWED_ORIGINS = String(process.env.CHECKOUT_ALLOWED_ORIGINS || 
   .split(',').map((v) => v.trim()).filter(Boolean);
 function checkoutCors(req, res, next) {
   const origin = String(req.headers.origin || '');
-  if (origin && CHECKOUT_ALLOWED_ORIGINS.length && !CHECKOUT_ALLOWED_ORIGINS.includes(origin)) {
+  let sameOriginCheckout = false;
+  if (origin) {
+    try { sameOriginCheckout = new URL(origin).hostname.toLowerCase() === requestHostname(req); }
+    catch (_err) { sameOriginCheckout = false; }
+  }
+  // The Subloop-hosted /pay page is always allowed to call its own checkout API.
+  // CHECKOUT_ALLOWED_ORIGINS continues to restrict external embedded storefronts.
+  if (origin && !sameOriginCheckout && CHECKOUT_ALLOWED_ORIGINS.length && !CHECKOUT_ALLOWED_ORIGINS.includes(origin)) {
     return res.status(403).json({ error: 'Checkout origin is not allowed' });
   }
   if (origin) res.setHeader('Access-Control-Allow-Origin', origin);
@@ -1409,6 +1461,41 @@ app.get('/checkout/config', async (req, res) => {
   }
 });
 
+app.get('/checkout/hosted/:slug/config', async (req, res) => {
+  try {
+    const { hosted, embedToken, account, price } = await resolveHostedCheckoutLink(req.params.slug);
+    const access = await workspaceLicenseState({ workspace_id: account.workspace_id });
+    if (!access.allowed) return res.status(403).json({ error: 'This Subloop checkout is currently unavailable.' });
+    const product = price.product && typeof price.product !== 'string' ? price.product : null;
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({
+      success: true,
+      publishableKey: account.publishable_key,
+      embedToken,
+      shopName: hosted.shop_name || 'Shop',
+      productName: product?.name || 'Subscription',
+      amount: price.unit_amount,
+      currency: String(price.currency || 'usd').toLowerCase(),
+      interval: price.recurring.interval,
+      intervalCount: price.recurring.interval_count || 1,
+      stripeFallbackUrl: hosted.stripe_payment_link_url || null
+    });
+  } catch (err) {
+    console.error('[hosted-checkout] config error:', err.message);
+    res.status(err.statusCode || 500).json({ error: err.message });
+  }
+});
+
+app.get('/pay/:slug', (req, res, next) => {
+  if (!validHostedCheckoutSlug(req.params.slug)) return next();
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  res.set('X-Frame-Options', 'DENY');
+  res.set('Referrer-Policy', 'no-referrer');
+  return res.sendFile(path.join(__dirname, 'checkout.html'));
+});
+
 app.post('/checkout/create-subscription', async (req, res) => {
   try {
     const token = req.body?.token;
@@ -1420,6 +1507,7 @@ app.post('/checkout/create-subscription', async (req, res) => {
     const name = suppliedName || [firstName, lastName].filter(Boolean).join(' ') || null;
     const phone = cleanCheckoutString(req.body?.customer?.phone || req.body?.phone, 50);
     const address = normalizeCheckoutAddress(req.body?.customer?.address || req.body?.address);
+    const hostedCheckout = req.body?.hosted_checkout === true;
 
     if (!checkoutReference || !/^[A-Za-z0-9._:-]{6,120}$/.test(checkoutReference)) {
       return res.status(400).json({ error: 'checkout_reference is required (6-120 letters/numbers/._:-)' });
@@ -1481,7 +1569,10 @@ app.post('/checkout/create-subscription', async (req, res) => {
       payment_behavior: 'default_incomplete',
       payment_settings: {
         save_default_payment_method: 'on_subscription',
-        payment_method_types: ['card']
+        // Existing external embedded integrations stay card-only. The Subloop-hosted
+        // checkout lets Stripe select every dashboard-enabled method compatible with
+        // this subscription, currency, customer, and device.
+        ...(hostedCheckout ? {} : { payment_method_types: ['card'] })
       },
       metadata: {
         source: 'subloop_embedded_checkout',
@@ -3291,11 +3382,18 @@ app.post('/api/embedded-checkout-token', async (req, res) => {
 app.post('/api/payment-links', async (req, res) => {
   try {
     const { name, amount, currency, interval_days, stripe_account_id } = req.body;
+    const shopName = cleanCheckoutString(req.body?.shop_name, 100);
+    const paymentDescription = cleanCheckoutString(name, 120) || 'Payment';
+    const unitAmount = Number(amount);
+    const paymentCurrency = String(currency || 'usd').trim().toLowerCase();
+    if (!shopName) return res.status(400).json({ error: 'Shop name is required' });
+    if (!Number.isInteger(unitAmount) || unitAmount < 50) return res.status(400).json({ error: 'Enter a valid payment amount' });
+    if (!/^[a-z]{3}$/.test(paymentCurrency)) return res.status(400).json({ error: 'Enter a valid currency' });
     const acc = stripe_account_id ? await stripeAccounts.byId(stripe_account_id) : await stripeAccounts.default(req.currentUser.workspace_id);
     if (!acc) return res.status(400).json({ error: 'No Stripe account found' });
     if (!ensureRowScope(req, res, { stripe_account_id: acc.id })) return;
     const stripe = require('stripe')(acc.secret_key);
-    const product = await stripe.products.create({ name: name||'Subscription', metadata: { source: 'subloop' } });
+    const product = await stripe.products.create({ name: paymentDescription, metadata: { source: 'subloop' } });
     const intervalMap = {
       7: { interval: 'week', interval_count: 1 },
       14: { interval: 'week', interval_count: 2 },
@@ -3306,12 +3404,12 @@ app.post('/api/payment-links', async (req, res) => {
     const recurring = intervalMap[Number(interval_days)] || intervalMap[30];
     const price = await stripe.prices.create({
       product: product.id,
-      unit_amount: amount,
-      currency: currency||'usd',
+      unit_amount: unitAmount,
+      currency: paymentCurrency,
       recurring,
       metadata: { source: 'subloop', interval_days: String(interval_days || 30) }
     });
-    console.log('[payment-link] created recurring price:', price.id, 'interval:', recurring.interval, 'count:', recurring.interval_count, 'amount:', amount, 'account:', acc.name);
+    console.log('[payment-link] created recurring price:', price.id, 'interval:', recurring.interval, 'count:', recurring.interval_count, 'amount:', unitAmount, 'account:', acc.name);
     const link = await stripe.paymentLinks.create({
       line_items: [{ price: price.id, quantity: 1 }],
       subscription_data: { metadata: { source: 'subloop', interval_days: String(interval_days || 30) } },
@@ -3319,9 +3417,21 @@ app.post('/api/payment-links', async (req, res) => {
     });
     console.log('[payment-link] created subscription payment link:', link.id, link.url);
     const embed_token = await signCheckoutPlan({ account_id: Number(acc.id), price_id: price.id });
+    const hostedSlug = await createHostedCheckoutLink({
+      workspaceId: Number(acc.workspace_id),
+      accountId: Number(acc.id),
+      priceId: price.id,
+      paymentLinkId: link.id,
+      paymentLinkUrl: link.url,
+      shopName
+    });
+    const hostedUrl = `${SUBLOOP_CHECKOUT_ORIGIN}/pay/${hostedSlug}`;
     res.json({
       success: true,
-      url: link.url,
+      url: hostedUrl,
+      hosted_url: hostedUrl,
+      stripe_url: link.url,
+      hosted_slug: hostedSlug,
       price_id: price.id,
       payment_link_id: link.id,
       embed_token,
@@ -4394,7 +4504,7 @@ function sendAppIndex(res) {
   res.set('Pragma', 'no-cache');
   res.set('Expires', '0');
   res.set('Surrogate-Control', 'no-store');
-  res.set('X-Subloop-App-Build', '20260903-stripe-actions-sync-1');
+  res.set('X-Subloop-App-Build', '20260904-hosted-checkout-1');
   return res.sendFile(path.join(__dirname, 'index.html'));
 }
 
