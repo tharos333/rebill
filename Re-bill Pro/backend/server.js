@@ -1854,6 +1854,24 @@ app.get('/api/payment-link-accounts', async (req, res) => {
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
+// Lightweight account lists for the Customers and Payments filters. These routes
+// deliberately use their page permissions, and are independent of table pagination
+// or whether an account already has a customer/payment in the currently loaded data.
+async function sendScopedStripeAccountOptions(req, res) {
+  try {
+    const ids = scopedAccountIds(req);
+    const r = await pool.query(`
+      SELECT id, name, created_at
+      FROM stripe_accounts
+      WHERE id=ANY($1::int[])
+      ORDER BY created_at DESC NULLS LAST, id DESC
+    `, [ids]);
+    res.json(r.rows);
+  } catch(err) { res.status(500).json({ error: err.message }); }
+}
+app.get('/api/customers/account-options', sendScopedStripeAccountOptions);
+app.get('/api/payments/account-options', sendScopedStripeAccountOptions);
+
 app.get('/api/stripe-accounts', async (req, res) => {
   try {
     const ids = scopedAccountIds(req);

@@ -7853,6 +7853,8 @@ async function loadCustomers(){
     }
     try{ allSubscriptions = await api('/api/subscriptions'); }catch(_e){}
     allCustomers=await api('/api/customers');
+    var customerAccountOptions=[];
+    try{ customerAccountOptions=await api('/api/customers/account-options'); }catch(_e){}
     var customerAccountSelect=document.getElementById('customer-account-filter');
     var selectedCustomerAccount=customerAccountSelect ? customerAccountSelect.value : '';
     if(customerAccountSelect){
@@ -7862,12 +7864,16 @@ async function loadCustomers(){
       allAccountsOption.value='';
       allAccountsOption.textContent='All Stripe Accounts';
       customerAccountSelect.appendChild(allAccountsOption);
-      allCustomers.forEach(function(c){
-        var accountName=c.account_name||'';
-        if(accountName&&!seenAccounts.has(accountName)){
-          seenAccounts.add(accountName);
+      var customerAccountRows=Array.isArray(customerAccountOptions)&&customerAccountOptions.length
+        ? customerAccountOptions
+        : allCustomers.map(function(c){return {id:c.stripe_account_id,name:c.account_name};});
+      customerAccountRows.forEach(function(accountRow){
+        var accountId=String(accountRow.id||'');
+        var accountName=accountRow.name||'';
+        if(accountId&&accountName&&!seenAccounts.has(accountId)){
+          seenAccounts.add(accountId);
           var accountOption=document.createElement('option');
-          accountOption.value=accountName;
+          accountOption.value=accountId;
           accountOption.textContent=accountName;
           customerAccountSelect.appendChild(accountOption);
         }
@@ -8140,7 +8146,7 @@ function filterCustomers(){
     var paidCount=customerSuccessfulPaymentCount(c);
     var totalMajor=Number(c.total_paid||0)/100;
     var matchStatus=!statusFilter||String(customerEffectiveStatus(c)||'').toLowerCase()===statusFilter;
-    var matchAccount=!account||(c.account_name||'')===account;
+    var matchAccount=!account||String(c.stripe_account_id||'')===String(account);
     var matchSearch=!q ||
       String(c.name||'').toLowerCase().includes(q) ||
       String(c.email||'').toLowerCase().includes(q) ||
@@ -8645,11 +8651,13 @@ function compactPayAccountClosedSelection(){
   if(!sel)return;
   preparePayAccountOptionsExpanded();
   var selected=sel.options[sel.selectedIndex];
-  if(selected)selected.textContent=compactPayAccountName(selected.value);
+  if(selected)selected.textContent=compactPayAccountName(selected.dataset.fullLabel||selected.textContent);
 }
 async function loadPayments(){
   try{
     allPayments=await api('/api/payments');
+    var paymentAccountOptions=[];
+    try{ paymentAccountOptions=await api('/api/payments/account-options'); }catch(_e){}
     renderPaymentSummary(allPayments);
     // Populate with full Stripe account names in the open menu, then collapse the selected display label.
     var sel=document.getElementById('pay-account-filter');
@@ -8662,12 +8670,16 @@ async function loadPayments(){
       allOption.textContent='All Stripe Accounts';
       allOption.dataset.fullLabel='All Stripe Accounts';
       sel.appendChild(allOption);
-      allPayments.forEach(function(p){
-        var n=p.account_name||'';
-        if(n&&!seen.has(n)){
-          seen.add(n);
+      var paymentAccountRows=Array.isArray(paymentAccountOptions)&&paymentAccountOptions.length
+        ? paymentAccountOptions
+        : allPayments.map(function(p){return {id:p.stripe_account_id,name:p.account_name};});
+      paymentAccountRows.forEach(function(accountRow){
+        var accountId=String(accountRow.id||'');
+        var n=accountRow.name||'';
+        if(accountId&&n&&!seen.has(accountId)){
+          seen.add(accountId);
           var option=document.createElement('option');
-          option.value=n;
+          option.value=accountId;
           option.textContent=n;
           option.dataset.fullLabel=n;
           sel.appendChild(option);
@@ -8797,7 +8809,7 @@ function filterPayments(){
   // Base results use every active filter except the top status tabs.
   // This lets All / Succeeded / Failed remain comparable while still updating dynamically.
   var statusCountBase=allPayments.filter(function(p){
-    var matchA=!account||(p.account_name||'')===account;
+    var matchA=!account||String(p.stripe_account_id||'')===String(account);
     var matchQ=!q||(p.name||'').toLowerCase().includes(q)||(p.email||'').toLowerCase().includes(q)||(p.stripe_payment_intent||'').toLowerCase().includes(q)||(p.card_last4||'').includes(q);
     var matchD=true;
     if(dateF){
