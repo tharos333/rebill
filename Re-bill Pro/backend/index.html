@@ -6377,7 +6377,7 @@ body.view-only-access #verification-debug-modal .modal-content{
   <div id="payment-link-create-card" class="card" style="max-width:500px;">
     <div class="card-header"><h3>Create Payment Link</h3></div>
     <div style="padding:18px;">
-      <div class="form-group"><label>Shop name</label><input type="text" id="link-shop-name" placeholder="Example Store" maxlength="100" required></div>
+      <div class="form-group"><label>Shop name <span style="color:var(--muted);font-weight:400;">(Subloop checkout)</span></label><input type="text" id="link-shop-name" placeholder="Example Store" maxlength="100" required></div>
       <div class="form-group"><label>Payment description <span style="color:var(--muted);font-weight:400;">(Stripe link)</span></label><input type="text" id="link-name" value="Payment" maxlength="120"></div>
       <div class="form-row">
         <div class="form-group"><label>Amount ($)</label><input type="number" id="link-amount" value="29" min="0.50" step="0.01"></div>
@@ -6412,7 +6412,7 @@ body.view-only-access #verification-debug-modal .modal-content{
           <div class="link-url" id="stripe-link-url"></div>
           <div style="display:flex;gap:8px;margin-top:10px;">
             <button class="btn btn-sm" onclick="copyStripeLink()">Copy Stripe link</button>
-            <button class="btn btn-sm" onclick="openStripeLink()">Open ↗</button>
+            <button class="btn btn-sm btn-primary" onclick="openStripeLink()">Open ↗</button>
           </div>
         </div>
         <div style="border-top:1px solid var(--border2);margin:14px 0 10px;padding-top:12px;">
