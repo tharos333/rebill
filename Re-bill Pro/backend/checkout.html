@@ -31,6 +31,8 @@
     button:hover:not(:disabled){background:var(--accent2)}
     button:active:not(:disabled){transform:translateY(1px)}
     button:disabled{opacity:.55;cursor:not-allowed}
+    #pay-button{position:relative;display:flex;align-items:center;justify-content:center;padding:0 46px}
+    .pay-lock{position:absolute;right:16px;width:16px;height:16px;color:#fff;pointer-events:none}
     #express-wrap{display:none;margin-bottom:18px}
     #address-element{margin-bottom:16px}
     .divider{display:flex;align-items:center;gap:12px;color:#777787;font-size:11px;margin:17px 0}
@@ -47,7 +49,7 @@
     .complete h2{font-size:21px;margin:0 0 8px}
     .complete p{color:var(--muted);font-size:13px;line-height:1.55;margin:0}
     .powered{display:flex;align-items:center;justify-content:center;gap:7px;color:#737383;font-size:11px;margin-top:18px;white-space:nowrap}
-    .stripe-logo{display:block;width:38px;height:auto;opacity:1;filter:none;mix-blend-mode:normal;box-shadow:none}
+.stripe-logo{display:block;width:40px;height:auto;opacity:.85;filter:none;mix-blend-mode:normal;box-shadow:none}
     .powered-divider{width:1px;height:16px;background:#353540;margin:0 5px}
     .powered a{color:#9292a2;text-decoration:none;transition:color .16s}
     .powered a:hover{color:var(--text);text-decoration:underline}
@@ -88,7 +90,7 @@
             </div>
             <div id="payment-message" class="message"></div>
             <div id="payment-element"></div>
-            <button id="pay-button" type="submit" disabled>Pay securely</button>
+            <button id="pay-button" type="submit" disabled><span id="pay-button-label">Pay securely</span><svg class="pay-lock" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17 8h-1V6a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2Zm-7-2a2 2 0 0 1 4 0v2h-4V6Zm3 9.73V18h-2v-2.27a2 2 0 1 1 2 0Z"/></svg></button>
           </div>
         </form>
       </div>
@@ -116,6 +118,7 @@
       var errorMessage=document.getElementById('error-message');
       var paymentMessage=document.getElementById('payment-message');
       var payButton=document.getElementById('pay-button');
+      var payButtonText=document.getElementById('pay-button-label');
       var expressWrap=document.getElementById('express-wrap');
       var checkoutSummary=document.getElementById('checkout-summary');
       document.querySelector('.powered span').textContent='Payments securely processed by';
@@ -127,7 +130,7 @@
       function referenceFor(email){var key='subloop_checkout_'+slug;try{var saved=JSON.parse(sessionStorage.getItem(key)||'null');if(saved&&saved.email===email&&saved.reference)return saved.reference;var reference=randomReference();sessionStorage.setItem(key,JSON.stringify({email:email,reference:reference}));return reference;}catch(_err){return randomReference();}}
       function clearReference(){try{sessionStorage.removeItem('subloop_checkout_'+slug);}catch(_err){}}
       function showComplete(){loading.style.display='none';checkoutContent.hidden=true;showMessage(errorMessage,'');complete.style.display='block';clearReference();}
-      function setProcessing(active){processing=active;payButton.disabled=active;payButton.textContent=active?'Processing…':payButtonLabel;}
+      function setProcessing(active){processing=active;payButton.disabled=active;payButtonText.textContent=active?'Processing…':payButtonLabel;}
       function customerFromForm(){
         if(!addressElement)return Promise.reject(new Error('The address form is not ready. Please refresh the page.'));
         return addressElement.getValue().then(function(result){
@@ -247,7 +250,7 @@
           document.getElementById('payment-amount').textContent=amountLabel;
           document.title='Payment of '+amountLabel+' · '+(config.shopName||'Shop');
           payButtonLabel='Pay '+amountLabel;
-          payButton.textContent=payButtonLabel;
+          payButtonText.textContent=payButtonLabel;
           loading.style.display='none';
           checkoutSummary.hidden=false;
           checkoutContent.hidden=false;
