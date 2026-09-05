@@ -9,8 +9,9 @@
   <style>
     :root{--bg:#09090f;--panel:#111118;--panel2:#171720;--border:#292936;--text:#f3f3f7;--muted:#9292a2;--accent:#685bff;--accent2:#7b70ff;--green:#00cf7a;--red:#ff676d;--sans:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
     *{box-sizing:border-box}
-    html,body{min-height:100%;margin:0;background:radial-gradient(circle at 18% 2%,rgba(104,91,255,.14),transparent 34%),var(--bg);color:var(--text);font-family:var(--sans)}
-    body{display:grid;place-items:center;padding:32px 18px}
+    html{min-height:100%;margin:0;background:radial-gradient(circle at 18% 2%,rgba(104,91,255,.14),transparent 58%),var(--bg);background-attachment:fixed;background-repeat:no-repeat;background-size:cover;overscroll-behavior-y:none}
+    body{min-height:100%;margin:0;background:transparent;color:var(--text);font-family:var(--sans);display:grid;place-items:center;padding:32px 18px;position:relative;isolation:isolate;overscroll-behavior-y:none}
+    body:before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(circle at 18% 2%,rgba(104,91,255,.14),transparent 58%),var(--bg);background-repeat:no-repeat;background-size:cover}
     main{width:min(100%,520px);margin:auto}
     .checkout-summary{text-align:center;margin-bottom:22px}
     .card{width:100%;background:rgba(17,17,24,.97);border:1px solid var(--border);border-radius:18px;padding:26px;box-shadow:0 24px 70px rgba(0,0,0,.32)}
