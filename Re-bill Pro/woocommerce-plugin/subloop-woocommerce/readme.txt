@@ -1,21 +1,23 @@
 === Subloop for WooCommerce ===
 Contributors: subloop
-Tags: woocommerce, stripe, payments, checkout
+Tags: woocommerce, stripe, subscriptions, recurring-payments, checkout
 Requires at least: 6.4
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.1.0
 License: GPLv2 or later
 
-Accept secure Stripe payments directly inside the classic WooCommerce checkout.
+Accept secure Stripe subscription payments directly inside the classic WooCommerce checkout.
 
 == Description ==
 
-Subloop for WooCommerce keeps the customer on the store checkout while Stripe securely handles payment details. The WordPress site stores only a revocable Subloop connection token; Stripe secret keys remain in Subloop.
+Subloop for WooCommerce keeps the customer on the store checkout while Stripe securely handles payment details and recurring billing. The final WooCommerce cart total becomes the Stripe subscription amount. The WordPress site stores only a revocable Subloop connection token; Stripe secret keys remain in Subloop.
+
+WooCommerce subscription-product billing schedules are detected automatically. For normal products, choose a fallback recurring schedule in the gateway settings.
 
 The checkout can show card payment and eligible express methods such as Apple Pay, Google Pay, Link, or Amazon Pay. Stripe decides which methods are available for the selected account, currency, browser, device, country, and domain.
 
-This 1.0 release supports the classic WooCommerce checkout. Checkout Block support is not enabled yet.
+This release supports the classic WooCommerce checkout. Checkout Block support is not enabled yet.
 
 == Installation ==
 
@@ -32,6 +34,11 @@ This 1.0 release supports the classic WooCommerce checkout. Checkout Block suppo
 All order totals are calculated again on the WooCommerce server and verified by Subloop before an order is marked paid. Connection tokens are bound to the store URL and can be revoked from Subloop.
 
 == Changelog ==
+
+= 1.1.0 =
+* Creates Stripe subscriptions using the final WooCommerce cart total and currency.
+* Detects subscription-product billing intervals automatically, with a configurable fallback schedule.
+* Syncs successful, failed, action-required, and canceled subscription states back to WooCommerce.
 
 = 1.0.0 =
 * Initial classic checkout integration.

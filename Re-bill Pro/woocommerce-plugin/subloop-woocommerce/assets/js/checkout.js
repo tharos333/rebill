@@ -8,6 +8,7 @@
   var paymentElement = null;
   var expressElement = null;
   var clientSecret = '';
+  var subscriptionId = '';
   var preparing = false;
   var bypassSubmit = false;
   var prepareTimer = null;
@@ -69,12 +70,15 @@
     expressElement = null;
     elements = null;
     clientSecret = '';
+    subscriptionId = '';
     $('#subloop-payment-intent-id').val('');
+    $('#subloop-subscription-id').val('');
   }
 
   function mountElements(data) {
     resetMountedElements();
     clientSecret = data.client_secret;
+    subscriptionId = data.subscription_id;
     elements = stripe.elements({ clientSecret: clientSecret, appearance: appearance });
     paymentElement = elements.create('payment', {
       layout: { type: 'accordion', defaultCollapsed: false, radios: false, spacedAccordionItems: false },
@@ -101,6 +105,11 @@
 
   function preparePayment(continueAfter) {
     if (!selected() || preparing || !$('#subloop-payment-ui').length) return;
+    var checkoutEmail = $('#billing_email').val() || '';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(checkoutEmail)) {
+      if (continueAfter) error(SubloopWC.emailMessage || SubloopWC.errorMessage);
+      return;
+    }
     preparing = true;
     clearError();
     $.ajax({
@@ -109,7 +118,16 @@
       dataType: 'json',
       data: {
         nonce: SubloopWC.nonce,
-        billing_email: $('#billing_email').val() || ''
+        billing_first_name: $('#billing_first_name').val() || '',
+        billing_last_name: $('#billing_last_name').val() || '',
+        billing_email: $('#billing_email').val() || '',
+        billing_phone: $('#billing_phone').val() || '',
+        billing_address_1: $('#billing_address_1').val() || '',
+        billing_address_2: $('#billing_address_2').val() || '',
+        billing_city: $('#billing_city').val() || '',
+        billing_state: $('#billing_state').val() || '',
+        billing_postcode: $('#billing_postcode').val() || '',
+        billing_country: $('#billing_country').val() || ''
       }
     }).done(function (response) {
       if (!response || !response.success || !response.data || !response.data.client_secret) {
@@ -147,6 +165,7 @@
         throw new Error(SubloopWC.errorMessage);
       }
       $('#subloop-payment-intent-id').val(result.paymentIntent.id);
+      $('#subloop-subscription-id').val(subscriptionId);
       bypassSubmit = true;
       $('#place_order').trigger('click');
     }).catch(function (err) {
@@ -166,6 +185,12 @@
   });
 
   $(document.body).on('updated_checkout payment_method_selected', function () {
+    if (!selected()) return;
+    window.clearTimeout(prepareTimer);
+    prepareTimer = window.setTimeout(function () { preparePayment(false); }, 180);
+  });
+
+  $('form.checkout').on('change blur', '#billing_email', function () {
     if (!selected()) return;
     window.clearTimeout(prepareTimer);
     prepareTimer = window.setTimeout(function () { preparePayment(false); }, 180);
