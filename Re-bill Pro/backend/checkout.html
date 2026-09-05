@@ -207,7 +207,7 @@
         expressWrap.style.display=hasMethods?'block':'none';
       }
       function mountPaymentMethods(){
-        var appearance={theme:'night',variables:{colorPrimary:'#f3f3f7',colorBackground:'#171720',colorText:'#f3f3f7',colorDanger:'#ff676d',borderRadius:'10px',fontFamily:'Inter, ui-sans-serif, system-ui, sans-serif'}};
+        var appearance={theme:'night',variables:{colorPrimary:'#685bff',colorBackground:'#171720',colorText:'#f3f3f7',colorDanger:'#ff676d',borderRadius:'10px',fontFamily:'Inter, ui-sans-serif, system-ui, sans-serif'},rules:{'.Input:focus':{borderColor:'#685bff',boxShadow:'0 0 0 3px rgba(104,91,255,.15)'},'.Tab:focus':{borderColor:'#685bff',boxShadow:'0 0 0 3px rgba(104,91,255,.15)'},'.Tab--selected':{borderColor:'#685bff'}}};
         elements=stripe.elements({mode:'subscription',amount:Number(config.amount),currency:String(config.currency||'usd').toLowerCase(),appearance:appearance});
         addressElement=elements.create('address',{mode:'billing',display:{name:'split'},fields:{phone:'never'}});
         addressElement.mount('#address-element');
