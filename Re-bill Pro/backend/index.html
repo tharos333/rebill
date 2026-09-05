@@ -6454,7 +6454,6 @@ body.view-only-access #verification-debug-modal .modal-content{
   </div>
 
   <div class="card">
-    <div class="card-header"><h3>Connected Stores</h3></div>
     <div class="scrollable"><table>
       <thead><tr><th>Store</th><th>URL</th><th>Stripe Account</th><th>Status</th><th>Added</th><th>Action</th></tr></thead>
       <tbody id="woocommerce-integrations-table"><tr><td colspan="6" class="empty">Loading...</td></tr></tbody>
@@ -6673,7 +6672,7 @@ body.view-only-access #verification-debug-modal .modal-content{
     <div class="form-group"><label>Store URL</label><input type="url" id="woo-store-url" placeholder="https://your-store.com" maxlength="500" autocomplete="url"><div style="font-size:11px;color:var(--muted);margin-top:6px;">Enter the public HTTPS address of the WooCommerce store.</div></div>
     <div class="form-group"><label>Stripe account</label><select id="woo-account"><option value="">Loading...</option></select></div>
     <div class="link-result" id="woo-token-result">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;color:var(--green);font-size:12px;font-family:var(--mono);"><span>●</span><span>Connection ready</span></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;color:var(--green);font-size:12px;font-family:var(--mono);"><svg style="display:block;width:14px;height:14px;flex:0 0 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9"/></svg><span>Connection ready</span></div>
       <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;">Connection token — shown once</div>
       <div class="link-url" id="woo-token-value" style="word-break:break-all;"></div>
       <div style="font-size:11px;color:var(--muted);margin-top:8px;">Install the plugin, then paste this token into WooCommerce → Settings → Payments → Subloop.</div>
@@ -9977,7 +9976,7 @@ async function loadWooCommerceIntegrations(){
             +'<td><strong>'+escHtml(item.shop_name||'—')+'</strong></td>'
             +'<td><a href="'+safeUrl+'" target="_blank" rel="noopener noreferrer" class="mono" style="font-size:11px;color:var(--purple2);">'+safeUrl+'</a></td>'
             +'<td>'+escHtml(item.stripe_account_name||'—')+'</td>'
-            +'<td><span class="badge badge-green">Connected</span></td>'
+            +'<td><span class="badge badge-green"><span>Connected</span></span></td>'
             +'<td>'+escHtml(fmtDate(item.created_at))+'</td>'
             +'<td><button class="btn btn-sm btn-danger" type="button" onclick="disconnectWooIntegration('+Number(item.id)+')">Disconnect</button></td>'
             +'</tr>';
