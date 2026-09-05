@@ -27,9 +27,7 @@ body{min-height:100vh}body.modal-lock{overflow:hidden!important;overscroll-behav
 button,input,select,textarea{font:inherit}.hidden{display:none!important}
 
 /* Same login visual system as the main Subloop app */
-.login-screen{position:fixed;inset:0;background:radial-gradient(circle at 18% 2%,rgba(104,91,255,.14),transparent 58%),#09090f;background-repeat:no-repeat;background-size:cover;display:flex;align-items:center;justify-content:center;z-index:1000;opacity:1;visibility:visible;transition:opacity .35s ease,visibility 0s linear 0s}
-#login-screen.hidden{display:flex!important;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .35s ease,visibility 0s linear .35s}
-@media(prefers-reduced-motion:reduce){.login-screen,#login-screen.hidden{transition:none}}
+.login-screen{position:fixed;inset:0;background:radial-gradient(circle at 18% 2%,rgba(104,91,255,.14),transparent 58%),#09090f;background-repeat:no-repeat;background-size:cover;display:flex;align-items:center;justify-content:center;z-index:1000}
 .login-card{background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:40px;width:380px;max-width:95vw}
 .login-brand{text-align:center;margin-bottom:28px}
 .login-brand img{width:145px;height:auto;display:block;margin:0 auto 10px}

@@ -37,9 +37,9 @@ html.light tr:hover td{background:rgba(0,0,0,0.02)}
 body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;display:flex}
 body.modal-lock{overflow:hidden!important;overscroll-behavior:none}
 /* Login */
-.login-screen{position:fixed;inset:0;background:radial-gradient(circle at 18% 2%,rgba(104,91,255,.14),transparent 58%),#09090f;background-repeat:no-repeat;background-size:cover;display:flex;align-items:center;justify-content:center;z-index:1000;opacity:1;visibility:visible;transition:opacity .35s ease,visibility 0s linear 0s}
+.login-screen{position:fixed;inset:0;background:radial-gradient(circle at 18% 2%,rgba(104,91,255,.14),transparent 58%),#09090f;background-repeat:no-repeat;background-size:cover;display:flex;align-items:center;justify-content:center;z-index:1000}
 html.light .login-screen{background:var(--bg)}
-.login-screen.hidden{display:flex;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .35s ease,visibility 0s linear .35s}
+.login-screen.hidden{display:none}
 .login-box{background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:40px;width:380px;max-width:95vw}
 .login-logo{text-align:center;margin-bottom:28px}
 .login-field{margin-bottom:16px}
@@ -62,7 +62,6 @@ html.light .login-screen{background:var(--bg)}
 /* App */
 .app-screen{display:flex;width:100%;min-height:100vh}
 .app-screen.hidden{display:none}
-@media(prefers-reduced-motion:reduce){.login-screen,.login-screen.hidden{transition:none}}
 .sidebar{width:220px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:0;position:fixed;height:100vh;z-index:10;overflow:hidden}
 .logo{padding:0}
 .sidebar-header{height:52px!important;min-height:52px!important;max-height:52px!important;padding:0 0 0 24px!important;display:flex!important;align-items:center!important;justify-content:flex-start!important;box-sizing:border-box!important;border-bottom:1px solid rgba(255,255,255,0.08);}
