@@ -1339,10 +1339,10 @@ function normalizeWooRecurring(intervalValue, countValue) {
   const intervalCount = Number(countValue);
   const maximums = { day: 365, week: 52, month: 12, year: 3 };
   if (!Object.prototype.hasOwnProperty.call(maximums, interval)) {
-    throw Object.assign(new Error('A valid subscription billing interval is required'), { statusCode: 400 });
+    throw Object.assign(new Error('A valid payment interval is required'), { statusCode: 400 });
   }
   if (!Number.isInteger(intervalCount) || intervalCount < 1 || intervalCount > maximums[interval]) {
-    throw Object.assign(new Error('A valid subscription billing interval count is required'), { statusCode: 400 });
+    throw Object.assign(new Error('A valid payment interval count is required'), { statusCode: 400 });
   }
   return { interval, intervalCount };
 }
@@ -1836,8 +1836,8 @@ app.post('/woocommerce/v1/subscriptions', async (req, res) => {
     const currency = String(req.body?.currency || '').trim().toLowerCase();
     const recurring = normalizeWooRecurring(req.body?.interval, req.body?.interval_count);
     if (!checkoutReference) return res.status(400).json({ error: 'A valid checkout reference is required' });
-    if (!Number.isInteger(amount) || amount < 50) return res.status(400).json({ error: 'A valid subscription amount is required' });
-    if (!/^[a-z]{3}$/.test(currency)) return res.status(400).json({ error: 'A valid subscription currency is required' });
+    if (!Number.isInteger(amount) || amount < 50) return res.status(400).json({ error: 'A valid payment amount is required' });
+    if (!/^[a-z]{3}$/.test(currency)) return res.status(400).json({ error: 'A valid payment currency is required' });
 
     const input = req.body?.customer && typeof req.body.customer === 'object' ? req.body.customer : {};
     const email = cleanEmail(input.email);
@@ -1887,7 +1887,7 @@ app.post('/woocommerce/v1/subscriptions', async (req, res) => {
     }
     if (!productId) {
       const product = await stripe.products.create({
-        name: integration.shop_name + ' subscription',
+        name: 'Payment to ' + integration.shop_name,
         metadata: { source: 'subloop_woocommerce', woocommerce_integration_id: String(integration.id) }
       }, { idempotencyKey: `subloop_wc_product_${integration.id}` });
       productId = product.id;
@@ -1942,7 +1942,7 @@ app.post('/woocommerce/v1/subscriptions', async (req, res) => {
     });
   } catch (err) {
     console.error('[woocommerce] subscription creation error:', err.message);
-    res.status(err.statusCode || 500).json({ error: err.message });
+    res.status(err.statusCode || 500).json({ error: 'Unable to prepare the payment. Please try again.' });
   }
 });
 
@@ -1955,7 +1955,7 @@ app.post('/woocommerce/v1/verify-subscription', async (req, res) => {
     const amount = Number(req.body?.amount);
     const currency = String(req.body?.currency || '').trim().toLowerCase();
     if (!checkoutReference || !/^sub_[A-Za-z0-9_]+$/.test(subscriptionId) || !/^pi_[A-Za-z0-9_]+$/.test(paymentIntentId)) {
-      return res.status(400).json({ error: 'Invalid subscription verification data' });
+      return res.status(400).json({ error: 'Invalid payment verification data' });
     }
     const stripe = embeddedStripeClient(integration);
     const subscription = await stripe.subscriptions.retrieve(subscriptionId, { expand: ['latest_invoice.payment_intent', 'items.data.price'] });
@@ -1970,13 +1970,13 @@ app.post('/woocommerce/v1/verify-subscription', async (req, res) => {
       && intentId === paymentIntentId
       && Number(price?.unit_amount) === amount
       && String(price?.currency || '').toLowerCase() === currency;
-    if (!matches) return res.status(403).json({ error: 'Subscription does not match this WooCommerce order' });
+    if (!matches) return res.status(403).json({ error: 'Payment does not match this WooCommerce order' });
     const paid = intentStatus === 'succeeded' && ['active', 'trialing'].includes(String(subscription.status || '').toLowerCase());
     res.setHeader('Cache-Control', 'no-store');
     res.json({ success: true, paid, subscription_id: subscription.id, payment_intent_id: intentId, status: subscription.status });
   } catch (err) {
-    console.error('[woocommerce] subscription verification error:', err.message);
-    res.status(err.statusCode || 500).json({ error: err.message });
+    console.error('[woocommerce] payment verification error:', err.message);
+    res.status(err.statusCode || 500).json({ error: 'Unable to verify the payment. Please try again.' });
   }
 });
 
@@ -5036,7 +5036,7 @@ function sendAppIndex(res) {
   res.set('Pragma', 'no-cache');
   res.set('Expires', '0');
   res.set('Surrogate-Control', 'no-store');
-  res.set('X-Subloop-App-Build', '20260905-woocommerce-subscriptions-5');
+  res.set('X-Subloop-App-Build', '20260905-woocommerce-payment-copy-6');
   return res.sendFile(path.join(__dirname, 'index.html'));
 }
 
