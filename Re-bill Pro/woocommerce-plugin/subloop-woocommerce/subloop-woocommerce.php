@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Subloop for WooCommerce
- * Description: Accept secure Stripe subscription payments directly inside WooCommerce checkout through a Subloop connection.
+ * Description: Accept secure Stripe payments directly inside WooCommerce checkout through a Subloop connection.
  * Version: 1.1.0
  * Requires at least: 6.4
  * Requires PHP: 7.4
@@ -43,7 +43,7 @@ add_action('plugins_loaded', static function () {
             $this->init_form_fields();
             $this->init_settings();
             $this->enabled = $this->get_option('enabled', 'no');
-            $this->title = __('Subscription payment', 'subloop-woocommerce');
+            $this->title = __('Card payment', 'subloop-woocommerce');
             $this->description = '';
             $this->connection_token = trim((string) $this->get_option('connection_token', ''));
             $this->api_base = untrailingslashit((string) apply_filters('subloop_woocommerce_api_base', $this->api_base));
@@ -71,7 +71,7 @@ add_action('plugins_loaded', static function () {
                 'billing_interval_count' => array(
                     'title' => __('Charge every', 'subloop-woocommerce'),
                     'type' => 'number',
-                    'description' => __('Fallback schedule for normal WooCommerce products. Subscription-product schedules are detected automatically.', 'subloop-woocommerce'),
+                    'description' => __('Fallback schedule for normal WooCommerce products. Product schedules are detected automatically.', 'subloop-woocommerce'),
                     'default' => '1',
                     'custom_attributes' => array('min' => '1', 'max' => '365', 'step' => '1'),
                 ),
@@ -178,7 +178,7 @@ add_action('plugins_loaded', static function () {
                 'publishableKey' => sanitize_text_field($config['publishable_key']),
                 'gatewayId' => $this->id,
                 'errorMessage' => __('Payment could not be completed. Please check your details and try again.', 'subloop-woocommerce'),
-                'emailMessage' => __('Enter a valid email address to load the subscription payment form.', 'subloop-woocommerce'),
+                'emailMessage' => __('Enter a valid email address to load the payment form.', 'subloop-woocommerce'),
             ));
         }
 
@@ -191,6 +191,15 @@ add_action('plugins_loaded', static function () {
             echo '<div id="subloop-payment-error" role="alert" aria-live="polite"></div>';
             echo '<input type="hidden" name="subloop_payment_intent_id" id="subloop-payment-intent-id" value="">';
             echo '<input type="hidden" name="subloop_subscription_id" id="subloop-subscription-id" value="">';
+            $schedule = $this->billing_schedule();
+            if (!is_wp_error($schedule) && WC()->cart) {
+                $count = max(1, absint($schedule['interval_count']));
+                $unit = sanitize_key((string) $schedule['interval']);
+                $unit_label = $count === 1 ? $unit : $unit . 's';
+                $frequency = $count === 1 ? $unit_label : $count . ' ' . $unit_label;
+                $amount_html = wc_price(WC()->cart->get_total('edit'));
+                echo '<div id="subloop-payment-schedule">' . wp_kses_post(sprintf(__('Today: %1$s. Future payments: %1$s every %2$s until canceled.', 'subloop-woocommerce'), $amount_html, esc_html($frequency))) . '</div>';
+            }
             echo '</div>';
         }
 
@@ -221,7 +230,7 @@ add_action('plugins_loaded', static function () {
                 }
             }
             if (count($detected) > 1) {
-                return new WP_Error('subloop_mixed_intervals', __('All subscription products in one cart must use the same billing interval.', 'subloop-woocommerce'));
+                return new WP_Error('subloop_mixed_intervals', __('All products in one cart must use the same payment schedule.', 'subloop-woocommerce'));
             }
             if ($detected) return reset($detected);
             $period = sanitize_key((string) $this->get_option('billing_interval', 'month'));
@@ -312,7 +321,7 @@ add_action('plugins_loaded', static function () {
             $order->update_meta_data('_subloop_subscription_id', $subscription_id);
             $order->save();
             $order->payment_complete($intent_id);
-            $order->add_order_note(sprintf(__('Stripe subscription started (%1$s, payment %2$s).', 'subloop-woocommerce'), $subscription_id, $intent_id));
+            $order->add_order_note(sprintf(__('Stripe payment schedule started (%1$s, payment %2$s).', 'subloop-woocommerce'), $subscription_id, $intent_id));
             WC()->cart->empty_cart();
             WC()->session->__unset('subloop_checkout_reference');
             WC()->session->__unset('subloop_checkout_signature');
@@ -388,11 +397,11 @@ add_action('rest_api_init', static function () {
                 $order->update_status('failed', __('Stripe reported that the payment failed.', 'subloop-woocommerce'));
             } elseif ('subscription.payment_succeeded' === $event_name) {
                 if (!$order->is_paid()) $order->payment_complete($intent_id);
-                $order->add_order_note(sprintf(__('Subloop subscription payment succeeded (%s).', 'subloop-woocommerce'), $intent_id ?: $subscription_id));
+                $order->add_order_note(sprintf(__('Subloop scheduled payment succeeded (%s).', 'subloop-woocommerce'), $intent_id ?: $subscription_id));
             } elseif (in_array($event_name, array('subscription.payment_failed', 'subscription.payment_action_required'), true)) {
-                $order->add_order_note(sprintf(__('Subloop subscription payment failed (%s).', 'subloop-woocommerce'), $intent_id ?: $subscription_id));
+                $order->add_order_note(sprintf(__('Subloop scheduled payment failed (%s).', 'subloop-woocommerce'), $intent_id ?: $subscription_id));
             } elseif ('subscription.canceled' === $event_name) {
-                $order->add_order_note(sprintf(__('Subloop subscription canceled (%s).', 'subloop-woocommerce'), $subscription_id));
+                $order->add_order_note(sprintf(__('Subloop payment schedule canceled (%s).', 'subloop-woocommerce'), $subscription_id));
             }
             if (function_exists('wcs_get_subscriptions_for_order') && 0 === strpos($event_name, 'subscription.')) {
                 $local_subscriptions = wcs_get_subscriptions_for_order($order->get_id(), array('order_type' => 'any'));

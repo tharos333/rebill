@@ -41,6 +41,13 @@
   margin-top: 12px;
 }
 
+#subloop-payment-schedule {
+  color: #8e8a9b;
+  font-size: 12px;
+  line-height: 1.5;
+  margin-top: 14px;
+}
+
 .payment_method_subloop > label {
   align-items: center;
   display: inline-flex;
