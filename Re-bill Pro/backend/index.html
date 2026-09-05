@@ -6002,6 +6002,10 @@ body.view-only-access #verification-debug-modal .modal-content{
   <button class="nav-item" onclick="showPage('accounts',this)">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.5 9.9 13.5 8.1"/><path d="M10.5 14.1 13.5 15.9"/><circle cx="7" cy="12" r="4"/><circle cx="17" cy="6" r="4"/><circle cx="17" cy="18" r="4"/></svg>Stripe Accounts</button>
 
+  <div class="nav-section">Integrations</div>
+  <button class="nav-item" onclick="showPage('woocommerce',this)">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3v6"/><path d="M15 3v6"/><path d="M7 9h10v2a5 5 0 0 1-5 5 5 5 0 0 1-5-5V9Z"/><path d="M12 16v5"/></svg>WooCommerce</button>
+
   <div class="nav-section">Insights</div>
   <button class="nav-item" onclick="showPage('forecast',this)">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Forecast</button>
@@ -6364,13 +6368,14 @@ body.view-only-access #verification-debug-modal .modal-content{
 <div id="page-links" class="page">
   <div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>Payment Links</span></h2><p>Create payment links for recurring payments</p></div></div>
   <div class="card" style="max-width:500px;margin-bottom:14px;">
-    <div class="card-header"><h3>Plan Templates <span id="template-count" style="color:var(--muted);font-weight:400;"></span></h3></div>
+    <div class="card-header"><h3>Payment Templates <span id="template-count" style="color:var(--muted);font-weight:400;"></span></h3></div>
     <div style="padding:12px 18px 16px;">
       <div id="templates-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;min-height:32px;"><span style="font-size:12px;color:var(--muted);font-family:var(--mono);">Loading...</span></div>
       <div id="template-builder-row" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
-        <div class="form-group" style="margin:0;flex:1;min-width:120px;"><label>Template name</label><input type="text" id="tmpl-name" placeholder="Monthly Pro"></div>
-        <div class="form-group" style="margin:0;width:90px;"><label>Amount ($)</label><input type="number" id="tmpl-amount" placeholder="29" min="0.50" step="0.01"></div>
-        <div class="form-group" style="margin:0;width:100px;"><label>Interval</label><select id="tmpl-interval"><option value="7">Weekly</option><option value="30" selected>Monthly</option><option value="90">Quarterly</option><option value="365">Yearly</option></select></div>
+        <div class="form-group" style="margin:0;flex:1;min-width:120px;"><label>Template name</label><input type="text" id="tmpl-name" placeholder="Service payment"></div>
+        <div class="form-group" style="margin:0;width:90px;"><label>Amount</label><input type="number" id="tmpl-amount" placeholder="29" min="0.50" step="0.01"></div>
+        <div class="form-group" style="margin:0;width:90px;"><label>Currency</label><select id="tmpl-currency"><option value="usd">USD</option><option value="eur">EUR</option><option value="gbp">GBP</option><option value="mad">MAD</option></select></div>
+        <div class="form-group" style="margin:0;width:100px;"><label>Billing interval</label><select id="tmpl-interval"><option value="7">Weekly</option><option value="14">Biweekly</option><option value="30" selected>Monthly</option><option value="90">Quarterly</option><option value="365">Yearly</option></select></div>
         <button class="btn btn-primary btn-sm" onclick="saveTemplate()" style="margin-bottom:1px;">Save Template</button>
       </div>
     </div>
@@ -6435,6 +6440,42 @@ body.view-only-access #verification-debug-modal .modal-content{
         </div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- WooCommerce -->
+<div id="page-woocommerce" class="page">
+  <div class="page-header">
+    <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3v6"/><path d="M15 3v6"/><path d="M7 9h10v2a5 5 0 0 1-5 5 5 5 0 0 1-5-5V9Z"/><path d="M12 16v5"/></svg><span>WooCommerce</span></h2><p>Connect your store checkout to a Stripe account</p></div>
+    <button class="btn" type="button" onclick="downloadWooPlugin()"><svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v8"/><path d="m4.5 7 3.5 3.5L11.5 7"/><path d="M3 13h10"/></svg><span>Download Plugin</span></button>
+  </div>
+
+  <div class="card" style="max-width:720px;margin-bottom:14px;">
+    <div class="card-header"><h3>Create WooCommerce Connection</h3></div>
+    <div style="padding:18px;">
+      <div class="form-group"><label>Store name</label><input type="text" id="woo-shop-name" placeholder="Example Store" maxlength="100" autocomplete="organization"></div>
+      <div class="form-group"><label>Store URL</label><input type="url" id="woo-store-url" placeholder="https://your-store.com" maxlength="500" autocomplete="url"><div style="font-size:11px;color:var(--muted);margin-top:6px;">Enter the public HTTPS address of the WooCommerce store.</div></div>
+      <div class="form-group"><label>Stripe account</label><select id="woo-account"><option value="">Loading...</option></select></div>
+      <button class="btn btn-primary" type="button" id="woo-connect-btn" onclick="createWooCommerceIntegration()">Generate Connection</button>
+      <div class="link-result" id="woo-token-result">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;color:var(--green);font-size:12px;font-family:var(--mono);"><span>●</span><span>Connection ready</span></div>
+        <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;">Connection token — shown once</div>
+        <div class="link-url" id="woo-token-value" style="word-break:break-all;"></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:8px;">Install the plugin, then paste this token into WooCommerce → Settings → Payments → Subloop.</div>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+          <button class="btn btn-sm" type="button" onclick="copyWooConnectionToken()">Copy token</button>
+          <button class="btn btn-sm btn-primary" type="button" onclick="downloadWooPlugin()">Download Plugin</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="max-width:900px;">
+    <div class="card-header"><h3>Connected Stores</h3></div>
+    <div class="scrollable"><table>
+      <thead><tr><th>Store</th><th>URL</th><th>Stripe Account</th><th>Status</th><th>Added</th><th>Action</th></tr></thead>
+      <tbody id="woocommerce-integrations-table"><tr><td colspan="6" class="empty">Loading...</td></tr></tbody>
+    </table></div>
   </div>
 </div>
 
@@ -6955,7 +6996,7 @@ body.view-only-access #verification-debug-modal .modal-content{
 
 <div id="toast"></div>
 <script>
-let currentLink=null,currentStripeLink=null,currentEmbedToken=null,allCustomers=[],allSubscriptions=[],allPayments=[],allStripeAccounts=[],allAdminUsers=[],allLicenses=[],appSettings={},selectedSubs=new Set(),currentRevPeriod='all',bulkMode=false;
+let currentLink=null,currentStripeLink=null,currentEmbedToken=null,currentWooToken=null,allCustomers=[],allSubscriptions=[],allPayments=[],allStripeAccounts=[],allAdminUsers=[],allLicenses=[],appSettings={},selectedSubs=new Set(),currentRevPeriod='all',bulkMode=false;
 const SUBLOOP_LOGIN_ORIGIN='https://subloop.space';
 const SUBLOOP_APP_ORIGIN='https://app.subloop.space';
 const PAGE_ROUTES={
@@ -6965,6 +7006,7 @@ const PAGE_ROUTES={
   subscriptions:'/subscriptions',
   payments:'/payments',
   links:'/payment-links',
+  woocommerce:'/woocommerce',
   accounts:'/stripe-accounts',
   forecast:'/forecast',
   summary:'/daily-summary',
@@ -7117,7 +7159,7 @@ function completeLogin(){
   if(isSubloopLoginHost()){redirectToSubloopApp();return;}
   showAuthenticatedApp();
 }
-var ALL_SECTIONS=['dashboard','activity','customers','subscriptions','payments','links','accounts','forecast','expiry','summary','admins','settings','security','webhooks'];
+var ALL_SECTIONS=['dashboard','activity','customers','subscriptions','payments','links','woocommerce','accounts','forecast','expiry','summary','admins','settings','security','webhooks'];
 function getCurrentRole(){ return localStorage.getItem('subloop_role')||'owner'; }
 function getCurrentPermissions(){ try{ return JSON.parse(localStorage.getItem('subloop_permissions')||'[]'); }catch(e){ return []; } }
 function isViewOnlyAccess(){
@@ -7163,7 +7205,7 @@ function canManageOperationalSection(section){
 function applyRoleBasedPageCopy(){
   var role=getCurrentRole();
   var assigned=(localStorage.getItem('subloop_account_scope')||'all')==='selected';
-  var defaults={dashboard:'Your business overview',activity:'All actions and events',customers:'Manage customers and payment methods',subscriptions:'All recurring billing schedules',payments:'Full payment history',links:'Create payment links for recurring payments',accounts:'Manage multiple Stripe accounts',forecast:'Projected revenue based on active subscriptions',summary:'Your business at a glance',mrr:'Revenue performance over time',recovery:'Failed payments later completed successfully',webhooks:'Incoming Stripe events'};
+  var defaults={dashboard:'Your business overview',activity:'All actions and events',customers:'Manage customers and payment methods',subscriptions:'All recurring billing schedules',payments:'Full payment history',links:'Create payment links for recurring payments',woocommerce:'Connect your store checkout to a Stripe account',accounts:'Manage multiple Stripe accounts',forecast:'Projected revenue based on active subscriptions',summary:'Your business at a glance',mrr:'Revenue performance over time',recovery:'Failed payments later completed successfully',webhooks:'Incoming Stripe events'};
   Object.keys(defaults).forEach(function(k){setPageSubtitle(k,defaults[k]);});
   if(role==='viewer'||role==='analyst'){
     var suffix=assigned?' for assigned Stripe accounts':'';
@@ -7282,7 +7324,7 @@ function showPage(name,el,options){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   if(el)el.classList.add('active');
-  const loaders={dashboard:()=>{loadStats();loadUpcoming();loadRecentPayments();loadChart();},activity:loadActivity,customers:loadCustomers,subscriptions:loadSubscriptions,payments:loadPayments,settings:loadSettings,accounts:loadAccounts,security:loadSecurity,webhooks:loadWebhooks,forecast:loadForecast,summary:loadSummary,admins:loadAdmins,mrr:()=>{var period=document.getElementById('mrr-period');if(period)period.value='year';loadMrr();},recovery:loadRecovery,links:()=>{loadPaymentLinkAccounts();loadTemplates();configurePaymentLinksAccessUI();}};
+  const loaders={dashboard:()=>{loadStats();loadUpcoming();loadRecentPayments();loadChart();},activity:loadActivity,customers:loadCustomers,subscriptions:loadSubscriptions,payments:loadPayments,settings:loadSettings,accounts:loadAccounts,woocommerce:loadWooCommerceIntegrations,security:loadSecurity,webhooks:loadWebhooks,forecast:loadForecast,summary:loadSummary,admins:loadAdmins,mrr:()=>{var period=document.getElementById('mrr-period');if(period)period.value='year';loadMrr();},recovery:loadRecovery,links:()=>{loadPaymentLinkAccounts();loadTemplates();configurePaymentLinksAccessUI();}};
   expandSettingsIfNeeded(name);
   if(!canAccess(name)){
     document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
@@ -9911,6 +9953,71 @@ async function loadPaymentLinkAccounts(){
     select.innerHTML='<option value="">Default</option>'+options;
   }catch(e){var select=document.getElementById('link-account');if(select)select.innerHTML='<option value="">Default</option>';}
 }
+async function loadWooCommerceIntegrations(){
+  var select=document.getElementById('woo-account');
+  var table=document.getElementById('woocommerce-integrations-table');
+  if(table)table.innerHTML='<tr><td colspan="6" class="empty">Loading...</td></tr>';
+  try{
+    var results=await Promise.all([api('/api/payment-link-accounts'),api('/api/woocommerce-integrations')]);
+    var accounts=results[0]||[];
+    var integrations=results[1]||[];
+    if(select){
+      select.innerHTML='<option value="">Default</option>'+accounts.map(function(a){return '<option value="'+a.id+'">'+escHtml(a.name)+'</option>';}).join('');
+    }
+    if(table){
+      if(!integrations.length){
+        table.innerHTML='<tr><td colspan="6" class="empty">No WooCommerce stores connected yet.</td></tr>';
+      }else{
+        table.innerHTML=integrations.map(function(item){
+          var safeUrl=escHtml(item.store_url||'');
+          return '<tr>'
+            +'<td><strong>'+escHtml(item.shop_name||'—')+'</strong></td>'
+            +'<td><a href="'+safeUrl+'" target="_blank" rel="noopener noreferrer" class="mono" style="font-size:11px;color:var(--purple2);">'+safeUrl+'</a></td>'
+            +'<td>'+escHtml(item.stripe_account_name||'—')+'</td>'
+            +'<td><span class="badge badge-green">Connected</span></td>'
+            +'<td>'+escHtml(fmtDate(item.created_at))+'</td>'
+            +'<td><button class="btn btn-sm btn-danger" type="button" onclick="disconnectWooIntegration('+Number(item.id)+')">Disconnect</button></td>'
+            +'</tr>';
+        }).join('');
+      }
+    }
+  }catch(e){
+    if(select)select.innerHTML='<option value="">Default</option>';
+    if(table)table.innerHTML='<tr><td colspan="6" class="empty">Could not load WooCommerce connections.</td></tr>';
+  }
+}
+async function createWooCommerceIntegration(){
+  if(blockViewOnlyAction())return;
+  var shopName=String((document.getElementById('woo-shop-name')||{}).value||'').trim();
+  var storeUrl=String((document.getElementById('woo-store-url')||{}).value||'').trim();
+  var accountId=String((document.getElementById('woo-account')||{}).value||'');
+  if(!shopName){toast('Store name is required','error');return;}
+  try{var parsed=new URL(storeUrl);if(parsed.protocol!=='https:')throw new Error();}catch(e){toast('Enter your public HTTPS store URL','error');return;}
+  var button=document.getElementById('woo-connect-btn');
+  if(button){button.disabled=true;button.textContent='Generating…';}
+  try{
+    var result=await api('/api/woocommerce-integrations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({shop_name:shopName,store_url:storeUrl,stripe_account_id:accountId||null})});
+    currentWooToken=result.connection_token||null;
+    var tokenValue=document.getElementById('woo-token-value');if(tokenValue)tokenValue.textContent=currentWooToken||'';
+    var tokenResult=document.getElementById('woo-token-result');if(tokenResult)tokenResult.classList.add('visible');
+    toast('✓ WooCommerce connection ready');
+    await loadWooCommerceIntegrations();
+  }catch(e){toast((e&&e.message)||'Could not create the WooCommerce connection','error');}
+  finally{if(button){button.disabled=false;button.textContent='Generate Connection';}}
+}
+function copyWooConnectionToken(){
+  if(!currentWooToken){toast('Generate a connection token first','error');return;}
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(currentWooToken).then(function(){toast('Connection token copied!');}).catch(function(){fallbackCopy(currentWooToken);});}
+  else fallbackCopy(currentWooToken);
+}
+function downloadWooPlugin(){window.location.href='/downloads/subloop-woocommerce.zip';}
+function disconnectWooIntegration(id){
+  if(blockViewOnlyAction())return;
+  openAppActionConfirm({title:'Disconnect this WooCommerce store?',message:'Its connection token will stop working immediately. Existing Stripe payments are not changed.',cancelText:'Keep connected',confirmText:'Disconnect',danger:true},async function(){
+    try{await api('/api/woocommerce-integrations/'+id,{method:'DELETE'});toast('WooCommerce store disconnected');loadWooCommerceIntegrations();}
+    catch(e){toast((e&&e.message)||'Could not disconnect this store','error');}
+  });
+}
 function configurePaymentLinksAccessUI(){
   var canManageTemplates=getCurrentRole()==='owner'||getCurrentRole()==='admin';
   var builder=document.getElementById('template-builder-row');if(builder)builder.style.display=canManageTemplates?'flex':'none';
@@ -10400,7 +10507,7 @@ async function loadTemplates(){
       name.textContent=t.name;
       var price=document.createElement('span');
       price.style.cssText='font-size:11px;color:var(--muted);font-family:var(--mono);';
-      price.textContent=fmt(t.amount,t.currency)+'/'+t.interval_days+'d';
+      price.textContent=String(t.currency||'usd').toUpperCase()+' '+(Number(t.amount||0)/100).toFixed(2)+' · Every '+Number(t.interval_days||30)+' days';
       var canManageTemplates=getCurrentRole()==='owner'||getCurrentRole()==='admin';
       chip.appendChild(name);
       chip.appendChild(price);
@@ -10414,11 +10521,11 @@ async function loadTemplates(){
       el.appendChild(chip);
     });
   }catch(e){
-    renderPanelLoadError('templates-list','loadTemplates','Could not load plan templates.');
+    renderPanelLoadError('templates-list','loadTemplates','Could not load payment templates.');
   }
 }
-function applyTemplate(amount,currency,interval,name){document.getElementById('link-name').value=name;document.getElementById('link-amount').value=(amount/100).toFixed(2);document.getElementById('link-currency').value=currency;document.getElementById('link-interval').value=String(interval);toast('✓ Template applied');}
-async function saveTemplate(){var name=document.getElementById('tmpl-name').value.trim();var amount=Math.round(parseFloat(document.getElementById('tmpl-amount').value)*100);var interval=document.getElementById('tmpl-interval').value;if(!name||!amount){toast('Fill in name and amount','error');return;}await api('/api/plan-templates',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,amount,currency:'usd',interval_days:parseInt(interval)})});toast('✓ Template saved');document.getElementById('tmpl-name').value='';document.getElementById('tmpl-amount').value='';loadTemplates();}
+function applyTemplate(amount,currency,interval,name){document.getElementById('link-name').value=name;document.getElementById('link-amount').value=(amount/100).toFixed(2);document.getElementById('link-currency').value=String(currency||'usd').toLowerCase();document.getElementById('link-interval').value=String(interval);toast('✓ Template applied');}
+async function saveTemplate(){var name=document.getElementById('tmpl-name').value.trim();var amount=Math.round(parseFloat(document.getElementById('tmpl-amount').value)*100);var currency=document.getElementById('tmpl-currency').value;var interval=document.getElementById('tmpl-interval').value;if(!name||!amount){toast('Fill in name and amount','error');return;}await api('/api/plan-templates',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,amount,currency:currency,interval_days:parseInt(interval)})});toast('✓ Template saved');document.getElementById('tmpl-name').value='';document.getElementById('tmpl-amount').value='';loadTemplates();}
 async function deleteTemplate(id){await api('/api/plan-templates/'+id,{method:'DELETE'});toast('Template deleted');loadTemplates();}
 async function loadMrr(){
   try{

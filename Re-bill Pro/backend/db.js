@@ -156,6 +156,21 @@ async function init() {
     );
     CREATE INDEX IF NOT EXISTS hosted_checkout_links_workspace_idx ON hosted_checkout_links(workspace_id,created_at DESC);
     CREATE INDEX IF NOT EXISTS hosted_checkout_links_account_idx ON hosted_checkout_links(stripe_account_id);
+    CREATE TABLE IF NOT EXISTS woocommerce_integrations (
+      id BIGSERIAL PRIMARY KEY,
+      workspace_id INT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+      stripe_account_id INT NOT NULL REFERENCES stripe_accounts(id) ON DELETE CASCADE,
+      shop_name TEXT NOT NULL,
+      store_url TEXT NOT NULL,
+      token_hash TEXT UNIQUE NOT NULL,
+      token_prefix TEXT NOT NULL,
+      active BOOLEAN NOT NULL DEFAULT true,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(workspace_id, store_url)
+    );
+    CREATE INDEX IF NOT EXISTS woocommerce_integrations_workspace_idx ON woocommerce_integrations(workspace_id,created_at DESC);
+    CREATE INDEX IF NOT EXISTS woocommerce_integrations_account_idx ON woocommerce_integrations(stripe_account_id);
     CREATE TABLE IF NOT EXISTS customers (
       id SERIAL PRIMARY KEY,
       email TEXT NOT NULL,

@@ -7,6 +7,8 @@ try { speakeasy = require('speakeasy'); QRCode = require('qrcode'); } catch(e) {
 
 const Stripe = require('stripe');
 const crypto = require('crypto');
+const net = require('net');
+const dns = require('dns').promises;
 const { initScheduler } = require('./scheduler');
 
 
@@ -192,6 +194,7 @@ function sectionForApiPath(req) {
   if (path.startsWith('/subscriptions') || path.startsWith('/migrations')) return 'subscriptions';
   if (path.startsWith('/payments')) return 'payments';
   if (path.startsWith('/payment-link-accounts') || path.startsWith('/payment-links') || path.startsWith('/plan-templates') || path.startsWith('/embedded-checkout-token')) return 'links';
+  if (path.startsWith('/woocommerce-integrations')) return 'woocommerce';
   if (path.startsWith('/stripe-accounts')) return 'accounts';
   if (path.startsWith('/forecast')) return 'forecast';
   if (path.startsWith('/daily-summary')) return 'summary';
@@ -1208,6 +1211,120 @@ function keysMatchMode(account) {
   return true;
 }
 
+// ── WooCommerce integration helpers ──────────────────────────────────────────
+function normalizeWooStoreUrl(value) {
+  const raw = cleanCheckoutString(value, 500);
+  if (!raw) return null;
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol !== 'https:' || parsed.username || parsed.password) return null;
+    const hostname = parsed.hostname.toLowerCase();
+    if (!hostname || hostname === 'localhost' || hostname.endsWith('.local') || !hostname.includes('.') || net.isIP(hostname)) return null;
+    return parsed.origin.replace(/\/$/, '');
+  } catch (_err) {
+    return null;
+  }
+}
+
+function isPrivateWooAddress(address) {
+  const value = String(address || '').toLowerCase();
+  if (net.isIP(value) === 4) {
+    const parts = value.split('.').map(Number);
+    return parts[0] === 10 || parts[0] === 127 || parts[0] === 0
+      || (parts[0] === 169 && parts[1] === 254)
+      || (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31)
+      || (parts[0] === 192 && parts[1] === 168)
+      || parts[0] >= 224;
+  }
+  if (net.isIP(value) === 6) return value === '::1' || value === '::' || value.startsWith('fc') || value.startsWith('fd') || value.startsWith('fe8') || value.startsWith('fe9') || value.startsWith('fea') || value.startsWith('feb');
+  return true;
+}
+
+async function assertWooStoreUrlSafe(storeUrl) {
+  try {
+    const parsed = new URL(storeUrl);
+    const addresses = await dns.lookup(parsed.hostname, { all: true, verbatim: true });
+    if (addresses.length && !addresses.some((entry) => isPrivateWooAddress(entry.address))) return;
+  } catch (_err) {
+    // The same public-address message is returned for invalid or unresolved hosts.
+  }
+  throw Object.assign(new Error('Store URL must resolve to a public website'), { statusCode: 400 });
+}
+
+function wooTokenHash(token) {
+  return crypto.createHash('sha256').update(String(token || '')).digest('hex');
+}
+
+function issueWooToken() {
+  return 'slwc_live_' + crypto.randomBytes(32).toString('hex');
+}
+
+function cleanWooReference(value) {
+  const ref = String(value || '').trim();
+  return /^[A-Za-z0-9._:-]{6,120}$/.test(ref) ? ref : null;
+}
+
+async function wooIntegrationFromRequest(req) {
+  const authorization = String(req.headers.authorization || '');
+  const bearer = authorization.toLowerCase().startsWith('bearer ') ? authorization.slice(7).trim() : '';
+  const token = bearer || String(req.headers['x-subloop-token'] || '').trim();
+  if (!token || token.length > 160) throw Object.assign(new Error('A valid Subloop connection token is required'), { statusCode: 401 });
+  const result = await pool.query(`
+    SELECT wi.*,sa.name AS stripe_account_name,sa.secret_key,sa.publishable_key
+    FROM woocommerce_integrations wi
+    JOIN stripe_accounts sa ON sa.id=wi.stripe_account_id
+    WHERE wi.token_hash=$1 AND wi.active=true
+    LIMIT 1
+  `, [wooTokenHash(token)]);
+  const integration = result.rows[0];
+  if (!integration) throw Object.assign(new Error('This WooCommerce connection is invalid or inactive'), { statusCode: 401 });
+  const suppliedStore = String(req.headers['x-subloop-store-url'] || '').trim();
+  if (suppliedStore) {
+    const normalized = normalizeWooStoreUrl(suppliedStore);
+    if (!normalized || normalized !== integration.store_url) throw Object.assign(new Error('This token is not registered for this store'), { statusCode: 403 });
+  }
+  const access = await workspaceLicenseState({ workspace_id: integration.workspace_id });
+  if (!access.allowed) throw Object.assign(new Error('This Subloop connection is currently unavailable'), { statusCode: 403 });
+  if (!keysMatchMode(integration)) throw Object.assign(new Error('The selected Stripe account needs a matching publishable key'), { statusCode: 409 });
+  return integration;
+}
+
+async function notifyWooCommercePayment(paymentIntent, eventName) {
+  try {
+    const metadata = paymentIntent?.metadata || {};
+    if (metadata.source !== 'subloop_woocommerce') return;
+    const integrationId = Number(metadata.woocommerce_integration_id);
+    const checkoutReference = cleanWooReference(metadata.woocommerce_checkout_reference);
+    if (!Number.isInteger(integrationId) || !checkoutReference) return;
+    const result = await pool.query('SELECT id,store_url,token_hash FROM woocommerce_integrations WHERE id=$1 AND active=true LIMIT 1', [integrationId]);
+    const integration = result.rows[0];
+    if (!integration) return;
+    await assertWooStoreUrlSafe(integration.store_url);
+    const payload = JSON.stringify({
+      event: eventName,
+      payment_intent_id: paymentIntent.id,
+      status: paymentIntent.status,
+      checkout_reference: checkoutReference,
+      amount: paymentIntent.amount,
+      currency: String(paymentIntent.currency || '').toLowerCase()
+    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+      await fetch(integration.store_url + '/wp-json/subloop/v1/webhook', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Subloop-Signature': crypto.createHmac('sha256', integration.token_hash).update(payload).digest('hex') },
+        body: payload,
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch (err) {
+    console.error('[woocommerce] store webhook failed:', err.message);
+  }
+}
+
 async function resolveEmbeddedPlan(token) {
   const plan = await verifyCheckoutPlan(token);
   if (!plan) throw Object.assign(new Error('Invalid embedded checkout token'), { statusCode: 400 });
@@ -1384,10 +1501,12 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 
       else if (event.type === 'payment_intent.succeeded') {
         await savePaymentIntent(stripe, usedAccount, event.data.object, 'succeeded');
+        void notifyWooCommercePayment(event.data.object, 'payment.succeeded');
       }
 
       else if (event.type === 'payment_intent.payment_failed') {
         await savePaymentIntent(stripe, usedAccount, event.data.object, 'failed');
+        void notifyWooCommercePayment(event.data.object, 'payment.failed');
       }
 
       else if (event.type === 'invoice.paid' || event.type === 'invoice.payment_succeeded') {
@@ -1439,6 +1558,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 
 app.use(express.json());
 app.use('/icons', express.static(path.join(__dirname, 'public', 'icons')));
+app.use('/downloads', express.static(path.join(__dirname, 'public', 'downloads')));
 
 
 
@@ -1624,6 +1744,90 @@ app.post('/checkout/create-subscription', async (req, res) => {
   }
 });
 
+// ── Public WooCommerce connector API (server-to-server) ───────────────────────
+app.use('/woocommerce/v1', checkoutRateLimit);
+
+app.get('/woocommerce/v1/config', async (req, res) => {
+  try {
+    const integration = await wooIntegrationFromRequest(req);
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({
+      success: true,
+      shop_name: integration.shop_name,
+      publishable_key: integration.publishable_key,
+      stripe_account_name: integration.stripe_account_name
+    });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ error: err.message });
+  }
+});
+
+app.post('/woocommerce/v1/payment-intents', async (req, res) => {
+  try {
+    const integration = await wooIntegrationFromRequest(req);
+    const checkoutReference = cleanWooReference(req.body?.checkout_reference);
+    const amount = Number(req.body?.amount);
+    const currency = String(req.body?.currency || '').trim().toLowerCase();
+    if (!checkoutReference) return res.status(400).json({ error: 'A valid checkout reference is required' });
+    if (!Number.isInteger(amount) || amount < 50) return res.status(400).json({ error: 'A valid order amount is required' });
+    if (!/^[a-z]{3}$/.test(currency)) return res.status(400).json({ error: 'A valid order currency is required' });
+    const customer = req.body?.customer && typeof req.body.customer === 'object' ? req.body.customer : {};
+    const email = cleanCheckoutString(customer.email, 254);
+    const stripe = embeddedStripeClient(integration);
+    const referenceDigest = crypto.createHash('sha256').update(checkoutReference).digest('hex').slice(0, 24);
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount,
+      currency,
+      automatic_payment_methods: { enabled: true },
+      receipt_email: email || undefined,
+      description: 'Payment to ' + integration.shop_name,
+      metadata: {
+        source: 'subloop_woocommerce',
+        woocommerce_integration_id: String(integration.id),
+        woocommerce_checkout_reference: checkoutReference,
+        woocommerce_store_url: integration.store_url
+      }
+    }, { idempotencyKey: `subloop_wc_${integration.id}_${referenceDigest}_${amount}_${currency}` });
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({
+      success: true,
+      payment_intent_id: paymentIntent.id,
+      client_secret: paymentIntent.client_secret,
+      publishable_key: integration.publishable_key,
+      amount,
+      currency
+    });
+  } catch (err) {
+    console.error('[woocommerce] payment intent error:', err.message);
+    res.status(err.statusCode || 500).json({ error: err.message });
+  }
+});
+
+app.post('/woocommerce/v1/verify-payment', async (req, res) => {
+  try {
+    const integration = await wooIntegrationFromRequest(req);
+    const checkoutReference = cleanWooReference(req.body?.checkout_reference);
+    const paymentIntentId = String(req.body?.payment_intent_id || '').trim();
+    const amount = Number(req.body?.amount);
+    const currency = String(req.body?.currency || '').trim().toLowerCase();
+    if (!checkoutReference || !/^pi_[A-Za-z0-9_]+$/.test(paymentIntentId)) return res.status(400).json({ error: 'Invalid payment verification data' });
+    const stripe = embeddedStripeClient(integration);
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+    const metadata = paymentIntent.metadata || {};
+    const matches = metadata.source === 'subloop_woocommerce'
+      && metadata.woocommerce_integration_id === String(integration.id)
+      && metadata.woocommerce_checkout_reference === checkoutReference
+      && paymentIntent.amount === amount
+      && String(paymentIntent.currency || '').toLowerCase() === currency;
+    if (!matches) return res.status(403).json({ error: 'Payment does not match this WooCommerce order' });
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ success: true, payment_intent_id: paymentIntent.id, status: paymentIntent.status, paid: paymentIntent.status === 'succeeded' });
+  } catch (err) {
+    console.error('[woocommerce] verification error:', err.message);
+    res.status(err.statusCode || 500).json({ error: err.message });
+  }
+});
+
 // Require a verified session token for the application API and enforce page/read-only permissions.
 app.use('/api', async (req, res, next) => {
   const openPaths = ['/auth/verify', '/auth/check', '/auth/logout', '/security/2fa/validate'];
@@ -1645,7 +1849,7 @@ app.use('/api', async (req, res, next) => {
     const workspaceAccounts = await pool.query('SELECT id FROM stripe_accounts WHERE workspace_id=$1 ORDER BY id',[user.workspace_id]);
     req.workspaceAccountIds = workspaceAccounts.rows.map(row=>Number(row.id));
     const selfSecurityPath = req.path === '/security/login-history' || req.path === '/security/change-password' || req.path.startsWith('/security/2fa/');
-    const sensitive = ['/admin-users', '/settings', '/debug', '/licenses'];
+    const sensitive = ['/admin-users', '/settings', '/debug', '/licenses', '/woocommerce-integrations'];
     if (sensitive.some(prefix => req.path.startsWith(prefix)) && !isOwnerOrAdmin(user)) {
       return res.status(403).json({ error: 'Owner or admin access required' });
     }
@@ -1866,6 +2070,76 @@ app.get('/api/payment-link-accounts', async (req, res) => {
     const r = await pool.query('SELECT id, name, is_default FROM stripe_accounts WHERE id=ANY($1::int[]) ORDER BY created_at DESC NULLS LAST, id DESC',[ids]);
     res.json(r.rows);
   } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── WooCommerce connections ──────────────────────────────────────────────────
+app.get('/api/woocommerce-integrations', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT wi.id,wi.shop_name,wi.store_url,wi.token_prefix,wi.active,wi.created_at,wi.updated_at,
+             wi.stripe_account_id,sa.name AS stripe_account_name
+      FROM woocommerce_integrations wi
+      JOIN stripe_accounts sa ON sa.id=wi.stripe_account_id
+      WHERE wi.workspace_id=$1 AND wi.active=true
+      ORDER BY wi.updated_at DESC,wi.created_at DESC,wi.id DESC
+    `, [req.currentUser.workspace_id]);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/woocommerce-integrations', async (req, res) => {
+  try {
+    if (!requireOwnerOrAdmin(req, res)) return;
+    const shopName = cleanCheckoutString(req.body?.shop_name, 100);
+    const requestedStoreUrl = cleanCheckoutString(req.body?.store_url, 500);
+    const storeUrl = normalizeWooStoreUrl(requestedStoreUrl);
+    if (!shopName) return res.status(400).json({ error: 'Store name is required' });
+    if (!storeUrl) return res.status(400).json({ error: 'Enter the public HTTPS URL of your WooCommerce store' });
+    await assertWooStoreUrlSafe(storeUrl);
+    const requestedAccountId = Number(req.body?.stripe_account_id);
+    const account = Number.isInteger(requestedAccountId) && requestedAccountId > 0
+      ? await stripeAccounts.byId(requestedAccountId)
+      : await stripeAccounts.default(req.currentUser.workspace_id);
+    if (!account) return res.status(400).json({ error: 'Select a Stripe account' });
+    if (!ensureRowScope(req, res, { stripe_account_id: account.id })) return;
+    if (!keysMatchMode(account)) return res.status(409).json({ error: 'Add the matching Stripe publishable key (pk_...) to this Stripe account first' });
+    const token = issueWooToken();
+    const result = await pool.query(`
+      INSERT INTO woocommerce_integrations
+        (workspace_id,stripe_account_id,shop_name,store_url,token_hash,token_prefix,active,created_at,updated_at)
+      VALUES ($1,$2,$3,$4,$5,$6,true,NOW(),NOW())
+      ON CONFLICT (workspace_id,store_url)
+      DO UPDATE SET stripe_account_id=EXCLUDED.stripe_account_id,shop_name=EXCLUDED.shop_name,
+                    token_hash=EXCLUDED.token_hash,token_prefix=EXCLUDED.token_prefix,active=true,updated_at=NOW()
+      RETURNING id,shop_name,store_url,stripe_account_id,token_prefix,active,created_at,updated_at
+    `, [req.currentUser.workspace_id, account.id, shopName, storeUrl, wooTokenHash(token), token.slice(0, 18)]);
+    res.json({
+      success: true,
+      integration: { ...result.rows[0], stripe_account_name: account.name },
+      connection_token: token,
+      plugin_download_url: '/downloads/subloop-woocommerce.zip'
+    });
+  } catch (err) {
+    console.error('[woocommerce] connection error:', err.message);
+    res.status(err.statusCode || 500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/woocommerce-integrations/:id', async (req, res) => {
+  try {
+    if (!requireOwnerOrAdmin(req, res)) return;
+    const result = await pool.query(`
+      UPDATE woocommerce_integrations SET active=false,updated_at=NOW()
+      WHERE id=$1 AND workspace_id=$2 AND active=true
+      RETURNING id
+    `, [req.params.id, req.currentUser.workspace_id]);
+    if (!result.rows[0]) return res.status(404).json({ error: 'WooCommerce connection not found' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Lightweight account lists for the Customers and Payments filters. These routes
@@ -4542,7 +4816,7 @@ function sendAppIndex(res) {
   res.set('Pragma', 'no-cache');
   res.set('Expires', '0');
   res.set('Surrogate-Control', 'no-store');
-  res.set('X-Subloop-App-Build', '20260904-hosted-checkout-1');
+  res.set('X-Subloop-App-Build', '20260905-woocommerce-1');
   return res.sendFile(path.join(__dirname, 'index.html'));
 }
 
@@ -4568,7 +4842,7 @@ app.get('*', async (req, res) => {
 
     if (host === SUBLOOP_LOGIN_HOST && validCookieSession) {
       const requestedNext = typeof req.query.next === 'string' ? req.query.next : '';
-      const safeNext = /^\/(dashboard|activity|customers|subscriptions|payments|payment-links|stripe-accounts|forecast|daily-summary|revenue-growth|payment-recovery|admin-users|settings|security|webhook-logs)$/.test(requestedNext) ? requestedNext : '/dashboard';
+      const safeNext = /^\/(dashboard|activity|customers|subscriptions|payments|payment-links|woocommerce|stripe-accounts|forecast|daily-summary|revenue-growth|payment-recovery|admin-users|settings|security|webhook-logs)$/.test(requestedNext) ? requestedNext : '/dashboard';
       return res.redirect(302, SUBLOOP_APP_ORIGIN + safeNext);
     }
     if (host === SUBLOOP_APP_HOST && !validCookieSession) {
@@ -4576,7 +4850,7 @@ app.get('*', async (req, res) => {
       const params = new URLSearchParams();
       if(deniedLicenseStatus) params.set('access', deniedLicenseStatus);
       const requestedPath = String(req.path || '/');
-      if(/^\/(dashboard|activity|customers|subscriptions|payments|payment-links|stripe-accounts|forecast|daily-summary|revenue-growth|payment-recovery|admin-users|settings|security|webhook-logs)$/.test(requestedPath)) params.set('next', requestedPath);
+      if(/^\/(dashboard|activity|customers|subscriptions|payments|payment-links|woocommerce|stripe-accounts|forecast|daily-summary|revenue-growth|payment-recovery|admin-users|settings|security|webhook-logs)$/.test(requestedPath)) params.set('next', requestedPath);
       const suffix=params.toString()?('?'+params.toString()):'';
       return res.redirect(302, SUBLOOP_LOGIN_ORIGIN + '/' + suffix);
     }
