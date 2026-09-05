@@ -1,0 +1,55 @@
+#payment .payment_methods .payment_box.payment_method_subloop {
+  background: transparent;
+  padding: 16px 0 4px;
+}
+
+#payment .payment_methods .payment_box.payment_method_subloop::before {
+  display: none;
+}
+
+#subloop-payment-ui {
+  width: 100%;
+}
+
+#subloop-express-element:empty,
+#subloop-payment-divider:empty {
+  display: none;
+}
+
+#subloop-payment-divider {
+  align-items: center;
+  color: #8e8a9b;
+  display: flex;
+  font-size: 12px;
+  gap: 12px;
+  margin: 16px 0;
+  text-align: center;
+}
+
+#subloop-payment-divider::before,
+#subloop-payment-divider::after {
+  background: rgba(140, 136, 155, .28);
+  content: "";
+  flex: 1;
+  height: 1px;
+}
+
+#subloop-payment-error {
+  color: #dc2626;
+  display: none;
+  font-size: 13px;
+  margin-top: 12px;
+}
+
+.payment_method_subloop > label {
+  align-items: center;
+  display: inline-flex;
+  font-weight: 600;
+  gap: 8px;
+}
+
+@media (max-width: 520px) {
+  #subloop-payment-divider {
+    margin: 13px 0;
+  }
+}
