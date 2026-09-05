@@ -149,6 +149,7 @@ async function init() {
       stripe_payment_link_id TEXT,
       stripe_payment_link_url TEXT,
       shop_name TEXT,
+      return_url TEXT,
       active BOOLEAN NOT NULL DEFAULT true,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -288,6 +289,7 @@ async function init() {
     'ALTER TABLE customers ADD COLUMN IF NOT EXISTS workspace_id INT',
     'ALTER TABLE embedded_checkout_sessions ADD COLUMN IF NOT EXISTS workspace_id INT',
     'ALTER TABLE hosted_checkout_links ADD COLUMN IF NOT EXISTS shop_name TEXT',
+    'ALTER TABLE hosted_checkout_links ADD COLUMN IF NOT EXISTS return_url TEXT',
     'ALTER TABLE activity_log ADD COLUMN IF NOT EXISTS workspace_id INT',
     'ALTER TABLE webhook_logs ADD COLUMN IF NOT EXISTS workspace_id INT',
     'ALTER TABLE settings ADD COLUMN IF NOT EXISTS workspace_id INT',

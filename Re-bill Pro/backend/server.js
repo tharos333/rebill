@@ -1166,6 +1166,19 @@ function cleanCheckoutString(value, max = 200) {
   return out ? out.slice(0, max) : null;
 }
 
+function cleanCheckoutReturnUrl(value) {
+  const raw = cleanCheckoutString(value, 2048);
+  if (!raw) return null;
+  try {
+    const parsed = new URL(raw);
+    const localHttp = parsed.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(parsed.hostname);
+    if ((parsed.protocol !== 'https:' && !localHttp) || parsed.username || parsed.password) return null;
+    return parsed.toString();
+  } catch (_err) {
+    return null;
+  }
+}
+
 function normalizeCheckoutAddress(input) {
   if (!input || typeof input !== 'object') return null;
   const address = {
@@ -1216,16 +1229,16 @@ function validHostedCheckoutSlug(value) {
   return /^[A-Za-z0-9_-]{10,40}$/.test(slug) ? slug : null;
 }
 
-async function createHostedCheckoutLink({ workspaceId, accountId, priceId, paymentLinkId, paymentLinkUrl, shopName }) {
+async function createHostedCheckoutLink({ workspaceId, accountId, priceId, paymentLinkId, paymentLinkUrl, shopName, returnUrl }) {
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const slug = crypto.randomBytes(9).toString('base64url');
     const inserted = await pool.query(
       `INSERT INTO hosted_checkout_links
-       (slug,workspace_id,stripe_account_id,stripe_price_id,stripe_payment_link_id,stripe_payment_link_url,shop_name)
-       VALUES ($1,$2,$3,$4,$5,$6,$7)
+       (slug,workspace_id,stripe_account_id,stripe_price_id,stripe_payment_link_id,stripe_payment_link_url,shop_name,return_url)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
        ON CONFLICT (slug) DO NOTHING
        RETURNING slug`,
-      [slug, workspaceId, accountId, priceId, paymentLinkId || null, paymentLinkUrl || null, shopName]
+      [slug, workspaceId, accountId, priceId, paymentLinkId || null, paymentLinkUrl || null, shopName, returnUrl || null]
     );
     if (inserted.rows[0]?.slug) return inserted.rows[0].slug;
   }
@@ -1236,7 +1249,7 @@ async function resolveHostedCheckoutLink(rawSlug) {
   const slug = validHostedCheckoutSlug(rawSlug);
   if (!slug) throw Object.assign(new Error('Invalid checkout link'), { statusCode: 404 });
   const result = await pool.query(
-    `SELECT slug,workspace_id,stripe_account_id,stripe_price_id,stripe_payment_link_url,shop_name
+    `SELECT slug,workspace_id,stripe_account_id,stripe_price_id,stripe_payment_link_url,shop_name,return_url
      FROM hosted_checkout_links
      WHERE slug=$1 AND active=true
      LIMIT 1`,
@@ -1478,6 +1491,7 @@ app.get('/checkout/hosted/:slug/config', async (req, res) => {
       currency: String(price.currency || 'usd').toLowerCase(),
       interval: price.recurring.interval,
       intervalCount: price.recurring.interval_count || 1,
+      returnUrl: hosted.return_url || null,
       stripeFallbackUrl: hosted.stripe_payment_link_url || null
     });
   } catch (err) {
@@ -3401,10 +3415,13 @@ app.post('/api/payment-links', async (req, res) => {
   try {
     const { name, amount, currency, interval_days, stripe_account_id } = req.body;
     const shopName = cleanCheckoutString(req.body?.shop_name, 100);
+    const requestedReturnUrl = cleanCheckoutString(req.body?.return_url, 2048);
+    const returnUrl = cleanCheckoutReturnUrl(requestedReturnUrl);
     const paymentDescription = cleanCheckoutString(name, 120) || 'Payment';
     const unitAmount = Number(amount);
     const paymentCurrency = String(currency || 'usd').trim().toLowerCase();
     if (!shopName) return res.status(400).json({ error: 'Shop name is required' });
+    if (requestedReturnUrl && !returnUrl) return res.status(400).json({ error: 'Return URL must be a valid HTTPS URL' });
     if (!Number.isInteger(unitAmount) || unitAmount < 50) return res.status(400).json({ error: 'Enter a valid payment amount' });
     if (!/^[a-z]{3}$/.test(paymentCurrency)) return res.status(400).json({ error: 'Enter a valid currency' });
     const acc = stripe_account_id ? await stripeAccounts.byId(stripe_account_id) : await stripeAccounts.default(req.currentUser.workspace_id);
@@ -3428,11 +3445,13 @@ app.post('/api/payment-links', async (req, res) => {
       metadata: { source: 'subloop', interval_days: String(interval_days || 30) }
     });
     console.log('[payment-link] created recurring price:', price.id, 'interval:', recurring.interval, 'count:', recurring.interval_count, 'amount:', unitAmount, 'account:', acc.name);
-    const link = await stripe.paymentLinks.create({
+    const paymentLinkParams = {
       line_items: [{ price: price.id, quantity: 1 }],
       subscription_data: { metadata: { source: 'subloop', interval_days: String(interval_days || 30) } },
       metadata: { source: 'subloop', type: 'subscription_link' }
-    });
+    };
+    if (returnUrl) paymentLinkParams.after_completion = { type: 'redirect', redirect: { url: returnUrl } };
+    const link = await stripe.paymentLinks.create(paymentLinkParams);
     console.log('[payment-link] created subscription payment link:', link.id, link.url);
     const embed_token = await signCheckoutPlan({ account_id: Number(acc.id), price_id: price.id });
     const hostedSlug = await createHostedCheckoutLink({
@@ -3441,7 +3460,8 @@ app.post('/api/payment-links', async (req, res) => {
       priceId: price.id,
       paymentLinkId: link.id,
       paymentLinkUrl: link.url,
-      shopName
+      shopName,
+      returnUrl
     });
     const hostedUrl = `${SUBLOOP_CHECKOUT_ORIGIN}/pay/${hostedSlug}`;
     res.json({
