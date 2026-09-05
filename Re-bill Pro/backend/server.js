@@ -4816,7 +4816,7 @@ function sendAppIndex(res) {
   res.set('Pragma', 'no-cache');
   res.set('Expires', '0');
   res.set('Surrogate-Control', 'no-store');
-  res.set('X-Subloop-App-Build', '20260905-woocommerce-1');
+  res.set('X-Subloop-App-Build', '20260905-woocommerce-layout-2');
   return res.sendFile(path.join(__dirname, 'index.html'));
 }
 

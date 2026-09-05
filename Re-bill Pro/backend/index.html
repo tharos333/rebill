@@ -6367,15 +6367,15 @@ body.view-only-access #verification-debug-modal .modal-content{
 <!-- Payment Links -->
 <div id="page-links" class="page">
   <div class="page-header"><div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>Payment Links</span></h2><p>Create payment links for recurring payments</p></div></div>
-  <div class="card" style="max-width:500px;margin-bottom:14px;">
+  <div class="card" style="max-width:760px;margin-bottom:14px;">
     <div class="card-header"><h3>Payment Templates <span id="template-count" style="color:var(--muted);font-weight:400;"></span></h3></div>
     <div style="padding:12px 18px 16px;">
       <div id="templates-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;min-height:32px;"><span style="font-size:12px;color:var(--muted);font-family:var(--mono);">Loading...</span></div>
       <div id="template-builder-row" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
-        <div class="form-group" style="margin:0;flex:1;min-width:120px;"><label>Template name</label><input type="text" id="tmpl-name" placeholder="Service payment"></div>
+        <div class="form-group" style="margin:0;flex:1;min-width:160px;"><label>Template name</label><input type="text" id="tmpl-name" placeholder="Service payment"></div>
         <div class="form-group" style="margin:0;width:90px;"><label>Amount</label><input type="number" id="tmpl-amount" placeholder="29" min="0.50" step="0.01"></div>
         <div class="form-group" style="margin:0;width:90px;"><label>Currency</label><select id="tmpl-currency"><option value="usd">USD</option><option value="eur">EUR</option><option value="gbp">GBP</option><option value="mad">MAD</option></select></div>
-        <div class="form-group" style="margin:0;width:100px;"><label>Billing interval</label><select id="tmpl-interval"><option value="7">Weekly</option><option value="14">Biweekly</option><option value="30" selected>Monthly</option><option value="90">Quarterly</option><option value="365">Yearly</option></select></div>
+        <div class="form-group" style="margin:0;width:125px;"><label style="white-space:nowrap;">Billing interval</label><select id="tmpl-interval"><option value="7">Weekly</option><option value="14">Biweekly</option><option value="30" selected>Monthly</option><option value="90">Quarterly</option><option value="365">Yearly</option></select></div>
         <button class="btn btn-primary btn-sm" onclick="saveTemplate()" style="margin-bottom:1px;">Save Template</button>
       </div>
     </div>
@@ -6447,30 +6447,13 @@ body.view-only-access #verification-debug-modal .modal-content{
 <div id="page-woocommerce" class="page">
   <div class="page-header">
     <div><h2 class="page-title-with-icon"><svg class="page-title-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3v6"/><path d="M15 3v6"/><path d="M7 9h10v2a5 5 0 0 1-5 5 5 5 0 0 1-5-5V9Z"/><path d="M12 16v5"/></svg><span>WooCommerce</span></h2><p>Connect your store checkout to a Stripe account</p></div>
-    <button class="btn" type="button" onclick="downloadWooPlugin()"><svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v8"/><path d="m4.5 7 3.5 3.5L11.5 7"/><path d="M3 13h10"/></svg><span>Download Plugin</span></button>
-  </div>
-
-  <div class="card" style="max-width:720px;margin-bottom:14px;">
-    <div class="card-header"><h3>Create WooCommerce Connection</h3></div>
-    <div style="padding:18px;">
-      <div class="form-group"><label>Store name</label><input type="text" id="woo-shop-name" placeholder="Example Store" maxlength="100" autocomplete="organization"></div>
-      <div class="form-group"><label>Store URL</label><input type="url" id="woo-store-url" placeholder="https://your-store.com" maxlength="500" autocomplete="url"><div style="font-size:11px;color:var(--muted);margin-top:6px;">Enter the public HTTPS address of the WooCommerce store.</div></div>
-      <div class="form-group"><label>Stripe account</label><select id="woo-account"><option value="">Loading...</option></select></div>
-      <button class="btn btn-primary" type="button" id="woo-connect-btn" onclick="createWooCommerceIntegration()">Generate Connection</button>
-      <div class="link-result" id="woo-token-result">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;color:var(--green);font-size:12px;font-family:var(--mono);"><span>●</span><span>Connection ready</span></div>
-        <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;">Connection token — shown once</div>
-        <div class="link-url" id="woo-token-value" style="word-break:break-all;"></div>
-        <div style="font-size:11px;color:var(--muted);margin-top:8px;">Install the plugin, then paste this token into WooCommerce → Settings → Payments → Subloop.</div>
-        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
-          <button class="btn btn-sm" type="button" onclick="copyWooConnectionToken()">Copy token</button>
-          <button class="btn btn-sm btn-primary" type="button" onclick="downloadWooPlugin()">Download Plugin</button>
-        </div>
-      </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <button class="btn" type="button" onclick="downloadWooPlugin()"><svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v8"/><path d="m4.5 7 3.5 3.5L11.5 7"/><path d="M3 13h10"/></svg><span>Download Plugin</span></button>
+      <button class="btn btn-primary" type="button" onclick="openWooConnectionModal()"><svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v10"/><path d="M3 8h10"/></svg><span>Connect Store</span></button>
     </div>
   </div>
 
-  <div class="card" style="max-width:900px;">
+  <div class="card">
     <div class="card-header"><h3>Connected Stores</h3></div>
     <div class="scrollable"><table>
       <thead><tr><th>Store</th><th>URL</th><th>Stripe Account</th><th>Status</th><th>Added</th><th>Action</th></tr></thead>
@@ -6682,6 +6665,26 @@ body.view-only-access #verification-debug-modal .modal-content{
 </div>
 
 <!-- Modals -->
+<div class="modal-bg" id="woo-connection-modal">
+  <div class="modal" style="width:560px;max-width:calc(100vw - 32px);">
+    <h3>Create WooCommerce Connection</h3>
+    <p>Connect this store checkout to one Stripe account.</p>
+    <div class="form-group"><label>Store name</label><input type="text" id="woo-shop-name" placeholder="Example Store" maxlength="100" autocomplete="organization"></div>
+    <div class="form-group"><label>Store URL</label><input type="url" id="woo-store-url" placeholder="https://your-store.com" maxlength="500" autocomplete="url"><div style="font-size:11px;color:var(--muted);margin-top:6px;">Enter the public HTTPS address of the WooCommerce store.</div></div>
+    <div class="form-group"><label>Stripe account</label><select id="woo-account"><option value="">Loading...</option></select></div>
+    <div class="link-result" id="woo-token-result">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;color:var(--green);font-size:12px;font-family:var(--mono);"><span>●</span><span>Connection ready</span></div>
+      <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;">Connection token — shown once</div>
+      <div class="link-url" id="woo-token-value" style="word-break:break-all;"></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:8px;">Install the plugin, then paste this token into WooCommerce → Settings → Payments → Subloop.</div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+        <button class="btn btn-sm" type="button" onclick="copyWooConnectionToken()">Copy token</button>
+        <button class="btn btn-sm btn-primary" type="button" onclick="downloadWooPlugin()">Download Plugin</button>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn" type="button" onclick="closeModal('woo-connection-modal')">Cancel</button><button class="btn btn-primary" type="button" id="woo-connect-btn" onclick="createWooCommerceIntegration()">Generate Connection</button></div>
+  </div>
+</div>
 <div class="modal-bg" id="add-customer-modal">
   <div class="modal">
     <h3>Import Stripe Customer</h3><p>Import an existing customer and saved card into Subloop.</p>
@@ -9966,7 +9969,7 @@ async function loadWooCommerceIntegrations(){
     }
     if(table){
       if(!integrations.length){
-        table.innerHTML='<tr><td colspan="6" class="empty">No WooCommerce stores connected yet.</td></tr>';
+        table.innerHTML='<tr><td colspan="6" class="empty"><div style="margin-bottom:12px;">No WooCommerce stores connected yet.</div><button class="btn btn-primary" type="button" onclick="openWooConnectionModal()">Connect Your First Store</button></td></tr>';
       }else{
         table.innerHTML=integrations.map(function(item){
           var safeUrl=escHtml(item.store_url||'');
@@ -9985,6 +9988,16 @@ async function loadWooCommerceIntegrations(){
     if(select)select.innerHTML='<option value="">Default</option>';
     if(table)table.innerHTML='<tr><td colspan="6" class="empty">Could not load WooCommerce connections.</td></tr>';
   }
+}
+function openWooConnectionModal(){
+  if(blockViewOnlyAction())return;
+  currentWooToken=null;
+  var name=document.getElementById('woo-shop-name');if(name)name.value='';
+  var url=document.getElementById('woo-store-url');if(url)url.value='';
+  var result=document.getElementById('woo-token-result');if(result)result.classList.remove('visible');
+  var token=document.getElementById('woo-token-value');if(token)token.textContent='';
+  openModal('woo-connection-modal');
+  setTimeout(function(){if(name)name.focus();},80);
 }
 async function createWooCommerceIntegration(){
   if(blockViewOnlyAction())return;
