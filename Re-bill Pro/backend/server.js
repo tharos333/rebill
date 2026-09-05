@@ -1094,7 +1094,7 @@ async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null, f
   return ins.rows[0].id;
 }
 
-async function handleInvoiceEvent(stripe, usedAccount, invoice, statusLabel = 'succeeded') {
+async function handleInvoiceEvent(stripe, usedAccount, invoice, statusLabel = 'succeeded', wooEventName = null) {
   await ensureWebhookColumns();
   const subId = subscriptionIdFromInvoice(invoice);
   console.log('[invoice] event invoice:', invoice.id, 'subscription:', subId || '-', 'payment_intent:', invoice.payment_intent || '-');
@@ -1106,6 +1106,15 @@ async function handleInvoiceEvent(stripe, usedAccount, invoice, statusLabel = 's
       const pi = await stripe.paymentIntents.retrieve(invoice.payment_intent, { expand: ['invoice'] });
       await savePaymentIntent(stripe, usedAccount, pi, statusLabel);
     } catch(e) { console.error('[invoice] could not save PI from invoice:', e.message); }
+  }
+  if (subId && wooEventName) {
+    const paymentIntentId = typeof invoice.payment_intent === 'string' ? invoice.payment_intent : invoice.payment_intent?.id || null;
+    void notifyWooCommerceSubscription(stripe, subId, wooEventName, {
+      invoice_id: invoice.id,
+      payment_intent_id: paymentIntentId,
+      amount: Number(invoice.amount_paid || invoice.amount_due || 0),
+      currency: invoice.currency
+    });
   }
   return localSubId;
 }
@@ -1325,6 +1334,60 @@ async function notifyWooCommercePayment(paymentIntent, eventName) {
   }
 }
 
+function normalizeWooRecurring(intervalValue, countValue) {
+  const interval = String(intervalValue || '').trim().toLowerCase();
+  const intervalCount = Number(countValue);
+  const maximums = { day: 365, week: 52, month: 12, year: 3 };
+  if (!Object.prototype.hasOwnProperty.call(maximums, interval)) {
+    throw Object.assign(new Error('A valid subscription billing interval is required'), { statusCode: 400 });
+  }
+  if (!Number.isInteger(intervalCount) || intervalCount < 1 || intervalCount > maximums[interval]) {
+    throw Object.assign(new Error('A valid subscription billing interval count is required'), { statusCode: 400 });
+  }
+  return { interval, intervalCount };
+}
+
+async function notifyWooCommerceSubscription(stripe, subscriptionOrId, eventName, details = {}) {
+  try {
+    const subscription = typeof subscriptionOrId === 'string'
+      ? await stripe.subscriptions.retrieve(subscriptionOrId)
+      : subscriptionOrId;
+    const metadata = subscription?.metadata || {};
+    if (metadata.source !== 'subloop_woocommerce_subscription') return;
+    const integrationId = Number(metadata.woocommerce_integration_id);
+    const checkoutReference = cleanWooReference(metadata.woocommerce_checkout_reference);
+    if (!Number.isInteger(integrationId) || !checkoutReference) return;
+    const result = await pool.query('SELECT id,store_url,token_hash FROM woocommerce_integrations WHERE id=$1 AND active=true LIMIT 1', [integrationId]);
+    const integration = result.rows[0];
+    if (!integration) return;
+    await assertWooStoreUrlSafe(integration.store_url);
+    const payload = JSON.stringify({
+      event: eventName,
+      checkout_reference: checkoutReference,
+      subscription_id: subscription.id,
+      subscription_status: subscription.status,
+      invoice_id: details.invoice_id || null,
+      payment_intent_id: details.payment_intent_id || null,
+      amount: Number(details.amount || 0),
+      currency: String(details.currency || '').toLowerCase()
+    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+      await fetch(integration.store_url + '/wp-json/subloop/v1/webhook', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Subloop-Signature': crypto.createHmac('sha256', integration.token_hash).update(payload).digest('hex') },
+        body: payload,
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch (err) {
+    console.error('[woocommerce] subscription webhook failed:', err.message);
+  }
+}
+
 async function resolveEmbeddedPlan(token) {
   const plan = await verifyCheckoutPlan(token);
   if (!plan) throw Object.assign(new Error('Invalid embedded checkout token'), { statusCode: 400 });
@@ -1391,7 +1454,9 @@ function subscriptionClientSecret(subscription) {
     return { type: 'setup', clientSecret: typeof si === 'string' ? null : si.client_secret || null };
   }
   const invoice = subscription?.latest_invoice;
-  const secret = invoice && typeof invoice !== 'string' ? invoice.confirmation_secret?.client_secret || null : null;
+  const secret = invoice && typeof invoice !== 'string'
+    ? invoice.confirmation_secret?.client_secret || invoice.payment_intent?.client_secret || null
+    : null;
   return secret ? { type: 'payment', clientSecret: secret } : { type: 'none', clientSecret: null };
 }
 
@@ -1510,15 +1575,15 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
       }
 
       else if (event.type === 'invoice.paid' || event.type === 'invoice.payment_succeeded') {
-        await handleInvoiceEvent(stripe, usedAccount, event.data.object, 'succeeded');
+        await handleInvoiceEvent(stripe, usedAccount, event.data.object, 'succeeded', event.type === 'invoice.paid' ? 'subscription.payment_succeeded' : null);
       }
 
       else if (event.type === 'invoice.payment_failed') {
-        await handleInvoiceEvent(stripe, usedAccount, event.data.object, 'failed');
+        await handleInvoiceEvent(stripe, usedAccount, event.data.object, 'failed', 'subscription.payment_failed');
       }
 
       else if (event.type === 'invoice.payment_action_required') {
-        await handleInvoiceEvent(stripe, usedAccount, event.data.object, 'requires_action');
+        await handleInvoiceEvent(stripe, usedAccount, event.data.object, 'requires_action', 'subscription.payment_action_required');
       }
 
       else if (event.type === 'customer.subscription.created' || event.type === 'customer.subscription.updated') {
@@ -1532,6 +1597,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
         const local = await pool.query("UPDATE subscriptions SET status='canceled', status_before_cancel=NULL, paused_by_customer=false, resume_date=NULL, ended_at=COALESCE(ended_at,NOW()), updated_at=NOW() WHERE stripe_subscription_id=$1 RETURNING customer_id", [stripeSub.id]).catch(()=>null);
         const customerId = local?.rows?.[0]?.customer_id;
         if (customerId) await reconcileCustomerLifecycle(customerId).catch(()=>{});
+        void notifyWooCommerceSubscription(stripe, stripeSub, 'subscription.canceled');
       }
 
       else if (event.type === 'customer.updated') {
@@ -1758,6 +1824,158 @@ app.get('/woocommerce/v1/config', async (req, res) => {
       stripe_account_name: integration.stripe_account_name
     });
   } catch (err) {
+    res.status(err.statusCode || 500).json({ error: err.message });
+  }
+});
+
+app.post('/woocommerce/v1/subscriptions', async (req, res) => {
+  try {
+    const integration = await wooIntegrationFromRequest(req);
+    const checkoutReference = cleanWooReference(req.body?.checkout_reference);
+    const amount = Number(req.body?.amount);
+    const currency = String(req.body?.currency || '').trim().toLowerCase();
+    const recurring = normalizeWooRecurring(req.body?.interval, req.body?.interval_count);
+    if (!checkoutReference) return res.status(400).json({ error: 'A valid checkout reference is required' });
+    if (!Number.isInteger(amount) || amount < 50) return res.status(400).json({ error: 'A valid subscription amount is required' });
+    if (!/^[a-z]{3}$/.test(currency)) return res.status(400).json({ error: 'A valid subscription currency is required' });
+
+    const input = req.body?.customer && typeof req.body.customer === 'object' ? req.body.customer : {};
+    const email = cleanEmail(input.email);
+    if (!email || !email.includes('@')) return res.status(400).json({ error: 'A valid customer email is required' });
+    const firstName = cleanCheckoutString(input.first_name, 100);
+    const lastName = cleanCheckoutString(input.last_name, 100);
+    const name = cleanCheckoutString(input.name, 200) || [firstName, lastName].filter(Boolean).join(' ') || null;
+    const phone = cleanCheckoutString(input.phone, 50);
+    const address = normalizeCheckoutAddress(input.address);
+    const stripe = embeddedStripeClient(integration);
+    const planHash = integration.token_hash;
+
+    const existing = await pool.query(
+      'SELECT * FROM embedded_checkout_sessions WHERE plan_token_hash=$1 AND checkout_reference=$2 LIMIT 1',
+      [planHash, checkoutReference]
+    );
+    if (existing.rows[0]?.stripe_subscription_id) {
+      const reused = await stripe.subscriptions.retrieve(existing.rows[0].stripe_subscription_id, {
+        expand: ['latest_invoice.confirmation_secret', 'latest_invoice.payment_intent', 'pending_setup_intent', 'items.data.price']
+      });
+      const confirmation = subscriptionClientSecret(reused);
+      return res.json({ success: true, reused: true, type: confirmation.type, client_secret: confirmation.clientSecret, subscription_id: reused.id, status: reused.status });
+    }
+
+    let customer;
+    const matching = await stripe.customers.list({ email, limit: 1 });
+    if (matching.data?.[0] && !matching.data[0].deleted) {
+      customer = await stripe.customers.update(matching.data[0].id, {
+        ...(name ? { name } : {}),
+        ...(phone ? { phone } : {}),
+        ...(address ? { address } : {}),
+        metadata: { ...matching.data[0].metadata, subloop_source: 'woocommerce' }
+      });
+    } else {
+      customer = await stripe.customers.create({
+        email,
+        ...(name ? { name } : {}),
+        ...(phone ? { phone } : {}),
+        ...(address ? { address } : {}),
+        metadata: { subloop_source: 'woocommerce' }
+      });
+    }
+
+    let productId = integration.stripe_product_id || null;
+    if (productId) {
+      try { await stripe.products.retrieve(productId); } catch (_err) { productId = null; }
+    }
+    if (!productId) {
+      const product = await stripe.products.create({
+        name: integration.shop_name + ' subscription',
+        metadata: { source: 'subloop_woocommerce', woocommerce_integration_id: String(integration.id) }
+      }, { idempotencyKey: `subloop_wc_product_${integration.id}` });
+      productId = product.id;
+      await pool.query('UPDATE woocommerce_integrations SET stripe_product_id=$1,updated_at=NOW() WHERE id=$2', [productId, integration.id]);
+    }
+
+    const priceDigest = crypto.createHash('sha256').update(`${integration.id}|${checkoutReference}|${amount}|${currency}|${recurring.interval}|${recurring.intervalCount}`).digest('hex').slice(0, 32);
+    const price = await stripe.prices.create({
+      product: productId,
+      currency,
+      unit_amount: amount,
+      recurring: { interval: recurring.interval, interval_count: recurring.intervalCount },
+      metadata: { source: 'subloop_woocommerce', woocommerce_checkout_reference: checkoutReference }
+    }, { idempotencyKey: `subloop_wc_price_${priceDigest}` });
+
+    const subscriptionDigest = crypto.createHash('sha256').update(`${integration.id}|${checkoutReference}|${price.id}`).digest('hex').slice(0, 32);
+    const subscription = await stripe.subscriptions.create({
+      customer: customer.id,
+      items: [{ price: price.id }],
+      payment_behavior: 'default_incomplete',
+      payment_settings: { save_default_payment_method: 'on_subscription' },
+      metadata: {
+        source: 'subloop_woocommerce_subscription',
+        woocommerce_integration_id: String(integration.id),
+        woocommerce_checkout_reference: checkoutReference,
+        woocommerce_store_url: integration.store_url
+      },
+      expand: ['latest_invoice.confirmation_secret', 'latest_invoice.payment_intent', 'pending_setup_intent', 'items.data.price']
+    }, { idempotencyKey: `subloop_wc_subscription_${subscriptionDigest}` });
+
+    await pool.query(
+      `INSERT INTO embedded_checkout_sessions (plan_token_hash,checkout_reference,stripe_account_id,stripe_customer_id,stripe_subscription_id,workspace_id,updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,NOW())
+       ON CONFLICT (plan_token_hash,checkout_reference)
+       DO UPDATE SET stripe_account_id=EXCLUDED.stripe_account_id,stripe_customer_id=EXCLUDED.stripe_customer_id,stripe_subscription_id=EXCLUDED.stripe_subscription_id,workspace_id=EXCLUDED.workspace_id,updated_at=NOW()`,
+      [planHash, checkoutReference, integration.stripe_account_id, customer.id, subscription.id, integration.workspace_id]
+    );
+    await saveSubscriptionFromStripe(stripe, { ...integration, id: integration.stripe_account_id, name: integration.stripe_account_name }, subscription, 'woocommerce.checkout.created');
+    const confirmation = subscriptionClientSecret(subscription);
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({
+      success: true,
+      reused: false,
+      type: confirmation.type,
+      client_secret: confirmation.clientSecret,
+      subscription_id: subscription.id,
+      status: subscription.status,
+      amount,
+      currency,
+      interval: recurring.interval,
+      interval_count: recurring.intervalCount
+    });
+  } catch (err) {
+    console.error('[woocommerce] subscription creation error:', err.message);
+    res.status(err.statusCode || 500).json({ error: err.message });
+  }
+});
+
+app.post('/woocommerce/v1/verify-subscription', async (req, res) => {
+  try {
+    const integration = await wooIntegrationFromRequest(req);
+    const checkoutReference = cleanWooReference(req.body?.checkout_reference);
+    const subscriptionId = String(req.body?.subscription_id || '').trim();
+    const paymentIntentId = String(req.body?.payment_intent_id || '').trim();
+    const amount = Number(req.body?.amount);
+    const currency = String(req.body?.currency || '').trim().toLowerCase();
+    if (!checkoutReference || !/^sub_[A-Za-z0-9_]+$/.test(subscriptionId) || !/^pi_[A-Za-z0-9_]+$/.test(paymentIntentId)) {
+      return res.status(400).json({ error: 'Invalid subscription verification data' });
+    }
+    const stripe = embeddedStripeClient(integration);
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId, { expand: ['latest_invoice.payment_intent', 'items.data.price'] });
+    const metadata = subscription.metadata || {};
+    const price = subscription.items?.data?.[0]?.price;
+    const paymentIntent = subscription.latest_invoice?.payment_intent;
+    const intentId = typeof paymentIntent === 'string' ? paymentIntent : paymentIntent?.id;
+    const intentStatus = typeof paymentIntent === 'object' ? paymentIntent.status : null;
+    const matches = metadata.source === 'subloop_woocommerce_subscription'
+      && metadata.woocommerce_integration_id === String(integration.id)
+      && metadata.woocommerce_checkout_reference === checkoutReference
+      && intentId === paymentIntentId
+      && Number(price?.unit_amount) === amount
+      && String(price?.currency || '').toLowerCase() === currency;
+    if (!matches) return res.status(403).json({ error: 'Subscription does not match this WooCommerce order' });
+    const paid = intentStatus === 'succeeded' && ['active', 'trialing'].includes(String(subscription.status || '').toLowerCase());
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ success: true, paid, subscription_id: subscription.id, payment_intent_id: intentId, status: subscription.status });
+  } catch (err) {
+    console.error('[woocommerce] subscription verification error:', err.message);
     res.status(err.statusCode || 500).json({ error: err.message });
   }
 });
@@ -2112,7 +2330,9 @@ app.post('/api/woocommerce-integrations', async (req, res) => {
       VALUES ($1,$2,$3,$4,$5,$6,true,NOW(),NOW())
       ON CONFLICT (workspace_id,store_url)
       DO UPDATE SET stripe_account_id=EXCLUDED.stripe_account_id,shop_name=EXCLUDED.shop_name,
-                    token_hash=EXCLUDED.token_hash,token_prefix=EXCLUDED.token_prefix,active=true,updated_at=NOW()
+                    token_hash=EXCLUDED.token_hash,token_prefix=EXCLUDED.token_prefix,
+                    stripe_product_id=CASE WHEN woocommerce_integrations.stripe_account_id=EXCLUDED.stripe_account_id THEN woocommerce_integrations.stripe_product_id ELSE NULL END,
+                    active=true,updated_at=NOW()
       RETURNING id,shop_name,store_url,stripe_account_id,token_prefix,active,created_at,updated_at
     `, [req.currentUser.workspace_id, account.id, shopName, storeUrl, wooTokenHash(token), token.slice(0, 18)]);
     res.json({
@@ -4816,7 +5036,7 @@ function sendAppIndex(res) {
   res.set('Pragma', 'no-cache');
   res.set('Expires', '0');
   res.set('Surrogate-Control', 'no-store');
-  res.set('X-Subloop-App-Build', '20260905-woocommerce-labels-4');
+  res.set('X-Subloop-App-Build', '20260905-woocommerce-subscriptions-5');
   return res.sendFile(path.join(__dirname, 'index.html'));
 }
 
