@@ -8520,8 +8520,13 @@ async function checkMigrationDestination(){
         var input=document.getElementById('migration-live-amount');
         var label=document.getElementById('migration-live-amount-label');
         if(wrap)wrap.style.display='block';
-        if(label)label.textContent='Verification amount (USD)';
-        if(input)input.value='';
+        var currencyCode=String(currentMigrationCheck.currency||'usd').toUpperCase();
+        if(label)label.textContent='Verification amount ('+currencyCode+')';
+        if(input){
+          input.value='';
+          input.step=migrationCurrencyExponent(currencyCode)===0?'1':'0.01';
+          input.min=migrationCurrencyExponent(currencyCode)===0?'1':'0.01';
+        }
         updateMigrationLiveChargeButton();
       }else{
         test.disabled=false;
@@ -8552,41 +8557,35 @@ function migrationLiveAmount(){
   var input=document.getElementById('migration-live-amount');
   var value=Number(input&&input.value);
   if(!Number.isFinite(value))return null;
-  return Math.round(value*100)/100;
+  var scale=Math.pow(10,migrationCurrencyExponent(currentMigrationCheck&&currentMigrationCheck.currency));
+  return Math.round(value*scale)/scale;
 }
-function migrationLiveAmountLabel(amount){
+function migrationCurrencyExponent(currency){
+  var zero=['bif','clp','djf','gnf','jpy','kmf','krw','mga','pyg','rwf','vnd','vuv','xaf','xof','xpf'];
+  return zero.includes(String(currency||'').toLowerCase())?0:2;
+}
+function migrationLiveAmountLabel(amount,currency){
   var n=Number(amount);
-  if(!Number.isFinite(n))return '$0.00';
-  var abs=Math.abs(n);
-  if(abs>=1000000){
-    var millions=n/1000000;
-    var m=Math.round(millions*100)/100;
-    return '$'+String(m).replace(/\.0+$|(?<=\.[0-9])0+$/,'')+'M';
-  }
-  if(abs>=10000){
-    var thousands=n/1000;
-    var k=Math.round(thousands*10)/10;
-    return '$'+String(k).replace(/\.0$/,'')+'K';
-  }
-  return '$'+n.toFixed(2);
+  var code=String(currency||(currentMigrationCheck&&currentMigrationCheck.currency)||'usd').toUpperCase();
+  if(!Number.isFinite(n))n=0;
+  try{return new Intl.NumberFormat('en-US',{style:'currency',currency:code}).format(n);}catch(_e){return code+' '+n.toFixed(migrationCurrencyExponent(code));}
 }
 function updateMigrationLiveChargeButton(){
   var btn=document.getElementById('migration-test-btn');
   if(!btn||btn.dataset.mode!=='live')return;
   var amount=migrationLiveAmount();
-  var valid=amount!==null&&amount>=0.50;
+  var valid=amount!==null&&amount>0;
   btn.disabled=!valid;
-  btn.textContent=valid?'Verify charge '+migrationLiveAmountLabel(amount):'Enter amount';
+  btn.textContent=valid?'Verify charge '+migrationLiveAmountLabel(amount,currentMigrationCheck&&currentMigrationCheck.currency):'Enter amount';
 }
 function chargeMigrationLiveVerification(){
   if(!currentMigrationCheck||!currentMigrationCheck.livemode){setMigrationResult('Verify the destination first.','error');return;}
-  if(String(currentMigrationCheck.currency||'').toLowerCase()!=='usd'){setMigrationResult('Live verification charging is currently available only for USD subscriptions.','error');return;}
   var amount=migrationLiveAmount();
-  if(amount===null||amount<0.50){setMigrationResult('Enter a verification amount of at least $0.50.','error');return;}
-  var amountLabel=migrationLiveAmountLabel(amount);
+  if(amount===null||amount<=0){setMigrationResult('Enter a valid verification amount.','error');return;}
+  var amountLabel=migrationLiveAmountLabel(amount,currentMigrationCheck.currency);
   openAppActionConfirm({
     title:'Verify '+amountLabel+' charge on destination?',
-    message:'A real '+amountLabel+' USD charge will be made on the destination. The source subscription will not change.',
+    message:'A real '+amountLabel+' charge will be made on the destination. The source subscription will not change.',
     cancelText:'Cancel',
     confirmText:'Verify charge '+amountLabel,
     danger:false
@@ -8597,8 +8596,8 @@ function chargeMigrationLiveVerification(){
       var payload=Object.assign({},currentMigrationCheck,{request_id:migrationVerificationRequestId(),amount:amount});
       var r=await api('/api/migrations/live-verification-charge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
       if(r.success){
-        var charged=Number(r.amount||0)/100;
-        var chargedLabel=migrationLiveAmountLabel(charged||amount);
+        var charged=Number(r.amount||0)/Math.pow(10,migrationCurrencyExponent(r.currency||currentMigrationCheck.currency));
+        var chargedLabel=migrationLiveAmountLabel(charged||amount,r.currency||currentMigrationCheck.currency);
         setMigrationResult('<div class="migration-result-title">'+escHtml(chargedLabel)+' verification charge succeeded</div><div class="migration-result-detail">The destination account successfully charged the migrated payment method.<br>PaymentIntent: '+escHtml(r.payment_intent_id||'—')+'</div>','success');
         toast('✓ '+chargedLabel+' verification succeeded');
       }else{

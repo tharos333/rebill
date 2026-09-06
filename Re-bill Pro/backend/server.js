@@ -3059,6 +3059,12 @@ app.get('/api/customers/export', async (req, res) => {
 });
 
 // ── Stripe account migration test (isolated; does not modify Subloop subscription state) ──
+const STRIPE_ZERO_DECIMAL_CURRENCIES = new Set([
+  'bif','clp','djf','gnf','jpy','kmf','krw','mga','pyg','rwf','vnd','vuv','xaf','xof','xpf'
+]);
+function stripeChargeCurrencyExponent(currency) {
+  return STRIPE_ZERO_DECIMAL_CURRENCIES.has(String(currency || '').toLowerCase()) ? 0 : 2;
+}
 async function migrationContext(req, res, subscriptionId) {
   if (!requireOwnerOrAdmin(req, res)) return null;
   const r = await pool.query(`
@@ -3281,7 +3287,7 @@ app.post('/api/migrations/check', async (req, res) => {
       ready,
       livemode:!!destinationCustomer.livemode,
       can_test_charge:ready && !destinationCustomer.livemode,
-      can_live_charge:ready && !!destinationCustomer.livemode && String(row.currency || '').toLowerCase()==='usd',
+      can_live_charge:ready && !!destinationCustomer.livemode && /^[a-z]{3}$/.test(String(row.currency || '').toLowerCase()),
       warnings,
       subscription:{ id:row.id, amount:row.amount, currency:row.currency, interval_days:row.interval_days, next_billing_date:row.next_billing_date, stripe_subscription_id:row.stripe_subscription_id || null },
       source_account:{ id:sourceAccount.id, name:sourceAccount.name },
@@ -3357,7 +3363,7 @@ app.post('/api/migrations/live-verification-charge', async (req, res) => {
     destinationCustomerId = String(req.body.destination_customer_id || '').trim();
     if (!/^cus_[A-Za-z0-9]+$/.test(destinationCustomerId)) return res.status(400).json({ error:'A valid destination customer ID (cus_...) is required' });
     const currency = String(row.currency || '').toLowerCase();
-    if (currency !== 'usd') return res.status(400).json({ error:'Live verification charging is currently available only for USD subscriptions' });
+    if (!/^[a-z]{3}$/.test(currency)) return res.status(400).json({ error:'The payment currency is invalid' });
     stripe = new Stripe(destination.secret_key);
     const customer = await stripe.customers.retrieve(destinationCustomerId);
     if (customer?.deleted) return res.status(400).json({ error:'Destination Stripe customer has been deleted' });
@@ -3366,15 +3372,20 @@ app.post('/api/migrations/live-verification-charge', async (req, res) => {
     const pm = pmInfo.paymentMethod;
     if (!pm) return res.status(400).json({ error:'No reusable saved card is attached to the destination customer' });
     const amountMajor = Number(req.body.amount);
-    if (!Number.isFinite(amountMajor) || amountMajor < 0.50) return res.status(400).json({ error:'Verification amount must be at least $0.50' });
-    const amountMinor = Math.round(amountMajor * 100);
+    if (!Number.isFinite(amountMajor) || amountMajor <= 0) return res.status(400).json({ error:'Enter a valid verification amount' });
+    const currencyExponent = stripeChargeCurrencyExponent(currency);
+    const currencyScale = 10 ** currencyExponent;
+    const amountMinor = Math.round(amountMajor * currencyScale);
     if (!Number.isSafeInteger(amountMinor)) return res.status(400).json({ error:'Verification amount is too large to process safely' });
-    if (Math.abs((amountMinor / 100) - amountMajor) > 0.000001) return res.status(400).json({ error:'Verification amount can have at most 2 decimal places' });
+    if (amountMinor < 1) return res.status(400).json({ error:'Enter a valid verification amount' });
+    if (Math.abs((amountMinor / currencyScale) - amountMajor) > 0.000001) {
+      return res.status(400).json({ error:currencyExponent === 0 ? 'This currency requires a whole-number amount' : 'Verification amount can have at most 2 decimal places' });
+    }
     requestId = String(req.body.request_id || '').replace(/[^A-Za-z0-9_-]/g,'').slice(0,80);
     if (!requestId) return res.status(400).json({ error:'Verification request ID is required' });
     const pi = await stripe.paymentIntents.create({
       amount:amountMinor,
-      currency:'usd',
+      currency,
       customer:destinationCustomerId,
       payment_method:pm.id,
       off_session:true,
