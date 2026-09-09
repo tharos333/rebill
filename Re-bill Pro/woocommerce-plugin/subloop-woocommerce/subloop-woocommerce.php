@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Subloop for WooCommerce
  * Description: Accept secure Stripe payments directly inside WooCommerce checkout through a Subloop connection.
- * Version: 1.1.0
+ * Version: 1.1.1
  * Requires at least: 6.4
  * Requires PHP: 7.4
  * WC requires at least: 8.0
@@ -13,7 +13,7 @@
 
 defined('ABSPATH') || exit;
 
-define('SUBLOOP_WC_VERSION', '1.1.0');
+define('SUBLOOP_WC_VERSION', '1.1.1');
 define('SUBLOOP_WC_FILE', __FILE__);
 
 add_action('before_woocommerce_init', static function () {
@@ -31,7 +31,7 @@ add_action('plugins_loaded', static function () {
     class WC_Gateway_Subloop extends WC_Payment_Gateway
     {
         private $connection_token;
-        private $api_base = 'https://app.subloop.space';
+        private $api_base = 'https://app.subloop.cloud';
 
         public function __construct()
         {

@@ -4,7 +4,7 @@ Tags: woocommerce, stripe, payments, checkout
 Requires at least: 6.4
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.1.0
+Stable tag: 1.1.1
 License: GPLv2 or later
 
 Accept secure Stripe payments directly inside the classic WooCommerce checkout.
@@ -34,6 +34,9 @@ This release supports the classic WooCommerce checkout. Checkout Block support i
 All order totals are calculated again on the WooCommerce server and verified by Subloop before an order is marked paid. Connection tokens are bound to the store URL and can be revoked from Subloop.
 
 == Changelog ==
+
+= 1.1.1 =
+* Updated the Subloop API domain to app.subloop.cloud.
 
 = 1.1.0 =
 * Creates scheduled Stripe payments using the final WooCommerce cart total and currency.
