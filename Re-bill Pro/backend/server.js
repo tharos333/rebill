@@ -15,12 +15,17 @@ const { initScheduler } = require('./scheduler');
 // Admin access tokens and Stripe-account scoping.
 // Set SUBLOOP_AUTH_SECRET in Railway for tokens that remain valid after a deploy/restart.
 const SUBLOOP_AUTH_SECRET = process.env.SUBLOOP_AUTH_SECRET || crypto.randomBytes(48).toString('hex');
-const SUBLOOP_LOGIN_ORIGIN = String(process.env.SUBLOOP_LOGIN_ORIGIN || 'https://subloop.space').replace(/\/$/, '');
-const SUBLOOP_APP_ORIGIN = String(process.env.SUBLOOP_APP_ORIGIN || 'https://app.subloop.space').replace(/\/$/, '');
-const SUBLOOP_CHECKOUT_ORIGIN = String(process.env.SUBLOOP_CHECKOUT_ORIGIN || SUBLOOP_APP_ORIGIN).replace(/\/$/, '');
+const SUBLOOP_LOGIN_ORIGIN = String(process.env.SUBLOOP_LOGIN_ORIGIN || 'https://subloop.cloud').replace(/\/$/, '');
+const SUBLOOP_APP_ORIGIN = String(process.env.SUBLOOP_APP_ORIGIN || 'https://app.subloop.cloud').replace(/\/$/, '');
+const SUBLOOP_CHECKOUT_ORIGIN = String(process.env.SUBLOOP_CHECKOUT_ORIGIN || 'https://pay.velton.cloud').replace(/\/$/, '');
+const SUBLOOP_LEGACY_LOGIN_ORIGIN = String(process.env.SUBLOOP_LEGACY_LOGIN_ORIGIN || 'https://subloop.space').replace(/\/$/, '');
+const SUBLOOP_LEGACY_APP_ORIGIN = String(process.env.SUBLOOP_LEGACY_APP_ORIGIN || 'https://app.subloop.space').replace(/\/$/, '');
 const SUBLOOP_LOGIN_HOST = new URL(SUBLOOP_LOGIN_ORIGIN).hostname.toLowerCase();
 const SUBLOOP_APP_HOST = new URL(SUBLOOP_APP_ORIGIN).hostname.toLowerCase();
-const SUBLOOP_COOKIE_DOMAIN = process.env.SUBLOOP_COOKIE_DOMAIN || '.subloop.space';
+const SUBLOOP_CHECKOUT_HOST = new URL(SUBLOOP_CHECKOUT_ORIGIN).hostname.toLowerCase();
+const SUBLOOP_LEGACY_LOGIN_HOST = new URL(SUBLOOP_LEGACY_LOGIN_ORIGIN).hostname.toLowerCase();
+const SUBLOOP_LEGACY_APP_HOST = new URL(SUBLOOP_LEGACY_APP_ORIGIN).hostname.toLowerCase();
+const SUBLOOP_COOKIE_DOMAIN = process.env.SUBLOOP_COOKIE_DOMAIN || '.subloop.cloud';
 const SUBLOOP_SESSION_COOKIE = 'subloop_session';
 const SUBLOOP_PLATFORM_ADMIN_COOKIE = 'subloop_platform_admin';
 const SUBLOOP_SESSION_MINUTES = 480;
@@ -58,7 +63,7 @@ function requestHostname(req) {
 }
 function isSubloopDomainHost(host) {
   host = String(host || '').toLowerCase();
-  return host === SUBLOOP_LOGIN_HOST || host === SUBLOOP_APP_HOST || host === 'subloop.space' || host.endsWith('.subloop.space');
+  return host === SUBLOOP_LOGIN_HOST || host === SUBLOOP_APP_HOST || host === 'subloop.cloud' || host.endsWith('.subloop.cloud');
 }
 function namedCookie(req, name) {
   const raw = String(req.headers.cookie || '');
@@ -110,7 +115,7 @@ function clearPlatformAdminSessionCookie(req,res) {
   res.clearCookie(SUBLOOP_PLATFORM_ADMIN_COOKIE,platformAdminCookieOptions(req,true));
 }
 function authTokenForJson(req, token) {
-  // On subloop.space/app.subloop.space, authentication is intentionally HttpOnly-cookie based.
+  // On subloop.cloud/app.subloop.cloud, authentication is intentionally HttpOnly-cookie based.
   // Keep the legacy token response only for non-Subloop hosts (for example the Railway fallback URL).
   return isSubloopDomainHost(requestHostname(req)) ? {} : { token };
 }
@@ -1623,6 +1628,25 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 
 
 app.use(express.json());
+
+// Keep every legacy browser URL working while presenting only the new domains.
+// Non-GET integration calls stay available on the old hosts during the migration.
+app.use((req, res, next) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+  const host = requestHostname(req);
+  const originalUrl = String(req.originalUrl || req.url || '/');
+  const queryIndex = originalUrl.indexOf('?');
+  const query = queryIndex >= 0 ? originalUrl.slice(queryIndex) : '';
+  const paymentMatch = String(req.path || '').match(/^\/pay\/([A-Za-z0-9_-]{10,40})\/?$/);
+
+  if (paymentMatch && [SUBLOOP_LEGACY_LOGIN_HOST, SUBLOOP_LEGACY_APP_HOST, SUBLOOP_LOGIN_HOST, SUBLOOP_APP_HOST, SUBLOOP_CHECKOUT_HOST].includes(host)) {
+    return res.redirect(308, `${SUBLOOP_CHECKOUT_ORIGIN}/${paymentMatch[1]}${query}`);
+  }
+  if (host === SUBLOOP_LEGACY_LOGIN_HOST) return res.redirect(308, SUBLOOP_LOGIN_ORIGIN + originalUrl);
+  if (host === SUBLOOP_LEGACY_APP_HOST) return res.redirect(308, SUBLOOP_APP_ORIGIN + originalUrl);
+  return next();
+});
+
 app.use('/icons', express.static(path.join(__dirname, 'public', 'icons')));
 app.use('/downloads', express.static(path.join(__dirname, 'public', 'downloads')));
 
@@ -1635,7 +1659,7 @@ app.get('/checkout/config', async (req, res) => {
   try {
     const { account, price } = await resolveEmbeddedPlan(req.query.token);
     const access=await workspaceLicenseState({workspace_id:account.workspace_id});
-    if(!access.allowed) return res.status(403).json({error:'This Subloop checkout is currently unavailable.'});
+    if(!access.allowed) return res.status(403).json({error:'This checkout is currently unavailable.'});
     const product = price.product && typeof price.product !== 'string' ? price.product : null;
     res.setHeader('Cache-Control', 'no-store');
     res.json({
@@ -1664,7 +1688,7 @@ app.get('/checkout/hosted/:slug/config', async (req, res) => {
   try {
     const { hosted, embedToken, account, price } = await resolveHostedCheckoutLink(req.params.slug);
     const access = await workspaceLicenseState({ workspace_id: account.workspace_id });
-    if (!access.allowed) return res.status(403).json({ error: 'This Subloop checkout is currently unavailable.' });
+    if (!access.allowed) return res.status(403).json({ error: 'This checkout is currently unavailable.' });
     const product = price.product && typeof price.product !== 'string' ? price.product : null;
     res.setHeader('Cache-Control', 'no-store');
     res.json({
@@ -1686,14 +1710,25 @@ app.get('/checkout/hosted/:slug/config', async (req, res) => {
   }
 });
 
-app.get('/pay/:slug', (req, res, next) => {
-  if (!validHostedCheckoutSlug(req.params.slug)) return next();
+function sendHostedCheckout(res) {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.set('Pragma', 'no-cache');
   res.set('Expires', '0');
   res.set('X-Frame-Options', 'DENY');
   res.set('Referrer-Policy', 'no-referrer');
   return res.sendFile(path.join(__dirname, 'checkout.html'));
+}
+
+// Railway/direct-host fallback for old /pay/{id} URLs. Canonical public links use
+// pay.velton.cloud/{id}; known Subloop hosts are redirected by the middleware above.
+app.get('/pay/:slug', (req, res, next) => {
+  if (!validHostedCheckoutSlug(req.params.slug)) return next();
+  return sendHostedCheckout(res);
+});
+
+app.get('/:slug', (req, res, next) => {
+  if (requestHostname(req) !== SUBLOOP_CHECKOUT_HOST || !validHostedCheckoutSlug(req.params.slug)) return next();
+  return sendHostedCheckout(res);
 });
 
 app.post('/checkout/create-subscription', async (req, res) => {
@@ -1716,7 +1751,7 @@ app.post('/checkout/create-subscription', async (req, res) => {
 
     const { account, stripe, price } = await resolveEmbeddedPlan(token);
     const access=await workspaceLicenseState({workspace_id:account.workspace_id});
-    if(!access.allowed) return res.status(403).json({error:'This Subloop checkout is currently unavailable.'});
+    if(!access.allowed) return res.status(403).json({error:'This checkout is currently unavailable.'});
     const planHash = checkoutTokenHash(token);
 
     // Return the existing Stripe Subscription for retries/double-clicks using the same checkout reference.
@@ -3968,7 +4003,7 @@ app.post('/api/payment-links', async (req, res) => {
       shopName,
       returnUrl
     });
-    const hostedUrl = `${SUBLOOP_CHECKOUT_ORIGIN}/pay/${hostedSlug}`;
+    const hostedUrl = `${SUBLOOP_CHECKOUT_ORIGIN}/${hostedSlug}`;
     res.json({
       success: true,
       url: hostedUrl,
@@ -5055,6 +5090,10 @@ function sendAppIndex(res) {
 app.get('*', async (req, res) => {
   try {
     const host = requestHostname(req);
+    if (host === SUBLOOP_CHECKOUT_HOST) {
+      res.set('Cache-Control', 'no-store');
+      return res.status(404).type('text/plain').send('This checkout link is unavailable.');
+    }
     if (req.path === '/admin' || req.path.startsWith('/admin/')) {
       if (host !== SUBLOOP_APP_HOST && host !== 'localhost' && host !== '127.0.0.1') return res.redirect(302, SUBLOOP_APP_ORIGIN + '/admin');
       res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate'); res.set('Pragma', 'no-cache'); res.set('Expires', '0'); res.set('X-Subloop-Admin-Build', '20260828-login-actions-literal-app-1'); return res.sendFile(path.join(__dirname, 'admin.html'));

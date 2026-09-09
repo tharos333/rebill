@@ -20,6 +20,16 @@ Also set a stable signing secret so admin sessions remain valid across restarts:
 SUBLOOP_AUTH_SECRET=use-a-long-random-secret-here
 ```
 
+The production domains default to `subloop.cloud`, `app.subloop.cloud`, and
+`pay.velton.cloud`. If older Railway variables already override them, update them to:
+
+```text
+SUBLOOP_LOGIN_ORIGIN=https://subloop.cloud
+SUBLOOP_APP_ORIGIN=https://app.subloop.cloud
+SUBLOOP_CHECKOUT_ORIGIN=https://pay.velton.cloud
+SUBLOOP_COOKIE_DOMAIN=.subloop.cloud
+```
+
 ### How Owner credentials work
 
 - If the database has **no Owner account**, Subloop creates the first Owner from `SUBLOOP_OWNER_USERNAME` and `SUBLOOP_OWNER_PASSWORD`.

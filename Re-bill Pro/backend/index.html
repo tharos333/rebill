@@ -5935,7 +5935,7 @@ body.view-only-access #verification-debug-modal .modal-content{
 #global-search-results .badge span{font-weight:600!important;}
 
 </style>
-<script>(function(){if(location.hostname.toLowerCase()==='app.subloop.space')document.documentElement.classList.add('subloop-app-host');})();</script>
+<script>(function(){if(location.hostname.toLowerCase()==='app.subloop.cloud')document.documentElement.classList.add('subloop-app-host');})();</script>
 <style>html.subloop-app-host #login-screen{display:none!important;}</style>
 </head>
 <body>
@@ -6999,8 +6999,8 @@ body.view-only-access #verification-debug-modal .modal-content{
 <div id="toast"></div>
 <script>
 let currentLink=null,currentStripeLink=null,currentEmbedToken=null,currentWooToken=null,allCustomers=[],allSubscriptions=[],allPayments=[],allStripeAccounts=[],allAdminUsers=[],allLicenses=[],appSettings={},selectedSubs=new Set(),currentRevPeriod='all',bulkMode=false;
-const SUBLOOP_LOGIN_ORIGIN='https://subloop.space';
-const SUBLOOP_APP_ORIGIN='https://app.subloop.space';
+const SUBLOOP_LOGIN_ORIGIN='https://subloop.cloud';
+const SUBLOOP_APP_ORIGIN='https://app.subloop.cloud';
 const PAGE_ROUTES={
   dashboard:'/dashboard',
   activity:'/activity',
@@ -7033,8 +7033,8 @@ function safeNextAppPath(){
   next=normalizeAppPath(next);
   return pageForPath(next)?next:PAGE_ROUTES.dashboard;
 }
-function isSubloopLoginHost(){return window.location.hostname.toLowerCase()==='subloop.space';}
-function isSubloopAppHost(){return window.location.hostname.toLowerCase()==='app.subloop.space';}
+function isSubloopLoginHost(){return window.location.hostname.toLowerCase()==='subloop.cloud';}
+function isSubloopAppHost(){return window.location.hostname.toLowerCase()==='app.subloop.cloud';}
 function clearLocalAccessState(){
   ['subloop_auth','subloop_role','subloop_permissions','subloop_username','subloop_readonly','subloop_token','subloop_login_challenge','subloop_account_scope','subloop_allowed_account_ids','subloop_workspace_id','subloop_workspace_is_main','subloop_super_admin'].forEach(function(k){localStorage.removeItem(k);});
 }
@@ -7066,7 +7066,7 @@ async function bootstrapDomainSession(){
     return;
   }
   if(isSubloopLoginHost()){
-    // The server redirects an existing valid cookie session to app.subloop.space.
+    // The server redirects an existing valid cookie session to app.subloop.cloud.
     // If this page is served, present the login only and ignore stale localStorage from this origin.
     clearLocalAccessState();
     document.getElementById('app-screen').classList.add('hidden');
@@ -7174,7 +7174,7 @@ function blockViewOnlyAction(){
   return true;
 }
 function isMainWorkspace(){
-  // Unknown is treated as Main for legacy/fallback sessions; normal subloop.space/app.subloop.space
+  // Unknown is treated as Main for legacy/fallback sessions; normal subloop.cloud/app.subloop.cloud
   // sessions always receive an explicit workspace_is_main flag from the backend.
   return localStorage.getItem('subloop_workspace_is_main')!=='0';
 }

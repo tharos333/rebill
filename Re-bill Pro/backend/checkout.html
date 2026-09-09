@@ -117,7 +117,7 @@
     (function(){
       'use strict';
       var pathParts=location.pathname.split('/').filter(Boolean);
-      var slug=pathParts[0]==='pay' ? pathParts[1] : '';
+      var slug=pathParts[0]==='pay' ? pathParts[1] : pathParts[0];
       var config=null,stripe=null,elements=null,addressElement=null,paymentElement=null,expressElement=null,confirmationType='payment',processing=false;
       var payButtonLabel='Pay securely',amountLabel='',redirectTimer=null;
       var loading=document.getElementById('loading');

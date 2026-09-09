@@ -6,7 +6,7 @@ This build keeps the existing Stripe Payment Link and embedded storefront flows,
 
 - Stripe Accounts now accept a **Publishable key (`pk_...`)** in addition to the existing secret key and webhook secret.
 - Generating a Payment Link now also generates an **embedded checkout token** for the same recurring Stripe Price.
-- Generating a Payment Link automatically creates a short Subloop URL: `https://app.subloop.space/pay/{id}`.
+- Generating a Payment Link automatically creates a short checkout URL: `https://pay.velton.cloud/{id}`.
 - Opening that URL automatically loads the matching embedded checkout token; customers never need to paste it.
 - New public endpoints:
   - `GET /checkout/config?token=...`
@@ -35,16 +35,16 @@ Go to **Payment Links** and generate the subscription as usual.
 
 Subloop now creates all three representations of the same recurring Stripe Price:
 
-- Subloop hosted checkout (`app.subloop.space/pay/...`) — displayed as the main hosted link
+- Hosted checkout (`pay.velton.cloud/...`) — displayed as the main hosted link
 - Stripe Payment Link (`buy.stripe.com/...`) — retained as a backend fallback
 - Embedded checkout token
 
 Send the Subloop hosted checkout URL directly to a customer. For checkout inside an external storefront, use the **embedded checkout token**.
 
-You can later move hosted checkout to `buy.subloop.space` without changing checkout or rebilling code. Set this Railway variable and connect that domain to the same service:
+The hosted checkout origin can be overridden without changing checkout or billing code. Set this Railway variable and connect that domain to the same service:
 
 ```text
-SUBLOOP_CHECKOUT_ORIGIN=https://buy.subloop.space
+SUBLOOP_CHECKOUT_ORIGIN=https://pay.velton.cloud
 ```
 
 ## 3. Storefront flow

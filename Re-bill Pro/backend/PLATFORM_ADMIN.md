@@ -2,7 +2,7 @@
 
 The license manager is available only at:
 
-- `https://app.subloop.space/admin`
+- `https://app.subloop.cloud/admin`
 
 It uses a separate platform-admin account and session from normal Subloop workspace users.
 
