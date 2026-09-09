@@ -296,6 +296,7 @@ async function ensureWebhookColumns() {
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS was_failed BOOLEAN DEFAULT false').catch(()=>{});
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS recovered_at TIMESTAMPTZ').catch(()=>{});
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_origin TEXT').catch(()=>{});
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS checkout_source TEXT').catch(()=>{});
   await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS stripe_account_id INT REFERENCES stripe_accounts(id)').catch(()=>{});
   await pool.query(`UPDATE payments p SET stripe_account_id=c.stripe_account_id FROM customers c WHERE p.customer_id=c.id AND p.stripe_account_id IS NULL`).catch(()=>{});
   // Stripe risk/outcome diagnostics, captured from charge.outcome and last_payment_error for
@@ -931,6 +932,43 @@ function paymentOriginFromStripeContext(pi, invoice, hasSubscription) {
   return 'one_time';
 }
 
+function normalizeCheckoutSource(value) {
+  const source = String(value || '').toLowerCase().trim();
+  const aliases = {
+    velton_payment_link: 'velton_payment_link',
+    subloop_velton_payment_link: 'velton_payment_link',
+    stripe_payment_link: 'stripe_payment_link',
+    payment_link: 'stripe_payment_link',
+    embedded_checkout: 'embedded_checkout',
+    subloop_embedded_checkout: 'embedded_checkout',
+    subloop_woocommerce: 'embedded_checkout',
+    subloop_woocommerce_subscription: 'embedded_checkout',
+    woocommerce: 'embedded_checkout'
+  };
+  return aliases[source] || null;
+}
+
+async function checkoutSourceFromStripeContext(stripe, pi, invoice, fallbackSource = null) {
+  let source = normalizeCheckoutSource(fallbackSource)
+    || normalizeCheckoutSource(pi?.metadata?.subloop_checkout_source)
+    || normalizeCheckoutSource(pi?.metadata?.source)
+    || normalizeCheckoutSource(invoice?.metadata?.subloop_checkout_source)
+    || normalizeCheckoutSource(invoice?.metadata?.source)
+    || normalizeCheckoutSource(invoice?.parent?.subscription_details?.metadata?.subloop_checkout_source)
+    || normalizeCheckoutSource(invoice?.parent?.subscription_details?.metadata?.source);
+  if (source) return source;
+
+  let subscription = invoice?.subscription && typeof invoice.subscription === 'object' ? invoice.subscription : null;
+  const stripeSubscriptionId = subscriptionIdFromInvoice(invoice);
+  if (!subscription && stripeSubscriptionId) {
+    try { subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId); }
+    catch (e) { console.log('[payment] could not retrieve subscription checkout source:', e.message); }
+  }
+  return normalizeCheckoutSource(subscription?.metadata?.subloop_checkout_source)
+    || normalizeCheckoutSource(subscription?.metadata?.source)
+    || null;
+}
+
 // Derives a stable Stripe idempotency key from a client-supplied attempt_id, scoped to the
 // specific resource being charged. Same attempt_id (same click, including its network retries)
 // -> same key -> Stripe dedupes. A new click generates a new attempt_id client-side -> new key.
@@ -1028,6 +1066,7 @@ async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null, f
     }
   }
   const paymentOrigin = paymentOriginFromStripeContext(pi, invoice, !!(subId || localSubId));
+  const checkoutSource = await checkoutSourceFromStripeContext(stripe, pi, invoice, fallbackCustomer.checkout_source);
 
   const status = forcedStatus || (pi.status === 'succeeded' ? 'succeeded' : (pi.status || 'failed'));
   const failureReason = pi.last_payment_error?.message || pi.cancellation_reason || null;
@@ -1062,9 +1101,9 @@ async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null, f
       stripe_fee=COALESCE($14,stripe_fee), net_amount=COALESCE($15,net_amount), balance_transaction_id=COALESCE($16,balance_transaction_id), financial_currency=COALESCE($17,financial_currency),
       was_failed=COALESCE(was_failed,false) OR $18='failed',
       recovered_at=CASE WHEN $18='succeeded' AND (COALESCE(was_failed,false) OR status='failed') THEN COALESCE(recovered_at,NOW()) ELSE recovered_at END,
-      payment_origin=COALESCE($19,payment_origin)
+      payment_origin=COALESCE($19,payment_origin), checkout_source=COALESCE($22,checkout_source)
       WHERE id=$20`,
-      [localCustomer.id, localSubId, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency, status, paymentOrigin, existingPayment.rows[0].id, usedAccount.id]);
+      [localCustomer.id, localSubId, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency, status, paymentOrigin, existingPayment.rows[0].id, usedAccount.id, checkoutSource]);
     await pool.query(`UPDATE payments SET payment_method_type=COALESCE($1,payment_method_type), wallet_type=COALESCE($2,wallet_type), wallet_checked=TRUE WHERE id=$3`,
       [cardDetails.payment_method_type, cardDetails.wallet_type, existingPayment.rows[0].id]).catch(()=>{});
     await pool.query(`UPDATE payments SET risk_level=COALESCE($1,risk_level), risk_score=COALESCE($2,risk_score), outcome_type=COALESCE($3,outcome_type),
@@ -1080,9 +1119,9 @@ async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null, f
   }
 
   const ins = await pool.query(
-    `INSERT INTO payments (customer_id,stripe_account_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,stripe_invoice_id,card_brand,card_last4,card_exp_month,card_exp_year,card_country,card_funding,stripe_fee,net_amount,balance_transaction_id,financial_currency,was_failed,payment_origin)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21) RETURNING id`,
-    [localCustomer.id, usedAccount.id, localSubId, pi.id, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency, status==='failed', paymentOrigin]
+    `INSERT INTO payments (customer_id,stripe_account_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,stripe_invoice_id,card_brand,card_last4,card_exp_month,card_exp_year,card_country,card_funding,stripe_fee,net_amount,balance_transaction_id,financial_currency,was_failed,payment_origin,checkout_source)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22) RETURNING id`,
+    [localCustomer.id, usedAccount.id, localSubId, pi.id, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency, status==='failed', paymentOrigin, checkoutSource]
   );
   await pool.query(`UPDATE payments SET payment_method_type=COALESCE($1,payment_method_type), wallet_type=COALESCE($2,wallet_type), wallet_checked=TRUE WHERE id=$3`,
     [cardDetails.payment_method_type, cardDetails.wallet_type, ins.rows[0].id]).catch(()=>{});
@@ -1547,7 +1586,8 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
         const fallbackCustomer = {
           seed: session.id,
           email: cleanEmail(session.customer_details?.email) || cleanEmail(session.customer_email),
-          name: session.customer_details?.name || session.customer_details?.email || session.customer_email || session.id
+          name: session.customer_details?.name || session.customer_details?.email || session.customer_email || session.id,
+          checkout_source: session.payment_link ? 'stripe_payment_link' : (session.metadata?.subloop_checkout_source || session.metadata?.source || null)
         };
         console.log('[external-import] checkout session:', session.id, 'customer:', sessionCustomerId || '-', 'mode:', session.mode || '-', 'subscription:', sessionSubId || '-', 'payment_intent:', sessionPiId || '-', 'email:', fallbackCustomer.email || '-');
 
@@ -1743,6 +1783,7 @@ app.post('/checkout/create-subscription', async (req, res) => {
     const phone = cleanCheckoutString(req.body?.customer?.phone || req.body?.phone, 50);
     const address = normalizeCheckoutAddress(req.body?.customer?.address || req.body?.address);
     const hostedCheckout = req.body?.hosted_checkout === true;
+    const checkoutSource = hostedCheckout ? 'velton_payment_link' : 'embedded_checkout';
 
     if (!checkoutReference || !/^[A-Za-z0-9._:-]{6,120}$/.test(checkoutReference)) {
       return res.status(400).json({ error: 'checkout_reference is required (6-120 letters/numbers/._:-)' });
@@ -1782,7 +1823,7 @@ app.post('/checkout/create-subscription', async (req, res) => {
         ...(name ? { name } : {}),
         ...(phone ? { phone } : {}),
         ...(address ? { address } : {}),
-        metadata: { ...matching.data[0].metadata, subloop_source: 'embedded_checkout' }
+        metadata: { ...matching.data[0].metadata, subloop_source: checkoutSource }
       });
     } else {
       customer = await stripe.customers.create({
@@ -1790,7 +1831,7 @@ app.post('/checkout/create-subscription', async (req, res) => {
         ...(name ? { name } : {}),
         ...(phone ? { phone } : {}),
         ...(address ? { address } : {}),
-        metadata: { subloop_source: 'embedded_checkout' }
+        metadata: { subloop_source: checkoutSource }
       });
     }
 
@@ -1810,7 +1851,8 @@ app.post('/checkout/create-subscription', async (req, res) => {
         ...(hostedCheckout ? {} : { payment_method_types: ['card'] })
       },
       metadata: {
-        source: 'subloop_embedded_checkout',
+        source: hostedCheckout ? 'subloop_velton_payment_link' : 'subloop_embedded_checkout',
+        subloop_checkout_source: checkoutSource,
         checkout_reference: checkoutReference
       },
       expand: ['latest_invoice.confirmation_secret', 'pending_setup_intent', 'items.data.price']
@@ -3755,6 +3797,7 @@ app.get('/api/payments/:id/financials', async (req, res) => {
     const invoice = await getInvoiceFromPaymentIntent(stripe, pi);
     const invoiceId = typeof invoice === 'string' ? invoice : invoice?.id || payment.stripe_invoice_id || null;
     const invoiceSubId = subscriptionIdFromInvoice(invoice);
+    const resolvedCheckoutSource = await checkoutSourceFromStripeContext(stripe, pi, invoice, payment.checkout_source);
     let resolvedOrigin = payment.payment_origin || null;
     let inferredLocalSubId = payment.subscription_id || null;
     if (!resolvedOrigin) {
@@ -3782,8 +3825,8 @@ app.get('/api/payments/:id/financials', async (req, res) => {
       stripe_fee=COALESCE($1,stripe_fee), net_amount=COALESCE($2,net_amount), balance_transaction_id=COALESCE($3,balance_transaction_id), financial_currency=COALESCE($4,financial_currency),
       stripe_invoice_id=COALESCE($5,stripe_invoice_id), card_brand=COALESCE($6,card_brand), card_last4=COALESCE($7,card_last4),
       card_exp_month=COALESCE($8,card_exp_month), card_exp_year=COALESCE($9,card_exp_year), card_country=COALESCE($10,card_country), card_funding=COALESCE($11,card_funding),
-      payment_origin=COALESCE(payment_origin,$12), subscription_id=COALESCE(subscription_id,$13)
-      WHERE id=$14`, [financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, resolvedOrigin, inferredLocalSubId, payment.id]);
+      payment_origin=COALESCE(payment_origin,$12), subscription_id=COALESCE(subscription_id,$13), checkout_source=COALESCE($15,checkout_source)
+      WHERE id=$14`, [financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, resolvedOrigin, inferredLocalSubId, payment.id, resolvedCheckoutSource]);
     await pool.query(`UPDATE payments SET payment_method_type=COALESCE($1,payment_method_type), wallet_type=COALESCE($2,wallet_type), wallet_checked=TRUE WHERE id=$3`,
       [cardDetails.payment_method_type, cardDetails.wallet_type, payment.id]).catch(()=>{});
     const updated = await pool.query(`SELECT p.*, c.email, c.name, COALESCE(p.card_brand,c.card_brand) AS card_brand, COALESCE(p.card_last4,c.card_last4) AS card_last4, sa.name AS account_name
@@ -3987,8 +4030,8 @@ app.post('/api/payment-links', async (req, res) => {
     console.log('[payment-link] created recurring price:', price.id, 'interval:', recurring.interval, 'count:', recurring.interval_count, 'amount:', unitAmount, 'account:', acc.name);
     const paymentLinkParams = {
       line_items: [{ price: price.id, quantity: 1 }],
-      subscription_data: { metadata: { source: 'subloop', interval_days: String(interval_days || 30) } },
-      metadata: { source: 'subloop', type: 'subscription_link' }
+      subscription_data: { metadata: { source: 'subloop', subloop_checkout_source: 'stripe_payment_link', interval_days: String(interval_days || 30) } },
+      metadata: { source: 'subloop', type: 'subscription_link', subloop_checkout_source: 'stripe_payment_link' }
     };
     if (returnUrl) paymentLinkParams.after_completion = { type: 'redirect', redirect: { url: returnUrl } };
     const link = await stripe.paymentLinks.create(paymentLinkParams);

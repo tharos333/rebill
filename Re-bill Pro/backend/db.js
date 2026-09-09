@@ -234,6 +234,7 @@ async function init() {
       was_failed BOOLEAN DEFAULT false,
       recovered_at TIMESTAMPTZ,
       payment_origin TEXT,
+      checkout_source TEXT,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS settings (
@@ -345,6 +346,7 @@ async function init() {
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS was_failed BOOLEAN DEFAULT false',
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS recovered_at TIMESTAMPTZ',
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_origin TEXT',
+    'ALTER TABLE payments ADD COLUMN IF NOT EXISTS checkout_source TEXT',
   ];
   for (const m of migrations) await pool.query(m).catch(() => {});
   await pool.query('CREATE INDEX IF NOT EXISTS stripe_accounts_workspace_idx ON stripe_accounts(workspace_id)').catch(()=>{});
@@ -639,6 +641,7 @@ const customers = {
       p.last_payment_at,
       p.last_one_time_payment_at,
       p.last_any_payment_at,
+      (SELECT fp.checkout_source FROM payments fp WHERE fp.customer_id=c.id AND LOWER(fp.status)='succeeded' ORDER BY fp.created_at ASC, fp.id ASC LIMIT 1) as acquisition_source,
       COALESCE(p.last_payment_at, c.created_at) as sort_date,
       pm.payment_method_type as primary_payment_method_type,
       pm.wallet_type as primary_wallet_type,
@@ -747,6 +750,7 @@ const customers = {
         lp.currency as last_payment_currency,
         lp.created_at as last_payment_at,
         lp.status as last_payment_status,
+        (SELECT fp.checkout_source FROM payments fp WHERE fp.customer_id=c.id AND LOWER(fp.status)='succeeded' ORDER BY fp.created_at ASC, fp.id ASC LIMIT 1) as acquisition_source,
         pm.payment_method_type as primary_payment_method_type,
         pm.wallet_type as primary_wallet_type,
         COALESCE(pm.card_brand, c.card_brand) as primary_card_brand,
@@ -859,7 +863,7 @@ const payments = {
   recent: async (limit=50, workspaceId=null) => { const r = await pool.query('SELECT p.*, c.email, c.name, COALESCE(p.stripe_account_id,c.stripe_account_id) AS stripe_account_id, c.workspace_id, COALESCE(p.card_brand,c.card_brand) AS card_brand, COALESCE(p.card_last4,c.card_last4) AS card_last4, sa.name AS account_name FROM payments p JOIN customers c ON c.id=p.customer_id LEFT JOIN stripe_accounts sa ON sa.id=COALESCE(p.stripe_account_id,c.stripe_account_id) WHERE ($2::int IS NULL OR c.workspace_id=$2) ORDER BY p.created_at DESC LIMIT $1', [limit,workspaceId]); return r.rows; },
   byCustomer: async (cid) => { const r = await pool.query('SELECT * FROM payments WHERE customer_id=$1 ORDER BY created_at DESC', [cid]); return r.rows; },
   stats: async () => { const r = await pool.query(`SELECT COUNT(CASE WHEN status='succeeded' THEN 1 END) as succeeded_count, COUNT(CASE WHEN status='failed' THEN 1 END) as failed_count, COALESCE(SUM(CASE WHEN status='succeeded' THEN amount ELSE 0 END),0) as total_revenue, COUNT(CASE WHEN status='succeeded' AND created_at >= NOW()-INTERVAL '30 days' THEN 1 END) as count_30d, COALESCE(SUM(CASE WHEN status='succeeded' AND created_at >= NOW()-INTERVAL '30 days' THEN amount ELSE 0 END),0) as revenue_30d FROM payments`); return r.rows[0]; },
-  insert: async (data) => { await pool.query('INSERT INTO payments (customer_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,card_brand,card_last4,card_exp_month,card_exp_year,card_country,card_funding,stripe_invoice_id,stripe_fee,net_amount,balance_transaction_id,financial_currency,retry_of_payment_id,was_failed,recovered_at,payment_origin) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)', [data.customer_id, data.subscription_id, data.stripe_payment_intent, data.amount, data.currency, data.status, data.failure_reason, data.card_brand||null, data.card_last4||null, data.card_exp_month||null, data.card_exp_year||null, data.card_country||null, data.card_funding||null, data.stripe_invoice_id||null, data.stripe_fee??null, data.net_amount??null, data.balance_transaction_id||null, data.financial_currency||null, data.retry_of_payment_id||null, data.was_failed ?? (data.status==='failed'), data.recovered_at||null, data.payment_origin||null]); },
+  insert: async (data) => { await pool.query('INSERT INTO payments (customer_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,card_brand,card_last4,card_exp_month,card_exp_year,card_country,card_funding,stripe_invoice_id,stripe_fee,net_amount,balance_transaction_id,financial_currency,retry_of_payment_id,was_failed,recovered_at,payment_origin,checkout_source) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)', [data.customer_id, data.subscription_id, data.stripe_payment_intent, data.amount, data.currency, data.status, data.failure_reason, data.card_brand||null, data.card_last4||null, data.card_exp_month||null, data.card_exp_year||null, data.card_country||null, data.card_funding||null, data.stripe_invoice_id||null, data.stripe_fee??null, data.net_amount??null, data.balance_transaction_id||null, data.financial_currency||null, data.retry_of_payment_id||null, data.was_failed ?? (data.status==='failed'), data.recovered_at||null, data.payment_origin||null, data.checkout_source||null]); },
 };
 const activityLog = {
   add: async (type, description, customer_id=null, amount=null, workspace_id=null) => {

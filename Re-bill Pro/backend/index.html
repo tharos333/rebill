@@ -9022,6 +9022,10 @@ function paymentTypeLabel(p){
   if(p.subscription_id||p.stripe_invoice_id)return 'Subscription payment';
   return 'One-time payment';
 }
+function checkoutSourceLabel(value){
+  var labels={velton_payment_link:'Velton payment link',stripe_payment_link:'Stripe payment link',embedded_checkout:'Embedded checkout'};
+  return labels[String(value||'').toLowerCase()]||'—';
+}
 function paymentAgeLabel(d){
   if(!d)return '—';
   var diff=Math.max(0,Date.now()-new Date(d).getTime());
@@ -9138,6 +9142,7 @@ function renderPaymentDetailModal(p, syncing){
   h+='<div class="pd-polished-row"><div class="pd-polished-label">Payment Intent</div><div class="pd-polished-value mono">'+escHtml(pid||'—')+copyIcon(pid)+'</div></div>';
   h+='<div class="pd-polished-row"><div class="pd-polished-label">Reference</div><div class="pd-polished-value mono">'+escHtml(reference||'—')+copyIcon(reference)+'</div></div>';
   h+='<div class="pd-polished-row"><div class="pd-polished-label">Stripe Account</div><div class="pd-polished-value">'+escHtml(account||'—')+'</div></div>';
+  h+='<div class="pd-polished-row"><div class="pd-polished-label">Checkout source</div><div class="pd-polished-value">'+escHtml(checkoutSourceLabel(p.checkout_source))+'</div></div>';
   h+='<div class="pd-polished-row"><div class="pd-polished-label">Invoice</div><div class="pd-polished-value mono">'+escHtml(invoice||'—')+'</div></div>';
   h+='<div class="pd-polished-row"><div class="pd-polished-label">Currency</div><div class="pd-polished-value mono">'+escHtml((p.currency||'—').toUpperCase())+'</div></div>';
   h+='<div class="pd-polished-row"><div class="pd-polished-label">Note</div><div class="pd-polished-value">'+(isViewer?escHtml(p.note||'—'):'<span class="pd-note-link" onclick="closeModal(\'payment-detail-modal\');openPaymentNote('+p.id+')">'+escHtml(p.note||'Add note')+'</span>')+'</div></div>';
@@ -9543,6 +9548,7 @@ function buildCustomerDrawer(data){
 
   h+='<section class="customer-profile-section"><h3>'+(isOneTimeOnly?'Billing':'Subscription / recurring billing')+'</h3>';
   h+=customerDrawerRow('Payment type',escapeCustomerHtml(customerPaymentType(c)));
+  h+=customerDrawerRow('Acquisition source',escapeCustomerHtml(checkoutSourceLabel(c.acquisition_source)));
   h+=customerDrawerRow('Active subscriptions',String(activeSubscriptions));
   if(pausedSubscriptions>0)h+=customerDrawerRow('Paused subscriptions',String(pausedSubscriptions),'value-blue');
   h+=customerDrawerRow('Next billing',(!isOneTimeOnly&&c.next_billing_date)?fmtDate(c.next_billing_date):'—');
