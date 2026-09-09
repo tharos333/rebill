@@ -235,6 +235,7 @@ async function init() {
       recovered_at TIMESTAMPTZ,
       payment_origin TEXT,
       checkout_source TEXT,
+      checkout_source_checked BOOLEAN DEFAULT FALSE,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS settings (
@@ -347,6 +348,7 @@ async function init() {
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS recovered_at TIMESTAMPTZ',
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_origin TEXT',
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS checkout_source TEXT',
+    'ALTER TABLE payments ADD COLUMN IF NOT EXISTS checkout_source_checked BOOLEAN DEFAULT FALSE',
   ];
   for (const m of migrations) await pool.query(m).catch(() => {});
   await pool.query('CREATE INDEX IF NOT EXISTS stripe_accounts_workspace_idx ON stripe_accounts(workspace_id)').catch(()=>{});
