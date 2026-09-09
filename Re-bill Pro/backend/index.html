@@ -9013,14 +9013,14 @@ function pdCopyButton(v){
 }
 function paymentTypeLabel(p){
   var origin=String(p.payment_origin||'').toLowerCase();
-  if(origin==='rebill'||origin==='recurring_manual')return 'Recurring card payment';
+  if(origin==='rebill'||origin==='recurring_manual')return 'Recurring payment';
   if(origin==='subscription_renewal')return 'Subscription renewal';
-  if(origin==='subscription_initial'||origin==='subscription')return 'Subscription card payment';
-  if(origin==='one_time')return 'One-time card payment';
+  if(origin==='subscription_initial'||origin==='subscription')return 'Subscription payment';
+  if(origin==='one_time')return 'One-time payment';
   if(origin==='migration_verification')return 'Migration verification';
-  if(p.subscription_id&&!p.stripe_invoice_id)return 'Recurring card payment';
-  if(p.subscription_id||p.stripe_invoice_id)return 'Subscription card payment';
-  return 'One-time card payment';
+  if(p.subscription_id&&!p.stripe_invoice_id)return 'Recurring payment';
+  if(p.subscription_id||p.stripe_invoice_id)return 'Subscription payment';
+  return 'One-time payment';
 }
 function paymentAgeLabel(d){
   if(!d)return '—';
@@ -9064,8 +9064,7 @@ function renderPaymentDetailModal(p, syncing){
   var fullReason=p.failure_reason?(reasonLabels[p.failure_reason]||p.failure_reason):'';
   var isFailed=p.status==='failed', isSucceeded=p.status==='succeeded', isPaymentNeeded=badgeLabel(p.status)==='Payment needed', isCanceled=badgeLabel(p.status)==='Canceled';
   var isRedState=isFailed||isCanceled;
-  var isWalletPayment=!!p.wallet_type||['link','amazon_pay'].includes(normalizeStripeMethodKey(p.payment_method_type));
-  var typeLabel=paymentTypeLabel(p)+(isWalletPayment?' wallet payment':' card payment');
+  var typeLabel=paymentTypeLabel(p);
   var headerTitle=isSucceeded?'Payment successful':(isFailed?'Payment failed':(isCanceled?'Payment canceled':(isPaymentNeeded?'Payment needed':'Payment details')));
   var statusPill=isFailed?'Failed':(isSucceeded?'Succeeded':(isCanceled?'Canceled':(isPaymentNeeded?'Payment needed':(p.status||'Unknown'))));
   var statusClass=isRedState?'failed':(isSucceeded?'success':'info');
