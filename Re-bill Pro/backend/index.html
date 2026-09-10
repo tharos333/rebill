@@ -12060,4 +12060,70 @@ html.light #action-confirm-modal .modal-footer .btn-danger:hover {
   color:var(--red);
 }
 .stripe-account-more-menu button.danger:hover{background:var(--red-bg);}
+
+/* Unified popup sections: full-width header and footer dividers.
+   Drawers and profile/detail surfaces keep their own internal section system. */
+#woo-connection-modal > .modal > p,
+#add-customer-modal > .modal > p,
+#add-account-modal > .modal > p,
+#note-modal > .modal > p,
+#pause-modal > .modal > p,
+#migration-modal > .modal > p,
+#invoice-modal > .modal > p,
+#payment-note-modal > .modal > p,
+#edit-account-modal > .modal > p,
+#admin-login-activity-modal > .modal > p,
+#verification-debug-modal > .modal > p{
+  margin:0 -26px 18px!important;
+  padding:0 26px 18px!important;
+  border-bottom:1px solid rgba(145,145,163,.13)!important;
+}
+
+#woo-connection-modal > .modal > .modal-footer,
+#add-customer-modal > .modal > .modal-footer,
+#add-account-modal > .modal > .modal-footer,
+#note-modal > .modal > .modal-footer,
+#pause-modal > .modal > .modal-footer,
+#migration-modal > .modal > .modal-footer,
+#invoice-modal > .modal > .modal-footer,
+#payment-note-modal > .modal > .modal-footer,
+#edit-account-modal > .modal > .modal-footer,
+#admin-login-activity-modal > .modal > .modal-footer,
+#verification-debug-modal > .modal > .modal-footer,
+#action-confirm-modal > .modal > .modal-footer{
+  margin:18px -26px -26px!important;
+  padding:18px 26px 26px!important;
+  border-top:1px solid rgba(145,145,163,.13)!important;
+  background:var(--surface)!important;
+}
+
+#action-confirm-modal > .modal > .modal-footer{
+  margin-top:20px!important;
+}
+
+html.light #woo-connection-modal > .modal > p,
+html.light #add-customer-modal > .modal > p,
+html.light #add-account-modal > .modal > p,
+html.light #note-modal > .modal > p,
+html.light #pause-modal > .modal > p,
+html.light #migration-modal > .modal > p,
+html.light #invoice-modal > .modal > p,
+html.light #payment-note-modal > .modal > p,
+html.light #edit-account-modal > .modal > p,
+html.light #admin-login-activity-modal > .modal > p,
+html.light #verification-debug-modal > .modal > p,
+html.light #woo-connection-modal > .modal > .modal-footer,
+html.light #add-customer-modal > .modal > .modal-footer,
+html.light #add-account-modal > .modal > .modal-footer,
+html.light #note-modal > .modal > .modal-footer,
+html.light #pause-modal > .modal > .modal-footer,
+html.light #migration-modal > .modal > .modal-footer,
+html.light #invoice-modal > .modal > .modal-footer,
+html.light #payment-note-modal > .modal > .modal-footer,
+html.light #edit-account-modal > .modal > .modal-footer,
+html.light #admin-login-activity-modal > .modal > .modal-footer,
+html.light #verification-debug-modal > .modal > .modal-footer,
+html.light #action-confirm-modal > .modal > .modal-footer{
+  border-color:rgba(17,17,24,.10)!important;
+}
 </style>
