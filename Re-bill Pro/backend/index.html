@@ -9022,9 +9022,12 @@ function paymentTypeLabel(p){
   if(p.subscription_id||p.stripe_invoice_id)return 'Subscription payment';
   return 'One-time payment';
 }
-function checkoutSourceLabel(value){
+function checkoutSourceLabel(value,payment){
   var labels={subloop_payment_link:'Subloop payment link',velton_payment_link:'Velton payment link',stripe_payment_link:'Stripe payment link',embedded_checkout:'Embedded checkout'};
-  return labels[String(value||'').toLowerCase()]||'—';
+  var label=labels[String(value||'').toLowerCase()];
+  if(label)return label;
+  if(payment&&!payment.subscription_id&&!payment.stripe_invoice_id)return 'Direct Stripe payment';
+  return '—';
 }
 function paymentAgeLabel(d){
   if(!d)return '—';
@@ -9142,7 +9145,7 @@ function renderPaymentDetailModal(p, syncing){
   h+='<div class="pd-polished-row"><div class="pd-polished-label">Payment Intent</div><div class="pd-polished-value mono">'+escHtml(pid||'—')+copyIcon(pid)+'</div></div>';
   h+='<div class="pd-polished-row"><div class="pd-polished-label">Reference</div><div class="pd-polished-value mono">'+escHtml(reference||'—')+copyIcon(reference)+'</div></div>';
   h+='<div class="pd-polished-row"><div class="pd-polished-label">Stripe Account</div><div class="pd-polished-value">'+escHtml(account||'—')+'</div></div>';
-  h+='<div class="pd-polished-row"><div class="pd-polished-label">Checkout source</div><div class="pd-polished-value">'+escHtml(checkoutSourceLabel(p.checkout_source))+'</div></div>';
+  h+='<div class="pd-polished-row"><div class="pd-polished-label">Checkout source</div><div class="pd-polished-value">'+escHtml(checkoutSourceLabel(p.checkout_source,p))+'</div></div>';
   h+='<div class="pd-polished-row"><div class="pd-polished-label">Invoice</div><div class="pd-polished-value mono">'+escHtml(invoice||'—')+'</div></div>';
   h+='<div class="pd-polished-row"><div class="pd-polished-label">Currency</div><div class="pd-polished-value mono">'+escHtml((p.currency||'—').toUpperCase())+'</div></div>';
   h+='<div class="pd-polished-row"><div class="pd-polished-label">Note</div><div class="pd-polished-value">'+(isViewer?escHtml(p.note||'—'):'<span class="pd-note-link" onclick="closeModal(\'payment-detail-modal\');openPaymentNote('+p.id+')">'+escHtml(p.note||'Add note')+'</span>')+'</div></div>';
@@ -9181,7 +9184,7 @@ function renderPaymentDetailModal(p, syncing){
 
 function openPaymentModal(p){
   if(!p||!p.id)return;
-  var needsFinancialSync=!!p.stripe_payment_intent&&((p.status==='succeeded'&&(p.stripe_fee===undefined||p.stripe_fee===null||p.net_amount===undefined||p.net_amount===null||!p.financial_currency))||!p.payment_method_type||p.wallet_checked!==true||!p.payment_origin||Number(p.checkout_source_detection_version||0)<3);
+  var needsFinancialSync=!!p.stripe_payment_intent&&((p.status==='succeeded'&&(p.stripe_fee===undefined||p.stripe_fee===null||p.net_amount===undefined||p.net_amount===null||!p.financial_currency))||!p.payment_method_type||p.wallet_checked!==true||!p.payment_origin||Number(p.checkout_source_detection_version||0)<4);
   renderPaymentDetailModal(p, needsFinancialSync);
   openModal('payment-detail-modal');
   if(needsFinancialSync){
