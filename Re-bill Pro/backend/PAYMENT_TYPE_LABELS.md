@@ -24,6 +24,6 @@ Payment type and checkout source are separate. The canonical source labels are:
 - `Stripe payment` — an external Stripe payment that has no Subloop source marker.
 
 Automatic Stripe subscription renewals inherit the checkout source stored on the
-Stripe Subscription. Checkout-source detection version 6 rechecks older payments
+Stripe Subscription. Checkout-source detection version 7 rechecks older payments
 when their details are opened, fixing stale `Embedded checkout`, blank, and legacy
 Velton values without changing the payment itself.
