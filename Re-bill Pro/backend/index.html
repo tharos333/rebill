@@ -9023,7 +9023,7 @@ function paymentTypeLabel(p){
   return 'One-time payment';
 }
 function checkoutSourceLabel(value){
-  var labels={velton_payment_link:'Velton payment link',stripe_payment_link:'Stripe payment link',embedded_checkout:'Embedded checkout'};
+  var labels={subloop_payment_link:'Subloop payment link',velton_payment_link:'Velton payment link',stripe_payment_link:'Stripe payment link',embedded_checkout:'Embedded checkout'};
   return labels[String(value||'').toLowerCase()]||'—';
 }
 function paymentAgeLabel(d){
@@ -9181,7 +9181,7 @@ function renderPaymentDetailModal(p, syncing){
 
 function openPaymentModal(p){
   if(!p||!p.id)return;
-  var needsFinancialSync=!!p.stripe_payment_intent&&((p.status==='succeeded'&&(p.stripe_fee===undefined||p.stripe_fee===null||p.net_amount===undefined||p.net_amount===null||!p.financial_currency))||!p.payment_method_type||p.wallet_checked!==true||!p.payment_origin||p.checkout_source_checked!==true);
+  var needsFinancialSync=!!p.stripe_payment_intent&&((p.status==='succeeded'&&(p.stripe_fee===undefined||p.stripe_fee===null||p.net_amount===undefined||p.net_amount===null||!p.financial_currency))||!p.payment_method_type||p.wallet_checked!==true||!p.payment_origin||Number(p.checkout_source_detection_version||0)<2);
   renderPaymentDetailModal(p, needsFinancialSync);
   openModal('payment-detail-modal');
   if(needsFinancialSync){
