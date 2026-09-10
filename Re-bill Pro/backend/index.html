@@ -9197,7 +9197,7 @@ function renderPaymentDetailModal(p, syncing){
 
 function openPaymentModal(p){
   if(!p||!p.id)return;
-  var needsFinancialSync=!!p.stripe_payment_intent&&((p.status==='succeeded'&&(p.stripe_fee===undefined||p.stripe_fee===null||p.net_amount===undefined||p.net_amount===null||!p.financial_currency))||!p.payment_method_type||p.wallet_checked!==true||!p.payment_origin||Number(p.checkout_source_detection_version||0)<5);
+  var needsFinancialSync=!!p.stripe_payment_intent&&((p.status==='succeeded'&&(p.stripe_fee===undefined||p.stripe_fee===null||p.net_amount===undefined||p.net_amount===null||!p.financial_currency))||!p.payment_method_type||p.wallet_checked!==true||!p.payment_origin||Number(p.checkout_source_detection_version||0)<6);
   renderPaymentDetailModal(p, needsFinancialSync);
   openModal('payment-detail-modal');
   if(needsFinancialSync){
