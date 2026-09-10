@@ -9023,11 +9023,24 @@ function paymentTypeLabel(p){
   return 'One-time payment';
 }
 function checkoutSourceLabel(value,payment){
-  var labels={subloop_payment_link:'Subloop payment link',velton_payment_link:'Velton payment link',stripe_payment_link:'Stripe payment link',embedded_checkout:'Embedded checkout'};
+  var labels={
+    subloop_payment_link:'Subloop payment link',
+    velton_payment_link:'Subloop payment link',
+    subloop_velton_payment_link:'Subloop payment link',
+    stripe_payment_link:'Stripe payment link',
+    embedded_checkout:'Embedded checkout',
+    subloop_manual_payment:'Subloop manual payment',
+    subloop_recurring_charge:'Subloop recurring charge',
+    migration_verification:'Migration verification',
+    stripe_payment:'Stripe payment',
+    direct_stripe_payment:'Stripe payment'
+  };
   var label=labels[String(value||'').toLowerCase()];
   if(label)return label;
-  if(payment&&!payment.subscription_id&&!payment.stripe_invoice_id)return 'Direct Stripe payment';
-  return '—';
+  var origin=String(payment&&payment.payment_origin||'').toLowerCase();
+  if(origin==='migration_verification')return 'Migration verification';
+  if(origin==='recurring_manual'||origin==='rebill')return 'Subloop recurring charge';
+  return 'Stripe payment';
 }
 function paymentAgeLabel(d){
   if(!d)return '—';
@@ -9184,7 +9197,7 @@ function renderPaymentDetailModal(p, syncing){
 
 function openPaymentModal(p){
   if(!p||!p.id)return;
-  var needsFinancialSync=!!p.stripe_payment_intent&&((p.status==='succeeded'&&(p.stripe_fee===undefined||p.stripe_fee===null||p.net_amount===undefined||p.net_amount===null||!p.financial_currency))||!p.payment_method_type||p.wallet_checked!==true||!p.payment_origin||Number(p.checkout_source_detection_version||0)<4);
+  var needsFinancialSync=!!p.stripe_payment_intent&&((p.status==='succeeded'&&(p.stripe_fee===undefined||p.stripe_fee===null||p.net_amount===undefined||p.net_amount===null||!p.financial_currency))||!p.payment_method_type||p.wallet_checked!==true||!p.payment_origin||Number(p.checkout_source_detection_version||0)<5);
   renderPaymentDetailModal(p, needsFinancialSync);
   openModal('payment-detail-modal');
   if(needsFinancialSync){
