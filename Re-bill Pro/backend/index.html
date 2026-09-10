@@ -12092,9 +12092,9 @@ html.light #action-confirm-modal .modal-footer .btn-danger:hover {
 #verification-debug-modal > .modal > .modal-footer,
 #action-confirm-modal > .modal > .modal-footer{
   margin:18px -26px -26px!important;
-  padding:18px 26px 26px!important;
-  border-top:1px solid rgba(145,145,163,.13)!important;
-  background:var(--surface)!important;
+  padding:12px 26px!important;
+  border-top:0!important;
+  background:transparent!important;
 }
 
 #action-confirm-modal > .modal > .modal-footer{
@@ -12125,5 +12125,12 @@ html.light #admin-login-activity-modal > .modal > .modal-footer,
 html.light #verification-debug-modal > .modal > .modal-footer,
 html.light #action-confirm-modal > .modal > .modal-footer{
   border-color:rgba(17,17,24,.10)!important;
+}
+
+/* Footer actions stay compact without a bottom divider. */
+#add-admin-modal .admin-access-footer,
+#edit-access-modal .admin-access-footer,
+#admin-details-modal .admin-details-footer{
+  border-top:0!important;
 }
 </style>
