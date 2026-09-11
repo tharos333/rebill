@@ -5515,10 +5515,11 @@ body.view-only-access #payment-link-create-card{
   flex-direction:column!important;
 }
 .admin-profile-head{
-  padding:20px 24px 16px;
+  padding:26px 26px 18px;
   display:flex;
   align-items:flex-start;
   flex:none;
+  border-bottom:1px solid rgba(145,145,163,.13);
 }
 .admin-profile-identity{
   display:flex;
@@ -5537,12 +5538,16 @@ body.view-only-access #payment-link-create-card{
 #admin-details-modal .admin-role-analyst{background:var(--blue-bg)!important;color:var(--blue)!important;}
 #admin-details-modal .admin-role-custom{background:var(--amber-bg)!important;color:var(--amber)!important;}
 .admin-profile-content{
-  padding:0 24px 14px;
+  padding:18px 26px 0;
   flex:1 1 auto;
   min-height:0;
   overflow-y:auto;
 }
 .admin-profile-section{padding:14px 0 0;border-top:1px solid rgba(145,145,163,.13);}
+#admin-details-modal .admin-profile-content > .admin-profile-section:first-child{
+  padding-top:0;
+  border-top:0;
+}
 .admin-profile-section-label{
   margin:0 0 9px;color:var(--muted);font-size:10px;font-weight:600;
   letter-spacing:.1em;text-transform:uppercase;
@@ -5617,8 +5622,8 @@ body.view-only-access #payment-link-create-card{
 }
 .admin-details-footer{
   margin-top:0!important;
-  padding:13px 24px!important;
-  border-top:1px solid rgba(145,145,163,.13)!important;
+  padding:18px 26px 26px!important;
+  border-top:0!important;
   background:var(--surface);
   display:flex!important;
   justify-content:flex-end!important;
