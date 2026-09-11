@@ -5382,39 +5382,41 @@ html.light #customer-btn-subscription.active{
 }
 #page-payments .pay-more-status-menu{
   position:absolute;
-  top:calc(100% + 8px);
+  top:calc(100% + 6px);
   left:0;
   z-index:90;
   display:none;
   min-width:188px;
-  padding:6px;
-  background:#14141d;
-  border:1px solid #2A2A38;
-  border-radius:12px;
-  box-shadow:0 15px 32px rgba(0,0,0,.38);
+  padding:5px;
+  background:var(--surface);
+  border:1px solid var(--border2);
+  border-radius:10px;
+  box-shadow:0 14px 36px rgba(0,0,0,.34);
 }
 #page-payments .pay-more-status-wrap.open .pay-more-status-menu{
   display:block;
 }
 #page-payments .pay-more-option{
   width:100%;
+  height:34px;
   display:flex;
   justify-content:space-between;
   align-items:center;
   gap:18px;
-  padding:9px 10px;
+  padding:0 10px;
   border:0;
-  border-radius:8px;
+  border-radius:7px;
   background:transparent;
   color:var(--text);
   font-family:var(--sans);
   font-size:12px;
   font-weight:600;
   cursor:pointer;
+  transition:background .14s ease;
 }
 #page-payments .pay-more-option:hover,
 #page-payments .pay-more-option.selected{
-  background:rgba(109,94,248,.14);
+  background:var(--surface2);
 }
 
 
@@ -12045,7 +12047,6 @@ html.light #action-confirm-modal .modal-footer .btn-danger:hover {
 #note-modal > .modal > p,
 #pause-modal > .modal > p,
 #migration-modal > .modal > p,
-#action-confirm-modal > .modal > p,
 #payment-note-modal > .modal > p,
 #edit-account-modal > .modal > p,
 #admin-login-activity-modal > .modal > p,
@@ -12079,7 +12080,6 @@ html.light #add-account-modal > .modal > p,
 html.light #note-modal > .modal > p,
 html.light #pause-modal > .modal > p,
 html.light #migration-modal > .modal > p,
-html.light #action-confirm-modal > .modal > p,
 html.light #payment-note-modal > .modal > p,
 html.light #edit-account-modal > .modal > p,
 html.light #admin-login-activity-modal > .modal > p,
