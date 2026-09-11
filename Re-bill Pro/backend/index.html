@@ -9865,7 +9865,7 @@ async function loadAccounts(){
           }
           var manageActions='';
           if(canManageStripeAccounts()){
-            manageActions='<button class="btn btn-sm" onclick="syncStripeAccount('+a.id+',this)" title="Import and update existing subscriptions">Sync</button><button class="btn btn-sm" onclick="debugStripeAccount('+a.id+')" title="Check verification details">Check</button><button class="btn btn-sm accounts-more-btn" type="button" aria-label="More account actions" aria-expanded="false" onclick="event.stopPropagation();toggleStripeAccountMenu('+a.id+',this,'+(a.is_default?'true':'false')+')" title="More actions"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3" cy="8" r="1.25"/><circle cx="8" cy="8" r="1.25"/><circle cx="13" cy="8" r="1.25"/></svg></button>';
+            manageActions='<button class="btn btn-sm" onclick="syncStripeAccount('+a.id+',this)" title="Import and update existing subscriptions">Sync</button><button class="btn btn-sm" onclick="debugStripeAccount('+a.id+')" title="Check verification details">Check</button><button class="btn btn-sm accounts-more-btn" type="button" aria-label="More account actions" aria-expanded="false" onclick="event.stopPropagation();toggleStripeAccountMenu('+a.id+',this,'+(a.is_default?'true':'false')+')" title="More actions"><span class="accounts-more-glyph" aria-hidden="true">•••</span></button>';
           }else{
             manageActions='<button class="btn btn-sm" onclick="debugStripeAccount('+a.id+')" title="View verification details">View details</button>';
           }
@@ -12004,7 +12004,12 @@ html.light #action-confirm-modal .modal-footer .btn-danger:hover {
   padding:4px 9px!important;
   justify-content:center;
 }
-#page-accounts .accounts-more-btn svg{width:14px;height:14px;display:block;}
+#page-accounts .accounts-more-btn .accounts-more-glyph{
+  display:block;
+  font-size:11px;
+  line-height:normal;
+  letter-spacing:1px;
+}
 .stripe-account-more-menu{
   position:fixed;
   z-index:1200;
