@@ -3245,51 +3245,6 @@ app.post('/api/customers/:id/portal', async (req, res) => {
     res.json({ url: session.url });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
-app.post('/api/customers/:id/charge-once', async (req, res) => {
-  const inFlightKey = 'charge-once-' + req.params.id;
-  if (!beginInFlight(inFlightKey, res)) return;
-  try {
-    const { amount, description, currency } = req.body;
-    const attemptId = String(req.body?.attempt_id || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 100) || null;
-    if (!Number.isInteger(Number(amount)) || Number(amount) <= 0) return res.status(400).json({ error: 'A positive amount is required', definitive:true });
-    if (!currency || !/^[a-zA-Z]{3}$/.test(String(currency))) return res.status(400).json({ error: 'Currency is required for a one-time charge', definitive:true });
-    const chargeCurrency = String(currency).toLowerCase();
-    const identifier = String(req.params.id || '').trim();
-    const c = identifier.startsWith('cus_') ? await customers.byStripeId(identifier,scopedAccountIds(req)) : await customers.byId(identifier);
-    if (!c) return res.status(404).json({ error: 'Customer not found', definitive:true });
-    if (!ensureRowScope(req, res, c)) return;
-    if (!String(c.stripe_customer_id || '').startsWith('cus_')) return res.status(400).json({ error: 'A real Stripe customer is required for a one-time charge', definitive:true });
-    const acc = await stripeAccounts.byId(c.stripe_account_id);
-    if (!acc?.secret_key) return res.status(400).json({ error: 'Stripe account secret key not found', definitive:true });
-    const stripe = require('stripe')(acc.secret_key);
-    const pm = await resolveBestPaymentMethod(stripe, c.stripe_customer_id, { localPaymentMethodId: c.stripe_payment_method });
-    if (!pm) return res.status(400).json({ error: 'No usable saved card found for this customer', definitive:true });
-    await syncLocalPaymentMethod(c.id, pm);
-    const chargeDescription = description || 'Manual invoice';
-    const idemKey = idemKeyFromAttempt(`subloop-once-${c.id}-${pm.id}-${Number(amount)}-${chargeCurrency}-${chargeDescription}`, attemptId);
-    try {
-      const pi = await stripe.paymentIntents.create({ amount: Number(amount), currency: chargeCurrency, customer: c.stripe_customer_id, payment_method: pm.id, confirm: true, description: chargeDescription, off_session: true, metadata: { subloop_payment_origin: 'one_time', subloop_checkout_source: 'subloop_manual_payment', subloop_attempt_id: attemptId || '' } }, { idempotencyKey: idemKey });
-      await savePaymentIntent(stripe, acc, pi, pi.status==='succeeded'?'succeeded':pi.status, { email:c.email, name:c.name }).catch(async () => {
-        await payments.insert({ customer_id: c.id, subscription_id: null, stripe_payment_intent: pi.id, amount: Number(amount), currency: chargeCurrency, status: pi.status==='succeeded'?'succeeded':'failed', failure_reason: null, payment_origin: 'one_time', checkout_source: 'subloop_manual_payment', checkout_source_checked: true, checkout_source_detection_version: 7 });
-      });
-      await reconcileCustomerLifecycle(c.id, pi.status==='succeeded'?{oneTimeSuccess:true}:{}).catch(()=>{});
-      return res.json({ success: pi.status==='succeeded', status: pi.status, definitive:true });
-    } catch(chargeErr) {
-      const failedPi = chargeErr?.payment_intent || chargeErr?.raw?.payment_intent || null;
-      if (failedPi?.id) {
-        await savePaymentIntent(stripe, acc, failedPi, 'failed', { email:c.email, name:c.name }).catch(()=>{});
-        await reconcileCustomerLifecycle(c.id).catch(()=>{});
-        return res.status(402).json({ success:false, status:'failed', error:chargeErr.message, definitive:true });
-      }
-      throw chargeErr;
-    }
-  } catch(err) {
-    // Unexpected/DB-level failure — ambiguous whether Stripe already processed the charge.
-    res.status(500).json({ error: err.message, definitive:false });
-  } finally {
-    endInFlight(inFlightKey);
-  }
-});
 app.get('/api/customers/export', async (req, res) => {
   try {
     if (isReadOnlyUser(req.currentUser)) return res.status(403).json({ error: 'View-only access cannot export customer data' });

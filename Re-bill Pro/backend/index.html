@@ -6641,20 +6641,6 @@ body.view-only-access #verification-debug-modal .modal-content{
     <div class="stat-card"><div class="stat-label">Revenue This Month (est. USD)</div><div class="stat-value" id="sum-rev-month">—</div><div class="stat-sub" id="sum-pay-month">payments</div></div>
     <div class="stat-card"><div class="stat-label">Active Customers</div><div class="stat-value" id="sum-active">—</div><div class="stat-sub" id="sum-new-7d">new this week</div></div>
   </div>
-  <div id="manual-invoice-card" class="card view-write-only" style="max-width:600px;">
-    <div class="card-header"><h3>Manual Invoice</h3></div>
-    <div style="padding:18px;">
-      <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Charge any customer a one-time amount outside their subscription.</p>
-      <div class="form-row">
-        <div class="form-group"><label>Customer Stripe ID (cus_...)</label><input type="text" id="invoice-customer-id" placeholder="cus_xxx..."></div>
-        <div class="form-group"><label>Amount</label><input type="number" id="invoice-amount" placeholder="29.00" step="0.01" min="0.50"></div>
-        <div class="form-group"><label>Currency</label><select id="invoice-currency"><option value="usd">USD</option><option value="eur">EUR</option><option value="gbp">GBP</option><option value="cad">CAD</option><option value="aud">AUD</option><option value="nzd">NZD</option></select></div>
-      </div>
-      <div class="form-group"><label>Description</label><input type="text" id="invoice-desc" placeholder="Manual invoice - November" value="Manual invoice"></div>
-      <button class="btn btn-primary" onclick="sendManualInvoice(this)">Charge Customer</button>
-      <div id="invoice-result" style="display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:13px;font-family:var(--mono);"></div>
-    </div>
-  </div>
 </div>
 
 
@@ -6792,16 +6778,6 @@ body.view-only-access #verification-debug-modal .modal-content{
   </div>
 </div>
 
-<div class="modal-bg" id="invoice-modal">
-  <div class="modal">
-    <h3>Manual Invoice</h3><p>Charge this customer a one-time amount</p>
-    <input type="hidden" id="invoice-modal-customer-id">
-    <div class="form-row"><div class="form-group"><label>Amount</label><input type="number" id="invoice-modal-amount" placeholder="29.00" step="0.01" min="0.50"></div><div class="form-group"><label>Currency</label><select id="invoice-modal-currency"><option value="usd">USD</option><option value="eur">EUR</option><option value="gbp">GBP</option><option value="cad">CAD</option><option value="aud">AUD</option><option value="nzd">NZD</option></select></div></div>
-    <div class="form-group"><label>Description</label><input type="text" id="invoice-modal-desc" value="Manual invoice"></div>
-    <div id="invoice-modal-result" style="display:none;margin-top:10px;padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);"></div>
-    <div class="modal-footer"><button class="btn" onclick="closeModal('invoice-modal')">Cancel</button><button class="btn btn-primary" onclick="sendInvoiceFromModal(this)">Charge</button></div>
-  </div>
-</div>
 <div class="modal-bg" id="add-admin-modal">
   <div class="modal admin-access-modal">
     <div class="admin-access-head">
@@ -6849,7 +6825,7 @@ body.view-only-access #verification-debug-modal .modal-content{
     </div>
     <div class="modal-footer admin-access-footer">
       <button class="btn" onclick="closeModal('add-admin-modal')">Cancel</button>
-      <button class="btn btn-primary" onclick="addAdmin()"><svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v10"/><path d="M3 8h10"/></svg><span>Add User</span></button>
+      <button class="btn btn-primary" onclick="addAdmin()"><span>Add User</span></button>
     </div>
   </div>
 </div>
@@ -7230,10 +7206,6 @@ function applyRoleBasedPageCopy(){
     Object.keys(copy).forEach(function(k){setPageSubtitle(k,copy[k]);});
   }
 }
-function applyOperationalActionVisibility(){
-  var invoiceCard=document.getElementById('manual-invoice-card');
-  if(invoiceCard)invoiceCard.style.display=canManageOperationalSection('customers')?'block':'none';
-}
 function applyAccessControl(){
   var role=getCurrentRole();
   var readonly=role==='viewer'||role==='analyst';
@@ -7241,7 +7213,6 @@ function applyAccessControl(){
   if(readonly) localStorage.setItem('subloop_readonly','1');
   else localStorage.removeItem('subloop_readonly');
   applyRoleBasedPageCopy();
-  applyOperationalActionVisibility();
   applyWorkspaceFeatureVisibility();
   if(!role||role==='owner'||role==='admin') return;
   document.querySelectorAll('.nav-item').forEach(function(btn){
@@ -7259,9 +7230,6 @@ function enforceReadonly(){
   document.querySelectorAll('.btn-primary,.btn-danger,.btn-success').forEach(function(btn){if(!btn.closest('.login-screen')&&!btn.closest('.login-box')&&!btn.classList.contains('readonly-allowed-control'))btn.style.display='none';});
   document.querySelectorAll('.actions:not(.readonly-allowed-actions)').forEach(function(d){d.innerHTML='<span style="font-size:11px;color:var(--muted);font-family:var(--mono);">view only</span>';});
   document.querySelectorAll('#payments-table .btn').forEach(function(btn){btn.style.display='none';});
-  var summaryCard=document.querySelector('#page-summary .card:last-of-type');
-  if(summaryCard){var h3=summaryCard.querySelector('h3');if(h3&&h3.textContent.includes('Manual Invoice'))summaryCard.style.display='none';}
-  document.querySelectorAll('[onclick*="openInvoiceModal"]').forEach(function(btn){btn.style.display='none';});
   var selectBtn=document.getElementById('sub-default-btn');if(selectBtn)selectBtn.style.display='none';
   document.querySelectorAll('[onclick*="export"]').forEach(function(btn){btn.style.display='none';});
   var viewerNotice=document.getElementById('viewer-notice');
@@ -10138,9 +10106,6 @@ function formatPaymentCount(value){
   return count+' '+(count===1?'payment':'payments');
 }
 async function loadSummary(){try{const d=await api('/api/daily-summary');document.getElementById('sum-rev-today').textContent=fmt(parseInt(d.revenue_today)||0);document.getElementById('sum-pay-today').textContent=formatPaymentCount(d.payments_today);document.getElementById('sum-fail-today').textContent=d.failed_today||0;document.getElementById('sum-rev-7d').textContent=fmt(parseInt(d.revenue_7d)||0);document.getElementById('sum-pay-7d').textContent=formatPaymentCount(d.payments_7d);document.getElementById('sum-rev-month').textContent=fmt(parseInt(d.revenue_month)||0);document.getElementById('sum-pay-month').textContent=formatPaymentCount(d.payments_month);document.getElementById('sum-active').textContent=d.active_total||0;document.getElementById('sum-new-7d').textContent='+'+(d.new_7d||0)+' this week';document.getElementById('sum-cust-today').textContent=d.new_today||0;}catch(e){}}
-async function sendManualInvoice(btn){if(blockViewOnlyAction())return;if(btn&&btn.disabled)return;const custId=document.getElementById('invoice-customer-id').value.trim();const amount=Math.round(parseFloat(document.getElementById('invoice-amount').value)*100);const currency=document.getElementById('invoice-currency').value;const desc=document.getElementById('invoice-desc').value;const result=document.getElementById('invoice-result');if(!custId||!amount||!currency){toast('Fill in customer, amount, and currency','error');return;}if(btn)btn.disabled=true;const key='once-'+custId+'-'+amount+'-'+String(currency).toLowerCase()+'-'+encodeURIComponent(desc||'Manual invoice');const attemptId=getOrCreateAttemptId(key);try{const r=await api('/api/customers/'+encodeURIComponent(custId)+'/charge-once',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount,currency,description:desc,attempt_id:attemptId})});clearAttemptId(key);result.style.display='block';if(r.success){result.style.background='var(--green-bg)';result.style.color='var(--green)';result.style.border='1px solid var(--green)';result.textContent='✓ Payment succeeded in '+currency.toUpperCase()+'!';}else{result.style.background='var(--red-bg)';result.style.color='var(--red)';result.style.border='1px solid var(--red)';result.textContent='✗ '+(r.error||'Failed');}}catch(e){if(e&&e.definitive)clearAttemptId(key);toast((e&&e.message)||'Charge failed — check status before retrying','error');}finally{if(btn)btn.disabled=false;}}
-function openInvoiceModal(customerId,currency){document.getElementById('invoice-modal-customer-id').value=customerId;document.getElementById('invoice-modal-amount').value='';document.getElementById('invoice-modal-desc').value='Manual invoice';var cur=document.getElementById('invoice-modal-currency');if(cur)cur.value=/^[a-z]{3}$/i.test(String(currency||''))?String(currency).toLowerCase():'usd';document.getElementById('invoice-modal-result').style.display='none';openModal('invoice-modal');}
-async function sendInvoiceFromModal(btn){if(btn&&btn.disabled)return;const customerId=document.getElementById('invoice-modal-customer-id').value;const amount=Math.round(parseFloat(document.getElementById('invoice-modal-amount').value)*100);const currency=document.getElementById('invoice-modal-currency').value;const desc=document.getElementById('invoice-modal-desc').value;const result=document.getElementById('invoice-modal-result');if(!amount||amount<50){toast('Minimum amount is 0.50 '+currency.toUpperCase(),'error');return;}if(btn)btn.disabled=true;const key='once-'+customerId+'-'+amount+'-'+String(currency).toLowerCase()+'-'+encodeURIComponent(desc||'Manual invoice');const attemptId=getOrCreateAttemptId(key);try{const r=await api('/api/customers/'+encodeURIComponent(customerId)+'/charge-once',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount,currency,description:desc,attempt_id:attemptId})});clearAttemptId(key);result.style.display='block';if(r.success){result.style.cssText='background:var(--green-bg);color:var(--green);border:1px solid var(--green);padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);';result.textContent='✓ Charged successfully in '+currency.toUpperCase()+'!';toast('✓ One-time payment succeeded');}else{result.style.cssText='background:var(--red-bg);color:var(--red);border:1px solid var(--red);padding:10px;border-radius:8px;font-size:13px;font-family:var(--mono);';result.textContent='✗ '+(r.error||'Failed');toast('Failed','error');}}catch(e){if(e&&e.definitive)clearAttemptId(key);toast((e&&e.message)||'Charge failed — check status before retrying','error');}finally{if(btn)btn.disabled=false;}}
 async function loadAdmins(){
   var tb=document.getElementById('admins-table');if(!tb)return;
   tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:28px;color:var(--muted);font-size:13px;font-family:var(--mono);">Loading...</td></tr>';
@@ -12081,7 +12046,6 @@ html.light #action-confirm-modal .modal-footer .btn-danger:hover {
 #pause-modal > .modal > p,
 #migration-modal > .modal > p,
 #action-confirm-modal > .modal > p,
-#invoice-modal > .modal > p,
 #payment-note-modal > .modal > p,
 #edit-account-modal > .modal > p,
 #admin-login-activity-modal > .modal > p,
@@ -12099,7 +12063,6 @@ html.light #action-confirm-modal .modal-footer .btn-danger:hover {
 #pause-modal > .modal > .modal-footer,
 #migration-modal > .modal > .modal-footer,
 #action-confirm-modal > .modal > .modal-footer,
-#invoice-modal > .modal > .modal-footer,
 #payment-note-modal > .modal > .modal-footer,
 #edit-account-modal > .modal > .modal-footer,
 #admin-login-activity-modal > .modal > .modal-footer,
@@ -12117,7 +12080,6 @@ html.light #note-modal > .modal > p,
 html.light #pause-modal > .modal > p,
 html.light #migration-modal > .modal > p,
 html.light #action-confirm-modal > .modal > p,
-html.light #invoice-modal > .modal > p,
 html.light #payment-note-modal > .modal > p,
 html.light #edit-account-modal > .modal > p,
 html.light #admin-login-activity-modal > .modal > p,
