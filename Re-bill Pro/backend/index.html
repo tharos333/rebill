@@ -5779,6 +5779,9 @@ body.view-only-access #payment-link-create-card{
   border-top:0!important;
   gap:8px!important;
 }
+#add-admin-modal .admin-access-modal.is-scoped .admin-access-footer{
+  padding-top:18px!important;
+}
 
 
 /* Admin Access V3.20: compact Edit access modal matching Add admin user */
@@ -10420,6 +10423,7 @@ function setAccessEditorCopy(prefix,isAnalyst){
 }
 function toggleCustomPerms(){
   var role=document.getElementById('admin-role').value;var isAnalyst=role==='analyst';var scoped=role==='analyst'||role==='custom';
+  var addAdminModal=document.querySelector('#add-admin-modal .admin-access-modal');if(addAdminModal)addAdminModal.classList.toggle('is-scoped',scoped);
   document.getElementById('admin-account-access').style.display=scoped?'block':'none';document.getElementById('admin-analyst-note').style.display=isAnalyst?'block':'none';document.getElementById('custom-perms').style.display=scoped?'block':'none';
   setAccessEditorCopy('admin',isAnalyst);
   if(scoped){buildPermsList(isAnalyst);if(isAnalyst)setNewAdminPerms(ANALYST_DEFAULT_PERMS);toggleAdminAccountChoices();}
