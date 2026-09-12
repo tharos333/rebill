@@ -1134,6 +1134,154 @@ function idemKeyFromAttempt(prefix, attemptId) {
   return crypto.createHash('sha256').update(`${prefix}-${safeAttempt}`).digest('hex');
 }
 
+const SUBLOOP_ORDER_START = 3333;
+const SUBLOOP_EXTRA_CREDIT_LABEL = 'Extra Credit 300';
+let subloopOrderCounterStartedAtMs = null;
+
+function safeStripeDescriptionPart(value, fallback = '') {
+  const clean = String(value || '').replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return (clean || fallback).slice(0, 80);
+}
+
+function stripeObjectId(value) {
+  return typeof value === 'string' ? value : value?.id || null;
+}
+
+async function reserveSubloopOrderNumber(operationKey, stripePaymentIntent = null) {
+  const key = String(operationKey || '').replace(/[\u0000-\u001F\u007F]+/g, '').trim().slice(0, 240);
+  if (!key) throw new Error('A stable transaction key is required for the Subloop order number');
+  const piId = /^pi_[A-Za-z0-9]+$/.test(String(stripePaymentIntent || '')) ? String(stripePaymentIntent) : null;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    // One lock per operation makes repeated webhooks, double-clicks, and multiple app
+    // instances return the same number without consuming an extra sequence value.
+    await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [key]);
+    let row = (await client.query(
+      `SELECT order_number FROM subloop_transaction_orders
+       WHERE operation_key=$1 OR ($2::text IS NOT NULL AND stripe_payment_intent=$2)
+       ORDER BY CASE WHEN operation_key=$1 THEN 0 ELSE 1 END LIMIT 1`,
+      [key, piId]
+    )).rows[0];
+    if (!row) {
+      row = (await client.query(
+        `INSERT INTO subloop_transaction_orders (operation_key,stripe_payment_intent)
+         VALUES ($1,$2) RETURNING order_number`,
+        [key, piId]
+      )).rows[0];
+    } else if (piId) {
+      await client.query(
+        'UPDATE subloop_transaction_orders SET stripe_payment_intent=COALESCE(stripe_payment_intent,$1) WHERE operation_key=$2',
+        [piId, key]
+      ).catch(()=>{});
+    }
+    await client.query('COMMIT');
+    return Number(row.order_number);
+  } catch (err) {
+    await client.query('ROLLBACK').catch(()=>{});
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+async function subloopOrderFeatureStartedAt() {
+  if (Number.isFinite(subloopOrderCounterStartedAtMs)) return subloopOrderCounterStartedAtMs;
+  const row = (await pool.query('SELECT started_at FROM subloop_order_counter_state WHERE id=1')).rows[0];
+  subloopOrderCounterStartedAtMs = row?.started_at ? new Date(row.started_at).getTime() : Date.now();
+  return subloopOrderCounterStartedAtMs;
+}
+
+async function isNewSubloopTransaction(pi) {
+  if (!Number.isFinite(Number(pi?.created))) return true;
+  const startedAt = await subloopOrderFeatureStartedAt();
+  return Number(pi.created) * 1000 >= startedAt - 5000;
+}
+
+function orderNumberFromStripeContext(pi, invoice, paymentOrigin) {
+  const candidates = [pi?.metadata?.subloop_order_number, invoice?.metadata?.subloop_order_number];
+  if (paymentOrigin === 'subscription_initial') {
+    candidates.push(
+      invoice?.parent?.subscription_details?.metadata?.subloop_order_number,
+      invoice?.subscription_details?.metadata?.subloop_order_number
+    );
+  }
+  for (const candidate of candidates) {
+    const value = Number(candidate);
+    if (Number.isSafeInteger(value) && value >= SUBLOOP_ORDER_START) return value;
+  }
+  return null;
+}
+
+async function subscriptionPlanName(stripe, subscriptionOrId) {
+  if (!subscriptionOrId) return 'Plan Pro';
+  try {
+    const subscription = typeof subscriptionOrId === 'string'
+      ? await stripe.subscriptions.retrieve(subscriptionOrId, { expand:['items.data.price.product'] })
+      : subscriptionOrId;
+    let product = subscription?.items?.data?.[0]?.price?.product || null;
+    if (typeof product === 'string') product = await stripe.products.retrieve(product);
+    return safeStripeDescriptionPart(product?.name, 'Plan Pro');
+  } catch (err) {
+    console.log('[payment-description] could not retrieve plan name:', err.message);
+    return 'Plan Pro';
+  }
+}
+
+async function planNameFromStripeContext(stripe, pi, invoice, localSubscriptionId = null) {
+  const direct = safeStripeDescriptionPart(
+    pi?.metadata?.subloop_plan_name
+      || invoice?.metadata?.subloop_plan_name
+      || invoice?.parent?.subscription_details?.metadata?.subloop_plan_name
+  );
+  if (direct) return direct;
+  const stripeSubscriptionId = subscriptionIdFromInvoice(invoice);
+  if (stripeSubscriptionId) return subscriptionPlanName(stripe, stripeSubscriptionId);
+  if (localSubscriptionId) {
+    const local = (await pool.query('SELECT stripe_subscription_id FROM subscriptions WHERE id=$1', [localSubscriptionId]).catch(()=>({rows:[]}))).rows[0];
+    if (local?.stripe_subscription_id) return subscriptionPlanName(stripe, local.stripe_subscription_id);
+  }
+  return 'Plan Pro';
+}
+
+function subloopPaymentDescription(paymentOrigin, planName, orderNumber) {
+  if (paymentOrigin === 'subscription_initial') return `Paid Trial · Order #${orderNumber}`;
+  if (paymentOrigin === 'subscription_renewal') return `Renew ${planName}`;
+  if (paymentOrigin === 'migration_verification' || paymentOrigin === 'recurring_manual' || paymentOrigin === 'rebill') {
+    return `${planName} · ${SUBLOOP_EXTRA_CREDIT_LABEL}`;
+  }
+  return null;
+}
+
+async function applySubloopTransactionPresentation(stripe, usedAccount, pi, invoice, paymentOrigin, localSubscriptionId = null, reservedOrderNumber = null) {
+  if (!pi?.id) return { orderNumber:null, description:null, planName:'Plan Pro' };
+  let orderNumber = Number(reservedOrderNumber) || orderNumberFromStripeContext(pi, invoice, paymentOrigin);
+  if (!orderNumber) {
+    if (!(await isNewSubloopTransaction(pi))) return { orderNumber:null, description:null, planName:'Plan Pro' };
+    orderNumber = await reserveSubloopOrderNumber(`stripe-payment:${usedAccount.id}:${pi.id}`, pi.id);
+  }
+  const planName = await planNameFromStripeContext(stripe, pi, invoice, localSubscriptionId);
+  const description = subloopPaymentDescription(paymentOrigin, planName, orderNumber);
+  const metadata = {
+    subloop_order_number:String(orderNumber),
+    subloop_plan_name:planName,
+    subloop_payment_origin:String(paymentOrigin || 'one_time')
+  };
+  try {
+    const updated = await stripe.paymentIntents.update(pi.id, {
+      ...(description ? { description } : {}),
+      metadata
+    });
+    pi.description = updated.description || pi.description;
+    pi.metadata = { ...(pi.metadata || {}), ...(updated.metadata || metadata) };
+  } catch (err) {
+    // Local order persistence still succeeds if Stripe temporarily rejects a display update.
+    console.error('[payment-description] Stripe update failed:', pi.id, err.message);
+    pi.metadata = { ...(pi.metadata || {}), ...metadata };
+  }
+  return { orderNumber, description, planName };
+}
+
 // Supplemental in-process guard against the same resource being charged twice concurrently.
 // This is not the durable protection (the Stripe idempotency key is) — it just avoids two
 // simultaneous requests both reaching Stripe before either one's idempotency key would help.
@@ -1229,6 +1377,20 @@ async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null, f
     resolved_stripe_account_id: usedAccount.id
   }, checkoutSource, invoice);
 
+  const savedOrder = (await pool.query('SELECT order_number FROM payments WHERE stripe_payment_intent=$1 LIMIT 1', [pi.id]).catch(()=>({rows:[]}))).rows[0]?.order_number || null;
+  const presentation = await applySubloopTransactionPresentation(
+    stripe,
+    usedAccount,
+    pi,
+    invoice,
+    paymentOrigin,
+    localSubId,
+    savedOrder
+  ).catch((err) => {
+    console.error('[payment-description] could not apply Subloop transaction presentation:', pi.id, err.message);
+    return { orderNumber:savedOrder || null, description:null, planName:'Plan Pro' };
+  });
+
   const status = forcedStatus || (pi.status === 'succeeded' ? 'succeeded' : (pi.status || 'failed'));
   const failureReason = pi.last_payment_error?.message || pi.cancellation_reason || null;
   const financials = await getFinancialsFromPaymentIntent(stripe, pi);
@@ -1267,6 +1429,7 @@ async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null, f
       [localCustomer.id, localSubId, amount, currency, status, failureReason, invoiceId, cardDetails.brand, cardDetails.last4, cardDetails.exp_month, cardDetails.exp_year, cardDetails.country, cardDetails.funding, financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency, status, paymentOrigin, existingPayment.rows[0].id, usedAccount.id, checkoutSource]);
     await pool.query(`UPDATE payments SET payment_method_type=COALESCE($1,payment_method_type), wallet_type=COALESCE($2,wallet_type), wallet_checked=TRUE WHERE id=$3`,
       [cardDetails.payment_method_type, cardDetails.wallet_type, existingPayment.rows[0].id]).catch(()=>{});
+    if (presentation.orderNumber) await pool.query('UPDATE payments SET order_number=COALESCE(order_number,$1) WHERE id=$2', [presentation.orderNumber, existingPayment.rows[0].id]).catch(()=>{});
     await pool.query(`UPDATE payments SET risk_level=COALESCE($1,risk_level), risk_score=COALESCE($2,risk_score), outcome_type=COALESCE($3,outcome_type),
       outcome_reason=COALESCE($4,outcome_reason), advice_code=COALESCE($5,advice_code), network_decline_code=COALESCE($6,network_decline_code),
       network_advice_code=COALESCE($7,network_advice_code), network_status=COALESCE($8,network_status), last_error_code=COALESCE($9,last_error_code),
@@ -1286,6 +1449,7 @@ async function savePaymentIntent(stripe, usedAccount, pi, forcedStatus = null, f
   );
   await pool.query(`UPDATE payments SET payment_method_type=COALESCE($1,payment_method_type), wallet_type=COALESCE($2,wallet_type), wallet_checked=TRUE WHERE id=$3`,
     [cardDetails.payment_method_type, cardDetails.wallet_type, ins.rows[0].id]).catch(()=>{});
+  if (presentation.orderNumber) await pool.query('UPDATE payments SET order_number=$1 WHERE id=$2', [presentation.orderNumber, ins.rows[0].id]).catch(()=>{});
   await pool.query(`UPDATE payments SET risk_level=COALESCE($1,risk_level), risk_score=COALESCE($2,risk_score), outcome_type=COALESCE($3,outcome_type),
     outcome_reason=COALESCE($4,outcome_reason), advice_code=COALESCE($5,advice_code), network_decline_code=COALESCE($6,network_decline_code),
     network_advice_code=COALESCE($7,network_advice_code), network_status=COALESCE($8,network_status), last_error_code=COALESCE($9,last_error_code),
@@ -1665,6 +1829,26 @@ function subscriptionClientSecret(subscription) {
   return secret ? { type: 'payment', clientSecret: secret } : { type: 'none', clientSecret: null };
 }
 
+async function presentInitialSubscriptionPayment(stripe, account, subscription, orderNumber, planName, operationKey) {
+  try {
+    let invoice = subscription?.latest_invoice || null;
+    if (typeof invoice === 'string') invoice = await stripe.invoices.retrieve(invoice, { expand:['payment_intent'] });
+    let pi = invoice?.payment_intent || null;
+    if (typeof pi === 'string') pi = await stripe.paymentIntents.retrieve(pi);
+    if (!pi?.id) return;
+    await reserveSubloopOrderNumber(operationKey, pi.id);
+    pi.metadata = {
+      ...(pi.metadata || {}),
+      subloop_order_number:String(orderNumber),
+      subloop_plan_name:planName,
+      subloop_payment_origin:'subscription_initial'
+    };
+    await applySubloopTransactionPresentation(stripe, account, pi, invoice, 'subscription_initial', null, orderNumber);
+  } catch (err) {
+    console.error('[payment-description] could not label the initial subscription PaymentIntent:', err.message);
+  }
+}
+
 // Public checkout API CORS. If CHECKOUT_ALLOWED_ORIGINS is empty, signed plan tokens may
 // be used from any HTTPS origin (similar to a public Payment Link). In production, set it
 // to your storefront domains, comma-separated.
@@ -2001,6 +2185,9 @@ app.post('/checkout/create-subscription', async (req, res) => {
     if (shipping) customer = await stripe.customers.update(customer.id, { shipping });
 
     const idempotencyKey = crypto.createHash('sha256').update(`${planHash}|${checkoutReference}`).digest('hex');
+    const planName = safeStripeDescriptionPart(price.product?.name, 'Plan Pro');
+    const orderOperationKey = `embedded-subscription:${account.id}:${idempotencyKey}`;
+    const orderNumber = await reserveSubloopOrderNumber(orderOperationKey);
     const subscription = await stripe.subscriptions.create({
       customer: customer.id,
       items: [{ price: price.id }],
@@ -2015,10 +2202,14 @@ app.post('/checkout/create-subscription', async (req, res) => {
       metadata: {
         source: hostedCheckout ? 'subloop_velton_payment_link' : 'subloop_embedded_checkout',
         subloop_checkout_source: checkoutSource,
-        checkout_reference: checkoutReference
+        checkout_reference: checkoutReference,
+        subloop_order_number:String(orderNumber),
+        subloop_plan_name:planName
       },
-      expand: ['latest_invoice.confirmation_secret', 'pending_setup_intent', 'items.data.price']
+      expand: ['latest_invoice.confirmation_secret', 'latest_invoice.payment_intent', 'pending_setup_intent', 'items.data.price']
     }, { idempotencyKey });
+
+    await presentInitialSubscriptionPayment(stripe, account, subscription, orderNumber, planName, orderOperationKey);
 
     await pool.query(
       `INSERT INTO embedded_checkout_sessions (plan_token_hash,checkout_reference,stripe_account_id,stripe_customer_id,stripe_subscription_id,workspace_id,checkout_source,updated_at)
@@ -2144,6 +2335,9 @@ app.post('/woocommerce/v1/subscriptions', async (req, res) => {
     }, { idempotencyKey: `subloop_wc_price_${priceDigest}` });
 
     const subscriptionDigest = crypto.createHash('sha256').update(`${integration.id}|${checkoutReference}|${price.id}`).digest('hex').slice(0, 32);
+    const planName = cleanCheckoutString(req.body?.plan_name, 80) || 'Plan Pro';
+    const orderOperationKey = `woocommerce-subscription:${integration.id}:${subscriptionDigest}`;
+    const orderNumber = await reserveSubloopOrderNumber(orderOperationKey);
     const subscription = await stripe.subscriptions.create({
       customer: customer.id,
       items: [{ price: price.id }],
@@ -2153,10 +2347,21 @@ app.post('/woocommerce/v1/subscriptions', async (req, res) => {
         source: 'subloop_woocommerce_subscription',
         woocommerce_integration_id: String(integration.id),
         woocommerce_checkout_reference: checkoutReference,
-        woocommerce_store_url: integration.store_url
+        woocommerce_store_url: integration.store_url,
+        subloop_order_number:String(orderNumber),
+        subloop_plan_name:planName
       },
       expand: ['latest_invoice.confirmation_secret', 'latest_invoice.payment_intent', 'pending_setup_intent', 'items.data.price']
     }, { idempotencyKey: `subloop_wc_subscription_${subscriptionDigest}` });
+
+    await presentInitialSubscriptionPayment(
+      stripe,
+      { ...integration, id:integration.stripe_account_id },
+      subscription,
+      orderNumber,
+      planName,
+      orderOperationKey
+    );
 
     await pool.query(
       `INSERT INTO embedded_checkout_sessions (plan_token_hash,checkout_reference,stripe_account_id,stripe_customer_id,stripe_subscription_id,workspace_id,checkout_source,updated_at)
@@ -2233,6 +2438,8 @@ app.post('/woocommerce/v1/payment-intents', async (req, res) => {
     const email = cleanCheckoutString(customer.email, 254);
     const stripe = embeddedStripeClient(integration);
     const referenceDigest = crypto.createHash('sha256').update(checkoutReference).digest('hex').slice(0, 24);
+    const paymentIdempotencyKey = `subloop_wc_${integration.id}_${referenceDigest}_${amount}_${currency}`;
+    const orderNumber = await reserveSubloopOrderNumber(`woocommerce-payment:${paymentIdempotencyKey}`);
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
       currency,
@@ -2243,9 +2450,10 @@ app.post('/woocommerce/v1/payment-intents', async (req, res) => {
         source: 'subloop_woocommerce',
         woocommerce_integration_id: String(integration.id),
         woocommerce_checkout_reference: checkoutReference,
-        woocommerce_store_url: integration.store_url
+        woocommerce_store_url: integration.store_url,
+        subloop_order_number: String(orderNumber)
       }
-    }, { idempotencyKey: `subloop_wc_${integration.id}_${referenceDigest}_${amount}_${currency}` });
+    }, { idempotencyKey: paymentIdempotencyKey });
     res.setHeader('Cache-Control', 'no-store');
     res.json({
       success: true,
@@ -3403,6 +3611,8 @@ async function persistMigrationVerificationPayment(stripe, destination, destinat
   const amount = Number.isFinite(Number(pi.amount)) ? Number(pi.amount) : (financials.amount || pi.amount_received || 0);
   const currency = pi.currency || financials.currency || 'usd';
   const createdAt = Number.isFinite(Number(pi.created)) ? new Date(Number(pi.created) * 1000) : new Date();
+  const orderNumberValue = Number(pi?.metadata?.subloop_order_number);
+  const orderNumber = Number.isSafeInteger(orderNumberValue) && orderNumberValue >= SUBLOOP_ORDER_START ? orderNumberValue : null;
 
   const existing = await pool.query('SELECT id,status,was_failed,recovered_at FROM payments WHERE stripe_payment_intent=$1', [pi.id]);
   let paymentId;
@@ -3427,6 +3637,7 @@ async function persistMigrationVerificationPayment(stripe, destination, destinat
         financials.stripe_fee, financials.net_amount, financials.balance_transaction_id, financials.financial_currency,
         paymentId
       ]);
+    if (orderNumber) await pool.query('UPDATE payments SET order_number=COALESCE(order_number,$1) WHERE id=$2', [orderNumber,paymentId]).catch(()=>{});
   } else {
     const ins = await pool.query(`INSERT INTO payments (
       customer_id,stripe_account_id,subscription_id,stripe_payment_intent,amount,currency,status,failure_reason,
@@ -3442,6 +3653,7 @@ async function persistMigrationVerificationPayment(stripe, destination, destinat
       status === 'failed', createdAt
     ]);
     paymentId = ins.rows[0].id;
+    if (orderNumber) await pool.query('UPDATE payments SET order_number=$1 WHERE id=$2', [orderNumber,paymentId]).catch(()=>{});
   }
 
   console.log('[migration-payment-save] saved:', pi.id, 'payment:', paymentId, 'destination account:', destination.id, 'customer:', destinationCustomerId, 'status:', status);
@@ -3533,6 +3745,9 @@ app.post('/api/migrations/test-charge', async (req, res) => {
     const pm = pmInfo.paymentMethod;
     if (!pm) return res.status(400).json({ error:'No reusable saved card is attached to the destination customer' });
     const currency = String(row.currency || 'usd').toLowerCase();
+    const planName = await subscriptionPlanName(new Stripe(sourceAccount.secret_key), row.stripe_subscription_id || null);
+    const migrationAttemptKey = `migration-test:${destination.id}:${row.id}:${crypto.randomUUID()}`;
+    const orderNumber = await reserveSubloopOrderNumber(migrationAttemptKey);
     const pi = await stripe.paymentIntents.create({
       amount:100,
       currency,
@@ -3540,8 +3755,15 @@ app.post('/api/migrations/test-charge', async (req, res) => {
       payment_method:pm.id,
       off_session:true,
       confirm:true,
-      description:'Subloop migration test',
-      metadata:{ subloop_migration_test:'true', subloop_checkout_source:'migration_verification', source_subscription_id:String(row.id), source_stripe_subscription_id:String(row.stripe_subscription_id || '') }
+      description:`${planName} · ${SUBLOOP_EXTRA_CREDIT_LABEL}`,
+      metadata:{
+        subloop_migration_test:'true',
+        subloop_checkout_source:'migration_verification',
+        source_subscription_id:String(row.id),
+        source_stripe_subscription_id:String(row.stripe_subscription_id || ''),
+        subloop_order_number:String(orderNumber),
+        subloop_plan_name:planName
+      }
     });
     await persistMigrationVerificationPayment(stripe, destination, destinationCustomerId, pi, migrationPaymentStatus(pi), localCustomerId).catch((saveErr) => {
       console.error('[migration-test-charge] could not save PaymentIntent:', saveErr.message);
@@ -3594,6 +3816,8 @@ app.post('/api/migrations/live-verification-charge', async (req, res) => {
     }
     requestId = String(req.body.request_id || '').replace(/[^A-Za-z0-9_-]/g,'').slice(0,80);
     if (!requestId) return res.status(400).json({ error:'Verification request ID is required' });
+    const planName = await subscriptionPlanName(new Stripe(sourceAccount.secret_key), row.stripe_subscription_id || null);
+    const orderNumber = await reserveSubloopOrderNumber(`migration-live:${destination.id}:${row.id}:${requestId}`);
     const pi = await stripe.paymentIntents.create({
       amount:amountMinor,
       currency,
@@ -3601,7 +3825,7 @@ app.post('/api/migrations/live-verification-charge', async (req, res) => {
       payment_method:pm.id,
       off_session:true,
       confirm:true,
-      description:'Subloop Stripe migration verification',
+      description:`${planName} · ${SUBLOOP_EXTRA_CREDIT_LABEL}`,
       metadata:{
         subloop_migration_verification:'true',
         subloop_checkout_source:'migration_verification',
@@ -3609,7 +3833,9 @@ app.post('/api/migrations/live-verification-charge', async (req, res) => {
         source_stripe_subscription_id:String(row.stripe_subscription_id || ''),
         source_stripe_account_id:String(sourceAccount.id),
         destination_stripe_account_id:String(destination.id),
-        subloop_migration_request_id:requestId
+        subloop_migration_request_id:requestId,
+        subloop_order_number:String(orderNumber),
+        subloop_plan_name:planName
       }
     }, { idempotencyKey:'subloop-migration-verify-'+requestId });
 
@@ -3792,6 +4018,8 @@ app.post('/api/subscriptions/:id/charge', async (req, res) => {
     if (!pm) return res.status(400).json({ success:false, error:'No reusable saved card attached to this Stripe customer', definitive:true });
     await syncLocalPaymentMethod(c.id, pm);
     const idemKey = idemKeyFromAttempt('subloop-sub-charge-' + sub.id, attemptId);
+    const planName = await subscriptionPlanName(stripe, sub.stripe_subscription_id || null);
+    const orderNumber = await reserveSubloopOrderNumber(`manual-subscription-charge:${acc.id}:${sub.id}:${idemKey}`);
     try {
       const pi = await stripe.paymentIntents.create({
         amount: sub.amount,
@@ -3800,7 +4028,15 @@ app.post('/api/subscriptions/:id/charge', async (req, res) => {
         payment_method: pm.id,
         off_session: true,
         confirm: true,
-        metadata: { subloop_payment_origin:'recurring_manual', subloop_checkout_source:'subloop_recurring_charge', subloop_subscription_id:String(sub.id), subloop_attempt_id: attemptId || '' }
+        description:`${planName} · ${SUBLOOP_EXTRA_CREDIT_LABEL}`,
+        metadata: {
+          subloop_payment_origin:'recurring_manual',
+          subloop_checkout_source:'subloop_recurring_charge',
+          subloop_subscription_id:String(sub.id),
+          subloop_attempt_id:attemptId || '',
+          subloop_order_number:String(orderNumber),
+          subloop_plan_name:planName
+        }
       }, { idempotencyKey: idemKey });
       await savePaymentIntent(stripe, acc, pi, pi.status === 'succeeded' ? 'succeeded' : pi.status);
       await activityLog.add('charge', `Manual recurring charge of ${(sub.amount/100).toFixed(2)} ${String(sub.currency||'').toUpperCase()} for ${c.email}`, c.id, sub.amount);
@@ -4072,8 +4308,18 @@ app.post('/api/payments/:id/retry', async (req, res) => {
     };
     if (p.subscription_id) retryMetadata.subloop_subscription_id = String(p.subscription_id);
     const retryIdemKey = idemKeyFromAttempt('subloop-retry-' + p.id, attemptId);
+    const retryOrderNumber = await reserveSubloopOrderNumber(`payment-retry:${acc.id}:${p.id}:${retryIdemKey}`);
+    retryMetadata.subloop_order_number = String(retryOrderNumber);
+    let retryDescription = null;
+    if (p.subscription_id) {
+      const planName = await subscriptionPlanName(stripe, p.stripe_subscription_id || null);
+      retryMetadata.subloop_plan_name = planName;
+      retryDescription = `${planName} · ${SUBLOOP_EXTRA_CREDIT_LABEL}`;
+    }
     try {
-      const pi = await stripe.paymentIntents.create({ amount:p.amount, currency:p.currency||'usd', customer:p.stripe_customer_id, payment_method:pm.id, confirm:true, off_session:true, metadata:retryMetadata }, { idempotencyKey: retryIdemKey });
+      const createParams = { amount:p.amount, currency:p.currency||'usd', customer:p.stripe_customer_id, payment_method:pm.id, confirm:true, off_session:true, metadata:retryMetadata };
+      if (retryDescription) createParams.description = retryDescription;
+      const pi = await stripe.paymentIntents.create(createParams, { idempotencyKey: retryIdemKey });
       const status = pi.status==='succeeded' ? 'succeeded' : pi.status;
       const paymentId = await savePaymentIntent(stripe, acc, pi, status);
       if (paymentId) await pool.query('UPDATE payments SET retry_of_payment_id=$1 WHERE id=$2', [p.id,paymentId]);

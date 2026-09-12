@@ -240,6 +240,27 @@ async function init() {
       checkout_source_detection_version INT DEFAULT 0,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
+    CREATE SEQUENCE IF NOT EXISTS subloop_order_number_seq
+      START WITH 3333
+      INCREMENT BY 1
+      MINVALUE 3333;
+    CREATE TABLE IF NOT EXISTS subloop_order_counter_state (
+      id SMALLINT PRIMARY KEY CHECK (id = 1),
+      started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      start_number BIGINT NOT NULL DEFAULT 3333
+    );
+    INSERT INTO subloop_order_counter_state (id,start_number)
+      VALUES (1,3333)
+      ON CONFLICT (id) DO NOTHING;
+    CREATE TABLE IF NOT EXISTS subloop_transaction_orders (
+      operation_key TEXT PRIMARY KEY,
+      order_number BIGINT UNIQUE NOT NULL DEFAULT nextval('subloop_order_number_seq'),
+      stripe_payment_intent TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS subloop_transaction_orders_pi_uidx
+      ON subloop_transaction_orders(stripe_payment_intent)
+      WHERE stripe_payment_intent IS NOT NULL;
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL,
@@ -352,6 +373,7 @@ async function init() {
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS checkout_source TEXT',
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS checkout_source_checked BOOLEAN DEFAULT FALSE',
     'ALTER TABLE payments ADD COLUMN IF NOT EXISTS checkout_source_detection_version INT DEFAULT 0',
+    'ALTER TABLE payments ADD COLUMN IF NOT EXISTS order_number BIGINT',
     'ALTER TABLE embedded_checkout_sessions ADD COLUMN IF NOT EXISTS checkout_source TEXT',
   ];
   for (const m of migrations) await pool.query(m).catch(() => {});
