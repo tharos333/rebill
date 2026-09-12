@@ -1143,6 +1143,13 @@ function safeStripeDescriptionPart(value, fallback = '') {
   return (clean || fallback).slice(0, 80);
 }
 
+function descriptionWithOrder(value, orderNumber) {
+  const base = safeStripeDescriptionPart(value, 'Payment')
+    .replace(/\s*(?:·\s*)?Order\s*#\d+\s*$/i, '')
+    .trim();
+  return `${base} · Order #${orderNumber}`;
+}
+
 function stripeObjectId(value) {
   return typeof value === 'string' ? value : value?.id || null;
 }
@@ -1245,10 +1252,10 @@ async function planNameFromStripeContext(stripe, pi, invoice, localSubscriptionI
 }
 
 function subloopPaymentDescription(paymentOrigin, planName, orderNumber) {
-  if (paymentOrigin === 'subscription_initial') return `Paid Trial · Order #${orderNumber}`;
-  if (paymentOrigin === 'subscription_renewal') return `Renew ${planName}`;
+  if (paymentOrigin === 'subscription_initial') return descriptionWithOrder('Paid Trial', orderNumber);
+  if (paymentOrigin === 'subscription_renewal') return descriptionWithOrder(`Renew ${planName}`, orderNumber);
   if (paymentOrigin === 'migration_verification' || paymentOrigin === 'recurring_manual' || paymentOrigin === 'rebill') {
-    return `${planName} · ${SUBLOOP_EXTRA_CREDIT_LABEL}`;
+    return descriptionWithOrder(`${planName} · ${SUBLOOP_EXTRA_CREDIT_LABEL}`, orderNumber);
   }
   return null;
 }
@@ -1261,7 +1268,8 @@ async function applySubloopTransactionPresentation(stripe, usedAccount, pi, invo
     orderNumber = await reserveSubloopOrderNumber(`stripe-payment:${usedAccount.id}:${pi.id}`, pi.id);
   }
   const planName = await planNameFromStripeContext(stripe, pi, invoice, localSubscriptionId);
-  const description = subloopPaymentDescription(paymentOrigin, planName, orderNumber);
+  const description = subloopPaymentDescription(paymentOrigin, planName, orderNumber)
+    || descriptionWithOrder(pi.description, orderNumber);
   const metadata = {
     subloop_order_number:String(orderNumber),
     subloop_plan_name:planName,
@@ -2445,7 +2453,7 @@ app.post('/woocommerce/v1/payment-intents', async (req, res) => {
       currency,
       automatic_payment_methods: { enabled: true },
       receipt_email: email || undefined,
-      description: 'Payment to ' + integration.shop_name,
+      description: descriptionWithOrder('Payment to ' + integration.shop_name, orderNumber),
       metadata: {
         source: 'subloop_woocommerce',
         woocommerce_integration_id: String(integration.id),
@@ -3755,7 +3763,7 @@ app.post('/api/migrations/test-charge', async (req, res) => {
       payment_method:pm.id,
       off_session:true,
       confirm:true,
-      description:`${planName} · ${SUBLOOP_EXTRA_CREDIT_LABEL}`,
+      description:descriptionWithOrder(`${planName} · ${SUBLOOP_EXTRA_CREDIT_LABEL}`, orderNumber),
       metadata:{
         subloop_migration_test:'true',
         subloop_checkout_source:'migration_verification',
@@ -3825,7 +3833,7 @@ app.post('/api/migrations/live-verification-charge', async (req, res) => {
       payment_method:pm.id,
       off_session:true,
       confirm:true,
-      description:`${planName} · ${SUBLOOP_EXTRA_CREDIT_LABEL}`,
+      description:descriptionWithOrder(`${planName} · ${SUBLOOP_EXTRA_CREDIT_LABEL}`, orderNumber),
       metadata:{
         subloop_migration_verification:'true',
         subloop_checkout_source:'migration_verification',
@@ -4028,7 +4036,7 @@ app.post('/api/subscriptions/:id/charge', async (req, res) => {
         payment_method: pm.id,
         off_session: true,
         confirm: true,
-        description:`${planName} · ${SUBLOOP_EXTRA_CREDIT_LABEL}`,
+        description:descriptionWithOrder(`${planName} · ${SUBLOOP_EXTRA_CREDIT_LABEL}`, orderNumber),
         metadata: {
           subloop_payment_origin:'recurring_manual',
           subloop_checkout_source:'subloop_recurring_charge',
@@ -4314,7 +4322,7 @@ app.post('/api/payments/:id/retry', async (req, res) => {
     if (p.subscription_id) {
       const planName = await subscriptionPlanName(stripe, p.stripe_subscription_id || null);
       retryMetadata.subloop_plan_name = planName;
-      retryDescription = `${planName} · ${SUBLOOP_EXTRA_CREDIT_LABEL}`;
+      retryDescription = descriptionWithOrder(`${planName} · ${SUBLOOP_EXTRA_CREDIT_LABEL}`, retryOrderNumber);
     }
     try {
       const createParams = { amount:p.amount, currency:p.currency||'usd', customer:p.stripe_customer_id, payment_method:pm.id, confirm:true, off_session:true, metadata:retryMetadata };
